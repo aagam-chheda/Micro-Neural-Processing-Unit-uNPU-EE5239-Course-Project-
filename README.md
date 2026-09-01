@@ -105,7 +105,7 @@ sits on the silicon. This includes:
 - Arranging everything to fit efficiently (**floorplanning**)
 - Making sure power reaches every part of the chip (**power grid design**)
 - Untangling wire traffic jams caused by having 16 multipliers running
-  in parallel (**routing congestion**)
+  in parallel  (**routing congestion**)
 - Making sure every calculation finishes fast enough to hit the target
   clock speed (**timing analysis**) — this sometimes means breaking a
   calculation into smaller steps across multiple clock ticks so it
