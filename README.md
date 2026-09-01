@@ -113,6 +113,6 @@ sits on the silicon. This includes:
 
 ## Status
 
-This project is a work in progress. RTL (the actual digital circuit
+This project is a WIP. RTL (the actual digital circuit
 design) is being built and tested first; the physical chip layout work
 happens after the design is verified to work correctly.
