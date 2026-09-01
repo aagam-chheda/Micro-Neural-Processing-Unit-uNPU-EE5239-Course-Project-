@@ -102,14 +102,10 @@ Once the design works in simulation, it also has to be turned into an
 actual physical layout — deciding exactly where every wire and transistor
 sits on the silicon. This includes:
 
-- Arranging everything to fit efficiently (**floorplanning**)
-- Making sure power reaches every part of the chip (**power grid design**)
-- Untangling wire traffic jams caused by having 16 multipliers running
-  in parallel  (**routing congestion**)
-- Making sure every calculation finishes fast enough to hit the target
-  clock speed (**timing analysis**) — this sometimes means breaking a
-  calculation into smaller steps across multiple clock ticks so it
-  isn't too slow in one go
+**Floorplanning**: Arranging the grid and memory interfaces efficiently on silicon.
+**Power Distribution**: Designing a power grid (PDN) robust enough to feed 16 multipliers firing simultaneously.
+**Routing**: Untangling the massive wire congestion inherent to a highly-connected 2D systolic array.
+**Timing Analysis**: Ensuring electrical signals travel through the multipliers fast enough to hit our target clock speed (which sometimes requires adding pipeline registers to break up long paths).
 
 ## Status
 
