@@ -102,10 +102,10 @@ Once the design works in simulation, it also has to be turned into an
 actual physical layout — deciding exactly where every wire and transistor
 sits on the silicon. This includes:
 
-**Floorplanning**: Arranging the grid and memory interfaces efficiently on silicon.
-**Power Distribution**: Designing a power grid (PDN) robust enough to feed 16 multipliers firing simultaneously.
-**Routing**: Untangling the massive wire congestion inherent to a highly-connected 2D systolic array.
-**Timing Analysis**: Ensuring electrical signals travel through the multipliers fast enough to hit our target clock speed (which sometimes requires adding pipeline registers to break up long paths).
+**Floorplanning**: Arranging the grid and memory interfaces efficiently on silicon.  
+**Power Distribution**: Designing a power grid (PDN) robust enough to feed 16 multipliers firing simultaneously. 
+**Routing**: Untangling the massive wire congestion inherent to a highly-connected 2D systolic array. 
+**Timing Analysis**: Ensuring electrical signals travel through the multipliers fast enough to hit our target clock speed (which sometimes requires adding pipeline registers to break up long paths). 
 
 ## Status
 
