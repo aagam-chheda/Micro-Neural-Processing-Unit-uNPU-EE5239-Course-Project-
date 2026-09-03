@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>uNPU Design Notebook · Project 2 · Frankenstein 180 nm SoC</title>
+<style>
+:root{
+  --paper:#EFF2F5; --surface:#FFFFFF; --surface-2:#F7F9FB;
+  --ink:#0E1319; --ink-2:#3D4653; --ink-3:#767F8B; --rule:#D9DFE6;
+  --spec:#38424F; --spec-bg:#EDEFF2;
+  --derived:#15529A; --derived-bg:#E7EFF8;
+  --decided:#0A6455; --decided-bg:#E3F1EE;
+  --open:#A8500B; --open-bg:#FBEEE1;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --serif:Charter,"Bitstream Charter","Iowan Old Style","Source Serif Pro",Georgia,serif;
+  --nav:260px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:16.5px;line-height:1.65}
+
+/* ---------- nav ---------- */
+nav{position:fixed;top:0;left:0;width:var(--nav);height:100vh;overflow-y:auto;
+  background:var(--ink);color:#C6CEDA;padding:26px 0 40px;font-family:var(--mono);font-size:12px}
+nav .brand{padding:0 22px 20px;border-bottom:1px solid #262E38;margin-bottom:14px}
+nav .brand b{display:block;color:#fff;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+nav .brand span{display:block;color:#6C7787;font-size:11px;margin-top:5px;line-height:1.5}
+nav a{display:flex;gap:11px;padding:6px 22px;color:#A8B2C0;text-decoration:none;border-left:2px solid transparent}
+nav a:hover{color:#fff;background:#1A212A}
+nav a.on{color:#fff;border-left-color:var(--open);background:#1A212A}
+nav a i{color:#5E6875;font-style:normal;min-width:18px}
+nav .grp{padding:16px 22px 5px;color:#525C69;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+nav a:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--open);outline-offset:2px}
+
+/* ---------- filter bar ---------- */
+.bar{position:sticky;top:0;z-index:20;background:rgba(239,242,245,.94);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);padding:11px 46px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar em{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-style:normal;letter-spacing:.08em;
+  text-transform:uppercase;margin-right:4px}
+.bar button{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  padding:4px 11px;border:1px solid var(--rule);background:var(--surface);color:var(--ink-2);
+  border-radius:3px;cursor:pointer}
+.bar button:hover{border-color:var(--ink-3)}
+.bar button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.bar .cnt{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:auto}
+
+/* ---------- layout ---------- */
+main{margin-left:var(--nav)}
+.wrap{max-width:860px;padding:0 46px 120px}
+header.hero{padding:64px 46px 40px;max-width:860px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--open);margin:0 0 14px}
+h1{font-family:var(--mono);font-size:31px;line-height:1.25;font-weight:600;letter-spacing:-.01em;margin:0 0 16px}
+.lede{font-size:18px;color:var(--ink-2);margin:0 0 26px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule)}
+.facts div{background:var(--surface);padding:11px 14px}
+.facts dt{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.facts dd{margin:4px 0 0;font-family:var(--mono);font-size:13px;color:var(--ink)}
+
+section{padding-top:52px}
+h2{font-family:var(--mono);font-size:21px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em;
+  padding-bottom:9px;border-bottom:2px solid var(--ink)}
+h2 i{font-style:normal;color:var(--ink-3);margin-right:12px;font-size:15px}
+h3{font-family:var(--mono);font-size:15px;font-weight:600;margin:32px 0 8px;color:var(--ink)}
+h4{font-family:var(--mono);font-size:13px;font-weight:600;margin:22px 0 6px;color:var(--ink-2);
+  letter-spacing:.03em;text-transform:uppercase}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:20px}
+li{margin:0 0 6px}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);border:1px solid var(--rule);
+  padding:1px 4px;border-radius:2px;white-space:nowrap}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.6;background:var(--ink);color:#D6DEE9;
+  padding:15px 17px;overflow-x:auto;border-radius:3px;margin:0 0 16px}
+pre code{background:none;border:none;padding:0;color:inherit;white-space:pre;font-size:inherit}
+.eq{font-family:var(--mono);font-size:13.5px;background:var(--surface);border:1px solid var(--rule);
+  border-left:3px solid var(--derived);padding:13px 17px;margin:0 0 16px;overflow-x:auto}
+
+/* ---------- provenance blocks ---------- */
+.b{background:var(--surface);border:1px solid var(--rule);border-left-width:4px;
+  padding:14px 18px 4px;margin:0 0 16px;transition:opacity .18s}
+.b>:last-child{margin-bottom:14px}
+.b.spec{border-left-color:var(--spec)}
+.b.derived{border-left-color:var(--derived)}
+.b.decided{border-left-color:var(--decided)}
+.b.open{border-left-color:var(--open)}
+.tag{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  padding:2px 7px;border-radius:2px;margin:0 0 9px;font-weight:600}
+.spec .tag{background:var(--spec-bg);color:var(--spec)}
+.derived .tag{background:var(--derived-bg);color:var(--derived)}
+.decided .tag{background:var(--decided-bg);color:var(--decided)}
+.open .tag{background:var(--open-bg);color:var(--open)}
+.owner{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-left:9px;letter-spacing:.04em}
+body[data-f] .b{opacity:.11}
+body[data-f="spec"] .b.spec,body[data-f="derived"] .b.derived,
+body[data-f="decided"] .b.decided,body[data-f="open"] .b.open{opacity:1}
+body[data-f] section>:not(.b){opacity:.11;transition:opacity .18s}
+body[data-f] h2{opacity:1!important}
+
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;margin:0 0 18px;font-size:13.5px;font-family:var(--mono);background:var(--surface)}
+th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  padding:8px 10px;border-bottom:2px solid var(--ink);font-weight:600;vertical-align:bottom}
+td{padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:none}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto;margin:0 0 18px}
+.scroll table{margin:0;min-width:560px}
+
+/* ---------- misc ---------- */
+.note{background:var(--surface-2);border:1px solid var(--rule);padding:13px 17px;margin:0 0 16px;font-size:15px}
+.note b{font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  display:block;margin-bottom:5px;color:var(--ink-2)}
+.plane{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+.p-d{background:#0A6455}.p-w{background:#5B4BB8}.p-c{background:#A8500B}
+hr{border:none;border-top:1px solid var(--rule);margin:34px 0}
+.stamp{font-family:var(--mono);font-size:11px;color:var(--ink-3);border-top:1px solid var(--rule);
+  padding-top:16px;margin-top:44px}
+a{color:var(--derived)}
+
+/* simulator */
+.sim{margin:4px 0 6px}
+.sim-ph{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:11px}
+.sim-chip{font-family:var(--mono);font-size:10px;letter-spacing:.05em;padding:3px 8px;border-radius:3px;
+  border:1px solid var(--rule);color:var(--ink-3);background:var(--surface);white-space:nowrap}
+.sim-chip.on{background:var(--derived-bg);color:var(--derived);border-color:var(--derived)}
+.sim-bl{display:flex;gap:7px;margin-bottom:14px}
+.sim-blk{flex:1;text-align:center;font-family:var(--mono);font-size:11px;padding:7px 3px;border-radius:4px;
+  border:1px solid var(--rule);color:var(--ink-3);background:var(--surface)}
+.sim-blk.on{background:var(--derived-bg);color:var(--derived);border-color:var(--derived)}
+.sim-main{display:flex;gap:13px;align-items:flex-start;margin-bottom:12px}
+.sim-col{width:70px;flex:none}
+.sim-col2{width:120px;flex:none}
+.sim-arr{flex:1;min-width:0}
+.sim-h{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:6px}
+.sim-skew{display:grid;gap:6px}
+.sim-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.sim-cmat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.sim-pe{border:1px solid var(--rule);border-radius:5px;padding:5px;background:var(--surface-2);min-height:52px}
+.sim-pe.hot{border-color:var(--derived);background:var(--derived-bg)}
+.sim-perow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.sim-psum{font-family:var(--mono);font-size:17px;text-align:center;margin-top:3px;color:var(--ink)}
+.sim-cc{border:1px solid var(--rule);border-radius:4px;padding:5px 0;text-align:center;
+  font-family:var(--mono);font-size:12px;color:var(--ink-3);background:var(--surface)}
+.sim-cc.got{background:var(--decided-bg);color:var(--decided);border-color:var(--decided)}
+.sim-note{font-size:14.5px;color:var(--ink-2);min-height:46px;margin-bottom:11px}
+.sim-ctl{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.sim-ctl button{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  padding:5px 13px;border:1px solid var(--rule);background:var(--surface);color:var(--ink-2);
+  border-radius:3px;cursor:pointer}
+.sim-ctl button:hover{border-color:var(--ink-3)}
+.sim-ctr{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:auto}
+@media(max-width:700px){.sim-main{flex-wrap:wrap}.sim-col,.sim-col2{width:100%}
+  .sim-skew{grid-template-columns:repeat(4,1fr)}}
+
+@media(max-width:960px){
+  :root{--nav:0px}
+  nav{position:static;width:100%;height:auto;padding:20px 0}
+  nav a{display:inline-flex;border-left:none;border-bottom:2px solid transparent;padding:5px 14px}
+  nav a.on{border-left:none;border-bottom-color:var(--open)}
+  nav .grp{padding:12px 18px 4px}
+  main{margin-left:0}
+  header.hero,.wrap{padding-left:20px;padding-right:20px}
+  .bar{padding:10px 20px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">
+    <b>uNPU Notebook</b>
+    <span>Project 2 · Frankenstein<br>180 nm IP-Validation SoC</span>
+  </div>
+  <div class="grp">Foundation</div>
+  <a href="#s00"><i>00</i>Using this notebook</a>
+  <a href="#s01"><i>01</i>What the brief says</a>
+  <a href="#s02"><i>02</i>System context</a>
+  <div class="grp">Theory</div>
+  <a href="#s03"><i>03</i>The math</a>
+  <a href="#s04"><i>04</i>The array</a>
+  <div class="grp">Design</div>
+  <a href="#s05"><i>05</i>Block inventory</a>
+  <a href="#s06"><i>06</i>Datapath</a>
+  <a href="#s07"><i>07</i>Control path</a>
+  <a href="#s08"><i>08</i>Tiling</a>
+  <a href="#s09"><i>09</i>Quantisation</a>
+  <a href="#s10"><i>10</i>Software contract</a>
+  <div class="grp">Execution</div>
+  <a href="#s11"><i>11</i>Verification</a>
+  <a href="#s12"><i>12</i>Back end</a>
+  <div class="grp">Running record</div>
+  <a href="#s13"><i>13</i>Open questions</a>
+  <a href="#s14"><i>14</i>Decision log</a>
+  <div class="grp">Plan</div>
+  <a href="#s15"><i>15</i>Team &amp; work split</a>
+  <a href="#s16"><i>16</i>Eight-week plan</a>
+  <div class="grp">Log</div>
+  <a href="#s17"><i>17</i>Bug journal</a>
+</nav>
+
+<main>
+<header class="hero">
+  <p class="eyebrow">Project 2 · Micro Neural Processing Unit</p>
+  <h1>A 4&times;4 INT8 weight-stationary<br>systolic macro, end to end</h1>
+  <p class="lede">Team working notebook. Everything here is marked with where it came from, because
+  the difference between what the brief requires and what we chose is the difference between a bug
+  and a design change.</p>
+  <dl class="facts">
+    <div><dt>Array</dt><dd>4 &times; 4 PEs</dd></div>
+    <div><dt>Datatype</dt><dd>INT8 in, 32b accum</dd></div>
+    <div><dt>Dataflow</dt><dd>weight-stationary</dd></div>
+    <div><dt>Process</dt><dd>SCL 180 nm</dd></div>
+    <div><dt>RTL language</dt><dd>Verilog</dd></div>
+    <div><dt>Target f<sub>max</sub></dt><dd style="color:var(--open)">not yet set</dd></div>
+  </dl>
+</header>
+
+<div class="bar">
+  <em>Filter</em>
+  <button data-set="" class="on">All</button>
+  <button data-set="spec">Spec</button>
+  <button data-set="derived">Derived</button>
+  <button data-set="decided">Decided</button>
+  <button data-set="open">Open</button>
+  <span class="cnt" id="cnt"></span>
+</div>
+
+<div class="wrap">
+
+<!-- ============ 00 ============ -->
+<section id="s00">
+<h2><i>00</i>Using this notebook</h2>
+
+<p>The failure mode we are guarding against is a document that states <code>50 MHz</code> and
+<code>C[m][j] = &Sigma; A[m][k]&middot;B[k][j]</code> in the same voice. One of those is a guess and
+the other is arithmetic. Three weeks into debugging you need to know instantly which claims you can
+lean on.</p>
+
+<p>So every substantive claim below carries one of four markers.</p>
+
+<div class="b spec"><span class="tag">Spec</span>
+<p>Comes from the course brief or the top-level interface contract. Not ours to change. Where the
+wording is ambiguous, the ambiguity is quoted rather than resolved, and a matching
+<span style="color:var(--open)">Open</span> block appears nearby.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>Follows from the spec by arithmetic you can redo yourself. The derivation is shown so it can be
+audited, not just believed. If you find one of these wrong, it is a bug in the notebook and it
+should be fixed here first, then in the RTL.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Our choice. States the alternatives we rejected and why. Revisable by the team &mdash; but revise
+it <em>here</em>, with a line in the decision log (&sect;14), not silently in someone's RTL.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">owner &middot; due</span>
+<p>Nobody has answered this yet. Every one of these has a named owner and a date by which it blocks
+something. The filter bar at the top of the page will dim everything except these &mdash; that view
+is the agenda for the next instructor meeting.</p></div>
+
+<h3>Colour code for planes</h3>
+<p>Used consistently in every diagram and table:
+<span class="plane p-d"></span>data plane (activations, results, DMA) &middot;
+<span class="plane p-w"></span>weight plane (stationary operands) &middot;
+<span class="plane p-c"></span>control plane (APB, CSRs, FSMs, handshakes).</p>
+
+<h3>House rules</h3>
+<ul>
+  <li>Signal names are written exactly as they appear in RTL: <code>dma_ready</code>, not "the ready signal".</li>
+  <li>Cycle numbers are always relative to the first activation injection unless stated otherwise.</li>
+  <li>Anything that is a number gets a unit and a source.</li>
+  <li>If you change a decision, add a dated line to &sect;14. Do not edit the old one away &mdash;
+  the reason it changed is usually the useful part.</li>
+</ul>
+</section>
+
+<!-- ============ 01 ============ -->
+<section id="s01">
+<h2><i>01</i>What the brief actually says</h2>
+
+<p>This section exists so nobody has to go back to the PDF. Everything here is quoted or directly
+restated from the course document; nothing is inferred.</p>
+
+<h3>Our scope</h3>
+<div class="b spec"><span class="tag">Spec</span>
+<p><b>Front-end.</b> A 4&times;4 systolic array for INT8 matrix multiplication using a
+weight-stationary dataflow. A DMA master engine that fetches tensor data from SRAM. Data-skewing
+FIFO pipelines producing correctly staggered wavefront alignment into the array.</p>
+<p><b>Back-end.</b> Physical design of the uNPU as an independent hard macro: macro-level
+floorplanning, power grid synthesis, resolving localised routing congestion from the 16 parallel
+multipliers, and STA focused on setup violations in the PE combinational datapath.</p>
+<p><b>Five named subblocks.</b> APB wrapper and configuration registers; DMA master engine (SRAM
+fetching FSM); data formatting and skewing FIFOs; PE core (multiplier and accumulator datapath);
+2D systolic grid assembly.</p></div>
+
+<h3>The port list, verbatim</h3>
+<div class="b spec"><span class="tag">Spec</span>
+<pre><code>module unpu_top (
+    input  wire        clk,
+    input  wire        rst_n,
+
+    // APB Slave Interface (Control Plane)
+    input  wire        psel,
+    input  wire        penable,
+    input  wire        pwrite,
+    input  wire [31:0] paddr,
+    input  wire [31:0] pwdata,
+    output wire [31:0] prdata,
+    output wire        pready,
+
+    // Native Master Interface to SRAM (Data Plane)
+    output wire [31:0] dma_addr,
+    output wire [31:0] dma_wdata,
+    input  wire [31:0] dma_rdata,
+    output wire [3:0]  dma_wstrb,
+    output wire        dma_valid,
+    input  wire        dma_ready
+);</code></pre>
+<p>Note what is <em>not</em> here: no read/write direction pin, no read-valid strobe, no interrupt,
+no scan ports, no clock enable.</p></div>
+
+<h3>The register map, verbatim</h3>
+<div class="b spec"><span class="tag">Spec</span>
+<div class="scroll"><table>
+<tr><th>Offset</th><th>Name</th><th>R/W</th><th>Description</th></tr>
+<tr><td>0x00</td><td>NPU_CTRL</td><td>R/W</td><td>Bit 0: START, Bit 1: RESET</td></tr>
+<tr><td>0x04</td><td>NPU_STATUS</td><td>R/O</td><td>Bit 0: DONE, Bit 1: BUSY, Bit 2: ERROR</td></tr>
+<tr><td>0x08</td><td>DMA_SRC_ADDR</td><td>R/W</td><td>32-bit SRAM pointer to weights/input activations</td></tr>
+<tr><td>0x0C</td><td>DMA_DST_ADDR</td><td>R/W</td><td>32-bit SRAM pointer for outputs</td></tr>
+<tr><td>0x10</td><td>MATRIX_CFG</td><td>R/W</td><td>Bits [15:0]: Rows, Bits [31:16]: Columns</td></tr>
+</table></div>
+<p>One pointer for two input tensors. Two dimensions for a three-dimensional operation. Both are
+addressed in &sect;13.</p></div>
+
+<h3>Required tests</h3>
+<div class="b spec"><span class="tag">Spec</span>
+<ul>
+<li><b>Identity test.</b> A matrix of ascending integers times a static identity matrix. Output must
+match the input exactly, "validating cycle-accurate DMA skewing and 2D grid alignment".</li>
+<li><b>Saturation test.</b> A matrix of <code>0xFF</code> times <code>0xFF</code>, "to validate
+accumulator bit-widths and carry logic".</li>
+<li><b>System-level firmware signoff.</b> HW/SW co-simulation with RISC-V C firmware executing live
+inference on a quantised MNIST digit.</li>
+<li><b>Timing.</b> Macro-level STA signoff against "the target clock frequency constraints".</li>
+<li><b>Physical.</b> Standalone macro-level DRC and LVS before handover to top-level integration.</li>
+</ul>
+<p>Deliverables: functionally validated RTL for the DMA and systolic array, plus a DRC/LVS-clean
+macro as <code>.lef</code>, <code>.lib</code> and <code>.gds</code>.</p></div>
+
+<h3>Course-wide rules that bind us</h3>
+<div class="b spec"><span class="tag">Spec</span>
+<ul>
+<li>RTL is written in <b>Verilog</b>. The brief lists "RTL Coding (Verilog)" in the engineering
+pipeline. Testbench language is not specified.</li>
+<li>Firmware is bare-metal C.</li>
+<li>"Microarchitectural flexibility is permitted (and encouraged) within the subsystems, provided the
+external bus interfaces and memory maps strictly adhere to the top-level interface contracts,
+subject to instructor approval."</li>
+<li>"The sample code is for reference only and can be modified as long as specifications are met."</li>
+<li>Team size capped at 5. Every team drives its own block through the full flow: RTL, verification,
+firmware, synthesis and SDC, macro P&amp;R and PDN, STA signoff, DRC/LVS to a foundry-ready GDSII.</li>
+</ul></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>We read the flexibility clause as: the <em>window</em> <code>0x4000_0000&ndash;0x4000_0FFF</code>
+and the five defined offsets are the contract. Adding registers at unused offsets inside that same
+window does not change what any other block sees, so it is microarchitectural. Changing the
+<code>unpu_top</code> port list <em>does</em> change the contract and needs explicit approval.</p>
+<p>Consequence: we plan for extra CSRs and treat added pins as a request, not a decision. See
+&sect;13 items 2, 3 and 8.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; week 1</span>
+<p>Does the instructor agree with that reading? If added registers count as "changing the memory
+map", we fall back to the descriptor-block convention in &sect;10.4 and the firmware gets harder to
+get right. Ask before writing the CSR file.</p></div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section id="s02">
+<h2><i>02</i>System context</h2>
+
+<p>We are one of four macros on a shared bus. What the other teams do to us matters more than it
+looks.</p>
+
+<div class="b spec"><span class="tag">Spec</span>
+<pre><code>                         RISC-V core
+                          (PicoRV32)
+                    |                    |
+        [Native/AHB data plane]   [Native control plane]
+                    v                    v
+  uNPU-DMA  ---->  SRAM arbiter        APB bridge
+ (tensor fetch)    &amp; decoder            |  |  |  |
+      |                 |               |  |  |  +--> SPI / UART
+  uNPU MAC array   32 KB SRAM           |  |  +-----> uFPGA fabric
+  (4x4 systolic)    (4 banks)           |  +--------> BIST FSM
+                                        +-----------> RFID / DBB &amp; crypto</code></pre>
+<div class="scroll"><table>
+<tr><th>Address range</th><th>Target</th><th>Notes</th></tr>
+<tr><td>0x0000_0000 &ndash; 0x0000_7FFF</td><td>SRAM, 32 KB, 4 banks</td><td>Firmware execution and all NPU data payloads</td></tr>
+<tr><td>0x4000_0000 &ndash; 0x4000_0FFF</td><td>uNPU macro</td><td>4 KB window. Ours.</td></tr>
+<tr><td>0x4001_0000 &ndash; 0x4001_0FFF</td><td>uFPGA macro</td><td>Project 3</td></tr>
+<tr><td>0x4002_0000 &ndash; 0x4002_0FFF</td><td>RFID / crypto macro</td><td>Project 4</td></tr>
+</table></div>
+</div>
+
+<h3>Four consequences we have to design around</h3>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>1. We are one of three masters on the SRAM.</b> Project 1's arbiter must "prioritize and route
+requests from multiple bus masters: the RISC-V CPU (Instruction and Data), the uNPU DMA engine, and
+the SPI Controller." PicoRV32 fetches an instruction almost every cycle and has no cache. So the CPU
+is a near-continuous bus client, and our DMA competes with it for every beat.</p>
+<p>This is not a theoretical stall. It is the normal case, and it is why the buffering in &sect;05
+is not optional.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>2. Address spaces do not overlap.</b> The control plane reaches us at
+<code>0x4000_0xxx</code> over APB; our DMA only ever emits addresses in
+<code>0x0000_0000&ndash;0x0000_7FFF</code>. A pointer from one space appearing in the other is
+always a firmware bug, which is what makes an address-range check in our ERROR path cheap and
+worthwhile.</p></div>
+
+<div class="b spec"><span class="tag">Spec</span>
+<p><b>3. The SPI controller can master the internal bus.</b> Project 1's SPI block is a "critical
+debug interface; if the RISC-V CPU fails to boot in actual silicon, an external host can use the SPI
+interface to master the internal bus and test the hard macros directly."</p>
+<p>So our APB port may be driven by something that is not the CPU, at an arbitrary and probably very
+slow rate. Our slave logic must not assume back-to-back transfers or any particular timing.</p></div>
+
+<div class="b spec"><span class="tag">Spec</span>
+<p><b>4. A BIST FSM will exercise this macro.</b> Project 1 builds a "hardware state machine that
+runs autonomous diagnostic patterns on the SRAM and hard macros to verify manufacturing integrity
+post-fabrication, completely independent of the software stack."</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; before CSR freeze</span>
+<p>How does the BIST FSM reach us? Through the APB bridge like everything else, or through a
+dedicated test port we have not been told about? If it is APB, we need a defined self-test sequence
+that leaves no state behind, and we should agree the register writes with Project 1. If it is a
+separate port, that is pins we do not have.</p>
+<p>Blocking: the register map, and the port list request in item 8.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; week 1</span>
+<p>The top-level block diagram labels our data path "Native/AHB Data Plane", but the port list we
+were given is a plain <code>valid</code>/<code>ready</code> native interface with no AHB signals.
+Which is it? If Project 1 is building an AHB fabric, our master needs <code>HTRANS</code>,
+<code>HSIZE</code> and friends, and the port list changes substantially.</p></div>
+</section>
+
+<!-- ============ 03 ============ -->
+<section id="s03">
+<h2><i>03</i>The math</h2>
+
+<h3>3.1 The operation</h3>
+<div class="b spec"><span class="tag">Spec</span>
+<p>Given activations <code>A</code> of shape M&times;K and weights <code>B</code> of shape K&times;N,
+produce <code>C</code> of shape M&times;N.</p>
+<div class="eq">C[m][j] &nbsp;=&nbsp; &Sigma;<sub>k=0..K-1</sub> &nbsp; A[m][k] &times; B[k][j]</div>
+<p>m indexes output rows (samples) &middot; j indexes output columns (neurons) &middot; k is the
+reduction axis.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>Three indices, three loops, and the whole microarchitecture is a decision about where each one
+goes. In our array: <b>k becomes the vertical axis</b> (the partial sum falls down a column picking
+up one term per row), <b>j becomes the horizontal axis</b> (four output columns computed side by
+side), and <b>m stays a loop in time</b>, one iteration per clock.</p>
+<p>The array being 4&times;4 therefore fixes K = 4 and N = 4 per pass. M is unbounded. That asymmetry
+drives everything in &sect;08.</p></div>
+
+<h3>3.2 Why weight-stationary</h3>
+<div class="b spec"><span class="tag">Spec</span><p>The brief mandates it. This section records
+<em>why</em>, because the reasoning determines what we optimise later.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>Reading a byte from SRAM costs roughly two orders of magnitude more energy than the multiply that
+consumes it, so the operand you pin in place should be the one you would otherwise re-fetch most
+often. Weight-stationary fetches each weight once per tile and reuses it M times.</p>
+<div class="scroll"><table>
+<tr><th>Dataflow</th><th>Stays put</th><th>Best when</th><th>For us</th></tr>
+<tr><td>Weight-stationary</td><td>weights in PE regs</td><td>weights reused over many samples</td><td><b>Mandated.</b> Also the simplest control: load, stream, drain.</td></tr>
+<tr><td>Output-stationary</td><td>accumulator in PE</td><td>deep reductions, few outputs</td><td>Needs two operand streams into the array at once. Twice the input bandwidth on a port we already contend for.</td></tr>
+<tr><td>Row-stationary</td><td>a mix (Eyeriss)</td><td>convolution with heavy filter reuse</td><td>Control complexity far beyond a first tapeout.</td></tr>
+</table></div></div>
+
+<h3>3.3 Accumulator width</h3>
+<p>This is where student NPUs quietly produce wrong answers, so the derivation is spelled out.</p>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>A signed INT8 lives in [&minus;128, +127]. The extreme products are:</p>
+<div class="eq">max = (&minus;128) &times; (&minus;128) = +16 384 = 2<sup>14</sup>
+min = (&minus;128) &times; (+127) = &minus;16 256</div>
+<p>A signed value of +2<sup>14</sup> needs <b>16 bits</b>, not 15 &mdash; the positive range of a
+15-bit signed number stops at 16 383. Summing K such products, the exact requirement is:</p>
+<div class="eq">bits = 1 + &lceil; log&#8322;( K &middot; 2<sup>14</sup> + 1 ) &rceil;</div>
+<p>and the safe rule of thumb, never wrong and occasionally one bit generous, is
+<code>16 + &lceil;log&#8322;K&rceil;</code>.</p>
+<div class="scroll"><table>
+<tr><th>Case</th><th class="n">K</th><th class="n">Worst magnitude</th><th class="n">Bits</th><th>Headroom in 32b</th></tr>
+<tr><td>One array pass, signed</td><td class="n">4</td><td class="n">65 536</td><td class="n">18</td><td>14 bits</td></tr>
+<tr><td>Saturation test, unsigned</td><td class="n">4</td><td class="n">260 100</td><td class="n">18</td><td>14 bits</td></tr>
+<tr><td>784-wide layer accumulated in HW</td><td class="n">784</td><td class="n">12 845 056</td><td class="n">25</td><td>7 bits</td></tr>
+<tr><td>Overflow point of INT32</td><td class="n">131 072</td><td class="n">2 147 483 648</td><td class="n">32</td><td>&mdash;</td></tr>
+</table></div>
+<p>K = 4 sits exactly on a power of two, which is where sloppy formulas break: <code>4 &times;
+2<sup>14</sup></code> is <code>2<sup>16</sup></code> exactly, one more than a 17-bit signed value can
+hold. If anyone ever proposes narrowing the psum bus to save vertical routing, this is the number
+they must not get wrong.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p><b>32-bit partial sums throughout.</b> 18 bits would cover a single pass, but 32 makes the
+accumulator un-overflowable for every layer this chip will run, matches the SRAM word width so
+INT32 output needs no packing logic, and removes a whole class of bug from the K-tiling path.</p>
+<p>The cost is real and we should own it: 32 bits between every vertically adjacent PE is
+4 columns &times; 4 links &times; 32 = <b>512 wires of vertical routing</b> inside a small macro,
+plus a 32-bit-wide de-skew bank. &sect;12 comes back to this.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; before PE RTL</span>
+<p><b>Signed or unsigned INT8?</b> The brief's saturation test multiplies <code>0xFF</code> by
+<code>0xFF</code> and expects no wrap. If the PE treats <code>0xFF</code> as signed &minus;1, that
+test computes 4 and passes for entirely the wrong reason &mdash; it would pass on a 4-bit
+accumulator.</p>
+<p>Our recommendation to the instructor: signed by default, since real quantised networks use signed
+symmetric weights, with a mode bit so we can run the saturation test unsigned as written. Needs a
+decision before anyone writes the multiplier.</p></div>
+
+<h3>3.4 Worked example</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Used throughout &sect;04 so every cycle can be checked by hand.</p>
+<pre><code>A (activations)        B (weights)          C = A x B
+  1  2  3  4            1  0  2  1          11 13  8  8
+  2  1  0  3            0  1  1  2           5  7  8  4
+  0  4  1  1            2  1  0  1           3  7  5  9
+  3  0  2  2            1  2  1  0           9  6  8  5
+
+C[0][0] = 1*1 + 2*0 + 3*2 + 4*1 = 11
+C[2][3] = 0*1 + 4*2 + 1*1 + 1*0 =  9</code></pre>
+<p>Sixty-four multiplies. In software they run one after another. In the array they finish in eleven
+cycles, because at the busiest moment all sixteen PEs are working on different pieces of different
+dot products at once.</p></div>
+</section>
+
+<!-- ============ 04 ============ -->
+<section id="s04">
+<h2><i>04</i>The array</h2>
+
+<h3>4.1 Inside one PE</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Three registers, one multiplier, one adder. No state machine, no counters, no knowledge of what a
+matrix is.</p>
+<pre><code>                w_in 8b            psum_in 32b
+                   |                    |
+ a_in 8b ----+-----|--------------------|-----> [a_reg] ---> a_out 8b
+             |     v                    |
+             |  [w_reg]  (en = w_load)  |
+             |     |                    |
+             +--> [ x ] 8x8 -> 16b      |
+                    |  sign-extend      |
+                    +------> [ + ] 32b <+
+                               |
+                          [psum_reg] (en)
+                               |
+                    w_out 8b   +--------> psum_out 32b</code></pre>
+<p>On every rising edge where <code>en</code> is high:</p>
+<pre><code>a_reg    &lt;= a_in
+psum_reg &lt;= psum_in + (a_in * w_reg)
+w_reg    &lt;= w_in               only while w_load = 1
+
+a_out = a_reg    psum_out = psum_reg    w_out = w_reg</code></pre></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>Two details that are easy to get wrong and expensive to find later.</p>
+<p><b>The multiplier reads <code>a_in</code>, not <code>a_reg</code>.</b> The activation is consumed
+and forwarded on the same edge. That is what makes one hop cost exactly one clock, which is what the
+whole timing contract rests on. Multiplying the registered copy inserts an extra cycle per column and
+silently invalidates &sect;4.3.</p>
+<p><b>The red path is the entire STA story.</b> Clock-to-Q, an 8&times;8 multiply, a 32-bit add, and
+setup, between two flip-flops &mdash; repeated sixteen times in a congested region. &sect;12.2.</p></div>
+
+<h3>4.2 Why the data must arrive crooked</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Look at column j. The partial sum for <code>C[m][j]</code> is born at the top and falls one PE per
+cycle, collecting one product per row:</p>
+<pre><code>PE(0,j):  0 + A[m][0]*B[0][j]
+PE(1,j):    + A[m][1]*B[1][j]
+PE(2,j):    + A[m][2]*B[2][j]
+PE(3,j):    + A[m][3]*B[3][j]  ->  C[m][j]</code></pre>
+<p>The falling sum reaches row 1 exactly one cycle after row 0. So <code>A[m][1]</code> must reach
+row 1 exactly one cycle after <code>A[m][0]</code> reached row 0.</p>
+<p>Stated as a constraint: <code>A[m][k]</code> enters at <code>PE(k,0)</code> and needs j cycles to
+travel to <code>PE(k,j)</code>. The partial sum starts at <code>PE(0,j)</code> at time t&#8320; and
+needs k cycles to fall to row k. For them to meet:</p>
+<div class="eq">entry(A[m][k]) + j = t&#8320;(m,j) + k &nbsp;&nbsp;for all k, j
+&rArr; entry(A[m][k]) = m + k &nbsp;&nbsp;and&nbsp;&nbsp; t&#8320;(m,j) = m + j</div>
+<p>Row k must be delayed by exactly k cycles. That is the skew, and it is the only solution &mdash;
+not a design choice.</p>
+<p>Feed a whole activation row in simultaneously and the sum meets three values that are one, two
+and three cycles early. Every answer is wrong, and painfully, every answer still looks plausible.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Delay lines of depth 0, 1, 2, 3 on the west edge. Six flip-flop stages of 8 bits = 48 flops total.
+That is the entire cost of correct alignment, and it is the cheapest thing in the design.</p>
+<pre><code>row 0  ----------------------->        t=  0  1  2  3  4  5  6
+row 1  --------[D]------------>   row0   A00 A10 A20 A30
+row 2  -----[D][D]------------>   row1       A01 A11 A21 A31
+row 3  --[D][D][D]------------>   row2           A02 A12 A22 A32
+                                  row3               A03 A13 A23 A33
+       west edge of array
+                                  A[m][k] enters at t = m + k</code></pre></div>
+
+<h3>4.3 The timing contract</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Four lines of arithmetic that the RTL must obey. If it disagrees with these, the identity test
+fails and you will spend a weekend finding out why.</p>
+<div class="scroll"><table>
+<tr><th>Event</th><th>Cycle</th><th>For the 4&times;4 example</th></tr>
+<tr><td>A[m][k] enters west edge of row k</td><td>m + k</td><td>A[0][0] at 0 &middot; A[3][3] at 6</td></tr>
+<tr><td>A[m][k] arrives at PE(k,j)</td><td>m + k + j</td><td>&mdash;</td></tr>
+<tr><td>C[m][j] leaves south edge of column j</td><td>m + j + 4</td><td>C[0][0] at 4 &middot; C[3][3] at 10</td></tr>
+<tr><td>Whole row C[m][*] valid after de-skew</td><td>m + 7</td><td>row 0 at 7, row 3 at 10</td></tr>
+<tr><td>Total cycles for a pass of M rows</td><td>M + 7</td><td>11</td></tr>
+<tr><td>Weight load, if not overlapped</td><td>+ 4</td><td>4</td></tr>
+</table></div>
+<p><b>Latency is fixed; throughput is what you optimise.</b> Seven cycles is the pipeline depth,
+four rows down plus three columns across. It never changes. What changes with M is how much useful
+work amortises it &mdash; see &sect;08.2, where this turns out to be the dominant fact about the
+whole design.</p></div>
+
+<h3>4.4 The de-skew bank</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Results emerge on the same diagonal they went in on. Column j finishes j cycles after column 0, so
+column j needs a delay of (3 &minus; j) to straighten the output back into rows.</p>
+<p>Cost: 4 lanes &times; up to 3 stages &times; 32 bits = <b>192 flip-flops</b>. The single largest
+register block outside the array. It is expensive precisely because we chose 32-bit accumulators.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Build it. The alternative is to skew the <em>write addresses</em> instead and save the 192 flops.
+That works, but the output words leave out of order, which makes the write-back FSM harder, breaks
+any chance of burst behaviour on a contended bus, and makes the golden-model comparison in the
+testbench substantially fussier.</p>
+<p>Without de-skew, one output row costs four separate SRAM writes instead of one &mdash; four times
+the write traffic on the port we are already fighting the CPU for. Spend the flops.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>Note this bank is not in the brief's five subblocks. It is not scope creep: it is the unavoidable
+consequence of the skewing the brief <em>does</em> require. Worth saying explicitly in the design
+review, because a reviewer counting blocks will ask.</p></div>
+
+<h3>4.5 Watch it run</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Every number below is produced by simulating the actual register behaviour of the sixteen PEs
+against the &sect;3.4 example. Nothing is scripted. If your RTL disagrees with any frame here, your
+RTL is wrong.</p>
+
+<div class="sim">
+<div class="sim-ph" id="simPhases"></div>
+<div class="sim-bl" id="simBlocks"></div>
+<div class="sim-main">
+  <div class="sim-col">
+    <div class="sim-h">skew out</div>
+    <div id="simSkew" class="sim-skew"></div>
+  </div>
+  <div class="sim-arr">
+    <div class="sim-h">4 &times; 4 array &mdash; w / a / psum</div>
+    <div id="simGrid" class="sim-grid"></div>
+  </div>
+  <div class="sim-col2">
+    <div class="sim-h">result C</div>
+    <div id="simC" class="sim-cmat"></div>
+  </div>
+</div>
+<div class="sim-note" id="simNote"></div>
+<div class="sim-ctl">
+  <button id="simPlay">Play</button>
+  <button id="simStep">Step</button>
+  <button id="simReset">Reset</button>
+  <span class="sim-h" style="margin-left:6px">speed</span>
+  <input type="range" id="simSpd" min="1" max="10" step="1" value="5">
+  <span class="sim-ctr" id="simCtr"></span>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+var A=[[1,2,3,4],[2,1,0,3],[0,4,1,1],[3,0,2,2]];
+var B=[[1,0,2,1],[0,1,1,2],[2,1,0,1],[1,2,1,0]];
+function z(){return [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];}
+function nn(){return [[null,null,null,null],[null,null,null,null],[null,null,null,null],[null,null,null,null]];}
+function cp(m){return m.map(function(r){return r.slice();});}
+var F=[],k,j,t,i;
+var PH=['W_FETCH','W_LOAD','A_FETCH','STREAM','DRAIN','WRITEBACK','DONE'];
+
+for(i=0;i<4;i++)F.push({ph:0,blk:1,w:nn(),sk:[null,null,null,null],a:nn(),p:z(),C:nn(),
+  note:'DMA reads word '+i+' of the weight matrix from DMA_SRC_ADDR. Four INT8 weights per 32-bit beat.'});
+for(i=0;i<4;i++){var wl=nn();for(k=3;k>=3-i;k--)for(j=0;j<4;j++)wl[k][j]=B[k][j];
+  F.push({ph:1,blk:3,w:wl,sk:[null,null,null,null],a:nn(),p:z(),C:nn(),
+  note:'Shifting weights down the columns, bottom row first. After four shifts every PE holds its own w. Load them in the wrong order and every answer is wrong.'});}
+for(i=0;i<4;i++)F.push({ph:2,blk:1,w:cp(B),sk:[null,null,null,null],a:nn(),p:z(),C:nn(),
+  note:'DMA reads activation row '+i+' into the buffer. The weights do not move again for the rest of the pass \u2014 that is what weight-stationary means.'});
+
+var ps=z(),ar=nn(),C=nn();
+for(t=0;t<11;t++){
+  var sk=[null,null,null,null];
+  for(k=0;k<4;k++){var m=t-k;if(m>=0&&m<4)sk[k]=A[m][k];}
+  var ain=nn(),np=z();
+  for(k=0;k<4;k++)for(j=0;j<4;j++){
+    ain[k][j]=(j===0)?sk[k]:ar[k][j-1];
+    var pin=(k===0)?0:ps[k-1][j];
+    np[k][j]=pin+(ain[k][j]===null?0:ain[k][j])*B[k][j];
+  }
+  ps=np;ar=cp(ain);
+  for(j=0;j<4;j++){var mm=t-3-j;if(mm>=0&&mm<4)C[mm][j]=ps[3][j];}
+  F.push({ph:t<4?3:4,blk:t<4?2:4,w:cp(B),sk:sk.slice(),a:cp(ain),p:cp(ps),C:cp(C),
+    note:t===0?'Cycle 0. A[0][0] enters row 0 and meets weight B[0][0]. Fifteen PEs are idle \u2014 this is the pipeline fill, and you pay it once per pass, not once per output.'
+      :t===1?'Cycle 1. The partial sum from PE(0,0) has fallen into PE(1,0), where A[0][1] arrives on the same clock edge. That meeting is the entire trick of a systolic array.'
+      :t===3?'Cycle 3. The array is full \u2014 all sixteen PEs multiplying and accumulating on the same edge. 16 MAC per cycle, 100% utilisation.'
+      :t===4?'Cycle 4. C[0][0] = 11 leaves the south edge of column 0, exactly as m + j + 4 predicts.'
+      :t===7?'Cycle 7. All four columns deliver at once. After de-skew by (3 \u2212 j) this is the cycle the first complete output row becomes available \u2014 the fixed 7-cycle latency.'
+      :t===10?'Cycle 10. C[3][3] = 5, the last result. Eleven cycles, 64 multiply-accumulates, one weight load. A scalar CPU would need 64 cycles plus 128 loads.'
+      :'Cycle '+t+'. '+(t<4?'Activation row '+t+' injected. The wavefront advances one hop east and one row south.':'Injection has stopped but live wavefronts are still draining. Feeding zeros here is correct and harmless.')});
+}
+for(i=0;i<4;i++)F.push({ph:5,blk:5,w:cp(B),sk:[null,null,null,null],a:nn(),p:cp(ps),C:cp(C),
+  note:'De-skewed output row '+i+' packed into one 32-bit word and written to DMA_DST_ADDR.'});
+F.push({ph:6,blk:0,w:cp(B),sk:[null,null,null,null],a:nn(),p:cp(ps),C:cp(C),
+  note:'DONE asserted, BUSY dropped. The firmware polling loop exits and reads its answer out of SRAM.'});
+
+var ph=document.getElementById('simPhases'),bl=document.getElementById('simBlocks'),
+    gr=document.getElementById('simGrid'),sw=document.getElementById('simSkew'),
+    cm=document.getElementById('simC'),nt=document.getElementById('simNote'),
+    ct=document.getElementById('simCtr'),pb=document.getElementById('simPlay');
+ph.innerHTML=PH.map(function(p){return '<span class="sim-chip">'+p+'</span>';}).join('');
+bl.innerHTML=['SRAM','DMA','skew','array','de-skew','pack'].map(function(b){
+  return '<div class="sim-blk">'+b+'</div>';}).join('');
+for(k=0;k<4;k++)for(j=0;j<4;j++){var d=document.createElement('div');d.className='sim-pe';d.id='spe'+k+j;gr.appendChild(d);}
+for(k=0;k<4;k++){var s=document.createElement('div');s.className='sim-cc';s.id='ssk'+k;sw.appendChild(s);}
+for(k=0;k<4;k++)for(j=0;j<4;j++){var c=document.createElement('div');c.className='sim-cc';c.id='sc'+k+j;cm.appendChild(c);}
+
+var idx=0,timer=null;
+function draw(){
+  var f=F[idx],x;
+  var chips=ph.querySelectorAll('.sim-chip');
+  for(x=0;x<chips.length;x++)chips[x].className='sim-chip'+(x===f.ph?' on':'');
+  var blks=bl.querySelectorAll('.sim-blk');
+  for(x=0;x<blks.length;x++)blks[x].className='sim-blk'+(x===f.blk?' on':'');
+  for(var k=0;k<4;k++){
+    var s=document.getElementById('ssk'+k);
+    s.textContent=f.sk[k]===null?'\u2013':f.sk[k];
+    s.className='sim-cc'+(f.sk[k]!==null?' got':'');
+    for(var j=0;j<4;j++){
+      var e=document.getElementById('spe'+k+j),hot=f.a[k][j]!==null;
+      e.className='sim-pe'+(hot?' hot':'');
+      e.innerHTML='<div class="sim-perow"><span>a '+(f.a[k][j]===null?'\u2013':f.a[k][j])
+        +'</span><span>w '+(f.w[k][j]===null?'\u2013':f.w[k][j])+'</span></div>'
+        +'<div class="sim-psum">'+Math.round(f.p[k][j])+'</div>';
+      var c=document.getElementById('sc'+k+j);
+      c.textContent=f.C[k][j]===null?'\u00b7':f.C[k][j];
+      c.className='sim-cc'+(f.C[k][j]!==null?' got':'');
+    }
+  }
+  nt.textContent=f.note;
+  ct.textContent='step '+(idx+1)+' / '+F.length;
+}
+function stop(){if(timer){clearInterval(timer);timer=null;}pb.textContent='Play';}
+document.getElementById('simStep').onclick=function(){stop();idx=(idx+1)%F.length;draw();};
+document.getElementById('simReset').onclick=function(){stop();idx=0;draw();};
+pb.onclick=function(){
+  if(timer){stop();return;}
+  pb.textContent='Pause';
+  var ms=1150-document.getElementById('simSpd').value*100;
+  timer=setInterval(function(){idx++;if(idx>=F.length){idx=F.length-1;stop();draw();return;}draw();},ms);
+};
+document.getElementById('simSpd').oninput=function(){if(timer){stop();pb.click();}};
+draw();
+})();
+</script>
+
+</section>
+
+<!-- ============ 05 ============ -->
+<section id="s05">
+<h2><i>05</i>Block inventory</h2>
+
+<p>The brief names five subblocks. A working implementation needs a few more. This table maps ours
+onto theirs so the relationship is explicit rather than looking like drift.</p>
+
+<div class="scroll"><table>
+<tr><th>ID</th><th>Block</th><th>Plane</th><th>Maps to brief subblock</th></tr>
+<tr><td>B1</td><td>APB slave FSM + CSR file</td><td><span class="plane p-c"></span>ctrl</td><td>APB wrapper &amp; config registers</td></tr>
+<tr><td>B2</td><td>Main control sequencer</td><td><span class="plane p-c"></span>ctrl</td><td>DMA master engine (control FSM half)</td></tr>
+<tr><td>B3</td><td>DMA master engine</td><td><span class="plane p-d"></span>data</td><td>DMA master engine (SRAM fetching FSM)</td></tr>
+<tr><td>B4</td><td>Weight buffer + column loader</td><td><span class="plane p-w"></span>weight</td><td>Data formatting</td></tr>
+<tr><td>B5</td><td>Activation buffer</td><td><span class="plane p-d"></span>data</td><td>Data formatting</td></tr>
+<tr><td>B6</td><td>Skew FIFO bank</td><td><span class="plane p-d"></span>data</td><td>Skewing FIFOs</td></tr>
+<tr><td>B7</td><td>4&times;4 systolic grid</td><td><span class="plane p-d"></span>data</td><td>2D grid assembly + PE core</td></tr>
+<tr><td>B8</td><td>De-skew FIFO bank</td><td><span class="plane p-d"></span>data</td><td>implied by skewing requirement</td></tr>
+<tr><td>B9</td><td>Output packer</td><td><span class="plane p-d"></span>data</td><td>Data formatting</td></tr>
+<tr><td>B10</td><td>Reset / clock / DFT plumbing</td><td><span class="plane p-c"></span>ctrl</td><td>not named; required for a macro</td></tr>
+</table></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p><b>No requantiser block in v1.</b> A hardware requantiser is one 32&times;32 multiplier, a rounding
+shifter and a clamp &mdash; roughly 10% of our area &mdash; and the brief never mentions
+requantisation. Firmware can do it on the CPU between layers. If MNIST accuracy or runtime turns out
+to need it, we add it as a v2 and it slots between B8 and B9 without disturbing anything else.</p>
+<p>Rejected alternative: build it now because "MNIST needs it". It does need it somewhere, but the
+brief puts no constraint on where, and CPU cycles are cheaper than macro area and schedule.</p></div>
+
+<h3>B1 &mdash; APB slave and CSR file</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>APB is deliberately the simplest bus in AMBA. Two phases: SETUP (<code>psel</code>=1,
+<code>penable</code>=0) then ACCESS (<code>psel</code>=1, <code>penable</code>=1). The slave completes
+by driving <code>pready</code>=1 during ACCESS. No bursts, no IDs, no out-of-order.</p>
+<p>Three jobs: decode <code>paddr[7:2]</code>; hold configuration; turn a bus write into an event.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<ul>
+<li><code>pready</code> tied high. A configuration register has no reason to stall a CPU, and
+&sect;02 note 3 means the master might be the SPI debug path, which we must never hang.</li>
+<li>Unmapped offsets read as zero and ignore writes. Never stall them &mdash; a stray pointer would
+hang the whole SoC.</li>
+<li><code>NPU_CTRL[0]</code> START is write-1-to-pulse and reads back 0. As a level it would restart
+the FSM forever, and the sample firmware never writes it back to zero.</li>
+<li><code>NPU_STATUS</code> writes are silently discarded. It is R/O in the spec; a generic register
+array would let the CPU clobber its own DONE bit.</li>
+</ul></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; week 2</span>
+<p>What exactly does <code>NPU_CTRL[1]</code> RESET clear? FSM state and buffers, certainly. The
+configuration registers too? If it does, firmware must reprogram after every reset, which is
+probably not intended. We need to pick one and document it in the header file.</p></div>
+
+<h3>B3 &mdash; DMA master engine</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>The bandwidth arithmetic is the whole point of this block.</b> The array consumes four INT8
+activations per cycle, one per row. That is exactly 4 bytes, exactly one 32-bit SRAM word, per
+cycle. The interface can supply at best one word per cycle.</p>
+<p>So at full speed the uNPU wants <b>100% of the SRAM port</b>, and it is sharing that port with a
+cacheless PicoRV32 fetching an instruction almost every cycle. We will never get 100%. Every
+arbitration loss becomes a bubble, and bubbles in a systolic array propagate.</p>
+<div class="eq">arithmetic intensity = 2&middot;M&middot;K&middot;N ops / (M&middot;K + K&middot;N + M&middot;N) bytes
+for M=K=N=4: 128 ops per 48 bytes &mdash; firmly memory-bound</div>
+<p>That ratio improves linearly with M, which is the same conclusion &sect;08.2 reaches from the
+latency side. Two independent arguments for batching.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Prefetch a whole tile into B5 while the previous tile computes, then stream from the buffer at a
+guaranteed full rate. This is the only structure that decouples a fixed-latency array from a
+contended bus.</p></div>
+
+<h3>B4 &mdash; Weight buffer and column loader</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Weights arrive as four 32-bit words and must end up in sixteen different PEs.</p>
+<div class="scroll"><table>
+<tr><th>Method</th><th>Wiring cost</th><th class="n">Cycles</th><th>Verdict</th></tr>
+<tr><td>Parallel broadcast, dedicated 8-bit bus per PE</td><td>128 wires fanning across the array</td><td class="n">1</td><td>Routing nightmare in a small congested macro</td></tr>
+<tr><td>Shift-down chain, reusing vertical neighbours</td><td>4 buses of 8 bits</td><td class="n">4</td><td><b>Use this</b></td></tr>
+</table></div></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Shift-down chain, and <b>load in reverse row order</b> &mdash; row 3's weights pushed first, so
+after four shifts every value has settled in its intended row. This off-by-one is the most common bug
+in a first systolic array. Write it as a testbench assertion before writing the loader.</p>
+<p>Double-buffer the weight bank so the next tile's weights load while the current one streams. On
+the utilisation table in &sect;08.2 this is worth several points and costs 16 bytes of registers.</p></div>
+
+<h3>B5 &mdash; Activation buffer</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>A register-file-based buffer rather than a second SRAM macro. Adding an SRAM macro to a 700 µm
+floorplan costs more in placement grief than it saves in area at this size.</p>
+<p><b>Size is a live question.</b> 64 &times; 32 bits (256 B) gives comfortable ping-pong headroom but
+costs roughly 2 000 flops, which would dominate our non-array flop count and change both the scan
+chain length and the CTS load. 32 &times; 32 bits halves that. We are provisionally taking
+<b>32 &times; 32 bits</b> and will revisit after the first synthesis run tells us what we can
+afford.</p>
+<p>Whatever we pick, the number must be the same here and in the &sect;12.1 area table. A discrepancy
+between those two is exactly the kind of thing that makes an area estimate useless.</p></div>
+
+<h3>B6 / B8 &mdash; Skew and de-skew banks</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Implement as shift registers with an enable, <b>not</b> as FIFO IP. There is no back-pressure
+inside the array, so nothing can ever be full or empty; pointers and flags would be dead logic and a
+source of bugs.</p>
+<p>Write one parameterised module, instantiate four times with <code>DEPTH = i</code>. Handle
+<code>DEPTH = 0</code> explicitly &mdash; it is a wire, and a parameterised loop that accidentally
+infers one register on row 0 shifts the entire wavefront and fails the identity test.</p></div>
+
+<h3>B7 &mdash; Grid assembly</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Nested <code>generate</code> loops, sixteen instances. Edge rules:</p>
+<ul>
+<li>Column 0's <code>a_in</code> comes from the skew bank.</li>
+<li>Row 0's <code>psum_in</code> is a mux: zero normally, and the stored running sum when the
+accumulate mode of &sect;08.1 is active. Making it a mux from the start costs almost nothing and buys
+bias-add for free later.</li>
+<li>Interior: <code>a_out &rarr; a_in</code> eastward, <code>psum_out &rarr; psum_in</code> southward.</li>
+<li>Row 3's <code>psum_out</code> goes to B8.</li>
+<li>The east edge's <code>a_out</code> goes nowhere and will be optimised away. That is correct and
+expected &mdash; do not let it worry anyone reading the synthesis log.</li>
+</ul></div>
+
+<h3>B10 &mdash; Reset, clock, DFT</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>One clock domain, so no CDC anywhere in this macro. Say so explicitly in the design review; it is
+a genuine simplification and reviewers will otherwise ask.</p>
+<p>Reset is asynchronous-assert, synchronous-de-assert through a two-flop synchroniser, to avoid a
+metastable release across a few thousand flops.</p>
+<p>Clock-gate the array enable. Sixteen multipliers toggling while the sequencer is idle is pure
+wasted power.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; before port list freeze</span>
+<p><b>Scan chain.</b> There are no scan ports in the given port list and DFT is not mentioned
+anywhere in the course brief. But a macro that cannot be scan-tested cannot be tested on a tester,
+and Project 1's BIST FSM implies somebody expects post-fabrication structural test.</p>
+<p>We should request <code>scan_en</code>, <code>scan_in</code>, <code>scan_out</code>. Adding pins
+after the macro is hardened means re-hardening it, so this has to be settled before floorplan, not
+after. Bundle it with the interrupt question (&sect;13 item 8).</p></div>
+</section>
+
+<!-- ============ 06 ============ -->
+<section id="s06">
+<h2><i>06</i>Datapath</h2>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>Follow one 32-bit word from SRAM to SRAM and you have seen the whole arithmetic pipeline. It
+changes width five times.</p>
+<pre><code>SRAM word -> unpack -> skew -> 16x MAC array -> de-skew -> pack -> SRAM word
+   32b       4 x 8b   4 x 8b   8x8->16, +32b    4 x 32b   32b       32b
+                                    ^
+                        weights held stationary, 16 x 8b
+
+one 32-bit SRAM word feeds exactly one cycle of the array:
+the design is bandwidth-balanced by construction</code></pre>
+<p>The only place the data gets wider is the accumulator, and it stays wide until it is written out.
+The 4&times;32-bit region between the array and the packer is where most of our flip-flops and most
+of our vertical routing congestion live.</p></div>
+
+<h3>The stall rule</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>The array is a fixed-latency clockwork; the world at its edges is not. There is exactly one safe
+way to reconcile them.</p>
+<p><b>When anything stalls, the skew FIFOs, all sixteen PEs, and the de-skew FIFOs freeze on the same
+clock edge.</b> One global <code>array_en</code> feeds the enable of every register in the compute
+pipeline. Freeze part of it and the wavefront shears: results stay plausible and become wrong.</p>
+<p>Never build per-block flow control inside the array. If someone proposes it in review, this is the
+paragraph to point at.</p>
+<p>To make stalls rare rather than merely safe: a two-entry skid buffer in B9, plus enough headroom
+in B5 that a read stall never reaches the array. Then <code>array_en</code> is high essentially all
+the time and we get to reason about the array as if the bus were perfect.</p></div>
+</section>
+
+<!-- ============ 07 ============ -->
+<section id="s07">
+<h2><i>07</i>Control path</h2>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p><b>Three FSMs, not one.</b> One sequencer owning the job, one bus FSM owning the APB port, one
+handshake FSM owning the memory port. They communicate only through request/done pairs.</p>
+<p>The reason is not tidiness. The APB FSM must answer the bus in a fixed two-cycle pattern
+regardless of what compute is doing &mdash; if the CPU polls <code>NPU_STATUS</code> mid-stream and
+our slave stalls, we have coupled the CPU's execution to our pipeline. Similarly the DMA FSM must be
+free to sit waiting on the arbiter without freezing the sequencer's counters.</p>
+<p>Three small machines with <code>req</code>/<code>done</code> between them are individually
+provable. One machine with forty states is not.</p></div>
+
+<h3>7.1 Main sequencer</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Moore machine: outputs depend only on state, never combinationally on inputs. Costs a cycle here
+and there, buys clean timing and a readable waveform.</p>
+<div class="scroll"><table>
+<tr><th>State</th><th>Asserts</th><th>Waits for</th><th>Next</th><th>What is happening</th></tr>
+<tr><td>IDLE</td><td>&mdash;</td><td>start_pulse</td><td>LATCH_CFG</td><td>CSR writes accepted here and only here</td></tr>
+<tr><td>LATCH_CFG</td><td>busy</td><td>1 cycle</td><td>W_FETCH / ERROR</td><td>Copy config to shadow regs; check alignment and legality; compute tile counts</td></tr>
+<tr><td>W_FETCH</td><td>dma_req, kind=W</td><td>dma_done</td><td>W_LOAD</td><td>Four reads bring in a 4&times;4 weight tile</td></tr>
+<tr><td>W_LOAD</td><td>w_load, array_en</td><td>4 cycles</td><td>A_FETCH</td><td>Shift down columns, bottom row first. Skipped when the double-buffered bank is primed</td></tr>
+<tr><td>A_FETCH</td><td>dma_req, kind=A</td><td>dma_done</td><td>STREAM</td><td>Fill one bank of the activation buffer</td></tr>
+<tr><td>STREAM</td><td>stream_en, array_en</td><td>M rows injected</td><td>DRAIN</td><td>The productive state. One activation row per cycle</td></tr>
+<tr><td>DRAIN</td><td>array_en</td><td>7 cycles</td><td>WRITEBACK</td><td>Injection stopped, pipeline still holds live wavefronts. Feeding zeros is correct</td></tr>
+<tr><td>WRITEBACK</td><td>dma_req, kind=R</td><td>wb_done</td><td>NEXT_TILE</td><td>Kept separate from STREAM for now because it is far easier to debug</td></tr>
+<tr><td>NEXT_TILE</td><td>counter update</td><td>1 cycle</td><td>W_FETCH / A_FETCH / DONE</td><td>Advance m, n, k tile counters in that priority order</td></tr>
+<tr><td>DONE</td><td>done, !busy</td><td>status read or new start</td><td>IDLE</td><td>Sticky. The firmware polling loop exits here</td></tr>
+<tr><td>ERROR</td><td>error, err_code</td><td>soft reset</td><td>IDLE</td><td>Latches why. Without this, a bad pointer looks identical to a hang</td></tr>
+</table></div></div>
+
+<h3>7.2 DMA handshake FSM</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Four states, and the entire subtlety is in what must stay stable.</p>
+<div class="scroll"><table>
+<tr><th>State</th><th>Outputs</th><th>Transition</th></tr>
+<tr><td>D_IDLE</td><td>dma_valid = 0</td><td>dma_req &rarr; D_REQ; load base into address counter, length into beat counter</td></tr>
+<tr><td>D_REQ</td><td>dma_valid = 1, addr, wstrb</td><td>dma_ready &rarr; D_ACK; otherwise hold everything stable and stay</td></tr>
+<tr><td>D_ACK</td><td>capture dma_rdata / retire write</td><td>beats remaining &rarr; D_REQ with addr+4; else D_FIN</td></tr>
+<tr><td>D_FIN</td><td>dma_done = 1 for one cycle</td><td>&rarr; D_IDLE</td></tr>
+</table></div>
+<p><b>The address advances only on cycles where <code>dma_valid</code> and <code>dma_ready</code> are
+both high.</b> Incrementing on valid alone silently skips words and is the classic DMA bug. It
+produces a result that is wrong in a way no waveform makes obvious.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Build the four-state version first and prove it correct. A tuned version collapses D_REQ and D_ACK
+so the next address is presented on the same cycle a beat is accepted, sustaining one word per clock
+&mdash; but that version is much harder to debug while the arbiter is also under test. Optimise
+after the identity test passes, not before.</p></div>
+</section>
+
+<!-- ============ 08 ============ -->
+<section id="s08">
+<h2><i>08</i>Tiling and the utilisation problem</h2>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; week 1, blocking</span>
+<p><b>Is tiling in scope at all?</b> <code>MATRIX_CFG</code> gives 16 bits each to Rows and Columns,
+which is far more than a 4&times;4 array needs and strongly suggests matrices larger than 4&times;4
+are expected. But the sample firmware writes <code>0x00040004</code> and the brief's required tests
+are all 4&times;4.</p>
+<p>This is the single biggest scope question in the project. Full tiling means a substantially larger
+sequencer, K-accumulation storage, and a much bigger verification matrix. Get an answer in week one.</p>
+<p>The rest of this section assumes the answer is yes, because it is cheaper to design for and not
+build than to retrofit.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p>An M&times;K by K&times;N multiply becomes &lceil;M/4&rceil; &times; &lceil;K/4&rceil; &times;
+&lceil;N/4&rceil; passes. The loop nesting order decides what gets reloaded.</p>
+<div class="scroll"><table>
+<tr><th>Order (outer &rarr; inner)</th><th>Weight reloads</th><th>Needs psum storage</th><th>Verdict</th></tr>
+<tr><td>n, k, m</td><td>1 per (k,n) tile</td><td>yes, M&times;4 accumulators</td><td><b>Best.</b> Each weight tile loaded once, reused for every activation row</td></tr>
+<tr><td>m, n, k</td><td>every pass</td><td>no &mdash; K completes in one go</td><td>Simplest control, worst weight traffic. Fine for bring-up</td></tr>
+<tr><td>m, k, n</td><td>every pass</td><td>yes</td><td>Worst of both. Avoid</td></tr>
+</table></div></div>
+
+<h3>8.1 Accumulating across K tiles</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>When K &gt; 4 one pass produces only part of each output. Read-modify-write in SRAM would triple
+memory traffic on a port we are already fighting for. Instead, mux row 0's <code>psum_in</code>:
+zero for the first K-tile, the stored running sum for every subsequent one, and a bias value if we
+want bias-add. No extra adder, no extra cycles, no extra memory traffic.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>The injected sum must itself be skewed.</b> From &sect;4.3, the partial sum for
+<code>C[m][j]</code> must be present at <code>PE(0,j)</code> at cycle m + j, not cycle m. So the
+accumulator read path needs its own staircase of delays 0/1/2/3, 32 bits wide &mdash; another
+192 flops, the same cost as the de-skew bank.</p>
+<p>This is easy to miss and it is exactly the class of alignment bug &sect;00 warns about. The idea
+survives; it is not free.</p></div>
+
+<h3>8.2 Utilisation &mdash; the dominant fact</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Each pass costs <code>W_load + M + 7</code> cycles and does M cycles of useful work.</p>
+<div class="eq">utilisation = M / (M + 7 + W_load)
+W_load = 4 without weight double-buffering, 0 with it</div>
+<div class="scroll"><table>
+<tr><th>Rows per pass (M)</th><th class="n">Cycles, no DB</th><th class="n">Util</th><th class="n">Cycles, DB</th><th class="n">Util</th></tr>
+<tr><td>1</td><td class="n">12</td><td class="n">8.3 %</td><td class="n">8</td><td class="n">12.5 %</td></tr>
+<tr><td>4</td><td class="n">15</td><td class="n">26.7 %</td><td class="n">11</td><td class="n">36.4 %</td></tr>
+<tr><td>16</td><td class="n">27</td><td class="n">59.3 %</td><td class="n">23</td><td class="n">69.6 %</td></tr>
+<tr><td>64</td><td class="n">75</td><td class="n">85.3 %</td><td class="n">71</td><td class="n">90.1 %</td></tr>
+<tr><td>256</td><td class="n">267</td><td class="n">95.9 %</td><td class="n">263</td><td class="n">97.3 %</td></tr>
+</table></div>
+<p><b>A 4&times;4 systolic array running one image at a time is mostly idle.</b> The seven-cycle
+latency is fixed overhead and the only way to hide it is to have many activation rows share one
+weight load &mdash; batching images, or a convolution where many patches share a filter.</p>
+<p>Put this table in the report unedited. Quantitative honesty about a design's limits is what
+separates a design study from a demo, and a reviewer will find this number whether or not we
+present it.</p></div>
+</section>
+
+<!-- ============ 09 ============ -->
+<section id="s09">
+<h2><i>09</i>Quantisation and MNIST</h2>
+
+<div class="b spec"><span class="tag">Spec</span>
+<p>Signoff requires "hardware/software co-simulation utilizing RISC-V C-firmware to execute live
+inference on a quantized MNIST digit". The uNPU block diagram labels the software
+"CNN RISC-V Firmware".</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; before firmware</span>
+<p><b>CNN or MLP?</b> The block diagram says CNN; the brief text says only "quantized MNIST digit".
+These imply very different firmware. A convolution needs an im2col transform on the CPU to become a
+matrix multiply, which is real work and real SRAM. A small fully-connected net is far simpler and
+maps directly.</p>
+<p>Our preference is a small MLP for the signoff test, with the argument that the array does GEMM
+either way and im2col is a firmware concern. Needs agreement.</p></div>
+
+<h3>9.1 The quantisation model</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Every real tensor is an INT8, a float scale and an integer zero point: <code>r = S(q &minus;
+Z)</code>. Substituted into a dot product:</p>
+<div class="eq">r_out = Sa&middot;Sw &middot; [ &Sigma;aq&middot;wq &minus; Zw&Sigma;aq &minus; Za&Sigma;wq + K&middot;Za&middot;Zw ]</div>
+<p>Four terms, only the first of which is a matrix multiply. Quantising weights symmetrically forces
+Zw = 0 and kills two terms outright, leaving:</p>
+<div class="eq">&Sigma;aq&middot;wq &minus; Za &middot; ( &Sigma;<sub>k</sub> wq[k][j] )</div>
+<p>The second term is a per-output-column constant. Fold it into the bias, computed once in C when
+the model is prepared.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p><b>Symmetric weights, bias folding, all zero-point bookkeeping in software.</b> The array then
+computes a plain integer dot product and nothing else. Our sixteen PEs stay dumb, which is exactly
+what we want them to be.</p></div>
+
+<h3>9.2 Requantisation</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>The accumulator holds the real value scaled by Sa&middot;Sw. To store it as the next layer's INT8
+you multiply by M = Sa&middot;Sw/Sy, always in (0,1). Hardware cannot multiply by a float, so write
+M as fixed point:</p>
+<div class="eq">M = M&#8320; &middot; 2<sup>&minus;n</sup>, with M&#8320; &isin; [0.5, 1) as a 32-bit integer
+yq = clamp( ((acc &middot; M&#8320;) &gt;&gt;&gt; (31 + n)) + Zy, &minus;128, 127 )</div>
+<p>The shift is a rounding shift: add 2<sup>shift&minus;1</sup> before shifting. ReLU is free &mdash;
+applied before requantisation it just changes the clamp's lower bound from &minus;128 to Zy. One mux.</p>
+<p>Note this runs <b>once per output</b>, not once per MAC, so it can be slow multi-cycle logic if
+that ever helps timing.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Per &sect;05, this lives in firmware for v1. The arithmetic above is recorded here so that if we
+do move it into hardware, we are implementing a known-correct algorithm rather than inventing one
+under schedule pressure.</p></div>
+
+<h3>9.3 The 32 KB reality check</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>A textbook 784&rarr;64&rarr;10 MNIST classifier needs 784&times;64 = 50 176 INT8 weights for the
+first layer alone. That is <b>49 KB</b>. The whole SoC has 32 KB of SRAM, shared with firmware
+<code>.text</code>, <code>.data</code>, stack, and our activation and output buffers.</p>
+<p>The reference network does not fit. This is a hard constraint, not a tuning issue.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; before firmware and memory map</span>
+<p>Which way out do we take? Options, in increasing order of effort:</p>
+<ul>
+<li>Shrink the first layer. 784&rarr;16 is 12.5 KB and still reaches roughly 92% on MNIST.</li>
+<li>Downsample the image to 14&times;14 = 196 inputs. 196&times;64 is also 12.5 KB.</li>
+<li>Stream weights from off-chip through Project 1's SPI controller. A system-level conversation,
+not a decision we can make alone.</li>
+</ul>
+<p>This changes the memory map, so it must be settled before &sect;10.2 is finalised.</p></div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="s10">
+<h2><i>10</i>Software contract</h2>
+
+<h3>10.1 Proposed register map</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Every specified offset stays exactly where the brief puts it. Additions occupy unused offsets
+inside the same 4 KB window. Subject to the approval question in &sect;01.</p>
+<div class="scroll"><table>
+<tr><th>Offset</th><th>Name</th><th>Bits</th><th>Meaning</th></tr>
+<tr><td>0x00</td><td>NPU_CTRL</td><td>[0] START, [1] SOFT_RST, [2] IRQ_EN, [3] ACCUM</td><td>START and SOFT_RST are write-1-to-pulse, read back 0. ACCUM adds into stored partial sums (&sect;8.1)</td></tr>
+<tr><td>0x04</td><td>NPU_STATUS</td><td>[0] DONE, [1] BUSY, [2] ERROR, [7:4] ERR_CODE</td><td>1 = misaligned addr, 2 = illegal dimension, 3 = DMA timeout, 4 = START while BUSY, 5 = address out of SRAM range</td></tr>
+<tr><td>0x08</td><td>DMA_SRC_ADDR</td><td>[31:0]</td><td>Weight tile base. Word-aligned</td></tr>
+<tr><td>0x0C</td><td>DMA_DST_ADDR</td><td>[31:0]</td><td>Result base</td></tr>
+<tr><td>0x10</td><td>MATRIX_CFG</td><td>[15:0] M, [31:16] N</td><td>Exactly as specified. Carries only two of three dimensions</td></tr>
+<tr><td style="color:var(--open)">0x14</td><td>ACT_ADDR</td><td>[31:0]</td><td><b>Added.</b> Activation base &mdash; the brief gives one pointer for two tensors</td></tr>
+<tr><td style="color:var(--open)">0x18</td><td>NPU_CFG2</td><td>[15:0] K, [16] SIGNED, [17] OUT_INT8</td><td><b>Added.</b> K is the reduction depth MATRIX_CFG has no room for</td></tr>
+</table></div></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p><b>Fallback if the map is frozen at five registers.</b> Define a descriptor convention:
+<code>DMA_SRC_ADDR</code> points at a contiguous block laid out as
+<code>[K&times;N weights][M&times;K activations]</code>, so the activation base is
+<code>SRC + K*N</code>, and K is taken equal to Rows for square matrices.</p>
+<p>It works and costs no registers. It is also much easier to get wrong in firmware, so it would live
+in a header file with a comment nobody can miss. This is the fallback, not the plan.</p></div>
+
+<h3>10.2 SRAM layout</h3>
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; after &sect;9.3 is settled</span>
+<p>Deliberately left unfilled. Any layout we write now would be invalidated by the network-size
+decision in &sect;9.3, and a stale memory map in a shared document is worse than an empty one.</p>
+<p>Two constraints already known: the region must sit inside
+<code>0x0000_0000&ndash;0x0000_7FFF</code>, and it must be agreed with Project 1 since firmware
+<code>.text</code> and the stack live in the same 32 KB.</p>
+<p>Note the sample firmware in the brief points <code>DMA_SRC_ADDR</code> at
+<code>0x0000_1200</code>, which is a reasonable anchor for the data region if nobody objects.</p></div>
+
+<h3>10.3 Driver sketch</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<pre><code>#define NPU_BASE   0x40000000u
+#define NPU_CTRL   (*(volatile uint32_t*)(NPU_BASE+0x00))
+#define NPU_STATUS (*(volatile uint32_t*)(NPU_BASE+0x04))
+#define NPU_SRC    (*(volatile uint32_t*)(NPU_BASE+0x08))
+#define NPU_DST    (*(volatile uint32_t*)(NPU_BASE+0x0C))
+#define NPU_CFG    (*(volatile uint32_t*)(NPU_BASE+0x10))
+#define NPU_ACT    (*(volatile uint32_t*)(NPU_BASE+0x14))
+#define NPU_CFG2   (*(volatile uint32_t*)(NPU_BASE+0x18))
+
+#define CTRL_START (1u&lt;&lt;0)
+#define CTRL_ACCUM (1u&lt;&lt;3)
+#define ST_DONE    (1u&lt;&lt;0)
+#define ST_ERROR   (1u&lt;&lt;2)
+
+int npu_gemm(const int8_t *w, const int8_t *a, void *out,
+             uint16_t M, uint16_t K, uint16_t N, int accumulate)
+{
+    NPU_SRC  = (uint32_t)w;
+    NPU_ACT  = (uint32_t)a;
+    NPU_DST  = (uint32_t)out;
+    NPU_CFG  = ((uint32_t)N &lt;&lt; 16) | M;
+    NPU_CFG2 = (1u&lt;&lt;16) | (uint32_t)K;        /* SIGNED, K */
+    NPU_CTRL = CTRL_START | (accumulate ? CTRL_ACCUM : 0);
+
+    while (!(NPU_STATUS &amp; (ST_DONE | ST_ERROR)))
+        ;
+    return (NPU_STATUS &amp; ST_ERROR) ? -1 : 0;
+}</code></pre>
+<p>Three things that matter in real firmware. Use <code>volatile</code> or the compiler hoists the
+status read out of the loop and the CPU hangs. Poll DONE <em>and</em> ERROR, or an error becomes an
+infinite loop in silicon &mdash; precisely the failure Project 1's SPI backdoor exists to rescue us
+from. And note the brief's sample never writes <code>DMA_DST_ADDR</code>; we require it.</p></div>
+</section>
+
+<!-- ============ 11 ============ -->
+<section id="s11">
+<h2><i>11</i>Verification</h2>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p>Build order matters more than coverage numbers early on. This list is in the order we will
+actually do it, not in order of importance.</p>
+<ol>
+<li><b>PE, directed.</b> Twenty vectors on one PE: max positive, max negative, zero weight, weight
+load while computing (must not disturb the accumulation). Five minutes of simulation, saves days.</li>
+<li><b>Skew and de-skew, directed.</b> Push a known ramp through and assert each lane's delay is
+exactly 0/1/2/3. Assert all four lanes freeze together when <code>array_en</code> drops.</li>
+<li><b>Grid alone, no DMA, no APB.</b> Testbench forces weights, injects activations by hand, runs
+the identity test. This is the milestone that proves the timing contract.</li>
+<li><b>Array vs golden model.</b> A behavioural reference computing A&times;B directly. A thousand
+random INT8 pairs compared element by element. Where the bugs the directed tests miss actually
+live.</li>
+<li><b>Randomised bus back-pressure.</b> Drive <code>dma_ready</code> from a random generator at
+30&ndash;70% duty. The highest-value test after identity, because a systolic array that only works
+with a perfect memory works on your bench and fails in the SoC &mdash; and &sect;02 says our memory
+is definitely not perfect.</li>
+<li><b>APB protocol.</b> Every register including reserved holes; back-to-back transfers; a read
+during BUSY; START while BUSY (must set ERR_CODE, not corrupt the running job); SOFT_RST mid-stream
+(must return cleanly to IDLE); very slow transfers, to emulate the SPI debug master.</li>
+<li><b>Tiling.</b> Non-square, non-multiple-of-four shapes. 7&times;5 by 5&times;3 is a good case
+because every dimension needs padding. Check padded lanes contribute zero and do not leak.</li>
+<li><b>Assertions, running always.</b> <code>dma_valid</code> stable until ready;
+<code>dma_addr[1:0] == 0</code>; DMA addresses inside SRAM range; DONE never rises before the last
+write-back is accepted; no X propagation into psum.</li>
+<li><b>Coverage.</b> All sequencer states; every ERR_CODE; both sign modes; at least one job with
+M = 1 and one with M &gt; 64.</li>
+<li><b>HW/SW co-simulation.</b> Compiled RISC-V firmware running MNIST inference against the SoC.
+The signoff test, and the one that finds memory-map disagreements with Project 1.</li>
+<li><b>Gate-level with SDF.</b> Re-run identity and saturation on the netlist with back-annotated
+timing. Catches hold violations and X-through-reset problems RTL simulation cannot see.</li>
+</ol></div>
+
+<h3>What the two required tests actually prove</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>Identity</b> is an alignment test wearing a math test's clothes. Because the correct answer is
+the input unchanged, any misalignment &mdash; a one-cycle skew error, a transposed weight load, a
+de-skew off by one &mdash; shows up as a visibly shifted or permuted matrix. It is the single most
+informative test in the plan.</p>
+<p>Run it in four variants: A&times;I, I&times;B, a transposed identity, and a permutation matrix. The
+permutation is the best of the four, because a symmetric identity can hide errors that a
+rearrangement exposes.</p>
+<p><b>Saturation</b> proves accumulator width, sign extension of the 16-bit product into 32 bits, and
+clamp-versus-wrap. Note from &sect;3.3 that it only proves anything if the sign convention is
+settled first.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p><b>A debugging habit to adopt from day one.</b> Dump every PE's <code>psum_reg</code> every cycle
+to a file and diff against a spreadsheet of the expected wavefront built from the &sect;4.3 table.
+When something misaligns, the diff names the first cycle and the first PE that disagree. That pins
+the bug in minutes instead of hours of waveform staring.</p></div>
+</section>
+
+<!-- ============ 12 ============ -->
+<section id="s12">
+<h2><i>12</i>Back end</h2>
+
+<div class="b spec"><span class="tag">Spec</span>
+<p>SCL 180 nm. Deliverables are a DRC/LVS-clean macro as <code>.lef</code>, <code>.lib</code> and
+<code>.gds</code>. Tools available: Cadence Xcelium (simulation), Genus (synthesis), Tempus (STA),
+Synopsys IC Compiler (place and route).</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; week 1</span>
+<p><b>Gaps in the tool list.</b> Nothing named for DRC/LVS signoff, formal equivalence after
+synthesis, or IR-drop analysis. "DRC/LVS clean" is an explicit deliverable and we cannot produce it
+with the four tools above. Find out what we are expected to use.</p>
+<p>Also note Genus &rarr; IC Compiler is a cross-vendor handoff. It works, but library setup happens
+twice in two formats and the two tools' interpretation of our SDC has to be kept aligned by hand.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">unassigned &middot; blocking all of &sect;12</span>
+<p><b>Target clock frequency has never been stated.</b> The brief says STA must meet "the target clock
+frequency constraints" without giving one. Every number below is unanchored until this is answered,
+and it also decides whether the PE needs pipelining, which changes the timing contract in
+&sect;4.3.</p>
+<p>Our recommendation: constrain to something conservative for the first pass, close it, and only
+then discuss raising it. A working slow macro beats a broken fast one at every stage of this
+course.</p></div>
+
+<h3>12.1 Area budget</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p>Planning estimates only. Replace with real synthesis numbers in week one, because the floorplan
+depends on them.</p>
+<div class="scroll"><table>
+<tr><th>Block</th><th class="n">Gate equiv.</th><th>Notes</th></tr>
+<tr><td>16 &times; PE</td><td class="n">~20 800</td><td>Per PE: 8&times;8 multiplier ~700, 32-bit adder ~300, 48 flops ~240, muxes ~60</td></tr>
+<tr><td>Activation buffer, 32&times;32b</td><td class="n">~5 100</td><td>Doubles if we take the 64-word option in B5</td></tr>
+<tr><td>De-skew bank, 192 flops</td><td class="n">~960</td><td>32 bits wide is what makes it expensive</td></tr>
+<tr><td>Weight buffer, double-banked</td><td class="n">~1 300</td><td></td></tr>
+<tr><td>DMA + CSR + sequencer</td><td class="n">~2 500</td><td></td></tr>
+<tr><td>Skew bank, 48 flops</td><td class="n">~240</td><td>Almost free. Never skimp here</td></tr>
+<tr><td><b>Total</b></td><td class="n"><b>~30 900</b></td><td>&asymp; 0.31 mm&sup2; at ~10 µm&sup2;/GE</td></tr>
+<tr><td>At 70% utilisation</td><td class="n">&mdash;</td><td>&asymp; 0.44 mm&sup2;, about 660 &times; 660 µm</td></tr>
+</table></div>
+<p>Start the floorplan square. The array is square and keeping it square keeps the psum buses short.</p></div>
+
+<h3>12.2 The critical path</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<div class="eq">t_crit = t_clk&rarr;Q + t_mult(8&times;8) + t_add(32) + t_setup + uncertainty</div>
+<p>At 180 nm the multiply dominates. Until Genus gives us a real number this is an order-of-magnitude
+budget, not a constraint.</p>
+<div class="scroll"><table>
+<tr><th>If we need</th><th>Do this</th><th>Cost</th></tr>
+<tr><td>A conservative target</td><td>Nothing. One-stage PE closes comfortably</td><td>&mdash;</td></tr>
+<tr><td>Moderately faster</td><td>Let the synthesiser pick a fast multiplier architecture; upsize the adder; tighten PE placement so the mult&rarr;add wire is short</td><td>A little area</td></tr>
+<tr><td>Substantially faster</td><td>Two-stage PE: register the product, add in the next stage</td><td>See the trap below</td></tr>
+</table></div></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>The pipelining trap.</b> Pipelining only the partial-sum path looks correct in a block diagram
+and produces wrong answers in simulation. The array's correctness rests on activations and partial
+sums hopping at exactly the same rate.</p>
+<p>If you register the product, you must <em>also</em> add a register on the activation forwarding
+path. Then the skew depths become 0/2/4/6, the pipeline depth doubles from 7 to 14, and every number
+in &sect;4.3 changes. It is a coherent design, but it is a different design, and it cannot be
+retrofitted late.</p></div>
+
+<h3>12.3 Floorplan</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<pre><code>+--------------------------------------------------+
+|  CSR + APB   |   PE ARRAY placement region   | W  |
+|  + sequencer |   4x4 soft guides, mirroring  | b  |
+|              |   the logical array shape     | u  |
+| APB          |   [PE][PE][PE][PE]            | f  |  DMA
+| pins         |   [PE][PE][PE][PE]            | f  |  pins
+| west         |   [PE][PE][PE][PE]            |    |  east
+| edge         |   [PE][PE][PE][PE]            |    |  edge
+|  DMA +       |                               |    |
+|  act buffer  |  keep-out: psum routing chan  |    |
+|              +-------------------------------+    |
+|              |   de-skew + output packer     |    |
++--------------------------------------------------+
+   128 psum wires cross the array's bottom edge
+   M4 VDD/VSS straps run vertical</code></pre>
+<p>APB pins face the bridge, DMA pins face the SRAM. Splitting a 32-bit bus across two macro edges
+costs routing detours at the top level that we would pay for in timing.</p>
+<p>The de-skew and packer chain sits directly below the array where its wires have the shortest
+possible run. Soft placement guides mirror the logical 4&times;4 shape so PE-to-PE wires stay short
+and regular.</p></div>
+
+<h3>12.4 Congestion, constraints, signoff</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>Congestion.</b> Every vertical PE boundary carries 32 wires; the array's bottom edge carries
+4 columns &times; 32 = 128. Keep utilisation around 65&ndash;70%, leave a routing channel below the
+array, and check the M3/M4 track budget against the power straps. Project 3 is fighting the same
+M3/M4 collision with a routing matrix instead of buses &mdash; worth comparing notes with them.</p>
+<p><b>Power.</b> Sixteen multipliers switching every cycle is a genuine dynamic-IR concern in a
+180 nm mesh. Run dynamic IR analysis rather than trusting a static one, and gate the array clock
+when the sequencer is idle or waiting on DMA.</p>
+<p><b>CTS.</b> One domain, a few thousand flops. Nothing exotic, but balance skew across the array
+deliberately: a PE that clocks early relative to its southern neighbour eats directly into the psum
+path's setup margin.</p></div>
+
+<div class="b decided"><span class="tag">Decided</span>
+<p><b>SDC essentials.</b> <code>create_clock</code> on <code>clk</code>;
+<code>set_clock_uncertainty</code> covering CTS skew and jitter; input and output delays on every
+APB and DMA pin <em>negotiated with Project 1</em> rather than guessed, since guessing these is how
+hierarchical STA falls apart at the top level; <code>set_case_analysis</code> on
+<code>scan_en</code> = 0 for functional runs if we get scan.</p>
+<p>On reset: do <b>not</b> blanket <code>set_false_path -from rst_n</code>. The asynchronous
+assertion path is untimed, but the synchronised de-assertion fans out to every flop in the macro and
+must be timed, or recovery and removal violations are hidden rather than fixed.</p></div>
+</section>
+
+<!-- ============ 13 ============ -->
+<section id="s13">
+<h2><i>13</i>Open questions</h2>
+
+<p>Filter this page to <b>Open</b> and you have the agenda. Every item needs an owner and a date
+before the first meeting.</p>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q1 &middot; answer in W1 &middot; blocks W5 onward</span>
+<p><b>Target clock frequency.</b> Never stated anywhere in the brief. Drives the PE pipelining
+decision, which changes the timing contract in &sect;4.3, which changes the RTL. Cannot start
+back-end work without it.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q2 &middot; answer in W1 &middot; sets the whole budget</span>
+<p><b>Is tiling in scope?</b> <code>MATRIX_CFG</code> has 16-bit dimension fields but the array is
+fixed 4&times;4 and every required test is 4&times;4. Yes means a substantially larger sequencer and
+verification matrix.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q3 &middot; answer in W1 &middot; blocks W1 CSR work</span>
+<p><b>Where does K come from, and where do activations live?</b> Two of three dimensions in
+<code>MATRIX_CFG</code>, one pointer for two tensors. Either we add registers at 0x14 and 0x18, or
+we freeze a documented descriptor layout. Depends on the approval question in &sect;01.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q4 &middot; answer in W1 &middot; blocks W1 PE work</span>
+<p><b>Signed or unsigned INT8?</b> The saturation test passes for the wrong reason if we guess
+wrong. See &sect;3.3.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q5 &middot; answer in W1 &middot; blocks W3 DMA work</span>
+<p><b>How is read/write direction encoded on the DMA port?</b> There is no direction pin. The natural
+convention is <code>dma_wstrb == 4'b0000</code> means read, anything else means write &mdash; but
+that is a convention we would be inventing, and Project 1 must agree to it in writing.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q6 &middot; answer in W1 &middot; blocks W3 DMA work</span>
+<p><b>When is <code>dma_rdata</code> valid?</b> Same cycle as <code>dma_valid &amp; dma_ready</code>,
+or the cycle after? There is no <code>rvalid</code>. Both teams will assume, and they will assume
+differently, and every read will be off by one word. Our proposal: same cycle, and if the SRAM needs
+a cycle the arbiter holds <code>ready</code> low for it.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q7 &middot; answer by W3 &middot; blocks timeout sizing</span>
+<p><b>What is the worst-case grant latency from the arbiter?</b> PicoRV32 is a near-continuous bus
+client. If the arbiter can starve us for hundreds of cycles our timeout fires and the job errors out
+spuriously. We need an agreed maximum, then size ERR_CODE 3 above it.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q8 &middot; answer by W3 &middot; blocks W5 floorplan</span>
+<p><b>Can we add pins?</b> Specifically <code>scan_en</code> / <code>scan_in</code> /
+<code>scan_out</code>, and optionally <code>npu_irq</code>. Adding pins after the macro is hardened
+means re-hardening it. This must be answered before floorplan, not after. See also the BIST question
+in &sect;02.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q9 &middot; answer by W3 &middot; blocks W3 firmware</span>
+<p><b>MNIST network shape, and does it fit in 32 KB?</b> A 784&rarr;64 first layer needs 49 KB. It
+does not fit. Also unresolved: CNN or MLP, and whether requantisation is our job or firmware's.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q10 &middot; answer in W1 &middot; could invalidate the DMA</span>
+<p><b>Native or AHB on the data plane?</b> The top-level diagram says "Native/AHB"; our port list is
+plain valid/ready. If Project 1 builds AHB, our master needs a different interface entirely.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q11 &middot; answer by W3 &middot; blocks W7 signoff</span>
+<p><b>Which tools for DRC, LVS, formal equivalence and IR drop?</b> Not covered by Xcelium, Genus,
+Tempus or IC Compiler, and DRC/LVS clean is an explicit deliverable.</p></div>
+
+<div class="b open"><span class="tag">Open</span><span class="owner">Q12 &middot; answer by W3 &middot; blocks W4 freeze</span>
+<p><b>Output format: raw INT32 or packed INT8?</b> Changes write-back traffic by 4&times; and the
+output buffer size. Our proposal: support both, INT32 for the required tests and INT8 for the MNIST
+run.</p></div>
+</section>
+
+<!-- ============ 14 ============ -->
+<section id="s14">
+<h2><i>14</i>Decision log</h2>
+
+<p>Every <span style="color:var(--decided)">Decided</span> block above should have a line here. When
+a decision changes, add a new line &mdash; do not edit the old one away. The reason it changed is
+usually the useful part.</p>
+
+<div class="scroll"><table>
+<tr><th>Date</th><th>Decision</th><th>Ref</th><th>Rationale in one line</th><th>Who</th></tr>
+<tr><td>&mdash;</td><td>32-bit partial sums throughout</td><td>&sect;3.3</td><td>Un-overflowable for any layer; matches SRAM word; accepts 512 vertical wires</td><td></td></tr>
+<tr><td>&mdash;</td><td>Build the de-skew bank rather than skewing write addresses</td><td>&sect;4.4</td><td>192 flops buys in-order single-word writes on a contended bus</td><td></td></tr>
+<tr><td>&mdash;</td><td>No hardware requantiser in v1</td><td>&sect;05</td><td>~10% of area for something the brief never asks for; firmware can do it</td><td></td></tr>
+<tr><td>&mdash;</td><td>Shift-down weight load, reverse row order, double-buffered</td><td>&sect;05 B4</td><td>Avoids 128 broadcast wires for four cycles we can hide</td><td></td></tr>
+<tr><td>&mdash;</td><td>Three FSMs, not one</td><td>&sect;07</td><td>Decouples bus response from compute; each machine individually provable</td><td></td></tr>
+<tr><td>&mdash;</td><td>One global <code>array_en</code>; no flow control inside the array</td><td>&sect;06</td><td>Partial freezing shears the wavefront into plausible wrong answers</td><td></td></tr>
+<tr><td>&mdash;</td><td>Symmetric weights, zero-point work in software</td><td>&sect;9.1</td><td>Keeps the PEs a plain integer dot product</td><td></td></tr>
+<tr><td>&mdash;</td><td>Build the 4-state DMA FSM first, optimise later</td><td>&sect;7.2</td><td>Collapsed version is much harder to debug while the arbiter is also under test</td><td></td></tr>
+</table></div>
+</section>
+
+<!-- ============ 15 ============ -->
+<section id="s15">
+<h2><i>15</i>Team and work split</h2>
+
+<p>Five people, roughly 10 hours each per week, both front-end and back-end. The split below is
+built around one fact that is easy to miss until it hurts.</p>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>The two halves of this project have opposite shapes.</b></p>
+<p>The front end parallelises well. The PE, the FIFO banks, the DMA, the APB wrapper and the
+sequencer have clean interfaces and can genuinely be written by five different people at the same
+time. Five people is close to the right number.</p>
+<p>The back end does not parallelise. Floorplan, PDN, placement, CTS, routing, STA and physical
+verification are stages of one database, largely sequential. Three people is about the practical
+maximum and the third is often waiting. You cannot rescue a late back end by adding bodies to it.</p>
+<p>So the schedule in &sect;16 front-loads five-way parallel work and tapers to three-way sequential
+work, with the other two on firmware, gate-level simulation and the report. Plan for that shape
+rather than discovering it.</p></div>
+
+<h3>15.1 Owners</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Five owners. Ownership means "this is yours to get right and yours to explain in review", not
+"nobody else may touch it". Everyone should read everyone's RTL.</p>
+<div class="scroll"><table>
+<tr><th>Owner</th><th>Front end</th><th>Back end</th></tr>
+<tr><td><b>A &mdash; Array</b></td><td>PE core, grid assembly, skew and de-skew banks. <b>Owns the &sect;4.3 timing contract.</b></td><td>Placement guides, array-region congestion, routing</td></tr>
+<tr><td><b>B &mdash; Memory</b></td><td>DMA master engine, address generation, activation buffer, weight buffer and column loader</td><td>Floorplan, pin placement, PDN. Also owns the synthesis flow</td></tr>
+<tr><td><b>C &mdash; Control</b></td><td>APB slave, CSR file, main sequencer, <code>unpu_top</code> integration</td><td>SDC authoring, CTS, STA</td></tr>
+<tr><td><b>D &mdash; Verification</b></td><td>Golden model, testbench infrastructure, assertions, coverage, randomised back-pressure</td><td>Gate-level simulation with SDF, formal equivalence</td></tr>
+<tr><td><b>E &mdash; Integration</b></td><td>Firmware, mini-SoC harness, memory map, liaison with Project 1</td><td>DRC, LVS, abstract generation (<code>.lef</code>, <code>.lib</code>)</td></tr>
+</table></div>
+<p>Note the back-end column is not random: each person hardens the part of the layout they already
+understand logically. A owns the array in RTL and therefore owns its placement; B owns the memory
+interface and therefore owns the pin edges it talks through.</p></div>
+
+<h3>15.2 File-level ownership</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Assign files, not vague areas. Ambiguity about who owns a module is where merge conflicts and
+"I thought you were doing that" live.</p>
+<div class="scroll"><table>
+<tr><th>Owner</th><th>Files</th></tr>
+<tr><td>A</td><td><code>rtl/unpu_pe.v</code>, <code>rtl/unpu_grid.v</code>, <code>rtl/unpu_skew.v</code>, <code>rtl/unpu_deskew.v</code></td></tr>
+<tr><td>B</td><td><code>rtl/unpu_dma.v</code>, <code>rtl/unpu_actbuf.v</code>, <code>rtl/unpu_wbuf.v</code>, <code>syn/</code></td></tr>
+<tr><td>C</td><td><code>rtl/unpu_apb.v</code>, <code>rtl/unpu_csr.v</code>, <code>rtl/unpu_seq.v</code>, <code>rtl/unpu_top.v</code>, <code>constraints/</code></td></tr>
+<tr><td>D</td><td><code>tb/</code>, <code>model/golden.c</code>, <code>tb/assertions.sv</code></td></tr>
+<tr><td>E</td><td><code>fw/</code>, <code>tb/soc_harness/</code>, <code>pnr/</code>, <code>docs/</code></td></tr>
+</table></div>
+<p><code>unpu_top.v</code> is written by C but reviewed by everyone, because it is the one file where
+a wrong port connection produces a bug that looks like it belongs to someone else's block.</p></div>
+
+<h3>15.3 Rules that prevent the expensive failures</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<ul>
+<li><b>One person owns the timing contract.</b> The &sect;4.3 table spans every block, and a
+disagreement about it produces plausible wrong answers rather than obvious breakage. Any change to
+those four equations goes through A and gets a line in &sect;14.</li>
+<li><b>Nobody merges their own untested RTL.</b> A module lands when its unit test passes, not when
+it compiles. This is cheap now and unaffordable in week 6.</li>
+<li><b>Two people can drive P&amp;R, even if only one normally does.</b> Everything after week 5 is
+sequential and owned by three people. If one has exams or hits a licence problem there is no way to
+parallelise around them. Twenty minutes of shoulder-surfing in week 3 is the insurance.</li>
+<li><b>Interfaces are agreed before implementation.</b> The internal signal lists in &sect;02 are the
+contract between owners. Change one and tell the person on the other side the same day.</li>
+<li><b>Every open question in &sect;13 has a named owner by end of week 1.</b> Unowned questions do
+not get answered; they get discovered in week 6.</li>
+</ul></div>
+
+<h3>15.4 Weekly cadence</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Ten hours a week is roughly two working sessions. Suggested shape:</p>
+<ul>
+<li><b>One long block</b> (5&ndash;6 hrs) for real work &mdash; RTL, debugging, a P&amp;R run. Tool
+work in particular is badly served by short sessions; you spend the first hour reloading context.</li>
+<li><b>One shorter block</b> (3&ndash;4 hrs) for unit tests, review and integration.</li>
+<li><b>One 30-minute all-hands</b>, same time every week. Three questions only: what landed, what is
+blocked, what changed in &sect;13 or &sect;14. Not a status theatre.</li>
+</ul>
+<p>Whoever runs the all-hands updates this notebook in the same sitting. A decision that is agreed
+verbally and never written down will be re-litigated in week 6.</p></div>
+</section>
+
+<!-- ============ 16 ============ -->
+<section id="s16">
+<h2><i>16</i>Eight-week plan</h2>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>The budget.</b> 5 people &times; 10 hours &times; 8 weeks = <b>400 person-hours</b>. That is the
+entire project: RTL, verification, firmware, synthesis, P&amp;R, STA, DRC/LVS and the report.</p>
+<p>It is achievable, but only with scope frozen early and the back end started in week 2. There is no
+version of this schedule where six weeks of RTL leaves enough time to harden a macro.</p></div>
+
+<h3>16.1 Shape of the eight weeks</h3>
+<svg width="100%" viewBox="0 0 660 340" role="img" aria-label="Six workstreams across eight weeks, with RTL freeze at the end of week four">
+  <text x="196" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W1</text>
+  <text x="250" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W2</text>
+  <text x="304" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W3</text>
+  <text x="358" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W4</text>
+  <text x="412" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W5</text>
+  <text x="466" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W6</text>
+  <text x="520" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W7</text>
+  <text x="574" y="26" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B" text-anchor="middle">W8</text>
+  <line x1="169" y1="36" x2="601" y2="36" stroke="#D9DFE6" stroke-width="1"/>
+  <line x1="223" y1="36" x2="223" y2="286" stroke="#E8ECF0" stroke-width="1"/>
+  <line x1="277" y1="36" x2="277" y2="286" stroke="#E8ECF0" stroke-width="1"/>
+  <line x1="331" y1="36" x2="331" y2="286" stroke="#E8ECF0" stroke-width="1"/>
+  <line x1="439" y1="36" x2="439" y2="286" stroke="#E8ECF0" stroke-width="1"/>
+  <line x1="493" y1="36" x2="493" y2="286" stroke="#E8ECF0" stroke-width="1"/>
+  <line x1="547" y1="36" x2="547" y2="286" stroke="#E8ECF0" stroke-width="1"/>
+
+  <text x="14" y="60" font-family="ui-monospace,monospace" font-size="11.5" fill="#3D4653">Open questions</text>
+  <rect x="169" y="48" width="108" height="22" rx="4" fill="#EDEFF2" stroke="#38424F" stroke-width="1"/>
+
+  <text x="14" y="100" font-family="ui-monospace,monospace" font-size="11.5" fill="#3D4653">RTL</text>
+  <rect x="169" y="88" width="216" height="22" rx="4" fill="#E3F1EE" stroke="#0A6455" stroke-width="1"/>
+
+  <text x="14" y="140" font-family="ui-monospace,monospace" font-size="11.5" fill="#3D4653">Verification</text>
+  <rect x="169" y="128" width="432" height="22" rx="4" fill="#E3F1EE" stroke="#0A6455" stroke-width="1"/>
+
+  <text x="14" y="180" font-family="ui-monospace,monospace" font-size="11.5" fill="#3D4653">Trial hardening</text>
+  <rect x="169" y="168" width="162" height="22" rx="4" fill="#E7EFF8" stroke="#15529A" stroke-width="1"/>
+
+  <text x="14" y="220" font-family="ui-monospace,monospace" font-size="11.5" fill="#3D4653">Physical design</text>
+  <rect x="385" y="208" width="216" height="22" rx="4" fill="#E7EFF8" stroke="#15529A" stroke-width="1"/>
+
+  <text x="14" y="260" font-family="ui-monospace,monospace" font-size="11.5" fill="#3D4653">Firmware, co-sim</text>
+  <rect x="277" y="248" width="270" height="22" rx="4" fill="#E3F1EE" stroke="#0A6455" stroke-width="1"/>
+
+  <line x1="385" y1="40" x2="385" y2="292" stroke="#A8500B" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="385" y="308" font-family="ui-monospace,monospace" font-size="11.5" fill="#A8500B" text-anchor="middle">RTL freeze</text>
+
+  <rect x="169" y="324" width="10" height="10" rx="2" fill="#E3F1EE" stroke="#0A6455"/>
+  <text x="185" y="333" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B">Front end</text>
+  <rect x="255" y="324" width="10" height="10" rx="2" fill="#E7EFF8" stroke="#15529A"/>
+  <text x="271" y="333" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B">Back end</text>
+  <rect x="335" y="324" width="10" height="10" rx="2" fill="#EDEFF2" stroke="#38424F"/>
+  <text x="351" y="333" font-family="ui-monospace,monospace" font-size="11" fill="#767F8B">Coordination</text>
+</svg>
+
+<h3>16.2 The structural idea: harden early, on purpose, knowing it is wrong</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>In week 3, take whatever RTL exists &mdash; even just the PE array with no DMA &mdash; and push it
+all the way through Genus, IC Compiler and a DRC run. Throw the result away. Keep the scripts, the
+library setup, the SDC skeleton and the real critical-path number.</p>
+<p>That pass costs roughly 30 person-hours and buys three things you would otherwise get in week 7,
+when it is too late to act on any of them:</p>
+<ul>
+<li>Whether the PE closes timing, which decides the pipelining question in &sect;12.2 &mdash; and
+that decision changes the skew depths and every number in &sect;4.3.</li>
+<li>Whether the &sect;12.1 area estimate is anywhere near right.</li>
+<li>A working cross-vendor tool flow, which is the thing that actually eats weeks.</li>
+</ul>
+<p>Rejected alternative: finish the RTL first and harden once, properly. It is tidier and it is how
+teams run out of time. A discarded trial pass is the cheapest de-risking available on this project.</p></div>
+
+<h3>16.3 Week by week</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<div class="scroll"><table>
+<tr><th>Week</th><th>Goal</th><th>Who does what</th></tr>
+<tr><td><b>W1</b></td><td>Answer the blocking questions; first RTL</td>
+<td>All: instructor meeting on day 1&ndash;2, not day 5. Q1&ndash;Q6 and Q10 must close this week.<br>
+A: PE plus twenty directed vectors. C: APB slave and CSR file. D: golden model and testbench
+skeleton. B: <b>no RTL</b> &mdash; spend the whole week getting Genus running on a trivial design
+with the SCL libraries. E: Project 1 liaison, memory map, the DRC/LVS tool question (Q11).</td></tr>
+
+<tr><td><b>W2</b></td><td><b>Gate 1: identity on the bare grid</b></td>
+<td>A: grid assembly, skew and de-skew banks. D: identity test with weights forced by the testbench
+and activations injected by hand &mdash; no DMA, no APB, no FSM. B: DMA handshake FSM.
+C: sequencer skeleton. E: mini-SoC harness begins.</td></tr>
+
+<tr><td><b>W3</b></td><td>Trial hardening; decouple from Project 1</td>
+<td>B + E: full flow to a DRC run on the grid. A: fix whatever identity found. C: sequencer states
+and tile counters. D: golden-model random testing, 1000 matrix pairs. E: PicoRV32 harness finished.
+Q7&ndash;Q9, Q11, Q12 close this week.</td></tr>
+
+<tr><td><b>W4</b></td><td><b>Gate 2: RTL freeze</b></td>
+<td>A + B + C: top-level integration; identity and saturation passing through the real DMA and APB
+path. D: randomised back-pressure on <code>dma_ready</code> at 30&ndash;70% duty. E: firmware
+skeleton against the harness.<br><b>Anything not working by Friday gets cut, not extended.</b></td></tr>
+
+<tr><td><b>W5</b></td><td>Synthesis and floorplan for real</td>
+<td>B: floorplan, pin placement, PDN. C: real SDC, negotiated input/output delays with Project 1.
+A: placement guides for the array region. D: gate-level netlist simulation. E: firmware and
+co-simulation.</td></tr>
+
+<tr><td><b>W6</b></td><td>Place, CTS, route</td>
+<td>A: routing and congestion. B: placement iteration. C: CTS and first STA. D: gate-level with SDF
+back-annotation. E: MNIST co-simulation.</td></tr>
+
+<tr><td><b>W7</b></td><td><b>Gate 3: timing and physical clean</b></td>
+<td>C: STA closure. E: DRC, LVS, antenna, then <code>.lef</code> and <code>.lib</code> abstract
+generation. A + B: fix whatever DRC and STA throw back. D: final regression on the signed-off
+netlist.</td></tr>
+
+<tr><td><b>W8</b></td><td>Buffer</td>
+<td>Real buffer, not finishing touches. Something in W5&ndash;W7 will overrun and this is where it
+goes. If nothing overruns: handover package to Project 1, and a better report.</td></tr>
+</table></div></div>
+
+<h3>16.4 Where the hours go</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<div class="scroll"><table>
+<tr><th>Phase</th><th class="n">Hours</th><th>Note</th></tr>
+<tr><td>Open questions, coordination</td><td class="n">20</td><td>Front-loaded, mostly W1</td></tr>
+<tr><td>Tool flow setup and learning</td><td class="n">45</td><td>Underestimated by every team, every time</td></tr>
+<tr><td>RTL</td><td class="n">70</td><td>Roughly 2 000 lines of Verilog, unit-tested</td></tr>
+<tr><td>Verification</td><td class="n">80</td><td>Golden model, back-pressure, assertions, coverage</td></tr>
+<tr><td>Trial hardening pass</td><td class="n">30</td><td>Result discarded, scripts kept</td></tr>
+<tr><td>Physical design</td><td class="n">85</td><td>Sequential &mdash; at most three people useful</td></tr>
+<tr><td>Firmware and co-simulation</td><td class="n">40</td><td>Includes the mini-SoC harness</td></tr>
+<tr><td>Report and handover</td><td class="n">15</td><td></td></tr>
+<tr><td><b>Committed</b></td><td class="n"><b>385</b></td><td></td></tr>
+<tr><td><b>Buffer</b></td><td class="n"><b>15</b></td><td>Under 4%</td></tr>
+</table></div>
+<p><b>Four percent buffer on a project with twelve unanswered questions is not a plan, it is a
+hope.</b> The only way to create real slack is to cut scope in week 1, while it is still cheap. See
+16.6.</p></div>
+
+<h3>16.5 The three gates</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<div class="scroll"><table>
+<tr><th>Gate</th><th>When</th><th>Test</th><th>If it fails</th></tr>
+<tr><td>1</td><td>End W2</td><td>Identity passing on the bare grid</td><td>Stop adding features. Everything downstream assumes the timing contract; fix it with three modules to search, not ten</td></tr>
+<tr><td>2</td><td>End W4</td><td>RTL frozen; real critical path from the trial pass</td><td>Cut from the list in 16.6 until it is true. Do not extend the date</td></tr>
+<tr><td>3</td><td>End W7</td><td>STA clean, DRC and LVS clean, abstracts generated</td><td>W8 buffer absorbs it. There is nothing after W8</td></tr>
+</table></div>
+<p>Gate 2 is the one that decides whether you ship. If the PE does not close timing at the target,
+you need the two-stage version from &sect;12.2, which changes the skew depths to 0/2/4/6 and every
+number in &sect;4.3. Discovering that in week 7 means you do not finish.</p></div>
+
+<h3>16.6 What to cut, in order</h3>
+<div class="b decided"><span class="tag">Decided</span>
+<p>Deciding this order now, calmly, is much better than deciding it in week 6 under pressure. Cut
+from the top the moment you are behind.</p>
+<ol>
+<li><b>Tiling beyond 4&times;4</b> (Q2). Worth 60&ndash;80 hours on its own. If the instructor
+confirms it is not required, buffer goes from 4% to roughly 20% and this project becomes
+comfortable. <b>Ask this first.</b></li>
+<li>Weight double-buffering. Costs utilisation, not correctness.</li>
+<li>K-accumulation mode. Keep the mux on row 0's <code>psum_in</code> in the RTL, do not verify the
+mode.</li>
+<li>Packed INT8 output. Ship INT32 only.</li>
+<li>Clock gating and the interrupt.</li>
+</ol>
+<p><b>Never cut:</b> the identity and saturation tests, the de-skew bank, randomised back-pressure
+testing, or DRC/LVS. The first three are correctness and the last is a deliverable.</p></div>
+
+<h3>16.7 The two risks worth naming</h3>
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>Project 1 dependency.</b> MNIST co-simulation needs a working SoC that another team is
+building on the same schedule. That is outside your control and it is your largest schedule risk.</p>
+<p><b>Mitigation, week 3, ~15 hours:</b> build your own mini-SoC testbench. PicoRV32 is open-source
+Verilog; add a behavioural SRAM model and a trivial APB bridge you write yourself. Then your
+co-simulation deliverable depends on nobody. Integrating with the real Project 1 SoC afterwards
+becomes a bonus rather than a blocker.</p></div>
+
+<div class="b derived"><span class="tag">Derived</span>
+<p><b>Sequential back end, three owners.</b> Everything after week 5 is one database and three
+people. Illness, exams or a tool licence problem in that window cannot be parallelised around.</p>
+<p><b>Mitigation:</b> the shoulder-surfing rule in &sect;15.3. Make sure at least two people can
+drive the P&amp;R flow before week 5, even if only one normally does.</p></div>
+</section>
+
+<!-- ============ 17 ============ -->
+<section id="s17">
+<h2><i>17</i>Bug journal</h2>
+
+<p>The section that will be worth more than the theory by month two. Every alignment bug, what it
+looked like in the waveform, and what it turned out to be. Add rows as they happen.</p>
+
+<div class="scroll"><table>
+<tr><th>Date</th><th>Symptom</th><th>Where it looked like it was</th><th>What it actually was</th><th>How we found it</th></tr>
+<tr><td colspan="5" style="color:var(--ink-3);text-align:center;padding:26px">
+No entries yet. The first one will probably be the weight load order (&sect;05 B4)
+or a depth-0 FIFO inferring a register (&sect;05 B6).</td></tr>
+</table></div>
+
+<div class="note"><b>Suggested format</b>
+Symptom first, in the words you would have used at the time &mdash; "output matrix transposed" is
+more searchable six weeks later than "generate loop index error". The point of this table is that
+future-you recognises the symptom before you understand the cause.</div>
+
+<p class="stamp">uNPU Design Notebook &middot; Project 2 &middot; Frankenstein 180 nm IP-Validation SoC<br>
+Provenance markers: Spec / Derived / Decided / Open. Filter at the top of the page.<br>
+Revise decisions in &sect;14, not silently in RTL.</p>
+</section>
+
+</div>
+</main>
+
+<script>
+(function(){
+  var body=document.body, cnt=document.getElementById('cnt');
+  var btns=document.querySelectorAll('.bar button');
+  function counts(){
+    var o=document.querySelectorAll('.b.open').length;
+    var d=document.querySelectorAll('.b.decided').length;
+    cnt.textContent=o+' open \u00b7 '+d+' decided';
+  }
+  btns.forEach(function(b){
+    b.addEventListener('click',function(){
+      btns.forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      var v=b.getAttribute('data-set');
+      if(v){body.setAttribute('data-f',v);}else{body.removeAttribute('data-f');}
+    });
+  });
+  var links=[].slice.call(document.querySelectorAll('nav a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'))});
+  function spy(){
+    var y=window.scrollY+140, cur=0;
+    secs.forEach(function(s,i){if(s&&s.offsetTop<=y)cur=i});
+    links.forEach(function(a,i){a.classList.toggle('on',i===cur)});
+  }
+  window.addEventListener('scroll',spy,{passive:true});
+  spy(); counts();
+})();
+</script>
+</body>
+</html>
