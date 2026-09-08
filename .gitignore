@@ -1,0 +1,4 @@
+# Compiled golden-model binary and its generated vector files (model/golden.c
+# writes these at run time; see docs/planning/tasks/002-golden-model.md).
+model/golden
+model/vectors/
