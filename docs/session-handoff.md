@@ -151,3 +151,18 @@ interface spend three weeks before they can multiply two numbers.
    max negative, zero weight, weight-load-while-computing).
 3. Stand up the Genus flow on a trivial design — this is a full week of work and
    is the most commonly deferred, most commonly fatal task on the schedule.
+
+## 11. Standing rule — commit and push per completed task
+
+**Every completed task gets its own commit and push, immediately.** Do not
+batch several tasks into one commit.
+
+**Why:** a lost or wiped machine only loses uncommitted work. Commit-per-task
+minimizes that window to at most one in-progress task, instead of however many
+happened to accumulate before the next push. Not hypothetical — we already
+recovered from exactly this scenario once, and the batched commit (tasks
+001-003 together) was the one thing that could have gone wrong, even though it
+didn't that time.
+
+**Applies to:** Execution, since Execution is the session that writes code and
+lands tasks. Read this before your first commit.

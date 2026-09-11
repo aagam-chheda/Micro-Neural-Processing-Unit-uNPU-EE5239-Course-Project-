@@ -210,14 +210,23 @@ an acceptable risk, not a blocked freeze.
    3-level packed array — identity-weight preload is unrolled explicitly in
    the testbench rather than looped; worth rechecking if this ever moves to
    Xcelium, since that restriction may not apply there.
-5. **Task written, not yet executed.** `docs/planning/tasks/004-skew-deskew.md`
-   — extends `model/golden.c` with a new non-identity, non-permutation
-   `cross_terms` case (needed because `all_ones` is symmetric and wouldn't
-   catch a row/column wiring swap), then `rtl/unpu_skew.sv` +
-   `rtl/unpu_deskew.sv` + `tb/unpu_skew_tb.sv` chaining skew → grid → de-skew
-   and checking the full timing contract end to end (`m+7` row-valid). Hand
-   to Execution.
-3, 5–16: not started.
+6. **Done.** `docs/planning/tasks/004-skew-deskew.md`, committed `b141d41`.
+   `model/golden.c` extended with `cross_terms` case, matches hand-computed
+   table exactly. `rtl/unpu_skew.sv` + `rtl/unpu_deskew.sv` (explicit
+   unrolled register chains, not generate loops — depth-0 paths on row 0 /
+   col 3 are plain wires, matching the known trap). `tb/unpu_skew_tb.sv`
+   chains skew → grid → de-skew; all 16 `C[m][j]` values match at exactly
+   cycle `m+7`. Regression: `unpu_pe_tb` and `unpu_grid_tb` still pass
+   (20/20, 64/64). `unpu_pe.sv`/`unpu_grid.sv` confirmed untouched.
+   Verified independently (commit stat + file diff).
+   Two notes from Execution, neither blocking: (1) fixed two pre-existing
+   MinGW portability breaks in `golden.c` unrelated to this task (`mode_t`
+   collision with `sys/stat.h`, two-arg `mkdir`) — needed for the "compiles
+   clean" acceptance criterion; (2) task doc's "nine files total" (Part A
+   acceptance) is now stale — `random_signed`/`random_unsigned` cases from
+   task 002 mean it's actually 15 files across 5 cases. Cosmetic, no
+   action needed.
+3, 5, 8–16: not started.
 
 ## Blocks RTL freeze
 
