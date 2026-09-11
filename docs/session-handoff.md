@@ -46,9 +46,11 @@ We deliver validated RTL plus a DRC/LVS-clean macro as `.lef`, `.lib`, `.gds`.
 | 4 | Clock frequency? | **~50 MHz.** Confirmed adequate; we do not need more. |
 | 5 | Read/write encoding on DMA port? | Deferred to us. **We proposed** `wstrb == 0` means read. |
 | 6 | When is `dma_rdata` valid? | Deferred to us. **We proposed** same cycle as `valid & ready`. |
-| 7 | Native or AHB data plane? | PM said **AHB**. We pushed back — see §5. **Still open.** |
+| 7 | Native or AHB data plane? | **Native**, confirmed for both: DMA↔SRAM master port *and* CPU↔NPU register port. APB is out. Resolved — see §5. |
 | 8 | Worst-case arbiter grant latency? | No number. We co-design the arbiter with the SoC team; NPU has higher priority. |
 | 9 | How does BIST reach us? | PM suggested over the bus. We agreed; no extra wrapper or test port needed. |
+| 10 | Scan pins for tester access? | **None.** No scan chain, no `scan_en`/`scan_in`/`scan_out`. Not in scope for this project. |
+| 11 | Is the `unpu_top` port list frozen? | **Negotiable**, not frozen — supersedes the "frozen" framing used everywhere below and in CLAUDE.md/execution.md (see §12). |
 
 ### Why we chose signed (Q2)
 
@@ -61,7 +63,15 @@ totalling 4. That would pass on a 4-bit accumulator. The test only proves what
 it is meant to prove in unsigned mode. Hence the mode bit, and we run the test
 both ways.
 
-## 5. The one blocking issue — Q7, AHB vs native
+## 5. Q7, AHB vs native — RESOLVED (native)
+
+The PM confirmed **native** for both interfaces: the DMA↔SRAM master port and
+the CPU↔NPU register port. APB is no longer part of the design. This
+validates the argument below (kept for the record) and means `unpu_apb.sv`,
+wherever it was going to live, becomes a native-protocol slave FSM instead —
+a redesign, not a rename. See §12 for the full knock-on effect on the plan.
+
+### Original argument (superseded by the answer above, kept for context)
 
 The port list in the brief is labelled "Native Master Interface to SRAM" and
 consists of `dma_addr`, `dma_wdata`, `dma_rdata`, `dma_wstrb`, `dma_valid`,
@@ -98,34 +108,51 @@ proceed.
 | Build the 4-state DMA FSM first, optimise later | Collapsed version is much harder to debug while the arbiter is also under test. |
 | Single-stage PE at 50 MHz | Two-stage requires a matching register on the activation path, doubles latency 7→14, and changes every timing number. |
 | RTL in SystemVerilog, synthesisable subset only | Brief says Verilog; PM confirmed SV is acceptable. Constrained to the synthesisable subset so the Genus→IC Compiler handoff stays clean. |
+| Matmul shape is A[M×K] × B[K×N] = C[M×N] | PM-specified. All of A, B signed int8; C is int32, **no requantization in hardware** — firmware's job, consistent with the existing "no hardware requantiser" decision above. |
+| M, N, K each ≤ 4 at runtime, never > 4 | PM-confirmed. No tiling needed — the array's fixed 4×4 geometry covers every case. Sub-4 K/N falls out almost for free: zero-load unused weight rows/columns (`weight_reg` already resets to 0) and only write back the real N columns; no change to the timing contract or skew/de-skew depths. |
+| CSR is 8 registers: `src_A`, `src_B`, `dest_C`, `dim_M`, `dim_N`, `dim_K`, `npu_ctrl`, `npu_status` | PM-directed. Supersedes the old 5-fixed-plus-2-optional register map. Register window extends past 0x18 — PM confirmed that's fine. Offset assignment (0x00–0x1C sequential) is Planning's proposal, not yet PM-confirmed — see the architecture snapshot in `docs/planning/unpu-architecture.html`. |
+| No scan chain, no scan pins | PM-confirmed — not in scope for this project. Step 15 (scan chain insertion) is removed from the plan entirely. |
 
 ## 7. Still open
 
-1. **Q7 AHB vs native** — blocking the DMA master.
-2. Tools for DRC, LVS, formal equivalence, IR drop.
-3. Who owns the arbiter RTL, us or the SoC team.
-4. MNIST network shape. A 784→64 first layer needs 49 KB of INT8 weights; the
+All four questions that were blocking RTL work (native vs. AHB, extra CSRs,
+scan pins, port-list-frozen) are now answered — see §4 and §12. What's left:
+
+1. Tools for DRC, LVS, formal equivalence, IR drop.
+2. Who owns the arbiter RTL, us or the SoC team.
+3. MNIST network shape. A 784→64 first layer needs 49 KB of INT8 weights; the
    whole SoC has 32 KB. The reference network does not fit. Options: shrink to
    784→16 (12.5 KB, still ~92%), downsample the input to 14×14, or stream
    weights over SPI.
-5. CNN or MLP for the signoff test — the block diagram says CNN, the brief text
+4. CNN or MLP for the signoff test — the block diagram says CNN, the brief text
    says only "quantized MNIST digit".
-6. Scan pins (`scan_en`, `scan_in`, `scan_out`) — not in the port list, not
-   mentioned in the brief, but needed for tester access. Must close before
-   floorplan.
-7. SRAM memory layout — deliberately unfilled until the network size is decided.
+5. SRAM memory layout — deliberately unfilled until the network size is decided.
+6. **A final project document is coming from the PM** — per the user, hold off
+   on any new design/planning work until it arrives; it may supersede some of
+   §12 below. Finishing already-pending documentation/bookkeeping (this
+   update) is fine; drafting new tasks is not, until that document lands.
 
 ## 8. Known errata in the notebook
 
-The notebook was written before the PM's answers arrived. It has not yet been
-reconciled. Specifically:
+The notebook was written before the PM's answers arrived and **still has not
+been reconciled** — checked again as of §12's update, still stale. It is now
+considerably further out of date than originally scoped:
 
-- §13 still lists 12 open questions; most are now answered (see §4 above).
-- §16's hour budget and cut list assume tiling might be required. It is not, so
-  the schedule buffer is roughly 20% rather than 4%.
+- §13 still lists ~12 open questions; nearly all are now answered (§4).
+- §16's hour budget and cut list assume tiling might be required. It is not.
 - §12.2's pipelining discussion is now moot at 50 MHz.
+- The entire control-plane discussion (§B1, the pinout tables, `MATRIX_CFG`,
+  the two-phase APB FSM description — 43 APB/CSR/register references total)
+  describes a design that no longer exists: control is native, not APB, and
+  the register map is the 8-register `src_A`/`src_B`/`dest_C`/`dim_M`/`dim_N`/
+  `dim_K`/`npu_ctrl`/`npu_status` list in §12 below, not `MATRIX_CFG`.
 
-**Reconciling the notebook against this file is a good first Planning task.**
+**Deliberately not reconciling it right now.** This is a full-section rewrite,
+not a documentation-sync edit, and the user is waiting on a final project
+document from the PM that may change things further — reconciling now risks
+doing it twice. Treat `docs/unpu-notebook.html` as unreliable for anything
+touched by §4, §7, or §12 of this file until that document lands and the
+notebook gets a proper pass.
 
 ## 9. Plan shape
 
@@ -166,3 +193,36 @@ didn't that time.
 
 **Applies to:** Execution, since Execution is the session that writes code and
 lands tasks. Read this before your first commit.
+
+## 12. PM Q&A round 2 — architecture snapshot
+
+Answers received directly from the user, sourced from a PM conversation.
+Full detail in §4 (updated), §6 (decisions table, updated), §7 (still-open
+list, updated). This section is the consolidated summary.
+
+**Resolved:**
+- Q7 — native interface, both DMA↔SRAM and CPU↔NPU. APB is out (§5).
+- Extra CSRs — 8 registers, PM-directed list, window extends past 0x18 (§6).
+- Scan pins — none. No scan chain in scope (§6). Step 15 removed from the plan.
+- Port list — **negotiable**, not frozen. This contradicts CLAUDE.md's current
+  hard constraint ("the `unpu_top` port list is frozen... requires instructor
+  approval") and `docs/roles/execution.md`'s "do not add ports" line. Both are
+  stale and outside Planning's write scope (`docs/planning/`,
+  `session-handoff.md` only) — flagged to the user, and to Execution
+  separately, for a fix in the files Execution can write.
+- Matmul shape: A[M×K] × B[K×N] = C[M×N], signed int8 in, int32 out, no
+  requantization in hardware. M, N, K each ≤ 4 at runtime (§6).
+
+**A full architecture snapshot** (SoC context diagram, uNPU block diagram,
+proposed CSR table, build-status-against-plan) was published as an artifact
+and a static copy checked into the repo at
+`docs/planning/unpu-architecture.html` for the record. Two assumptions in it
+are flagged as unconfirmed, not PM fact: the CPU→uNPU register path bypassing
+the SRAM arbiter entirely (inferred from the address ranges), and the
+sequential 0x00–0x1C CSR offset assignment (Planning's proposal).
+
+**Status as of this update:** the user is waiting on a final project document
+from the PM. Per their instruction, no new design or planning work — task
+drafting included — until it arrives. This section, and the rest of this
+update pass, is closing out documentation that was already pending, not new
+work.
