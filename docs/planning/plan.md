@@ -51,6 +51,19 @@ verification-methodology requirement below before writing any of them.
 
 ---
 
+## Open questions — pending PM answer
+
+Not blocking any step below; tracked here so they don't get lost before
+freeze.
+
+5. **Does the `0x4000_0000`–`0x4000_0FFF` address window still apply
+   unchanged now that the control interface is native rather than
+   APB-bridged, or does removing APB change how the window is decoded at
+   the top level?** Raised 2026-09-14. Logged as open — no answer inferred
+   from anything already on record.
+
+---
+
 ## Verification methodology — constrained random, starting now
 
 **User's directive:** every module gets extensively tested from here on,
