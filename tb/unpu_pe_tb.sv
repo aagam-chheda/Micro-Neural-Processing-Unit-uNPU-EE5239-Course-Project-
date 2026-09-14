@@ -1,4 +1,18 @@
-// Directed unit test for unpu_pe. Self-checking, 20 vectors.
+// Directed unit test for unpu_pe. Self-checking, 20 vectors, plus (task
+// 013, verification-debt retrofit) an exhaustive 256x256 signed and
+// 256x256 unsigned operand sweep, a randomized accumulator sweep, and
+// randomized weight-load timing -- the full operand space is small
+// enough to cover completely, so exhaustive coverage is used there
+// instead of calling a random subset of it "CRV"; randomization is
+// reserved for the one part of this module with a genuinely large space
+// (weight-load timing relative to ongoing accumulation).
+//
+// Task 013's later additions were simulated with Verilator
+// (--binary --timing) -- iverilog is not installed in this environment
+// (no root to apt-get install it); the "Simulated with Icarus Verilog"
+// line below is stale for this environment (flagged in task 006's
+// commit already) but left as written since fixing it is outside this
+// task's scope (testbench additions only, not a documentation pass).
 // Simulated with Icarus Verilog (iverilog/vvp) -- Xcelium not available in
 // this environment. No SystemVerilog constructs used beyond what iverilog
 // supports (logic, always_ff/comb, $signed/$unsigned, size casts).
@@ -70,6 +84,50 @@ module unpu_pe_tb;
     step();
     weight_load = 0;
   endtask
+
+  // ---- Task 013 Part A: independent expected-value derivation. Sign
+  // extension here is done by arithmetic (subtract 256 if the top bit is
+  // set), deliberately NOT via SystemVerilog's $signed() cast -- using
+  // $signed()/$unsigned() here would just mirror unpu_pe.sv's own
+  // combinational logic back at itself, proving the RTL agrees with a
+  // copy of itself rather than with an independently-derived value from
+  // CLAUDE.md's INT8/32-bit-accumulator description. ----
+  function automatic int signed to_signed8(input logic [7:0] v);
+    if (v[7])
+      return int'(v) - 256;
+    else
+      return int'(v);
+  endfunction
+
+  function automatic logic [31:0] expected_mac(input logic [7:0] w, input logic [7:0] a,
+                                                input logic [31:0] psum, input bit mode_uns);
+    int unsigned uw, ua, uprod;
+    int signed   sw, sa, sprod;
+    begin
+      if (mode_uns) begin
+        uw = {24'd0, w};
+        ua = {24'd0, a};
+        uprod = uw * ua;
+        expected_mac = psum + uprod;
+      end else begin
+        sw = to_signed8(w);
+        sa = to_signed8(a);
+        sprod = sw * sa;
+        expected_mac = psum + sprod;
+      end
+    end
+  endfunction
+
+  function automatic logic [31:0] xorshift32(input logic [31:0] x);
+    logic [31:0] y;
+    begin
+      y = x;
+      y = y ^ (y << 13);
+      y = y ^ (y >> 17);
+      y = y ^ (y << 5);
+      xorshift32 = y;
+    end
+  endfunction
 
   initial begin
     errors        = 0;
@@ -337,6 +395,176 @@ module unpu_pe_tb;
       $display("ALL 20 VECTORS PASSED");
     else
       $display("%0d FAILURE(S) OUT OF 20 VECTORS", errors);
+    $display("----------------------------------------");
+
+    // ==== Task 013 Part A: exhaustive operand sweep. psum_in held at 0
+    // throughout -- varying it too would needlessly triple an already-
+    // large (131,072-combination) space; that's what the accumulator
+    // sweep below is for. ====
+    begin : exhaustive_sweep
+      int w, a;
+      int sweep_checks, sweep_errors;
+      logic [31:0] exp_val;
+
+      mode_unsigned = 1'b0;
+      sweep_checks = 0;
+      sweep_errors = 0;
+      for (w = 0; w < 256; w = w + 1) begin
+        load_weight(w[7:0]);
+        for (a = 0; a < 256; a = a + 1) begin
+          act_in  = a[7:0];
+          psum_in = 32'd0;
+          step();
+          exp_val = expected_mac(w[7:0], a[7:0], 32'd0, 1'b0);
+          sweep_checks = sweep_checks + 1;
+          if (psum_out !== exp_val) begin
+            sweep_errors = sweep_errors + 1;
+            errors = errors + 1;
+            $display("FAIL exhaustive-signed: w=%0d a=%0d got=%0d expected=%0d", w, a, psum_out, exp_val);
+          end
+        end
+      end
+      $display("exhaustive signed sweep: %0d checks, %0d failures (256x256)", sweep_checks, sweep_errors);
+
+      mode_unsigned = 1'b1;
+      sweep_checks = 0;
+      sweep_errors = 0;
+      for (w = 0; w < 256; w = w + 1) begin
+        load_weight(w[7:0]);
+        for (a = 0; a < 256; a = a + 1) begin
+          act_in  = a[7:0];
+          psum_in = 32'd0;
+          step();
+          exp_val = expected_mac(w[7:0], a[7:0], 32'd0, 1'b1);
+          sweep_checks = sweep_checks + 1;
+          if (psum_out !== exp_val) begin
+            sweep_errors = sweep_errors + 1;
+            errors = errors + 1;
+            $display("FAIL exhaustive-unsigned: w=%0d a=%0d got=%0d expected=%0d", w, a, psum_out, exp_val);
+          end
+        end
+      end
+      $display("exhaustive unsigned sweep: %0d checks, %0d failures (256x256)", sweep_checks, sweep_errors);
+      mode_unsigned = 1'b0;
+    end
+
+    // ==== Task 013 Part A: accumulator sweep -- randomized psum_in
+    // across its full 32-bit range, covering the addition path with
+    // non-trivial carry-in (>=200 iterations required; 256 used). ====
+    begin : accum_sweep
+      logic [31:0] rng;
+      int idx;
+      logic [7:0]  aw, aa;
+      logic [31:0] apsum, exp_val;
+      bit          amode;
+      int accum_checks, accum_errors;
+
+      rng = 32'h5eed000d;
+      $display("PE accumulator-sweep seed = 32'h%08h", rng);
+      accum_checks = 0;
+      accum_errors = 0;
+
+      for (idx = 0; idx < 256; idx = idx + 1) begin
+        rng = xorshift32(rng); aw    = rng[7:0];
+        rng = xorshift32(rng); aa    = rng[7:0];
+        rng = xorshift32(rng); apsum = rng;
+        rng = xorshift32(rng); amode = rng[0];
+
+        mode_unsigned = amode;
+        load_weight(aw);
+        act_in  = aa;
+        psum_in = apsum;
+        step();
+        exp_val = expected_mac(aw, aa, apsum, amode);
+        accum_checks = accum_checks + 1;
+        if (psum_out !== exp_val) begin
+          accum_errors = accum_errors + 1;
+          errors = errors + 1;
+          $display("FAIL accum-sweep[%0d]: w=%0d a=%0d psum_in=%0d mode_uns=%0b got=%0d expected=%0d",
+                    idx, aw, aa, apsum, amode, psum_out, exp_val);
+        end
+      end
+      $display("PE accumulator sweep: %0d checks, %0d failures", accum_checks, accum_errors);
+      mode_unsigned = 1'b0;
+    end
+
+    // ==== Task 013 Part A: randomized weight-load timing -- extends the
+    // directed "weight-load-while-computing" case (vector 4 above) with
+    // a random cycle offset for when a fresh weight_load pulse lands
+    // relative to an ongoing sequence of accumulate cycles. Confirms the
+    // same-cycle-non-effect property holds under random placement, not
+    // just the one fixed placement vector 4 covers (>=50 iterations
+    // required; 50 used). ====
+    begin : rand_weight_timing
+      logic [31:0] rng;
+      int iter, s, total_len, pulse_pos;
+      logic [7:0]  w_old, w_new, act_val;
+      bit          tmode;
+      logic [31:0] psum_acc, exp_val;
+      logic [7:0]  eff_w;
+      int timing_checks, timing_errors;
+
+      rng = 32'h5eed000e;
+      $display("PE weight-load-timing seed = 32'h%08h", rng);
+      timing_checks = 0;
+      timing_errors = 0;
+
+      for (iter = 0; iter < 50; iter = iter + 1) begin
+        rng = xorshift32(rng); total_len = 3 + (rng % 5);  // 3..7 cycles
+        rng = xorshift32(rng); pulse_pos = rng % total_len; // 0..total_len-1
+        rng = xorshift32(rng); w_old = rng[7:0];
+        rng = xorshift32(rng); w_new = rng[7:0];
+        rng = xorshift32(rng); tmode = rng[0];
+
+        mode_unsigned = tmode;
+        load_weight(w_old);
+        psum_acc = 32'd0;
+
+        for (s = 0; s < total_len; s = s + 1) begin
+          rng = xorshift32(rng);
+          act_val = rng[7:0];
+          // Guard against a drawn act_val of exactly 0 on the pulse
+          // cycle: old_weight*0 == new_weight*0 == 0, which would make
+          // this specific check unable to distinguish "correctly used
+          // old weight" from "incorrectly used new weight" -- force a
+          // nonzero activation only on that one cycle so the property
+          // is always actually exercised, not accidentally masked.
+          if (s == pulse_pos && act_val == 8'h00)
+            act_val = 8'h01;
+
+          if (s == pulse_pos) begin
+            weight_load = 1;
+            weight_in   = w_new;
+          end
+
+          eff_w   = (s <= pulse_pos) ? w_old : w_new; // same-cycle load doesn't affect this cycle's product
+          act_in  = act_val;
+          psum_in = psum_acc;
+          exp_val = expected_mac(eff_w, act_val, psum_acc, tmode);
+          step();
+
+          timing_checks = timing_checks + 1;
+          if (psum_out !== exp_val) begin
+            timing_errors = timing_errors + 1;
+            errors = errors + 1;
+            $display("FAIL weight-timing[iter=%0d,s=%0d,pulse_pos=%0d]: eff_w=%0d act=%0d psum_in=%0d got=%0d expected=%0d",
+                      iter, s, pulse_pos, eff_w, act_val, psum_acc, psum_out, exp_val);
+          end
+          psum_acc = exp_val; // chain forward from our own tracked value, not the DUT's, so one mismatch doesn't cascade
+
+          if (s == pulse_pos)
+            weight_load = 0;
+        end
+      end
+      $display("PE randomized weight-load timing: 50 iterations, %0d cycle-checks, %0d failures", timing_checks, timing_errors);
+      mode_unsigned = 1'b0;
+    end
+
+    $display("----------------------------------------");
+    if (errors == 0)
+      $display("ALL TASK 013 PART A CHECKS PASSED (20 directed vectors + exhaustive operand sweep + accumulator sweep + randomized weight-load timing)");
+    else
+      $display("%0d TOTAL FAILURE(S) ACROSS ALL PE CHECKS", errors);
     $display("----------------------------------------");
 
     $finish;

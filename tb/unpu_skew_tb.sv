@@ -18,6 +18,12 @@
 //
 // Simulated with Icarus Verilog (iverilog/vvp) -- Xcelium not available in
 // this environment, same as unpu_pe_tb.sv/unpu_grid_tb.sv.
+//
+// Task 013 (verification-debt retrofit) added the 64-case crv_* sweep
+// below, closing plan.md's "one directed non-identity case... no
+// randomized matrices or randomized M" gap; simulated with Verilator for
+// that addition -- see tb/unpu_pe_tb.sv's header for why the Icarus line
+// above is stale.
 `timescale 1ns/1ps
 
 module unpu_skew_tb;
@@ -206,12 +212,29 @@ module unpu_skew_tb;
 
     run_case("cross_terms");
 
+    // ==== Task 013 Part C: verification-debt retrofit -- all 64 crv_*
+    // cases from task 006 Part A, through the full skew -> grid ->
+    // de-skew chain this file already builds. run_case() above already
+    // reads each case's real M from its own _meta.txt and derives
+    // cyc_max/the checked m-range from it (not hardcoded to 4), so it
+    // generalizes correctly to whatever M each crv_* case reports. This
+    // closes plan.md's "one directed non-identity case... no randomized
+    // matrices or randomized M" verification-debt note. ====
+    begin : crv_sweep
+      int ci;
+      string crv_name;
+      for (ci = 0; ci < 64; ci = ci + 1) begin
+        crv_name = $sformatf("crv_%04d", ci);
+        run_case(crv_name);
+      end
+    end
+
     $display("----------------------------------------");
     $display("checked %0d values total", checks);
-    if (errors == 0 && checks == 16)
+    if (errors == 0)
       $display("ALL CHECKS PASSED");
     else
-      $display("%0d FAILURE(S) (checks=%0d, expected 16)", errors, checks);
+      $display("%0d FAILURE(S) (checks=%0d)", errors, checks);
     $display("----------------------------------------");
 
     $finish;
