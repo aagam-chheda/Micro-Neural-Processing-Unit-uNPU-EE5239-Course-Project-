@@ -1,59 +1,87 @@
-// End-to-end sequencer test for unpu_seq, driving the real
-// skew -> grid -> de-skew datapath (same chaining style as
-// tb/unpu_skew_tb.sv / tb/unpu_stall_tb.sv) through a full
-// weight-load -> input-load -> compute -> readback -> writeback pass, for
-// any legal M/N/K each 1-4 (task 006).
+// Full-stack integration test for the revised unpu_seq (task 011):
+// unpu_seq + unpu_dma + unpu_wbuf + unpu_actbuf + unpu_skew + unpu_grid +
+// unpu_deskew + a behavioral SRAM model (same design as task 008's,
+// including randomized per-beat back-pressure). The new FSM states only
+// mean something wired to what they orchestrate, so this is
+// deliberately a bigger lift than task 006's original testbench -- the
+// point of this task is proving the orchestration works end to end
+// (DMA fetch -> buffer swap -> compute -> DMA writeback), not
+// re-proving the compute core (already proven in tasks 003-006).
+//
+// unpu_seq is driven directly with start/dim_*/mode_unsigned/src_a/
+// src_b/dest_c -- no CSR/native-slave yet (that's task 012/step 14).
 //
 // Test vectors come from the golden model (model/golden.c, task 006 Part
-// A): model/vectors/<case>_{a,w,c}.hex + <case>_meta.txt. Run
-// `model/golden` from the repo root before this testbench to (re)generate
-// them -- this tb does not regenerate them itself.
+// A) -- no new golden-model work for this task.
 //
-// For the directed cases (cross_terms/seq_m1/seq_k1/seq_n1/seq_mixed),
-// dim_m/dim_n/dim_k/mode_unsigned are driven from explicit,
-// test-writer-supplied values, not parsed back out of each case's
-// _meta.txt -- the shape of each directed case is already known by name.
-// The CRV batch (crv_0000..crv_0063) is the one place this tb parses
-// _meta.txt directly, since 64 cases' shapes are golden.c's own random
-// draws, not something this file can know in advance.
+// Loop-structure note (task 008's lesson, carried forward): every "wait
+// for done" loop is a bounded `for` with an explicit cap, and takes one
+// extra settle cycle after observing `done` before the caller may issue
+// the next `start` -- DONE only transitions to IDLE the cycle AFTER
+// done=1 is observed, and start is sampled only in IDLE/ERROR, so
+// issuing it one cycle early (still in DONE) would be silently dropped,
+// looking exactly like a hang. This is the same bug class task 008 hit
+// with unpu_dma's D_FIN -> D_IDLE settle.
 //
-// Simulated with Verilator (--binary --timing) -- iverilog is not
-// installed in this environment (no root to apt-get install it); prior
-// testbench headers in this repo claim Icarus, which is stale/inaccurate
-// for this environment as of this task. Flagged to Planning separately.
+// Simulated with Verilator (--binary --timing), consistent with tasks
+// 006-010 -- see docs/planning/plan.md's "Tooling note" for the still-
+// open, non-blocking decision on standardizing across the project.
 `timescale 1ns/1ps
 
 module unpu_seq_tb;
 
-  logic clk;
-  logic rst_n;
+  logic clk, rst_n;
 
+  // ---- unpu_seq ----
   logic                  start;
   logic [2:0]            dim_m, dim_n, dim_k;
   logic                  mode_unsigned;
-  logic [3:0][3:0][7:0]  a_src;
-  logic [3:0][3:0][7:0]  w_src;
+  logic [31:0]           src_a, src_b, dest_c;
   logic [3:0][3:0][31:0] c_dst;
   logic                  done, busy, error;
   logic [2:0]            error_code;
-
   logic                  array_en;
   logic                  mode_unsigned_o;
-  logic [3:0][3:0]       weight_load;
-  logic [3:0][3:0][7:0]  weight_in;
-  logic [3:0][7:0]       a_raw;
+  logic                  job_start;
+  logic [1:0]            job_kind;
+  logic [31:0]           job_base_addr;
+  logic [2:0]            job_m, job_n, job_k;
+  logic                  job_done;
+  logic                  w_swap, a_swap;
+  logic [1:0]            rd_row;
   logic [3:0][31:0]      c_in;
 
-  // Datapath chain, wired the same way as tb/unpu_skew_tb.sv /
-  // tb/unpu_stall_tb.sv: unpu_skew -> unpu_grid -> unpu_deskew.
+  // ---- unpu_dma ----
+  logic [31:0] dma_addr, dma_wdata, dma_rdata;
+  logic [3:0]  dma_wstrb;
+  logic        dma_valid, dma_ready;
+  logic        job_busy; // unused by unpu_seq, just needs a net
+  logic                 a_load_start;
+  logic [2:0]           a_load_m, a_load_k;
+  logic [3:0][7:0]      a_load_row;
+  logic                 w_load_start;
+  logic [2:0]           w_load_k, w_load_n;
+  logic [3:0][7:0]      w_load_row;
+
+  // ---- unpu_wbuf / unpu_actbuf extra ----
+  logic                  a_load_busy, a_load_done, w_load_busy, w_load_done;
+  logic [3:0][7:0]       a_rd_data;
+  logic [3:0][3:0]       w_weight_load;
+  logic [3:0][3:0][7:0]  w_weight_in;
+
+  // ---- datapath chain ----
   logic [3:0][7:0]  skew_act_out;
-  logic [3:0][31:0] grid_psum_in;   // north edge, tied 0 for the whole run -- no accumulation across passes
-  logic [3:0][7:0]  grid_act_out;   // east edge, unused
+  logic [3:0][31:0] grid_psum_in;
+  logic [3:0][7:0]  grid_act_out;
   logic [3:0][31:0] grid_psum_out;
   logic [3:0][31:0] deskew_c_out;
 
   assign grid_psum_in = '0;
   assign c_in          = deskew_c_out;
+
+  localparam logic [1:0] JOB_FETCH_A = 2'd0;
+  localparam logic [1:0] JOB_FETCH_W = 2'd1;
+  localparam logic [1:0] JOB_WRITE_C = 2'd2;
 
   unpu_seq u_seq (
     .clk             (clk),
@@ -63,8 +91,9 @@ module unpu_seq_tb;
     .dim_n           (dim_n),
     .dim_k           (dim_k),
     .mode_unsigned   (mode_unsigned),
-    .a_src           (a_src),
-    .w_src           (w_src),
+    .src_a           (src_a),
+    .src_b           (src_b),
+    .dest_c          (dest_c),
     .c_dst           (c_dst),
     .done            (done),
     .busy            (busy),
@@ -72,17 +101,82 @@ module unpu_seq_tb;
     .error_code      (error_code),
     .array_en        (array_en),
     .mode_unsigned_o (mode_unsigned_o),
-    .weight_load     (weight_load),
-    .weight_in       (weight_in),
-    .a_raw           (a_raw),
+    .job_start       (job_start),
+    .job_kind        (job_kind),
+    .job_base_addr   (job_base_addr),
+    .job_m           (job_m),
+    .job_n           (job_n),
+    .job_k           (job_k),
+    .job_done        (job_done),
+    .w_swap          (w_swap),
+    .a_swap          (a_swap),
+    .rd_row          (rd_row),
     .c_in            (c_in)
+  );
+
+  unpu_dma u_dma (
+    .clk           (clk),
+    .rst_n         (rst_n),
+    .dma_addr      (dma_addr),
+    .dma_wdata     (dma_wdata),
+    .dma_rdata     (dma_rdata),
+    .dma_wstrb     (dma_wstrb),
+    .dma_valid     (dma_valid),
+    .dma_ready     (dma_ready),
+    .job_start     (job_start),
+    .job_kind      (job_kind),
+    .job_base_addr (job_base_addr),
+    .job_m         (job_m),
+    .job_n         (job_n),
+    .job_k         (job_k),
+    .job_busy      (job_busy),
+    .job_done      (job_done),
+    .a_load_start  (a_load_start),
+    .a_load_m      (a_load_m),
+    .a_load_k      (a_load_k),
+    .a_load_row    (a_load_row),
+    .w_load_start  (w_load_start),
+    .w_load_k      (w_load_k),
+    .w_load_n      (w_load_n),
+    .w_load_row    (w_load_row),
+    .c_src         (c_dst)
+  );
+
+  unpu_actbuf u_actbuf (
+    .clk        (clk),
+    .rst_n      (rst_n),
+    .array_en   (array_en),
+    .load_start (a_load_start),
+    .load_m     (a_load_m),
+    .load_k     (a_load_k),
+    .load_row   (a_load_row),
+    .load_busy  (a_load_busy),
+    .load_done  (a_load_done),
+    .swap       (a_swap),
+    .rd_row     (rd_row),
+    .rd_data    (a_rd_data)
+  );
+
+  unpu_wbuf u_wbuf (
+    .clk         (clk),
+    .rst_n       (rst_n),
+    .array_en    (array_en),
+    .load_start  (w_load_start),
+    .load_k      (w_load_k),
+    .load_n      (w_load_n),
+    .load_row    (w_load_row),
+    .load_busy   (w_load_busy),
+    .load_done   (w_load_done),
+    .swap        (w_swap),
+    .weight_load (w_weight_load),
+    .weight_in   (w_weight_in)
   );
 
   unpu_skew u_skew (
     .clk      (clk),
     .rst_n    (rst_n),
     .array_en (array_en),
-    .a_raw    (a_raw),
+    .a_raw    (a_rd_data),
     .act_out  (skew_act_out)
   );
 
@@ -91,8 +185,8 @@ module unpu_seq_tb;
     .rst_n         (rst_n),
     .array_en      (array_en),
     .mode_unsigned (mode_unsigned_o),
-    .weight_load   (weight_load),
-    .weight_in     (weight_in),
+    .weight_load   (w_weight_load),
+    .weight_in     (w_weight_in),
     .act_in        (skew_act_out),
     .psum_in       (grid_psum_in),
     .act_out       (grid_act_out),
@@ -112,29 +206,63 @@ module unpu_seq_tb;
 
   task automatic step;
     @(posedge clk);
-    #1; // allow NBAs to settle before checking
+    #1;
   endtask
 
-  int errors;
-  int checks;
+  // ---- Behavioral SRAM model, same design as task 008's: word-
+  // addressable, combinational read, randomized 0-5 cycle per-beat
+  // back-pressure via a same-cycle-lookahead draw (unpu_wbuf's
+  // effective_sel idiom, task 007) so a delay of 0 can still grant on
+  // the very first cycle a request appears. ----
+  localparam int MEM_WORDS = 65536;
+  logic [31:0] mem [0:MEM_WORDS-1];
+  assign dma_rdata = mem[dma_addr[17:2]]; // 16-bit word index, covers MEM_WORDS=65536
 
-  // Case storage: always 4x4 for A/W (task 006 Part A's fixed 16-byte
-  // format), C sized 4x4 too (unused rows/cols beyond the true M/N are
-  // simply never read).
-  logic [7:0]  A_case [0:3][0:3];
-  logic [7:0]  W_case [0:3][0:3];
-  logic [31:0] C_case [0:3][0:3];
+  always_ff @(posedge clk) begin
+    if (dma_valid && dma_ready && dma_wstrb == 4'hF)
+      mem[dma_addr[17:2]] <= dma_wdata;
+  end
+
+  logic [31:0] bp_rng;
+  logic [2:0]  bp_delay_reg;
+  logic        bp_have_delay;
+  logic [2:0]  bp_delay_eff;
+
+  function automatic logic [31:0] xorshift32(logic [31:0] x);
+    x = x ^ (x << 13);
+    x = x ^ (x >> 17);
+    x = x ^ (x << 5);
+    return x;
+  endfunction
+
+  assign bp_delay_eff = bp_have_delay ? bp_delay_reg : (bp_rng[2:0] < 3'd6 ? bp_rng[2:0] : 3'd5);
+  assign dma_ready     = dma_valid && (bp_delay_eff == 3'd0);
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      bp_rng        <= 32'h5eed000b;
+      bp_delay_reg  <= 3'd0;
+      bp_have_delay <= 1'b0;
+    end else if (!dma_valid) begin
+      bp_have_delay <= 1'b0;
+    end else if (!bp_have_delay) begin
+      bp_have_delay <= 1'b1;
+      bp_delay_reg  <= (bp_delay_eff == 3'd0) ? 3'd0 : (bp_delay_eff - 3'd1);
+      bp_rng        <= xorshift32(bp_rng);
+    end else if (bp_delay_reg != 3'd0) begin
+      bp_delay_reg <= bp_delay_reg - 3'd1;
+    end
+  end
+
+  int errors, checks;
 
   task automatic do_reset;
+    int i;
     begin
-      rst_n         = 0;
-      start         = 0;
-      dim_m         = 3'd0;
-      dim_n         = 3'd0;
-      dim_k         = 3'd0;
-      mode_unsigned = 1'b0;
-      a_src         = '0;
-      w_src         = '0;
+      rst_n = 0;
+      start = 0; dim_m = 0; dim_n = 0; dim_k = 0; mode_unsigned = 0;
+      src_a = 0; src_b = 0; dest_c = 0;
+      bp_rng = 32'h5eed000b;
       step();
       step();
       rst_n = 1;
@@ -142,183 +270,149 @@ module unpu_seq_tb;
     end
   endtask
 
-  // Loads <name>_{a,w,c}.hex into A_case/W_case/C_case and drives
-  // a_src/w_src from them. Unrolled per-element (rather than a
-  // variable-indexed loop) -- same simulator-portability convention as
-  // tb/unpu_skew_tb.sv/tb/unpu_grid_tb.sv (a non-constant [r][c] index
-  // pair as an lvalue into a 3-level packed array is rejected by some
-  // simulators).
-  task automatic load_case(input string name);
+  // ---- Loads <name>_{a,w,c}.hex (4x4-shaped, task 006 Part A format)
+  // and packs A/W rows into mem at the given byte base addresses --
+  // identical convention to tb/unpu_dma_tb.sv (task 008). ----
+  logic [7:0]  a_case [0:3][0:3];
+  logic [7:0]  w_case [0:3][0:3];
+  logic [31:0] c_case [0:3][0:3];
+
+  task automatic preload_case(input string name, input logic [31:0] base_a, input logic [31:0] base_w);
+    int r;
     begin
-      $readmemh({"model/vectors/", name, "_a.hex"}, A_case);
-      $readmemh({"model/vectors/", name, "_w.hex"}, W_case);
-      $readmemh({"model/vectors/", name, "_c.hex"}, C_case);
-
-      a_src[0][0] = A_case[0][0]; a_src[0][1] = A_case[0][1]; a_src[0][2] = A_case[0][2]; a_src[0][3] = A_case[0][3];
-      a_src[1][0] = A_case[1][0]; a_src[1][1] = A_case[1][1]; a_src[1][2] = A_case[1][2]; a_src[1][3] = A_case[1][3];
-      a_src[2][0] = A_case[2][0]; a_src[2][1] = A_case[2][1]; a_src[2][2] = A_case[2][2]; a_src[2][3] = A_case[2][3];
-      a_src[3][0] = A_case[3][0]; a_src[3][1] = A_case[3][1]; a_src[3][2] = A_case[3][2]; a_src[3][3] = A_case[3][3];
-
-      w_src[0][0] = W_case[0][0]; w_src[0][1] = W_case[0][1]; w_src[0][2] = W_case[0][2]; w_src[0][3] = W_case[0][3];
-      w_src[1][0] = W_case[1][0]; w_src[1][1] = W_case[1][1]; w_src[1][2] = W_case[1][2]; w_src[1][3] = W_case[1][3];
-      w_src[2][0] = W_case[2][0]; w_src[2][1] = W_case[2][1]; w_src[2][2] = W_case[2][2]; w_src[2][3] = W_case[2][3];
-      w_src[3][0] = W_case[3][0]; w_src[3][1] = W_case[3][1]; w_src[3][2] = W_case[3][2]; w_src[3][3] = W_case[3][3];
-    end
-  endtask
-
-  // Pulses start (assumes dim_*/mode_unsigned and a_src/w_src are already
-  // driven) and runs to completion, counting:
-  //  - total_cycles: edges from the start-pulse edge through the edge
-  //    `done` is observed high, inclusive -- used for the one-cycle-early
-  //    differential check (same dim_m, different dim_k/dim_n must give
-  //    the same total_cycles).
-  //  - compute_cycles: edges where `state` reads COMPUTE, post-edge --
-  //    equals exactly dim_m+7 by construction (see rtl/unpu_seq.sv's
-  //    header comment); checked directly against dim_m+7 by the caller.
-  // Does NOT reset and does NOT load vectors -- callers that want a clean
-  // run call do_reset()/load_case() first; the illegal-config/recovery
-  // test deliberately does not, to prove recovery works without one.
-  task automatic pulse_start_and_run(output int total_cycles, output int compute_cycles);
-    begin
-      start = 1;
-      step();
-      start = 0;
-      total_cycles   = 1;
-      compute_cycles = (u_seq.state === u_seq.COMPUTE) ? 1 : 0;
-
-      while (done !== 1'b1) begin
-        step();
-        total_cycles = total_cycles + 1;
-        if (u_seq.state === u_seq.COMPUTE)
-          compute_cycles = compute_cycles + 1;
+      $readmemh({"model/vectors/", name, "_a.hex"}, a_case);
+      $readmemh({"model/vectors/", name, "_w.hex"}, w_case);
+      $readmemh({"model/vectors/", name, "_c.hex"}, c_case);
+      for (r = 0; r < 4; r = r + 1) begin
+        mem[(base_a >> 2) + r] = {a_case[r][3], a_case[r][2], a_case[r][1], a_case[r][0]};
+        mem[(base_w >> 2) + r] = {w_case[r][3], w_case[r][2], w_case[r][1], w_case[r][0]};
       end
     end
   endtask
 
-  // Checks c_dst[m][j] against C_case[m][j] over the true drv_m x drv_n
-  // submatrix (C_case may hold stale/undefined data beyond that from a
-  // previous, larger case -- never read here).
-  task automatic check_result(input string name, input int drv_m, input int drv_n);
+  // Runs one full op through unpu_seq (start -> ... -> done), bounded,
+  // taking one extra settle cycle past `done` before returning so a
+  // caller can immediately issue the next `start` without it being
+  // dropped (DONE -> IDLE settle, see file header).
+  int job_start_count;
+
+  task automatic run_op(input string label, input int drv_m, input int drv_k, input int drv_n,
+                         input bit drv_mode_u, input logic [31:0] a_addr, input logic [31:0] b_addr,
+                         input logic [31:0] c_addr, output bit ok);
+    int cyc;
+    bit seen;
+    begin
+      dim_m = drv_m[2:0]; dim_k = drv_k[2:0]; dim_n = drv_n[2:0]; mode_unsigned = drv_mode_u;
+      src_a = a_addr; src_b = b_addr; dest_c = c_addr;
+      job_start_count = 0;
+      start = 1;
+      step();
+      start = 0;
+      if (job_start) job_start_count = job_start_count + 1;
+
+      seen = 1'b0;
+      for (cyc = 0; cyc < 4000; cyc = cyc + 1) begin
+        step();
+        if (job_start) job_start_count = job_start_count + 1;
+        if (done) begin
+          seen = 1'b1;
+          step(); // let DONE -> IDLE settle before the caller issues another start
+          break;
+        end
+      end
+      ok = seen;
+      checks = checks + 1;
+      if (!seen) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: done never observed within 4000 cycles", label);
+      end
+    end
+  endtask
+
+  task automatic check_writeback(input string label, input logic [31:0] c_addr, input int drv_m, input int drv_n);
     int m, j;
     begin
       for (m = 0; m < drv_m; m = m + 1) begin
         for (j = 0; j < drv_n; j = j + 1) begin
           checks = checks + 1;
-          if (c_dst[m][j] !== C_case[m][j]) begin
+          if (mem[(c_addr >> 2) + m * 4 + j] !== c_case[m][j]) begin
             errors = errors + 1;
-            $display("FAIL [%s]: c_dst[%0d][%0d] exp=%0d got=%0d", name, m, j, C_case[m][j], c_dst[m][j]);
-          end else begin
-            $display("PASS [%s]: c_dst[%0d][%0d] = %0d", name, m, j, c_dst[m][j]);
+            $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", label, m, j, mem[(c_addr >> 2) + m * 4 + j], c_case[m][j]);
           end
         end
       end
     end
   endtask
 
-  // Full convenience path: reset, load, drive shape, run, check. Used for
-  // every case that doesn't need the illegal-config/recovery test's
-  // no-reset-in-between behavior.
-  task automatic run_case(input string name, input int drv_m, input int drv_k,
-                           input int drv_n, input bit drv_mode_u,
-                           output int total_cycles, output int compute_cycles);
-    begin
-      do_reset();
-      load_case(name);
-      dim_m         = drv_m[2:0];
-      dim_k         = drv_k[2:0];
-      dim_n         = drv_n[2:0];
-      mode_unsigned = drv_mode_u;
-
-      pulse_start_and_run(total_cycles, compute_cycles);
-      check_result(name, drv_m, drv_n);
-    end
-  endtask
-
-  int total_cyc, compute_cyc;
-  int total_cyc_b, compute_cyc_b;
-
-  // ---- CRV bookkeeping: record (dim_m, dim_k, dim_n, total_cycles) per
-  // case so the K/N-independence property can be checked opportunistically
-  // across any pair sharing the same dim_m. ----
-  int crv_m   [0:63];
-  int crv_k   [0:63];
-  int crv_n   [0:63];
-  int crv_tot [0:63];
-  int crv_comp[0:63];
-
-  int i, j2, pairs_checked;
-  int fd, scan_rc;
+  int i, r, c;
   int meta_m, meta_k, meta_n;
+  int fd, scan_rc;
   string mode_str;
   string crv_name;
+  logic [31:0] base_a, base_w, base_c;
+  bit ok;
 
   initial begin
     errors = 0;
     checks = 0;
 
-    // ==== Directed: regression anchor ====
-    run_case("cross_terms", 4, 4, 4, 1'b0, total_cyc, compute_cyc);
-    if (compute_cyc !== (4 + 7)) begin
-      errors = errors + 1;
-      $display("FAIL [cross_terms]: compute_cyc=%0d expected %0d (dim_m+7)", compute_cyc, 4 + 7);
-    end else begin
-      checks = checks + 1;
-      $display("PASS [cross_terms]: compute_cyc=%0d == dim_m+7", compute_cyc);
-    end
+    // ==== Directed: cross_terms end to end -- the primary regression
+    // anchor (DMA fetch -> buffer swap -> compute -> DMA writeback, for
+    // the first time all wired together for real). ====
+    do_reset();
+    preload_case("cross_terms", 32'h0000_1000, 32'h0000_1100);
+    run_op("cross_terms", 4, 4, 4, 1'b0, 32'h0000_1000, 32'h0000_1100, 32'h0000_1200, ok);
+    check_writeback("cross_terms", 32'h0000_1200, 4, 4);
 
-    // ==== Directed: sub-4 shape boundaries ====
-    run_case("seq_m1", 1, 4, 4, 1'b0, total_cyc, compute_cyc);
-    if (compute_cyc !== (1 + 7)) begin
-      errors = errors + 1;
-      $display("FAIL [seq_m1]: compute_cyc=%0d expected %0d (dim_m+7)", compute_cyc, 1 + 7);
-    end else begin
-      checks = checks + 1;
-      $display("PASS [seq_m1]: compute_cyc=%0d == dim_m+7", compute_cyc);
-    end
-
-    run_case("seq_k1", 4, 1, 4, 1'b0, total_cyc, compute_cyc);
-    run_case("seq_n1", 4, 4, 1, 1'b0, total_cyc, compute_cyc);
-    run_case("seq_mixed", 3, 2, 3, 1'b0, total_cyc, compute_cyc);
-
-    // COMPUTE-length check for dim_m=1 and dim_m=4 is already asserted
-    // above, inline with the seq_m1/cross_terms runs (compute_cyc ==
-    // dim_m+7 in each case) -- that's the same check the acceptance
-    // criterion asks for, just run where the case is already loaded
-    // rather than repeated as a separate pass.
-
-    // ==== One-cycle-early differential check (required): same dim_m
-    // (4), two different (dim_k, dim_n) pairs -- total elapsed
-    // start->done cycle count must be identical. This is what catches
-    // the M+K+N-2 bug class -- a wrong implementation passes cross_terms
-    // (K=N=4) and only fails here (K=N=1). ====
-    run_case("cross_terms", 4, 4, 4, 1'b0, total_cyc, compute_cyc);
-    run_case("seq_k1",      4, 1, 1, 1'b0, total_cyc_b, compute_cyc_b);
+    // ---- job_start re-pulse boundary (known trap): exactly 3 pulses
+    // per op (one each for W_FETCH/A_FETCH/WRITE_OUTPUT), even with the
+    // back-pressure model's randomized multi-cycle waits already active
+    // above. ----
     checks = checks + 1;
-    if (total_cyc !== total_cyc_b) begin
+    if (job_start_count !== 3) begin
       errors = errors + 1;
-      $display("FAIL [one-cycle-early diff]: dim_m=4 total_cycles differ across (K=4,N=4)=%0d vs (K=1,N=1)=%0d -- M+K+N-2 regression",
-                total_cyc, total_cyc_b);
+      $display("FAIL [job_start boundary]: expected exactly 3 pulses (W_FETCH/A_FETCH/WRITE_OUTPUT), got %0d", job_start_count);
     end else begin
-      $display("PASS [one-cycle-early diff]: dim_m=4 total_cycles identical across (K=4,N=4) and (K=1,N=1): %0d", total_cyc);
-    end
-    checks = checks + 1;
-    if (compute_cyc !== compute_cyc_b || compute_cyc !== (4 + 7)) begin
-      errors = errors + 1;
-      $display("FAIL [one-cycle-early diff]: compute_cyc mismatch (K=4,N=4)=%0d vs (K=1,N=1)=%0d, expected both %0d",
-                compute_cyc, compute_cyc_b, 4 + 7);
-    end else begin
-      $display("PASS [one-cycle-early diff]: compute_cyc identical and == dim_m+7 across both (K,N) pairs: %0d", compute_cyc);
+      $display("PASS [job_start boundary]: exactly 3 job_start pulses observed for one op");
     end
 
-    // ==== Illegal-config + recovery, no reset between attempts from the
-    // second onward -- proves the ERROR state's own start-triggered
-    // recovery path, not just "a fresh reset always works." Covers three
-    // distinct fields (dim_m, dim_k, dim_n) across the illegal set. ====
+    // ==== Directed: seq_m1/seq_k1/seq_n1/seq_mixed end to end ====
+    do_reset();
+    preload_case("seq_m1", 32'h0000_2000, 32'h0000_2100);
+    run_op("seq_m1", 1, 4, 4, 1'b0, 32'h0000_2000, 32'h0000_2100, 32'h0000_2200, ok);
+    check_writeback("seq_m1", 32'h0000_2200, 1, 4);
 
-    // (a) dim_m = 0 -- fresh reset, first illegal probe.
+    do_reset();
+    preload_case("seq_k1", 32'h0000_3000, 32'h0000_3100);
+    run_op("seq_k1", 4, 1, 4, 1'b0, 32'h0000_3000, 32'h0000_3100, 32'h0000_3200, ok);
+    check_writeback("seq_k1", 32'h0000_3200, 4, 4);
+
+    do_reset();
+    preload_case("seq_n1", 32'h0000_4000, 32'h0000_4100);
+    run_op("seq_n1", 4, 4, 1, 1'b0, 32'h0000_4000, 32'h0000_4100, 32'h0000_4200, ok);
+    check_writeback("seq_n1", 32'h0000_4200, 4, 1);
+
+    do_reset();
+    preload_case("seq_mixed", 32'h0000_5000, 32'h0000_5100);
+    run_op("seq_mixed", 3, 2, 3, 1'b0, 32'h0000_5000, 32'h0000_5100, 32'h0000_5200, ok);
+    check_writeback("seq_mixed", 32'h0000_5200, 3, 3);
+
+    // ==== Directed: two ops back to back, no reset -- the direct test
+    // of the array_en/psum-safety argument (file header). ====
+    do_reset();
+    preload_case("cross_terms", 32'h0000_6000, 32'h0000_6100);
+    run_op("back-to-back: cross_terms", 4, 4, 4, 1'b0, 32'h0000_6000, 32'h0000_6100, 32'h0000_6200, ok);
+    check_writeback("back-to-back: cross_terms", 32'h0000_6200, 4, 4);
+
+    preload_case("seq_mixed", 32'h0000_7000, 32'h0000_7100); // no do_reset() -- second op immediately after the first
+    run_op("back-to-back: seq_mixed", 3, 2, 3, 1'b0, 32'h0000_7000, 32'h0000_7100, 32'h0000_7200, ok);
+    check_writeback("back-to-back: seq_mixed", 32'h0000_7200, 3, 3);
+
+    // ==== Directed: illegal-config / error-recovery (task 006's own
+    // case, re-confirmed with the new states downstream unaffected). ====
     do_reset();
     dim_m = 3'd0; dim_k = 3'd4; dim_n = 3'd4; mode_unsigned = 1'b0;
-    a_src = '0; w_src = '0;
+    src_a = 0; src_b = 0; dest_c = 0;
     start = 1; step(); start = 0;
     step(); // LATCH_CFG -> ERROR (illegal)
     checks = checks + 1;
@@ -328,73 +422,19 @@ module unpu_seq_tb;
     end else begin
       $display("PASS [illegal dim_m=0]: error=1 error_code=1");
     end
+    // Legal start afterward, no reset -- confirms recovery.
+    preload_case("cross_terms", 32'h0000_8000, 32'h0000_8100);
+    run_op("post-error recovery: cross_terms", 4, 4, 4, 1'b0, 32'h0000_8000, 32'h0000_8100, 32'h0000_8200, ok);
+    check_writeback("post-error recovery: cross_terms", 32'h0000_8200, 4, 4);
 
-    begin : no_done_check_a
-      bit saw_done;
-      saw_done = 1'b0;
-      for (i = 0; i < 20; i = i + 1) begin
-        if (done) saw_done = 1'b1;
-        step();
-      end
-      checks = checks + 1;
-      if (saw_done) begin
-        errors = errors + 1;
-        $display("FAIL [illegal dim_m=0]: done pulsed while parked in ERROR");
-      end else begin
-        $display("PASS [illegal dim_m=0]: done never pulsed while parked in ERROR (20 cycles)");
-      end
-    end
-
-    // (b) dim_k = 0 -- fresh reset, second field.
+    // ==== CRV: all 64 crv_* cases, run back to back (no reset between
+    // them), model SRAM's randomized per-beat back-pressure enabled
+    // throughout (already the model's normal behavior, not toggled). ====
     do_reset();
-    dim_m = 3'd4; dim_k = 3'd0; dim_n = 3'd4; mode_unsigned = 1'b0;
-    a_src = '0; w_src = '0;
-    start = 1; step(); start = 0;
-    step();
-    checks = checks + 1;
-    if (error !== 1'b1 || error_code !== 3'd1) begin
-      errors = errors + 1;
-      $display("FAIL [illegal dim_k=0]: expected error=1 error_code=1, got error=%0b error_code=%0d", error, error_code);
-    end else begin
-      $display("PASS [illegal dim_k=0]: error=1 error_code=1");
-    end
-
-    // (c) dim_n = 5 -- deliberately NO reset here: FSM is still parked in
-    // ERROR from (b). A fresh illegal 'start' re-attempts LATCH_CFG (per
-    // the ERROR state's own spec) and lands back in ERROR.
-    dim_m = 3'd4; dim_k = 3'd4; dim_n = 3'd5; mode_unsigned = 1'b0;
-    start = 1; step(); start = 0;
-    step();
-    checks = checks + 1;
-    if (error !== 1'b1 || error_code !== 3'd1) begin
-      errors = errors + 1;
-      $display("FAIL [illegal dim_n=5]: expected error=1 error_code=1, got error=%0b error_code=%0d", error, error_code);
-    end else begin
-      $display("PASS [illegal dim_n=5]: error=1 error_code=1 (re-entered ERROR from ERROR, no reset)");
-    end
-
-    // Recovery: a LEGAL start, still with NO reset since (b) -- proves
-    // the FSM is not stuck in ERROR.
-    load_case("cross_terms");
-    dim_m = 3'd4; dim_k = 3'd4; dim_n = 3'd4; mode_unsigned = 1'b0;
-    pulse_start_and_run(total_cyc, compute_cyc);
-    check_result("cross_terms (post-error recovery, no reset)", 4, 4);
-    checks = checks + 1;
-    if (compute_cyc !== (4 + 7)) begin
-      errors = errors + 1;
-      $display("FAIL [post-error recovery]: compute_cyc=%0d expected %0d", compute_cyc, 4 + 7);
-    end else begin
-      $display("PASS [post-error recovery]: FSM recovered from ERROR without reset, ran to completion correctly");
-    end
-
-    // ==== CRV: all 64 crv_* cases from model/golden.c, shapes parsed
-    // from each case's own _meta.txt (the one place this tb parses shape
-    // rather than hard-coding it -- see file header comment). ====
-    $display("CRV base seed = 32'h5eed0006 (see model/golden.c)");
+    $display("CRV: running all 64 crv_* cases through unpu_seq end to end, back-pressure seed 32'h5eed000b");
 
     for (i = 0; i < 64; i = i + 1) begin
       crv_name = $sformatf("crv_%04d", i);
-
       fd = $fopen({"model/vectors/", crv_name, "_meta.txt"}, "r");
       if (fd == 0)
         $fatal(1, "could not open model/vectors/%s_meta.txt -- run model/golden first", crv_name);
@@ -403,44 +443,18 @@ module unpu_seq_tb;
       if (scan_rc != 4)
         $fatal(1, "could not parse model/vectors/%s_meta.txt (got %0d fields)", crv_name, scan_rc);
 
-      run_case(crv_name, meta_m, meta_k, meta_n, (mode_str == "UNSIGNED"), total_cyc, compute_cyc);
+      // Per-case address band, well separated (1024 words = 4KB apart),
+      // same convention as tb/unpu_dma_tb.sv (task 008).
+      base_a = 32'h0010_0000 + (32'(i) * 32'd4096);
+      base_w = base_a + 32'd256;
+      base_c = base_a + 32'd512;
 
-      checks = checks + 1;
-      if (compute_cyc !== (meta_m + 7)) begin
-        errors = errors + 1;
-        $display("FAIL [%s]: compute_cyc=%0d expected %0d (dim_m+7)", crv_name, compute_cyc, meta_m + 7);
-      end else begin
-        $display("PASS [%s]: M=%0d K=%0d N=%0d MODE=%s compute_cyc==dim_m+7", crv_name, meta_m, meta_k, meta_n, mode_str);
-      end
-
-      crv_m[i]    = meta_m;
-      crv_k[i]    = meta_k;
-      crv_n[i]    = meta_n;
-      crv_tot[i]  = total_cyc;
-      crv_comp[i] = compute_cyc;
+      preload_case(crv_name, base_a, base_w);
+      run_op(crv_name, meta_m, meta_k, meta_n, (mode_str == "UNSIGNED"), base_a, base_w, base_c, ok);
+      check_writeback(crv_name, base_c, meta_m, meta_n);
     end
 
-    // Opportunistic K/N-independence check across the CRV batch: any pair
-    // sharing dim_m but differing in (dim_k, dim_n) must have identical
-    // total_cycles. Not forced -- just checked wherever it naturally
-    // occurs among the 64 draws.
-    pairs_checked = 0;
-    for (i = 0; i < 64; i = i + 1) begin
-      for (j2 = i + 1; j2 < 64; j2 = j2 + 1) begin
-        if (crv_m[i] == crv_m[j2] &&
-            (crv_k[i] != crv_k[j2] || crv_n[i] != crv_n[j2])) begin
-          pairs_checked = pairs_checked + 1;
-          checks = checks + 1;
-          if (crv_tot[i] !== crv_tot[j2]) begin
-            errors = errors + 1;
-            $display("FAIL [CRV K/N-independence]: crv_%04d (M=%0d,K=%0d,N=%0d,tot=%0d) vs crv_%04d (M=%0d,K=%0d,N=%0d,tot=%0d) -- same M, different total_cycles",
-                      i, crv_m[i], crv_k[i], crv_n[i], crv_tot[i],
-                      j2, crv_m[j2], crv_k[j2], crv_n[j2], crv_tot[j2]);
-          end
-        end
-      end
-    end
-    $display("CRV K/N-independence: %0d comparable pair(s) found and checked", pairs_checked);
+    $display("CRV: 64 cases completed");
 
     $display("----------------------------------------");
     $display("checked %0d value(s)/assertion(s) total", checks);
