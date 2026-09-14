@@ -30,8 +30,17 @@ Repeated from `CLAUDE.md` because these are the ones that get violated:
 - **Single-stage PE.** Do not pipeline the multiplier. At 50 MHz there is ample
   margin, and pipelining changes the skew depths from 0/1/2/3 to 0/2/4/6 and
   every number in the timing contract.
-- **The `unpu_top` port list is frozen.** Do not add ports.
-- **The five specified register offsets do not move.**
+- **The `unpu_top` port list is negotiable, not frozen** — PM-confirmed
+  (`docs/session-handoff.md` §4 Q11, §12). Still not free to change (forces
+  re-hardening), but adding a port is a question for Planning/the PM, not an
+  automatic stop.
+- **Register map: provisional, not PM-confirmed.** The old "five specified
+  offsets" map is superseded by an 8-register native-interface map (`src_A`,
+  `src_B`, `dest_C`, `dim_M`, `dim_N`, `dim_K`, `npu_ctrl`, `npu_status`) —
+  see `docs/session-handoff.md` §6/§12. The specific offset layout (proposed
+  0x00–0x1C, `docs/planning/unpu-architecture.html` §3) is Planning's layout,
+  not yet PM-confirmed — expect a task prompt to carry the authoritative
+  offsets when step 12 is written, rather than assuming these.
 - **32-bit partial sums throughout.**
 - **One global `array_en`.** No flow control inside the array. Freezing part of
   the compute pipeline shears the wavefront and produces plausible wrong
@@ -80,5 +89,7 @@ bug to a specific cycle and PE in minutes rather than hours of waveform reading.
 
 ## Starting state
 
-Read `docs/session-handoff.md` before your first task. Note §5: the DMA master
-is blocked on an unresolved interface question. Do not write it yet.
+Read `docs/session-handoff.md` before your first task. §5's native-vs-AHB
+question is resolved (native, confirmed by the PM) — the DMA master is no
+longer blocked on it. Current status and dependencies for every step,
+including the DMA master, live in `docs/planning/plan.md`.

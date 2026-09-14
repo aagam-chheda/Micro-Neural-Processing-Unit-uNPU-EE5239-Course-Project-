@@ -19,10 +19,20 @@ browser rather than reading the raw HTML unless you need a specific fact.
   a synthesis run early rather than late; anything Genus rejects is not worth
   the elegance.
 - **Firmware is bare-metal C.**
-- The `unpu_top` port list is **frozen** (see handoff doc). Adding pins requires
-  instructor approval and would force re-hardening the macro.
-- Register map: the five specified offsets (0x00–0x10) **do not move**.
-  Additions go at 0x14 and 0x18 inside our 0x4000_0000–0x4000_0FFF window.
+- The `unpu_top` port list is **negotiable, not frozen** — PM-confirmed
+  (`docs/session-handoff.md` §4 Q11, §12). Supersedes the earlier "frozen"
+  framing that stood here; changing the port list is still not free (it
+  forces re-hardening the macro), but it no longer requires a separate
+  instructor approval step beyond the normal PM channel.
+- Register map: **provisional, not PM-confirmed.** The five-offset
+  0x00–0x10 map plus 0x14/0x18 additions described here previously is
+  superseded — the PM directed an 8-register native-interface map (`src_A`,
+  `src_B`, `dest_C`, `dim_M`, `dim_N`, `dim_K`, `npu_ctrl`, `npu_status`),
+  see `docs/session-handoff.md` §6/§12. The window is still
+  0x4000_0000–0x4000_0FFF. The specific offset assignment (proposed
+  0x00–0x1C sequential, in `docs/planning/unpu-architecture.html` §3) is
+  Planning's layout, not yet confirmed by the PM — do not treat those
+  offsets as final.
 - Target clock: **50 MHz**. This means a **single-stage PE** — do not pipeline
   the multiplier. Pipelining changes the skew depths and every number in the
   timing contract.
