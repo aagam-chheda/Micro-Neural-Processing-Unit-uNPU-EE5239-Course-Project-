@@ -13,6 +13,12 @@
 //
 // Simulated with Icarus Verilog (iverilog/vvp) -- Xcelium not available in
 // this environment, same as unpu_pe.sv/unpu_grid.sv.
+//
+// Standardized on Verilator since task 006 (iverilog isn't installed in
+// that environment); every regression since (unpu_seq_tb, unpu_buf_tb,
+// unpu_dma_tb, unpu_stall_tb, unpu_top_tb, task 013's own retrofit) has
+// re-verified this file under it, clean every time -- see
+// tb/unpu_pe_tb.sv's header for the fuller explanation.
 module unpu_skew (
   input  logic              clk,
   input  logic              rst_n,        // async, active-low (matches unpu_pe/unpu_grid)
