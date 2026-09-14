@@ -1,0 +1,73 @@
+Source: received from the PM, filed here verbatim (from ~/Downloads/fsm.txt).
+Context: PM's own sketch of the main sequencer FSM (the one driving weight
+load, input load, compute, and output writeback) — not the DMA handshake
+FSM, not the APB/native slave FSM. See docs/session-handoff.md §13 for
+Planning's analysis of this file, including a flagged timing discrepancy
+against the CLAUDE.md timing contract.
+
+Filed as bookkeeping, content below is unmodified from what the PM sent.
+
+---
+
+                    +-----------------+
+                    |      IDLE       |
+                    +--------+--------+
+                             |
+                           START
+                             |
+                             v
+                    +-----------------+
+                    |  LOAD_WEIGHTS   |
+                    +--------+--------+
+                             |
+                        K x N loaded
+                             |
+                             v
+                    +-----------------+
+                    |   LOAD_INPUT    |
+                    +--------+--------+
+                             |
+                        M x K loaded
+                             |
+                             v
+                    +-----------------+
+                    |     COMPUTE     |
+                    |                 |
+                    | cycle = 0       |
+                    |                 |
+                    | inject A[i][k]  |
+                    | when i+k=cycle  |
+                    |                 |
+                    | cycle++         |
+                    |                 |
+                    | stop after      |
+                    | M+K+N-2 cycles  |
+                    +--------+--------+
+                             |
+                             v
+                    +-----------------+
+                    |   READ_OUTPUT   |
+                    +--------+--------+
+                             |
+                             v
+                    +-----------------+
+                    |  WRITE_OUTPUT   |
+                    |                 |
+                    | M x N values    |
+                    +--------+--------+
+                             |
+                             v
+                    +-----------------+
+                    |      DONE       |
+                    +-----------------+
+
+States and transitions:
+1. IDLE          --START-->                  LOAD_WEIGHTS
+2. LOAD_WEIGHTS  --K x N loaded-->            LOAD_INPUT
+3. LOAD_INPUT    --M x K loaded-->            COMPUTE
+4. COMPUTE       --after M+K+N-2 cycles-->    READ_OUTPUT
+                    (cycle counter starts at 0;
+                     injects A[i][k] when i+k == cycle;
+                     increments cycle each step)
+5. READ_OUTPUT   -->                          WRITE_OUTPUT
+6. WRITE_OUTPUT  --M x N values written-->    DONE

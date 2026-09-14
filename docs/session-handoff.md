@@ -226,3 +226,56 @@ from the PM. Per their instruction, no new design or planning work — task
 drafting included — until it arrives. This section, and the rest of this
 update pass, is closing out documentation that was already pending, not new
 work.
+
+## 13. PM-supplied sequencer FSM — analysis
+
+Filed verbatim at `docs/pm/sequencer-fsm.txt`. This is the PM's own sketch
+of the main sequencer FSM (weight load → input load → compute → output
+readback → writeback), separate from the DMA handshake FSM and the native
+slave FSM. 7 states: `IDLE`, `LOAD_WEIGHTS`, `LOAD_INPUT`, `COMPUTE`,
+`READ_OUTPUT`, `WRITE_OUTPUT`, `DONE`.
+
+**Checked against the timing contract — consistent, not a conflict.** First
+pass looked like a 1-cycle discrepancy (`COMPUTE` stops after `M+K+N-2`
+cycles vs. our `M+7` total-cycle figure), but those are two different kinds
+of quantity, not two competing answers to the same question:
+
+- Our contract's "`M+7` total cycles" is an inclusive *count* (cycles 0
+  through the last valid cycle, inclusive).
+- The PM's `M+K+N-2` is a cycle *index* — literally the same "cycle"
+  variable their own injection rule uses (`inject A[i][k] when i+k==cycle`,
+  which is exactly our `A[m][k]` enters at `m+k`, with `i=m`).
+
+Worked against the **already-passing** task 004/005 result (`cross_terms`,
+M=4, K=N=4): last row (m=3) valid at cycle `3+7=10`. PM's formula for the
+same case: `M+K+N-2 = 4+4+4-2 = 10`. They match exactly, verified against
+real passing RTL, not just algebra.
+
+**One implementation trap to carry into the step 8 task prompt, once
+written:** this only holds if `unpu_seq`'s stop condition checks the *same*
+registered cycle counter, at the *same* point in the cycle, as the
+injection rule — i.e. "stop when `cycle == M+K+N-2`", not a separately
+free-running tick count that could land one cycle off. Worth an explicit
+directed check in `unpu_seq`'s testbench.
+
+**Other structural notes, all consistent with what's already decided:**
+- `LOAD_WEIGHTS` before `LOAD_INPUT` — matches notebook §7.1's `W_FETCH`/
+  `W_LOAD` before `A_FETCH` order.
+- No tiling/`NEXT_TILE` state — **directly confirms** the M/N/K≤4,
+  no-tiling decision (§6, §12). Where I previously guessed `NEXT_TILE`
+  would "shrink to trivial," the PM's own FSM shows it's just gone.
+- No `LATCH_CFG`/`ERROR` states shown — likely omitted for sketch brevity,
+  not necessarily a rejection of config-legality checking or error
+  handling. Don't assume either way without asking.
+- `READ_OUTPUT` and `WRITE_OUTPUT` as two separate states, vs. the
+  notebook's single `WRITEBACK` — minor granularity difference (capture
+  from the array vs. DMA burst to SRAM), doesn't conflict with the
+  existing skew→grid→de-skew→DMA architecture. Worth matching this
+  two-state naming when `unpu_seq` actually gets built.
+- `K x N loaded` / `M x K loaded` / `M x N values` match `src_B`'s [K×N],
+  `src_A`'s [M×K], `dest_C`'s [M×N] exactly.
+
+**Net effect:** this substantially de-risks step 8 (sequencer) — the PM's
+own FSM shape is now available and lines up with our architecture. Still
+holding on writing that task prompt per the standing pause, pending either
+the user's go-ahead or the final project document.
