@@ -40,12 +40,57 @@ Kept here for the record; the plan below is updated accordingly.
 
 **Also received:** the matmul shape is A[M×K] × B[K×N] = C[M×N], all of A/B
 signed int8, C is int32 with no hardware requantization, and M/N/K are each
-≤ 4 at runtime (never greater — no tiling required).
+≤ 4 at runtime (never greater — no tiling required). The PM also supplied
+the main sequencer's own FSM sketch — filed at `docs/pm/sequencer-fsm.txt`,
+verified consistent with the timing contract in
+`docs/session-handoff.md` §13.
 
-**Holding point:** the user is waiting on a final project document from the
-PM that may supersede some of the above. No new task prompts until it
-arrives — this plan update is closing out already-pending bookkeeping, not
-opening new design work.
+**Hold lifted.** The user has confirmed this is now enough to proceed —
+task prompts for steps 8+ can be written going forward. See the new
+verification-methodology requirement below before writing any of them.
+
+---
+
+## Verification methodology — constrained random, starting now
+
+**User's directive:** every module gets extensively tested from here on,
+including but not limited to constrained random verification (CRV) — not
+directed-only. This applies to every task prompt for steps 8 and onward;
+see "Verification debt" below for what it means for steps 1–7, already
+built against directed tests alone.
+
+What this means concretely, per module, when each task prompt gets written:
+
+- **Randomize the data**, not just the control flow: full-range signed
+  int8 for every element of A and B (not hand-picked corner values), across
+  many iterations, checked against `model/golden.c`'s output — which
+  already exists as an oracle for exactly this purpose.
+- **Randomize the shape**: M, N, K independently across their legal range
+  (1–4 each), not just the values already covered by directed cases
+  (M=1, M=4, non-multiple-of-4 M).
+- **Randomize the timing** where a module has timing degrees of freedom:
+  arbiter grant latency/back-pressure (step 11 already has this baked into
+  its acceptance criterion — extend it to randomize burst length and
+  address too, not just grant timing), native-slave access pacing (steps
+  12/13 — randomize pacing *and* the read/write sequence across all 8
+  offsets, not just slow-pacing directed sweeps), `array_en` stall
+  placement and duration (step 7 already did this for cycle count — a
+  precedent worth reusing, not reinventing).
+- **Self-checking against a reference, every iteration.** The golden model
+  is the reference for data/shape; the timing contract is the reference for
+  cycle-accuracy. A CRV run that doesn't check itself just burns simulation
+  time.
+- **Seed, log, and report reproducibly.** Every task prompt with a random
+  component must specify: a fixed default seed with a way to override it,
+  the iteration count, and a `$display` of the seed on every run — same
+  discipline step 7 already used (`32'h5eed0005`, printed).
+- **Directed tests don't go away.** CRV finds the cases nobody thought to
+  write by hand; directed tests document and pin the specific cases that
+  matter (saturation, zero weight, depth-0 paths, the exact timing-contract
+  cycle numbers). Both, not one instead of the other.
+
+This is a standing requirement for every future task prompt's acceptance
+criteria — it will be called out explicitly in each one, not left implicit.
 
 ---
 
@@ -111,77 +156,92 @@ Dependencies: step 6. Blocked: no.
 
 **8. Sequencer FSM**
 Files: `rtl/unpu_seq.sv`, `tb/unpu_seq_tb.sv`
-Acceptance: matmul passes for M = 1, 4, and a non-multiple-of-4 M, total
-cycle count equals `M+7` each time, results match the golden model's vector
-files.
-**Not yet re-scoped for M/N/K.** Now that K and N are runtime values (≤4,
-per the PM's Q&A round 2 — `docs/session-handoff.md` §12), the sequencer
-needs to derive loop bounds from `dim_K`/`dim_N`, not just `dim_M`. Task
-prompt not written yet — holding per the PM-document pause below.
-Dependencies: steps 6, 7. Blocked: no (but not yet reprompted).
+States, per the PM's own sketch (`docs/pm/sequencer-fsm.txt`, verified
+consistent with the timing contract — `docs/session-handoff.md` §13):
+`IDLE` → `LOAD_WEIGHTS` (`K×N` loaded) → `LOAD_INPUT` (`M×K` loaded) →
+`COMPUTE` (inject `A[i][k]` when `i+k==cycle`; stop when `cycle==M+K+N-2`,
+checked against the *same* registered counter the injection rule uses —
+the one-cycle-early trap flagged in §13) → `READ_OUTPUT` → `WRITE_OUTPUT`
+(`M×N` values) → `DONE`. Planning is adding `LATCH_CFG` (config
+legality/shadow-copy, notebook §7.1's rationale still holds) and `ERROR`
+(latch why, so a bad pointer doesn't look like a hang) on top of the PM's
+core path — flag it back if the PM's sketch deliberately omitted them
+rather than just simplifying for the sketch.
+Acceptance: matmul passes for M, N, K each independently at 1 and 4 (not
+just M), plus a directed non-square/non-multiple-of-4 case; total cycle
+count matches the timing contract exactly each time; results match the
+golden model's vector files. **Plus CRV** per the methodology above:
+randomized M/N/K (1–4 each) × randomized full-range signed int8 A/B,
+many iterations, self-checked against `model/golden.c`, seeded and logged.
+Dependencies: steps 6, 7. Blocked: no.
 
 **9. Activation / weight buffers**
 Files: `rtl/unpu_actbuf.sv`, `rtl/unpu_wbuf.sv`, `tb/unpu_buf_tb.sv`
 Acceptance: double-buffered weight swap (shift-down, reversed row order)
-completes in the 4 hidden cycles without stalling compute on the active tile.
-**Also needs re-scoping**: for K<4 or N<4, unused weight rows/columns must be
-zero-loaded (or left at reset, which is already 0) rather than loaded with
-real data — falls out mostly free per `unpu_pe`'s existing reset behavior,
-but the buffer's loading sequence needs to know the real K/N.
-Dependencies: step 8. Blocked: no (but not yet reprompted).
+completes in the 4 hidden cycles without stalling compute on the active
+tile. For K<4 or N<4, unused weight rows/columns are zero-loaded (or left
+at reset, already 0) rather than loaded with real data — the buffer's
+loading sequence needs the real K/N to know how much to load.
+**Plus CRV**: randomized K/N (1–4) combined with randomized weight-swap
+timing relative to active compute, self-checked against the golden model.
+Dependencies: step 8. Blocked: no.
 
 **10. DMA master**
 Files: `rtl/unpu_dma.sv`, `tb/unpu_dma_tb.sv`
-Acceptance: 4-state FSM moves tensors between shared SRAM and the
-activation/weight buffers with the arbiter, matching the native PicoRV32
-memory-interface convention (`wstrb==0`→read, `rdata` valid same cycle as
-`valid & ready`).
-**Unblocked** — Q7 answered native (`docs/session-handoff.md` §5). Also
-needs M/N/K-aware addressing now (strides for a 2D tensor, not just a flat
-M-row stream) — not yet re-scoped in a task prompt.
-Dependencies: step 9. Blocked: no (task prompt not yet written).
+Acceptance: 4-state (`D_IDLE`/`D_REQ`/`D_ACK`/`D_FIN`) FSM moves tensors
+between shared SRAM and the activation/weight buffers with the arbiter,
+matching the native PicoRV32 memory-interface convention (`wstrb==0`→read,
+`rdata` valid same cycle as `valid & ready`, address advances only when
+`valid & ready` both high — known trap, `execution.md`). Needs M/N/K-aware
+addressing (strides for a 2D tensor, not just a flat M-row stream).
+**Plus CRV**: randomized M/N/K driving randomized burst lengths/addresses,
+self-checked against the golden model.
+Dependencies: step 9. Blocked: no.
 
 **11. Randomised back-pressure test**
 Files: extends `tb/unpu_dma_tb.sv`
-Acceptance: with randomised arbiter grant latency/back-pressure injected on
-the DMA side, results still match the golden model and the DMA FSM never
-hangs or corrupts in-flight state.
-**Unblocked** — same as step 10.
-Dependencies: step 10. Blocked: no (task prompt not yet written).
+Acceptance: randomised arbiter grant latency/back-pressure *and* randomised
+burst length/address (extends the base CRV in step 10, not a separate
+axis) — results still match the golden model and the DMA FSM never hangs
+or corrupts in-flight state.
+Dependencies: step 10. Blocked: no.
 
 **12. CSR / register map**
 Files: `rtl/unpu_csr.sv`, `tb/unpu_csr_tb.sv`
-**Design finalized, not the old two-variant framing.** 8 registers:
-`src_A`, `src_B`, `dest_C`, `dim_M`, `dim_N`, `dim_K`, `npu_ctrl`,
-`npu_status` — see `docs/planning/unpu-architecture.html` §3 for the
-proposed (not yet PM-confirmed) offset layout, 0x00–0x1C.
+8 registers: `src_A`, `src_B`, `dest_C`, `dim_M`, `dim_N`, `dim_K`,
+`npu_ctrl`, `npu_status` — see `docs/planning/unpu-architecture.html` §3
+for the proposed (not yet PM-confirmed) offset layout, 0x00–0x1C.
 Acceptance: directed register test covers all 8 offsets; SIGNED mode bit
-(now folded into `npu_ctrl` bit 1) round-trips; `npu_ctrl` START is
+(folded into `npu_ctrl` bit 1) round-trips; `npu_ctrl` START is
 write-1-to-pulse and reads back 0; `npu_status` is read-only.
-Dependencies: step 1. Blocked: no (task prompt not yet written).
+**Plus CRV**: randomized read/write sequences across all 8 offsets
+(including back-to-back and reserved-range accesses), self-checked
+against expected register semantics.
+Dependencies: step 1. Blocked: no.
 
 **13. Native slave FSM (was: APB slave FSM)**
 Files: `rtl/unpu_apb.sv` renamed/redesigned — filename TBD, likely
 `rtl/unpu_slave.sv` — `tb/unpu_apb_tb.sv` likewise.
 **Superseded, not just renamed.** Q7 confirmed the CPU↔NPU interface is
-native (PicoRV32-convention `valid`/`ready`/`wstrb`), not APB. This is a
-different protocol, not a drop-in replacement — the whole module needs
-redesigning against the native convention instead of APB's two-phase
-SETUP/ACCESS.
-Acceptance (to be rewritten): sim drives the native interface at variable,
-very slow pacing (mimicking the SPI backdoor) and confirms correct
-read/write semantics with no hang, against the 8-register CSR map.
-Dependencies: step 12. Blocked: no (task prompt not yet written — needs a
-native-slave interface spec first, same convention as `unpu_dma`'s port).
+native (PicoRV32-convention `valid`/`ready`/`wstrb`), not APB — a different
+protocol, not a drop-in replacement.
+Acceptance (to be rewritten): correct read/write semantics with no hang
+against the 8-register CSR map. **Plus CRV**: randomized access pacing
+(mimicking the SPI backdoor's arbitrary slowness) *and* randomized
+read/write sequencing, not just a directed slow-pacing sweep.
+Dependencies: step 12. Blocked: no — needs a native-slave interface spec
+first, same convention as `unpu_dma`'s port.
 
 **14. Top-level integration (functional)**
 Files: `rtl/unpu_top.sv`, `tb/unpu_top_tb.sv`
 Acceptance: full SoC-level directed test (CPU writes pointers + start bit,
 DMA fetches, grid computes, results written back, DONE set) matches the
 golden model's vector files end to end, using the (now negotiable, not
-frozen) port list.
-Dependencies: steps 1, 4, 6, 7, 8, 9, 10, 12, 13. Blocked: no by question —
-transitively blocked only by 8/9/10/12/13 not yet being built.
+frozen) port list. **Plus CRV**: randomized end-to-end matmuls (random
+M/N/K, random A/B content, random arbiter contention) run through the full
+stack, self-checked against the golden model.
+Dependencies: steps 1, 4, 6, 7, 8, 9, 10, 12, 13. Blocked: transitively, by
+8/9/10/12/13 not yet being built.
 
 **15. ~~Scan chain insertion~~ — REMOVED**
 **Question 3 answered: no scan chain, no scan pins.** Not in scope for this
@@ -189,10 +249,11 @@ project. This step is dropped from the plan entirely — step 16 no longer
 depends on it.
 
 **16. RTL freeze regression / sign-off**
-Files: none new — full regression run across all directed + golden-model
-vectors at SoC level, plus the W4 gate checklist.
-Freeze gate is **functional correctness only**: full regression (directed +
-golden-model) passes clean at top level. No scan-mode sim — step 15 removed.
+Files: none new — full regression run across all directed + golden-model +
+CRV suites at SoC level, plus the W4 gate checklist.
+Freeze gate is **functional correctness only**: full regression (directed,
+golden-model, and CRV, at a specified minimum iteration count per module)
+passes clean at top level. No scan-mode sim — step 15 removed.
 This step does **not** depend on step 5 — see "Freeze gate" below.
 Dependencies: step 14. Blocked: yes, transitively — via 14.
 
@@ -263,18 +324,37 @@ an acceptable risk, not a blocked freeze.
 ## Blocks RTL freeze — none remain
 
 All four questions are answered (see top of file). Nothing is blocked by an
-open PM question anymore. What remains is design/implementation work that
-hasn't been re-scoped or task-prompted yet: steps 8, 9 need M/N/K awareness;
-10, 11 need M/N/K-aware DMA addressing; 12 needs the 8-register design
-turned into a task prompt; 13 needs a native-slave interface spec written
-before it can be prompted at all (bigger lift than the others — it's a new
-protocol, not an adjustment).
+open PM question anymore. What remains is design/implementation work not
+yet task-prompted: steps 8, 9 need M/N/K awareness (spec now settled, see
+step 8's FSM detail above); 10, 11 need M/N/K-aware DMA addressing; 12
+needs the 8-register design turned into a task prompt; 13 needs a
+native-slave interface spec written before it can be prompted at all
+(bigger lift than the others — it's a new protocol, not an adjustment).
 
-**Holding point:** none of the above gets a task prompt until the user's
-final project document from the PM arrives — see "Questions going into the
-PM meeting" at the top of this file. This section is accurate as of the
-PM Q&A round recorded in `docs/session-handoff.md` §12, but nothing new
-should be drafted from it yet.
+**Hold lifted** — task prompts for 8 onward can be written now. Each one
+must fold in the CRV requirement above, not just the directed acceptance
+criteria already sketched per step.
+
+## Verification debt — steps 1–7
+
+Built and passing against **directed tests only**, before the CRV
+directive. Not blocking — already-verified RTL doesn't need re-proving to
+keep moving forward — but tracked here so it doesn't get silently skipped
+before freeze:
+
+- **Step 1 (PE):** 20 directed vectors. No randomized sweep across the
+  full signed int8 × int8 space, either mode.
+- **Step 4 (grid):** identity-weight test only, hand-skewed input. No
+  randomized weight/activation matrices.
+- **Step 6 (skew/de-skew):** one directed non-identity case (`cross_terms`,
+  M=4). No randomized matrices or randomized M.
+- **Step 7 (stall):** already has a randomized *component* (1–5 cycle
+  stall duration, three directed placements) — closest of the seven to the
+  new bar already, just narrow in scope (timing only, not data/shape).
+
+Not scheduling a retrofit task yet — flagging it so the freeze checklist
+(step 16) can decide whether it's required before sign-off or acceptable
+as documented residual risk.
 
 ## Back-end prerequisites
 

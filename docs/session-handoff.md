@@ -276,6 +276,29 @@ directed check in `unpu_seq`'s testbench.
   `src_A`'s [M×K], `dest_C`'s [M×N] exactly.
 
 **Net effect:** this substantially de-risks step 8 (sequencer) — the PM's
-own FSM shape is now available and lines up with our architecture. Still
-holding on writing that task prompt per the standing pause, pending either
-the user's go-ahead or the final project document.
+own FSM shape is now available and lines up with our architecture.
+
+## 14. Hold lifted; constrained random verification is now standing policy
+
+The user has confirmed enough is known to proceed — task prompts for steps
+8 onward can be written. Full detail on what changed is in
+`docs/planning/plan.md` (Q&A section, new "Verification methodology"
+section, and per-step acceptance criteria).
+
+**New standing rule: every module gets extensively tested from here on,
+including but not limited to CRV** — randomized data (full-range signed
+int8), randomized shape (M/N/K each 1–4), and randomized timing where a
+module has timing degrees of freedom, self-checked against `model/golden.c`
+or the timing contract, seeded and logged reproducibly. Directed tests stay
+— CRV is additive, not a replacement.
+
+**Why:** the user's own directive, given directly — extensive testing
+including CRV is now required for all modules. No further rationale given;
+treat as authoritative.
+
+**How to apply:** every task prompt for steps 8–16 must fold this into its
+acceptance criteria explicitly (`docs/planning/plan.md` already does this
+per-step). Steps 1–7 were built directed-only, before this directive —
+tracked as "Verification debt" in `plan.md`, not retroactively blocking,
+but flagged for the step 16 freeze checklist to decide on explicitly
+rather than let slide.
