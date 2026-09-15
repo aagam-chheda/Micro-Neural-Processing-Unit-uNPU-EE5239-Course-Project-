@@ -1,13 +1,11 @@
 # RTL freeze report — task 015
 
-**Frozen commit:** `FREEZE_COMMIT_HASH_PLACEHOLDER`
+**Frozen commit:** `87d31bf4b99def1bb0b26a84dcba8f1b9fee033e`
 
 This is that commit's own freeze-gate task (`docs/planning/tasks/015-freeze.md`,
-plan.md step 16). The hash above is filled in by a one-line follow-up commit
-immediately after this one lands, since a commit cannot name its own hash in
-advance — see git log for "Record freeze commit hash (task 015)" directly
-after this commit for the mechanics; the hash itself is what matters, and is
-correct as read here.
+plan.md step 16). This hash was filled in by a one-line follow-up commit
+immediately after the one that first added this file, since a commit cannot
+name its own hash in advance.
 
 This document is meant to stand alone: read only this file, without any of
 the fourteen prior task files or `docs/planning/plan.md`'s history, and know
