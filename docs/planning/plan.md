@@ -1,5 +1,11 @@
 # Implementation plan — through RTL freeze
 
+**RTL FROZEN as of commit `87d31bf` (2026-09-15).** Standalone record:
+`docs/freeze-report.md`. This plan's stated goal is met; what follows is
+now history plus the small amount of tracked follow-up (task 016) and
+everything already known to be outside this plan's scope (back-end,
+firmware — see below).
+
 Live status document. Update step status here as work completes. Task prompts
 are written one at a time, only when asked, as `docs/planning/tasks/NNN-*.md`.
 
@@ -573,7 +579,20 @@ an acceptable risk, not a blocked freeze.
    instance, randomized addresses/back-pressure/polling pacing — 512
    checks, 0 failures, full regression green. Simulated with Verilator.
    Nothing flagged back — first full run came together cleanly.
-16. **Sent to Execution 2026-09-15.** `docs/planning/tasks/015-freeze.md`.
+16. **Done. RTL FROZEN.** `docs/planning/tasks/015-freeze.md`, committed
+   `87d31bf` (+ hash follow-up `3c860ec`), pushed. Standalone record:
+   `docs/freeze-report.md`. All six parts passed, all ten testbenches at
+   or above their floors under three independent conditions (documented
+   seed, fresh seed, clean-rebuilt vectors) — full detail in the report
+   itself, not duplicated here. Verification debt formally recorded as
+   closed at this gate. Zero RTL/testbench changes made; Part B's
+   temporary seed edits were reverted and confirmed via empty `git diff`
+   before Part C ran.
+   One finding, reported not fixed (correct per the task's verify-don't-
+   repair scope): `CLAUDE.md`'s "Repo layout" section still lists `.v`
+   files and a nonexistent `unpu_apb.v`, doesn't list `unpu_slave.sv`,
+   and contradicts CLAUDE.md's own `.sv` hard-constraint two screens up.
+   Small follow-up task written: `docs/planning/tasks/016-claude-md-repo-layout.md`.
 3: not started (back-end, pending institute-server access). 15 removed
 from scope (no scan chain, Q3).
 

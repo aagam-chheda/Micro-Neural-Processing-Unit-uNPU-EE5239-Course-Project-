@@ -302,3 +302,40 @@ per-step). Steps 1–7 were built directed-only, before this directive —
 tracked as "Verification debt" in `plan.md`, not retroactively blocking,
 but flagged for the step 16 freeze checklist to decide on explicitly
 rather than let slide.
+
+## 15. RTL FROZEN — 2026-09-15
+
+Steps 8 through 16 all landed (tasks 006–015), including one unplanned
+but necessary detour: `unpu_seq` (task 006) had been built against
+direct-forced data as a stand-in, and turned out to have no way to
+actually drive the real `unpu_dma`/`unpu_wbuf`/`unpu_actbuf` built in
+tasks 007–010. Found while starting to plan top-level integration,
+resolved by revising `unpu_seq` itself (task 011, un-freezing it for
+that one task) rather than building a shim around it that would have
+left the buffers unused — full reasoning in
+`docs/planning/tasks/011-seq-revision.md`. Top-level integration
+(`unpu_top`, task 012) then wired cleanly on the first full run.
+
+The user also decided the verification debt flagged in §14 above gets a
+**full retrofit**, not accepted as residual risk — task 013 closed it;
+every module now carries CRV coverage, zero RTL bugs found in the
+process.
+
+Freeze itself (task 015, plan.md step 16) ran six parts at the user's
+explicit request for maximum thoroughness — full regression against
+recorded floors, a fresh-seed re-run of every CRV suite, a from-scratch
+golden-model rebuild, a whole-design lint sweep, and a repository hygiene
+audit — on top of the standalone `docs/freeze-report.md` sign-off record
+that resulted. All passed. Frozen at commit `87d31bf`.
+
+**Freeze is functional only** — no timing/STA, no DRC/LVS, no firmware.
+Steps 3/5 (back-end, PDK/server access) and firmware remain open,
+tracked in `plan.md`, and don't reopen this freeze unless back-end work
+later reveals a real problem (accepted risk, decided early — see
+`plan.md`'s "Freeze gate" section).
+
+One documentation finding surfaced at freeze and not yet fixed: CLAUDE.md's
+"Repo layout" section still references `.v` extensions and a nonexistent
+`unpu_apb.v`, and doesn't list `unpu_slave.sv`. Small follow-up task
+written (`docs/planning/tasks/016-claude-md-repo-layout.md`), not a
+design question.
