@@ -592,7 +592,9 @@ an acceptable risk, not a blocked freeze.
    repair scope): `CLAUDE.md`'s "Repo layout" section still lists `.v`
    files and a nonexistent `unpu_apb.v`, doesn't list `unpu_slave.sv`,
    and contradicts CLAUDE.md's own `.sv` hard-constraint two screens up.
-   Small follow-up task written: `docs/planning/tasks/016-claude-md-repo-layout.md`.
+   **Done.** `docs/planning/tasks/016-claude-md-repo-layout.md`, committed
+   `9da38f8`, pushed. Verified against `ls rtl/*.sv` before editing (11
+   files, matched exactly); only the repo-layout code block changed.
 3: not started (back-end, pending institute-server access). 15 removed
 from scope (no scan chain, Q3).
 
