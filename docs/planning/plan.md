@@ -373,8 +373,8 @@ actually exists); (F) the written freeze report itself.
 Freeze gate is **functional correctness only**: no timing/STA, no
 DRC/LVS, no firmware — explicitly decoupled, see "Freeze gate" below.
 No scan-mode sim — step 15 removed.
-**Held back at the user's request — not sent to Execution yet, planned
-for tomorrow.**
+Sent to Execution 2026-09-15 (held overnight per the user's request on
+2026-09-14, now released).
 Dependencies: step 14 (done). Blocked: no.
 
 ---
@@ -573,7 +573,7 @@ an acceptable risk, not a blocked freeze.
    instance, randomized addresses/back-pressure/polling pacing — 512
    checks, 0 failures, full regression green. Simulated with Verilator.
    Nothing flagged back — first full run came together cleanly.
-16. **Task written, held for tomorrow at user's request.** `docs/planning/tasks/015-freeze.md`.
+16. **Sent to Execution 2026-09-15.** `docs/planning/tasks/015-freeze.md`.
 3: not started (back-end, pending institute-server access). 15 removed
 from scope (no scan chain, Q3).
 
