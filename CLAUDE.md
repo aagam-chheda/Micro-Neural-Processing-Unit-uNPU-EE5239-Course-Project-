@@ -57,10 +57,11 @@ cross-cutting change, not a local one.
 ## Repo layout
 
 ```
-rtl/          Verilog RTL           (unpu_pe.v, unpu_grid.v, unpu_skew.v,
-                                     unpu_deskew.v, unpu_dma.v, unpu_actbuf.v,
-                                     unpu_wbuf.v, unpu_apb.v, unpu_csr.v,
-                                     unpu_seq.v, unpu_top.v)
+rtl/          SystemVerilog RTL     (unpu_pe.sv, unpu_grid.sv, unpu_skew.sv,
+                                     unpu_deskew.sv, unpu_dma.sv,
+                                     unpu_actbuf.sv, unpu_wbuf.sv,
+                                     unpu_csr.sv, unpu_seq.sv,
+                                     unpu_slave.sv, unpu_top.sv)
 tb/           Testbenches, assertions, SoC harness
 model/        C golden model
 fw/           Bare-metal C firmware
