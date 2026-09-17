@@ -57,39 +57,52 @@ verification-methodology requirement below before writing any of them.
 
 ---
 
-## Open questions — resolved (address window), one small follow-up pending
+## Open questions — address window: partially resolved, pending a cross-team conversation
 
 5. **Does the `0x4000_0000`–`0x4000_0FFF` address window still apply
    unchanged now that the control interface is native rather than
    APB-bridged, or does removing APB change how the window is decoded at
-   the top level?** Raised 2026-09-14. **Answered by the PM, 2026-09-17**
-   (relayed by the user): "There will be a decoder after the Pico and
-   that will assert the npu_ready signal (or some similar name). Once
-   this signal is asserted, npu's internal FSM should start and get the
-   data from the registers based on the timing agreed with the Pico.
-   Once npu is enabled, you don't need to look at the addresses. These
-   will be in your window."
+   the top level?** Raised 2026-09-14.
 
-   **Confirms `unpu_slave`'s assumption #1 exactly as built** (task 010,
+   **First answer (PM, 2026-09-17):** "There will be a decoder after the
+   Pico and that will assert the npu_ready signal (or some similar
+   name). Once this signal is asserted, npu's internal FSM should start
+   and get the data from the registers based on the timing agreed with
+   the Pico. Once npu is enabled, you don't need to look at the
+   addresses. These will be in your window." **Confirms `unpu_slave`'s
+   assumption #1 exactly as built** (task 010,
    `docs/planning/tasks/010-native-slave.md`): an external decoder
    filters CPU traffic before it reaches us, so `csr_sel =
    mem_addr[11:2]` with no `0x4000_` prefix check is correct — no RTL
-   change needed, nothing to reopen in the freeze.
+   change needed here.
 
-   **One follow-up sent back to the PM, not yet answered:** the PM's
-   "npu_ready... npu's internal FSM should start" phrasing describes a
-   signal asserted once ("should start"), which reads differently from
-   the per-transaction `valid` handshake `unpu_slave`/`unpu_csr` were
-   built against (asserted alongside *every* individual register
-   read/write, not once as an enable event). Likely just informal
-   phrasing describing the same per-access signal — but since RTL is
-   frozen, this is worth pinning down rather than assumed either way.
-   Question relayed to the user to ask back: is the signal per-
-   transaction (matches what's built) or a separate one-time/persistent
-   enable (would need one new `unpu_top` input port, a small addition,
-   but a real reason to reopen the freeze for that one port). **Not
-   blocking** — the built design is very likely already correct either
-   way this resolves, given how directly it confirms assumption #1.
+   **Follow-up sent back** (whether "npu_ready...should start" means a
+   per-transaction `valid` matching what's built, or a separate one-time
+   enable): **answered, 2026-09-17** — the PM described one possible
+   three-signal protocol: (1) an "enabled" signal meaning "Pico wants to
+   talk to the NPU," (2) the processor then writes the required
+   registers over the next few cycles, (3) the processor asserts a
+   separate **"ready"** signal — distinct from the register writes —
+   that tells the NPU it's cleared to start computing. He was explicit
+   this is only *one* possible shape, not a confirmed spec: "There are
+   multiple ways of doing this... I'd recommend you talk to the SoC team
+   to figure out a common ground."
+
+   **Status: genuinely open, needs a human cross-team conversation, not
+   an RTL decision Planning/Execution can make.** What's already built
+   and frozen achieves the same three things (target identification via
+   address decode, register writes for config, an explicit start
+   trigger) but entirely through the memory-mapped register interface —
+   START is `npu_ctrl` bit 0, a write-1-to-pulse **register write**, not
+   a discrete physical signal. Functionally equivalent to the PM's
+   sketch; not identical in mechanism. If the SoC team is fine with a
+   register-write START, **zero RTL changes needed** — the freeze
+   stands as-is. If they specifically require a discrete START pin
+   separate from the register interface, that's a real (small, but
+   real) `unpu_top` port addition, which would reopen the freeze for
+   that one port. **Not blocking** anything right now; tracked here
+   until the user has that SoC-team conversation and brings back an
+   actual answer.
 
 ---
 
