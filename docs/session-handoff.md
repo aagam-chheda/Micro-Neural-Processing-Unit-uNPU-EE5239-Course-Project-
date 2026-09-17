@@ -339,3 +339,29 @@ One documentation finding surfaced at freeze and not yet fixed: CLAUDE.md's
 `unpu_apb.v`, and doesn't list `unpu_slave.sv`. Small follow-up task
 written (`docs/planning/tasks/016-claude-md-repo-layout.md`), not a
 design question.
+
+## 16. Address-window question answered — confirms the built design
+
+`docs/planning/plan.md`'s open question 5 (does the `0x4000_0000`–
+`0x4000_0FFF` window still apply, and who decodes it, now that the
+CPU↔NPU interface is native) is answered. PM, 2026-09-17, relayed by the
+user: "There will be a decoder after the Pico and that will assert the
+npu_ready signal (or some similar name). Once this signal is asserted,
+npu's internal FSM should start and get the data from the registers
+based on the timing agreed with the Pico. Once npu is enabled, you don't
+need to look at the addresses. These will be in your window."
+
+**Confirms `unpu_slave`'s assumption #1 exactly as already built and
+frozen** (task 010): an external decoder filters CPU traffic before it
+reaches us; `csr_sel = mem_addr[11:2]` with no prefix check is correct.
+No RTL change, nothing to reopen.
+
+**One small follow-up sent back, not yet answered:** the PM's "npu_ready
+... should start" phrasing reads like a one-time enable event, which
+differs from the per-transaction `valid` handshake actually built
+(asserted alongside every individual register access, not once). Almost
+certainly just informal phrasing for the same signal, but asked to
+confirm rather than assume, since confirming a *different* meaning would
+mean one new `unpu_top` input port — small, but a real reason to reopen
+the freeze for it. Full detail in `docs/planning/plan.md`'s "Open
+questions" section. Not blocking.

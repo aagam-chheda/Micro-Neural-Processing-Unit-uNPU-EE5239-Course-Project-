@@ -57,16 +57,39 @@ verification-methodology requirement below before writing any of them.
 
 ---
 
-## Open questions — pending PM answer
-
-Not blocking any step below; tracked here so they don't get lost before
-freeze.
+## Open questions — resolved (address window), one small follow-up pending
 
 5. **Does the `0x4000_0000`–`0x4000_0FFF` address window still apply
    unchanged now that the control interface is native rather than
    APB-bridged, or does removing APB change how the window is decoded at
-   the top level?** Raised 2026-09-14. Logged as open — no answer inferred
-   from anything already on record.
+   the top level?** Raised 2026-09-14. **Answered by the PM, 2026-09-17**
+   (relayed by the user): "There will be a decoder after the Pico and
+   that will assert the npu_ready signal (or some similar name). Once
+   this signal is asserted, npu's internal FSM should start and get the
+   data from the registers based on the timing agreed with the Pico.
+   Once npu is enabled, you don't need to look at the addresses. These
+   will be in your window."
+
+   **Confirms `unpu_slave`'s assumption #1 exactly as built** (task 010,
+   `docs/planning/tasks/010-native-slave.md`): an external decoder
+   filters CPU traffic before it reaches us, so `csr_sel =
+   mem_addr[11:2]` with no `0x4000_` prefix check is correct — no RTL
+   change needed, nothing to reopen in the freeze.
+
+   **One follow-up sent back to the PM, not yet answered:** the PM's
+   "npu_ready... npu's internal FSM should start" phrasing describes a
+   signal asserted once ("should start"), which reads differently from
+   the per-transaction `valid` handshake `unpu_slave`/`unpu_csr` were
+   built against (asserted alongside *every* individual register
+   read/write, not once as an enable event). Likely just informal
+   phrasing describing the same per-access signal — but since RTL is
+   frozen, this is worth pinning down rather than assumed either way.
+   Question relayed to the user to ask back: is the signal per-
+   transaction (matches what's built) or a separate one-time/persistent
+   enable (would need one new `unpu_top` input port, a small addition,
+   but a real reason to reopen the freeze for that one port). **Not
+   blocking** — the built design is very likely already correct either
+   way this resolves, given how directly it confirms assumption #1.
 
 ---
 
