@@ -130,6 +130,28 @@ verification-methodology requirement below before writing any of them.
    conversation lands on. **Explicitly provisional** — may be revised or
    reverted once that conversation happens.
 
+   **Done.** Committed `5767bfc`, pushed. `git diff --stat rtl/`
+   confirmed only `unpu_top.sv` changed — no submodule touched. Four new
+   directed cases (`npu_enable=0` blocks access, `npu_start_req`
+   triggers a full `cross_terms` matmul, the exact edge-timing boundary,
+   `npu_start_req` without `npu_enable` does nothing) plus every
+   existing case and all 64 CRV cases re-run with `npu_enable` wrapping
+   register traffic. 534 checks, 0 failures. Full regression on all nine
+   other (unchanged) testbenches confirmed still green.
+   One deliberate, documented exception to `unpu_top_tb.sv`'s black-box-
+   only policy (task 012): the edge-timing check needs to observe a
+   transient pulse that settles within the same delta-cycle it's
+   produced and isn't exposed at any top-level pin (`unpu_seq.busy` is
+   left unconnected at `unpu_top`'s own port list) — no black-box
+   observation point exists for it. Execution used
+   `dut.u_seq.busy` as a registered proxy, worked through the NBA/delta-
+   cycle timing by hand before trusting it, and confirmed it correctly
+   distinguishes the specified correct RTL from a one-cycle-late
+   (double-registered) variant. Narrowly scoped, well-reasoned, flagged
+   explicitly rather than silently bent — same standard as every prior
+   hierarchical-access exception in this project (task 007's `stage[]`
+   check, task 005's stall-register probes).
+
 ---
 
 ## Verification methodology — constrained random, starting now

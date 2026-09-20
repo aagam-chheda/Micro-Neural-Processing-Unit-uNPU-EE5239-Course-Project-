@@ -388,3 +388,11 @@ register-write START path is kept working alongside the new pin, not
 replaced, so this doesn't have to pre-guess which mechanism the SoC
 conversation settles on. Expect a follow-up task after that
 conversation, to either confirm, adjust, or revert this.
+
+**Landed, 2026-09-20:** committed `5767bfc`, pushed, `rtl/unpu_top.sv`
+the only file changed under `rtl/`. Full detail and test results are in
+`docs/planning/plan.md`'s open-question-5 entry, not duplicated here —
+this note exists so a reader of this file's chronological history
+doesn't have to guess whether the provisional task above ever actually
+landed. **Still provisional** until the SoC-team conversation happens;
+this is what's live in the meantime.
