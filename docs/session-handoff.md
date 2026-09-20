@@ -375,3 +375,16 @@ a discrete START pin: one new `unpu_top` input port, small but real, and
 would reopen the freeze for it. Not blocking anything now; tracked in
 `docs/planning/plan.md`'s "Open questions" section until the user has
 that conversation and brings back an answer.
+
+**Update, 2026-09-20:** the user chose not to wait — the SoC-team
+conversation is scheduled for tomorrow, but they asked to implement the
+PM's sketch now as a provisional interface, so there's something
+concrete to test in the meantime. Task written and dispatched:
+`docs/planning/tasks/017-interim-enable-start.md`. This reopens the
+freeze, scoped to `rtl/unpu_top.sv` only — two new ports
+(`npu_enable`, `npu_start_req`) that gate/combine existing signals,
+without touching any already-frozen submodule. The existing `npu_ctrl`
+register-write START path is kept working alongside the new pin, not
+replaced, so this doesn't have to pre-guess which mechanism the SoC
+conversation settles on. Expect a follow-up task after that
+conversation, to either confirm, adjust, or revert this.

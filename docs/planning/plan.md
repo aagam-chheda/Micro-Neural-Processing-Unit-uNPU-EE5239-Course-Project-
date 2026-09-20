@@ -6,6 +6,14 @@ now history plus the small amount of tracked follow-up (task 016) and
 everything already known to be outside this plan's scope (back-end,
 firmware — see below).
 
+**Reopened, provisionally, 2026-09-20** — task 017
+(`docs/planning/tasks/017-interim-enable-start.md`) adds an interim
+`npu_enable`/`npu_start_req` protocol to `rtl/unpu_top.sv` only, ahead of
+a SoC-team conversation the user is having tomorrow. See "Open
+questions" item 5's 2026-09-20 update below for the full reasoning. Once
+that conversation happens, this may need a follow-up task to revise or
+revert.
+
 Live status document. Update step status here as work completes. Task prompts
 are written one at a time, only when asked, as `docs/planning/tasks/NNN-*.md`.
 
@@ -103,6 +111,24 @@ verification-methodology requirement below before writing any of them.
    that one port. **Not blocking** anything right now; tracked here
    until the user has that SoC-team conversation and brings back an
    actual answer.
+
+   **Update 2026-09-20 — user's decision: implement the PM's sketch now,
+   provisionally, ahead of the SoC-team conversation** (scheduled for
+   tomorrow). Rather than wait, build the three-signal shape as one
+   concrete option so there's something working to test against. Task
+   written: `docs/planning/tasks/017-interim-enable-start.md`. **This
+   reopens RTL freeze**, scoped to exactly one file —
+   `rtl/unpu_top.sv` — via two new ports (`npu_enable`, `npu_start_req`,
+   named to avoid colliding with this design's existing `mem_ready`/
+   `dma_ready` meaning) that gate/combine already-existing signals
+   rather than changing any submodule. `tb/unpu_top_tb.sv` also needs
+   updating (every existing case needs `npu_enable` wrapped around its
+   register traffic, same situation task 011 was in with
+   `unpu_seq_tb.sv`). The existing `npu_ctrl`-bit-0-write START path is
+   kept working alongside the new discrete trigger, not replaced —
+   deliberately, so this doesn't have to guess which one the SoC-team
+   conversation lands on. **Explicitly provisional** — may be revised or
+   reverted once that conversation happens.
 
 ---
 
