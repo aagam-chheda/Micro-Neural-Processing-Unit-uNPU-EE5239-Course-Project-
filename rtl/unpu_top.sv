@@ -44,7 +44,15 @@ module unpu_top (
   input  logic [31:0]  dma_rdata,
   output logic [3:0]   dma_wstrb,
   output logic         dma_valid,
-  input  logic         dma_ready
+  input  logic         dma_ready,
+
+  // Interim, provisional protocol (task 017) -- one option the PM
+  // sketched for how Pico's decoder signals the NPU, pending a
+  // cross-team conversation with the SoC team (session-handoff.md §16).
+  // Both signals are handled entirely inside this module by
+  // gating/combining existing wires -- no submodule touched.
+  input  logic          npu_enable,     // decoder: "this bus traffic is addressed to the NPU" (PM's "enabled")
+  input  logic          npu_start_req   // processor: "registers are written, start computing" (PM's "ready", renamed -- collides with this design's mem_ready/dma_ready, which mean the opposite: "slave completed the transaction")
 );
 
   // ---- unpu_slave <-> unpu_csr ----
@@ -121,13 +129,40 @@ module unpu_top (
   assign grid_psum_in = '0;
   assign c_in          = deskew_c_out;
 
+  // ---- npu_enable gates the register-access path (task 017) ----
+  // When deasserted, unpu_slave sees mem_valid=0 every cycle -- same
+  // treatment as an already-tested unmapped/reserved offset (task 010):
+  // reads return 0, writes have no effect, mem_ready still ties high
+  // unconditionally (unpu_slave's own output, wired straight through
+  // below), so this never stalls the bus.
+  logic slave_mem_valid;
+  assign slave_mem_valid = mem_valid && npu_enable;
+
+  // ---- npu_start_req edge detector -> second, independent start
+  // trigger (task 017), OR'd with unpu_csr's existing start_pulse. The
+  // edge detector is registered: start_req_pulse fires the cycle AFTER
+  // npu_start_req's rising edge, not the same cycle.
+  logic npu_start_req_q;
+  logic start_req_pulse;
+  logic seq_start;
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+      npu_start_req_q <= 1'b0;
+    else
+      npu_start_req_q <= npu_start_req;
+  end
+
+  assign start_req_pulse = npu_start_req && !npu_start_req_q && npu_enable;
+  assign seq_start       = start_pulse || start_req_pulse;
+
   unpu_slave u_slave (
     .clk       (clk),
     .rst_n     (rst_n),
     .mem_addr  (mem_addr),
     .mem_wdata (mem_wdata),
     .mem_wstrb (mem_wstrb),
-    .mem_valid (mem_valid),
+    .mem_valid (slave_mem_valid),
     .mem_rdata (mem_rdata),
     .mem_ready (mem_ready),
     .csr_sel   (csr_sel),
@@ -159,7 +194,7 @@ module unpu_top (
   unpu_seq u_seq (
     .clk             (clk),
     .rst_n           (rst_n),
-    .start           (start_pulse),
+    .start           (seq_start),
     .dim_m           (dim_m),
     .dim_n           (dim_n),
     .dim_k           (dim_k),

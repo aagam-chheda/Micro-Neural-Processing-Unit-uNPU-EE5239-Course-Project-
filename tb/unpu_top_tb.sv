@@ -1,9 +1,12 @@
-// CPU's-eye-view integration test for unpu_top. Drives the DUT ONLY
-// through its two native ports (mem_* and dma_*) -- no hierarchical
-// whitebox access to check intermediate state, unlike some earlier
-// testbenches that used it for specific settling checks. That's the
-// actual point of this test: proving the block works exactly the way a
-// real CPU (or the SPI debug backdoor) would see it.
+// CPU's-eye-view integration test for unpu_top. Drives the DUT through
+// its two native ports (mem_* and dma_*) plus, as of task 017, the two
+// interim npu_enable/npu_start_req pins -- no hierarchical whitebox
+// access to check intermediate state, unlike some earlier testbenches
+// that used it for specific settling checks, with one deliberate
+// exception (task 017's edge-timing check, `dut.u_seq.busy`; see that
+// test's own comment for why). That's the actual point of this test
+// otherwise: proving the block works exactly the way a real CPU (or the
+// SPI debug backdoor) would see it.
 //
 // CSR offsets and the SIGNED-bit polarity come straight from task 009's
 // file (docs/planning/tasks/009-csr.md): src_A=0x00, src_B=0x04,
@@ -38,21 +41,27 @@ module unpu_top_tb;
   logic [3:0]  dma_wstrb;
   logic        dma_valid, dma_ready;
 
+  // Interim, provisional protocol (task 017) -- see rtl/unpu_top.sv's
+  // header for what these are and why they're provisional.
+  logic        npu_enable, npu_start_req;
+
   unpu_top dut (
-    .clk       (clk),
-    .rst_n     (rst_n),
-    .mem_addr  (mem_addr),
-    .mem_wdata (mem_wdata),
-    .mem_wstrb (mem_wstrb),
-    .mem_valid (mem_valid),
-    .mem_rdata (mem_rdata),
-    .mem_ready (mem_ready),
-    .dma_addr  (dma_addr),
-    .dma_wdata (dma_wdata),
-    .dma_rdata (dma_rdata),
-    .dma_wstrb (dma_wstrb),
-    .dma_valid (dma_valid),
-    .dma_ready (dma_ready)
+    .clk           (clk),
+    .rst_n         (rst_n),
+    .mem_addr      (mem_addr),
+    .mem_wdata     (mem_wdata),
+    .mem_wstrb     (mem_wstrb),
+    .mem_valid     (mem_valid),
+    .mem_rdata     (mem_rdata),
+    .mem_ready     (mem_ready),
+    .dma_addr      (dma_addr),
+    .dma_wdata     (dma_wdata),
+    .dma_rdata     (dma_rdata),
+    .dma_wstrb     (dma_wstrb),
+    .dma_valid     (dma_valid),
+    .dma_ready     (dma_ready),
+    .npu_enable    (npu_enable),
+    .npu_start_req (npu_start_req)
   );
 
   initial clk = 0;
@@ -124,6 +133,12 @@ module unpu_top_tb;
     begin
       rst_n = 0;
       mem_addr = 0; mem_wdata = 0; mem_wstrb = 0; mem_valid = 0;
+      // npu_enable defaults asserted -- every existing case's register
+      // traffic runs with it held high for the whole case (task 017);
+      // the two cases that need it deasserted set it to 0 explicitly and
+      // don't rely on this default.
+      npu_enable = 1'b1;
+      npu_start_req = 1'b0;
       bp_rng = 32'h5eed000c;
       step();
       step();
@@ -203,6 +218,44 @@ module unpu_top_tb;
       if (!ok) begin
         errors = errors + 1;
         $display("FAIL [%s]: npu_status DONE never observed within poll bound", label);
+      end
+    end
+  endtask
+
+  // Drives one full op like run_case_via_cpu, but triggers START via a
+  // rising edge on npu_start_req instead of npu_ctrl bit0 (task 017's
+  // second, independent trigger path). npu_ctrl is still written, for
+  // the SIGNED bit only (bit0=0 -- no register-write START this way).
+  task automatic run_case_via_start_req(input string label, input logic [31:0] base_a, input logic [31:0] base_w,
+                                         input logic [31:0] base_c, input int drv_m, input int drv_k, input int drv_n,
+                                         input bit ctrl_signed_bit, output bit ok);
+    logic [31:0] rdata;
+    int poll_i;
+    begin
+      native_write(CSR_BASE + OFF_SRC_A,  base_a);
+      native_write(CSR_BASE + OFF_SRC_B,  base_w);
+      native_write(CSR_BASE + OFF_DEST_C, base_c);
+      native_write(CSR_BASE + OFF_DIM_M,  {29'd0, drv_m[2:0]});
+      native_write(CSR_BASE + OFF_DIM_N,  {29'd0, drv_n[2:0]});
+      native_write(CSR_BASE + OFF_DIM_K,  {29'd0, drv_k[2:0]});
+      native_write(CSR_BASE + OFF_NPU_CTRL, {30'd0, ctrl_signed_bit, 1'b0}); // bit0=0 (no register-write START), bit1=SIGNED
+
+      npu_start_req = 1'b1;
+      step();
+      npu_start_req = 1'b0;
+
+      ok = 1'b0;
+      for (poll_i = 0; poll_i < 4000; poll_i = poll_i + 1) begin
+        native_read(CSR_BASE + OFF_NPU_STAT, rdata);
+        if (rdata[0] == 1'b1) begin
+          ok = 1'b1;
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!ok) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: npu_status DONE never observed within poll bound (npu_start_req trigger)", label);
       end
     end
   endtask
@@ -301,6 +354,86 @@ module unpu_top_tb;
     preload_case("cross_terms", 32'h0000_9000, 32'h0000_9100);
     run_case_via_cpu("post-error recovery: cross_terms", 32'h0000_9000, 32'h0000_9100, 32'h0000_9200, 4, 4, 4, 1'b1, 1'b0, ok);
     check_writeback("post-error recovery: cross_terms", 32'h0000_9200, 4, 4);
+
+    // ==== New (task 017): npu_enable=0 blocks register access -- the
+    // write is silently dropped (matches the already-tested unmapped-
+    // offset behavior, task 010) and the bus never hangs (mem_ready
+    // stays 1). ====
+    do_reset();
+    npu_enable = 1'b0;
+    mem_addr = CSR_BASE + OFF_DIM_M; mem_wdata = 32'd3; mem_wstrb = 4'hF; mem_valid = 1'b1;
+    step();
+    checks = checks + 1;
+    if (mem_ready !== 1'b1) begin
+      errors = errors + 1;
+      $display("FAIL [enable=0 blocks write]: mem_ready not 1 while npu_enable=0 (bus would hang)");
+    end
+    mem_valid = 1'b0; mem_wstrb = 4'h0;
+    npu_enable = 1'b1;
+    native_read(CSR_BASE + OFF_DIM_M, rdata);
+    checks = checks + 1;
+    if (rdata[2:0] !== 3'd0) begin
+      errors = errors + 1;
+      $display("FAIL [enable=0 blocks write]: dim_M read back %0d, expected 0 (reset value -- write should have been blocked)", rdata[2:0]);
+    end else begin
+      $display("PASS [enable=0 blocks write]: register write while npu_enable=0 had no effect, mem_ready stayed 1");
+    end
+
+    // ==== New (task 017): npu_start_req triggers a real matmul, same
+    // cross_terms case as the anchor directed test above, but START
+    // comes from a rising edge on npu_start_req instead of a npu_ctrl
+    // bit-0 write. ====
+    do_reset();
+    preload_case("cross_terms", 32'h0000_6000, 32'h0000_6100);
+    run_case_via_start_req("cross_terms via npu_start_req", 32'h0000_6000, 32'h0000_6100, 32'h0000_6200, 4, 4, 4, 1'b1, ok);
+    check_writeback("cross_terms via npu_start_req", 32'h0000_6200, 4, 4);
+
+    // ==== New (task 017): edge-timing check -- u_seq.busy (leaving
+    // IDLE) must assert exactly one cycle after npu_start_req's rising
+    // edge, not the same cycle, not two cycles later (known trap, same
+    // class as task 007/010/011's staging bugs -- see rtl/unpu_top.sv's
+    // comment on start_req_pulse). This is the one deliberate exception
+    // to this file's black-box-only policy (see header comment): the
+    // signal under test, start_req_pulse/seq_start, is transient -- it
+    // settles (and, in the correct design, is already extinguished) by
+    // the same clock edge that produces it, so it cannot be caught
+    // through the #1-settled mem_*/dma_* interface this file otherwise
+    // uses exclusively. unpu_seq's own registered busy output is the
+    // smallest whitebox probe that can still nail the exact cycle. ====
+    do_reset();
+    checks = checks + 1;
+    if (dut.u_seq.busy !== 1'b0) begin
+      errors = errors + 1;
+      $display("FAIL [edge-timing]: u_seq.busy not 0 before any npu_start_req activity");
+    end
+    npu_start_req = 1'b1;
+    step(); // the cycle immediately after npu_start_req's rising edge
+    checks = checks + 1;
+    if (dut.u_seq.busy !== 1'b1) begin
+      errors = errors + 1;
+      $display("FAIL [edge-timing]: u_seq.busy not asserted exactly one cycle after npu_start_req's rising edge (got %b)", dut.u_seq.busy);
+    end else begin
+      $display("PASS [edge-timing]: u_seq.busy asserted exactly one cycle after npu_start_req's rising edge");
+    end
+    npu_start_req = 1'b0;
+
+    // ==== New (task 017): npu_start_req without npu_enable produces no
+    // start -- proves the "&& npu_enable" term in start_req_pulse is
+    // actually doing something, not just present in the RTL. ====
+    do_reset();
+    npu_enable = 1'b0;
+    npu_start_req = 1'b1;
+    step();
+    npu_start_req = 1'b0;
+    step();
+    checks = checks + 1;
+    if (dut.u_seq.busy !== 1'b0) begin
+      errors = errors + 1;
+      $display("FAIL [start_req without enable]: u_seq.busy asserted despite npu_enable=0");
+    end else begin
+      $display("PASS [start_req without enable]: npu_start_req rising edge produced no start while npu_enable=0");
+    end
+    npu_enable = 1'b1;
 
     // ==== CRV: all 64 crv_* cases, back to back, no reset between
     // them, through unpu_top's native ports only. ====
