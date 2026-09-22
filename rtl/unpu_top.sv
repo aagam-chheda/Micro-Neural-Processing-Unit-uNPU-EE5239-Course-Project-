@@ -5,7 +5,7 @@
 // transcribed from the task file's own wiring table) before wiring,
 // same discipline as verifying unpu_dma's job_kind encoding in task 011.
 //
-// Signal path: unpu_slave -> unpu_csr -> unpu_seq -> unpu_dma ->
+// Signal path: unpu_apb -> unpu_csr -> unpu_seq -> unpu_dma ->
 // unpu_wbuf/unpu_actbuf -> unpu_skew/unpu_grid/unpu_deskew -> back to
 // unpu_seq for capture and writeback (unpu_seq.c_dst IS unpu_dma.c_src,
 // task 008 built that shape deliberately so no adapter is needed here).
@@ -16,26 +16,32 @@
 // unconnected -- "goes nowhere and will be optimised away" (notebook
 // §05 B7), expected; not wired to anything, on purpose.
 //
-// Port list is negotiable per CLAUDE.md, not frozen -- two native buses
-// (slave: CPU/SPI-backdoor-facing; master: SRAM/arbiter-facing), each
-// matching its corresponding module's port exactly (unpu_slave task
-// 010, unpu_dma task 008).
+// CPU<->NPU register port is APB (task 018) -- reverted from the native
+// (PicoRV32-convention) interface task 010/012 built, per the user/PM/
+// SoC-top team's decision (docs/session-handoff.md). This also fully
+// retires task 017's provisional npu_enable/npu_start_req protocol:
+// APB's own psel/penable handshake already covers what those signals
+// were approximating, so nothing replaces them, they're just gone. The
+// DMA<->SRAM master port is unaffected and stays native -- that
+// decision was specifically about CPU<->NPU communication, matching its
+// corresponding module's port exactly (unpu_apb task 018, unpu_dma task
+// 008).
 //
-// Simulated with Verilator (--binary --timing), consistent with tasks
-// 006-011 -- see docs/planning/plan.md's "Tooling note" for the still-
-// open, non-blocking decision on standardizing across the project.
+// Simulated with Verilator (--binary --timing), consistent with every
+// task since 006.
 module unpu_top (
   input  logic         clk,
   input  logic         rst_n,
 
-  // Native slave port -- CPU (or SPI debug backdoor) facing. Matches
-  // unpu_slave's port exactly (task 010).
-  input  logic [31:0]  mem_addr,
-  input  logic [31:0]  mem_wdata,
-  input  logic [3:0]   mem_wstrb,
-  input  logic         mem_valid,
-  output logic [31:0]  mem_rdata,
-  output logic         mem_ready,
+  // APB slave port -- CPU (or SPI debug backdoor) facing. Matches
+  // unpu_apb's port exactly (task 018).
+  input  logic [31:0]  paddr,
+  input  logic [31:0]  pwdata,
+  input  logic         pwrite,
+  input  logic         psel,
+  input  logic         penable,
+  output logic [31:0]  prdata,
+  output logic         pready,
 
   // Native master port -- SRAM/arbiter facing. Matches unpu_dma's port
   // exactly (task 008).
@@ -44,18 +50,10 @@ module unpu_top (
   input  logic [31:0]  dma_rdata,
   output logic [3:0]   dma_wstrb,
   output logic         dma_valid,
-  input  logic         dma_ready,
-
-  // Interim, provisional protocol (task 017) -- one option the PM
-  // sketched for how Pico's decoder signals the NPU, pending a
-  // cross-team conversation with the SoC team (session-handoff.md §16).
-  // Both signals are handled entirely inside this module by
-  // gating/combining existing wires -- no submodule touched.
-  input  logic          npu_enable,     // decoder: "this bus traffic is addressed to the NPU" (PM's "enabled")
-  input  logic          npu_start_req   // processor: "registers are written, start computing" (PM's "ready", renamed -- collides with this design's mem_ready/dma_ready, which mean the opposite: "slave completed the transaction")
+  input  logic         dma_ready
 );
 
-  // ---- unpu_slave <-> unpu_csr ----
+  // ---- unpu_apb <-> unpu_csr ----
   logic [9:0]  csr_sel;
   logic [31:0] csr_wdata;
   logic        csr_wen;
@@ -129,42 +127,16 @@ module unpu_top (
   assign grid_psum_in = '0;
   assign c_in          = deskew_c_out;
 
-  // ---- npu_enable gates the register-access path (task 017) ----
-  // When deasserted, unpu_slave sees mem_valid=0 every cycle -- same
-  // treatment as an already-tested unmapped/reserved offset (task 010):
-  // reads return 0, writes have no effect, mem_ready still ties high
-  // unconditionally (unpu_slave's own output, wired straight through
-  // below), so this never stalls the bus.
-  logic slave_mem_valid;
-  assign slave_mem_valid = mem_valid && npu_enable;
-
-  // ---- npu_start_req edge detector -> second, independent start
-  // trigger (task 017), OR'd with unpu_csr's existing start_pulse. The
-  // edge detector is registered: start_req_pulse fires the cycle AFTER
-  // npu_start_req's rising edge, not the same cycle.
-  logic npu_start_req_q;
-  logic start_req_pulse;
-  logic seq_start;
-
-  always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n)
-      npu_start_req_q <= 1'b0;
-    else
-      npu_start_req_q <= npu_start_req;
-  end
-
-  assign start_req_pulse = npu_start_req && !npu_start_req_q && npu_enable;
-  assign seq_start       = start_pulse || start_req_pulse;
-
-  unpu_slave u_slave (
+  unpu_apb u_apb (
     .clk       (clk),
     .rst_n     (rst_n),
-    .mem_addr  (mem_addr),
-    .mem_wdata (mem_wdata),
-    .mem_wstrb (mem_wstrb),
-    .mem_valid (slave_mem_valid),
-    .mem_rdata (mem_rdata),
-    .mem_ready (mem_ready),
+    .paddr     (paddr),
+    .pwdata    (pwdata),
+    .pwrite    (pwrite),
+    .psel      (psel),
+    .penable   (penable),
+    .prdata    (prdata),
+    .pready    (pready),
     .csr_sel   (csr_sel),
     .csr_wdata (csr_wdata),
     .csr_wen   (csr_wen),
@@ -194,7 +166,7 @@ module unpu_top (
   unpu_seq u_seq (
     .clk             (clk),
     .rst_n           (rst_n),
-    .start           (seq_start),
+    .start           (start_pulse),
     .dim_m           (dim_m),
     .dim_n           (dim_n),
     .dim_k           (dim_k),
