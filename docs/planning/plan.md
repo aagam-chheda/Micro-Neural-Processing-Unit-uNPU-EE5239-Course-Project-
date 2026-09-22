@@ -898,7 +898,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 2 | `unpu_grid` | `docs/planning/tasks/020-grid-breaktest.md` | **Done** — see below |
 | 3 | `unpu_skew`/`unpu_deskew` | `docs/planning/tasks/021-skew-deskew-breaktest.md` | **Done** — see below |
 | 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | **Done** — see below |
-| 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | Sent to Execution |
+| 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | **Done** — see below |
 | 6 | `unpu_wbuf`/`unpu_actbuf` | — | Not started |
 | 7 | `unpu_dma` | — | Not started |
 | 8 | `unpu_csr` | — | Not started |
@@ -1023,6 +1023,46 @@ confirmed untouched. Task 005/013's existing baseline and 64-`crv_*`-
 case counts matched exactly (2,544/26,055), confirming this task didn't
 disturb the existing suite while adding to it. Four-testbench regression
 green, including `unpu_skew_tb`, which shares this chain.
+
+### Module 5 — `unpu_seq` — done, no RTL defect found
+
+Committed `4768791`, pushed. Already built to the "don't hardcode
+anything" standard before that instruction landed — confirmed and
+documented explicitly rather than just asserted: Part D's `dim_m+7`
+check and Part E's `C`-value checks both use genuine derivations
+(externally-measured cycle span; the stateless `ref_c_elem`).
+
+**One honest limitation flagged, worth recording precisely rather than
+smoothing over**: Part A/E's `error_code==3'd1` check is a fixed literal
+— but it's the RTL's own single defined protocol constant
+(`unpu_seq.sv`'s own header: "3'd1 = illegal `dim_m`/`dim_n`/`dim_k`,
+others reserved"), not a guessed or first-run value. With only one error
+code ever defined in the design, the 32-attempt rapid-fire test can
+prove the FSM never hangs and `error_code` never reads anything but that
+one defined value across 30+ consecutive attempts — but it structurally
+*cannot* distinguish "correctly re-latched each time" from "stuck at the
+only value that ever gets set," the way a second distinct code would
+let it. This is a real, permanent limitation of testing a single-error-
+code design, not a gap in this task's effort — noted in-file rather than
+overclaimed. Worth remembering if `npu_status`'s error-code field ever
+grows a second defined value later; this exact test would become
+meaningfully stronger for free.
+
+Part A: 12 exhaustive illegal cases + 6 boundary-legal + 3 multi-illegal
++ 32 rapid-fire, one reset, no legal op between attempts. Part B: 7
+directed stray-`start` placements across every non-`IDLE`/`ERROR`
+state (located via already-trusted `w_swap`/`a_swap`/`job_start`
+outputs, not hierarchical access) plus 10 randomly-timed. Part C: 10 ops
+under extreme 50–100-cycle/beat back-pressure, via a new default-off
+model that leaves the original 0–5-cycle model untouched except a mux
+on `dma_ready`. Part D: 24 `(dim_m,dim_k,dim_n)` triples, `COMPUTE` span
+exactly `dim_m+7` every time, fully independent of `dim_k`/`dim_n`. Part
+E: 20 sequences, 2,981 total ops, ~12% deliberately illegal and
+interspersed, zero idle gap, one reset per sequence.
+
+**19,840 total checks, 0 failures on the first run.** `rtl/unpu_seq.sv`
+untouched. Task 006/011's baseline and all 64 `crv_*` cases still pass
+unchanged. Full regression on all nine other testbenches green.
 
 ---
 
