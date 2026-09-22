@@ -902,7 +902,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | **Done** — see below |
 | 7 | `unpu_dma` | `docs/planning/tasks/025-dma-breaktest.md` | **Done** — see below |
 | 8 | `unpu_csr` | `docs/planning/tasks/026-csr-breaktest.md` | **Done** — see below |
-| 9 | `unpu_apb` | — | Not started |
+| 9 | `unpu_apb` | `docs/planning/tasks/027-apb-breaktest.md` | Sent to Execution |
 | 10 | `unpu_top` | — | Not started |
 
 If any task in this campaign finds a real RTL defect, that task reports
