@@ -899,7 +899,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 3 | `unpu_skew`/`unpu_deskew` | `docs/planning/tasks/021-skew-deskew-breaktest.md` | **Done** — see below |
 | 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | **Done** — see below |
 | 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | **Done** — see below |
-| 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | Sent to Execution |
+| 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | **Done** — see below |
 | 7 | `unpu_dma` | — | Not started |
 | 8 | `unpu_csr` | — | Not started |
 | 9 | `unpu_apb` | — | Not started |
@@ -1063,6 +1063,44 @@ interspersed, zero idle gap, one reset per sequence.
 **19,840 total checks, 0 failures on the first run.** `rtl/unpu_seq.sv`
 untouched. Task 006/011's baseline and all 64 `crv_*` cases still pass
 unchanged. Full regression on all nine other testbenches green.
+
+### Module 6 — `unpu_wbuf`/`unpu_actbuf` — done, no RTL defect found
+
+Committed `12f505b`, pushed. `tb/unpu_buf_tb.sv` had no existing
+stateless-reference equivalent to reuse (its CRV loop checks against
+`golden.c`'s precomputed files, not an inline function) — Execution
+derived one fresh with the same no-persistent-state discipline as
+modules 2–5, taking `dim_k` as an explicit parameter since it genuinely
+varies here.
+
+**Part A1's design choice is worth recording, since it's a sharper
+version of what the task asked for**: rather than placing extreme data
+only at the two named boundary rows/columns, Execution filled the whole
+`W`/`A` matrix with `0xFF` for all 16 `(K,N)` combinations — which
+strictly includes the boundary as a subset while making an off-by-one
+visible at *every* position simultaneously (any masked cell reading
+non-zero, or any real cell reading anything but `0xFF`, fails
+immediately). Part A2 then correctly used *distinct* per-position data
+for `K=1,2,3` specifically, since uniform data can't catch a
+transposition — every real cell would look identical regardless of
+where it actually landed. Two different data strategies for two
+different failure modes, not an accidental substitution of one for the
+other.
+
+Part A3 (the read-side zero-latency check): an 80-cycle rapidly-
+changing, non-repeating `rd_row` sequence across two different active
+banks, checked with **no clock edge at all** (pure settle) to directly
+confirm the combinational contract, then reconfirmed after a real edge
+too. Part A4: 24 rapid-fire load→swap cycles, zero gap, ping-pong
+checked directly via `active_sel`, not inferred from data correctness
+alone. Part B: 20 sequences, 2,279 total passes, extreme-biased
+synthetic data, freshly-randomized load-start delay every single pass
+(task 007 only ever tried one fixed relative timing).
+
+**17,975 total checks, 0 failures on the first run.** Both RTL files
+confirmed untouched. Task 007's 531-check baseline and all 64 `crv_*`
+cases still pass unchanged. Full regression on all nine other
+testbenches green.
 
 ---
 
