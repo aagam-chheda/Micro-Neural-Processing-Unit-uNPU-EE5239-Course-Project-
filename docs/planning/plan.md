@@ -1303,6 +1303,22 @@ No RTL changed at any point in this campaign. The design that was
 frozen at `87d31bf`, then revised for APB (`9f5deab`), is the same
 design this campaign spent ~745,000 checks trying to break.
 
+## Freeze v2 — post-campaign re-certification, task written
+
+User's instruction: write a second freeze pass, every criterion
+strictly tighter than task 015's, as thorough as possible. Task written:
+`docs/planning/tasks/029-freeze-v2.md`. Eight parts (task 015 had six):
+exact-count regression reconciliation (not just a floor), RTL-identity
+proof by diff against `9f5deab` (not inspection), fresh-seed re-runs at
+each break-it task's *original* scale (not a reduced check), a triple-
+cross-checked golden-model rebuild (clean-checkout worktree added), an
+exact textual lint-output diff against the first freeze report, a new
+**mutation spot-check** (deliberately break the RTL in an isolated,
+fully-cleaned-up `git worktree`, confirm the relevant tests actually
+catch it, prove the campaign's ~745,000 checks aren't vacuously true),
+an exhaustive hygiene audit, and a standalone `docs/freeze-report-v2.md`
+that supersedes (without deleting) the first report.
+
 Real work, not RTL work, chased by email — does not gate freeze.
 
 - SCL 180 nm PDK access (lib files, tech/LEF, corner definitions) — needed
