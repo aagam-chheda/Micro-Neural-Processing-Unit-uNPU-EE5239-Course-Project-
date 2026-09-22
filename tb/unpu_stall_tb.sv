@@ -236,6 +236,191 @@ module unpu_stall_tb;
     end
   endtask
 
+  // ==== Task 022: independent reference model + generalized multi-
+  // freeze pass runner, extending this file's existing distinctive job
+  // (bit-exact verification of all 44 internal registers through a
+  // freeze) into freeze *combinations* task 005/013 and task 021 never
+  // tried -- multiple freezes per pass, extreme durations, freezes
+  // landing exactly on data-validity boundaries, zero-gap back-to-back
+  // freezes, and varying freeze density across many back-to-back passes.
+  //
+  // ref_c_elem carries no persistent state between calls -- every call
+  // recomputes its one C[m][j] from scratch off A_case/W_case snapshots,
+  // same stateless discipline tasks 020/021 used, which structurally
+  // rules out the class of bug task 019's first-draft PE reference model
+  // had (accumulating from its own prior state instead of each cycle's
+  // driven input). Used uniformly for both Part A's cross_terms-derived
+  // cases and Part B's synthetic per-pass data, rather than switching
+  // between this and cross_terms_c.hex, for the same independent-
+  // derivation reason tasks 020/021 used it exclusively on this chain. ====
+  function automatic int signed to_signed8(input logic [7:0] v);
+    if (v[7])
+      return int'(v) - 256;
+    else
+      return int'(v);
+  endfunction
+
+  function automatic logic [31:0] ref_c_elem(input logic [7:0] Wm [0:3][0:3], input logic [7:0] Am [0:3][0:3],
+                                              input int mrow, input int jcol, input bit mode_uns);
+    int kk;
+    int unsigned acc_u, uw, ua;
+    int signed   acc_s, sw, sa;
+    begin
+      if (mode_uns) begin
+        acc_u = 0;
+        for (kk = 0; kk < 4; kk = kk + 1) begin
+          uw = {24'd0, Wm[kk][jcol]};
+          ua = {24'd0, Am[mrow][kk]};
+          acc_u = acc_u + uw * ua;
+        end
+        ref_c_elem = acc_u;
+      end else begin
+        acc_s = 0;
+        for (kk = 0; kk < 4; kk = kk + 1) begin
+          sw = to_signed8(Wm[kk][jcol]);
+          sa = to_signed8(Am[mrow][kk]);
+          acc_s = acc_s + sw * sa;
+        end
+        ref_c_elem = acc_s;
+      end
+    end
+  endfunction
+
+  function automatic logic [31:0] xorshift32(input logic [31:0] x);
+    logic [31:0] y;
+    begin
+      y = x;
+      y = y ^ (y << 13);
+      y = y ^ (y >> 17);
+      y = y ^ (y << 5);
+      xorshift32 = y;
+    end
+  endfunction
+
+  // ~1/8 chance of a boundary extreme, same discipline tasks 019-021
+  // used, biased toward the values most likely to expose a wiring/width
+  // bug instead of trusting uniform random to find them by chance.
+  function automatic logic [7:0] biased_byte(ref logic [31:0] rng);
+    logic [31:0] r1, r2;
+    begin
+      rng = xorshift32(rng); r1 = rng;
+      if (r1[3:0] < 4'd2) begin
+        rng = xorshift32(rng); r2 = rng;
+        case (r2[1:0])
+          2'd0: biased_byte = 8'h00;
+          2'd1: biased_byte = 8'hFF;
+          2'd2: biased_byte = 8'h80;
+          default: biased_byte = 8'h7F;
+        endcase
+      end else begin
+        biased_byte = r1[15:8];
+      end
+    end
+  endfunction
+
+  task automatic reset_dut;
+    begin
+      rst_n        = 0;
+      array_en     = 0;
+      weight_load  = '0;
+      weight_in    = '0;
+      a_raw        = '0;
+      grid_psum_in = '0;
+      step();
+      step();
+      rst_n = 1;
+      step();
+    end
+  endtask
+
+  localparam int MAX_FREEZES = 8;
+
+  // Preloads weights from the module-level W_case, then runs one full
+  // pass over the module-level A_case/case_M/mode_unsigned, injecting up
+  // to MAX_FREEZES independent freeze windows (freeze_starts[]/
+  // freeze_lens[], only the first num_freezes entries used) -- every
+  // held cycle of every one of them checked bit-exact across all 44
+  // internal registers via capture_snapshot()/check_frozen() (task 005's
+  // own machinery, reused unmodified). Does NOT reset the DUT -- callers
+  // running a single isolated pass call reset_dut() first; Part B's
+  // back-to-back sequences reset once per sequence and call this
+  // repeatedly with no reset and no idle gap between passes, case_M
+  // allowed to differ pass to pass.
+  //
+  // freeze_starts must be strictly increasing: a freeze holds active_cyc
+  // still for its whole duration, so the very next active edge after one
+  // freeze resumes is enough of a gap for the next freeze's start
+  // condition to fire immediately after -- true zero-gap back-to-back
+  // freezes fall out of consecutive integers (e.g. 2,3,4,5), not a
+  // special case this task needs to know about.
+  task automatic run_pass_freezes(input string label, input int num_freezes,
+                                   input int freeze_starts [0:MAX_FREEZES-1],
+                                   input int freeze_lens   [0:MAX_FREEZES-1],
+                                   output int errs_this_pass);
+    int active_cyc, active_cyc_max, fi;
+    logic [31:0] exp_val;
+    begin
+      errs_this_pass = 0;
+
+      // ---- Preload weights (unrolled, same convention as run_case()). ----
+      array_en = 1;
+      weight_in[0][0] = W_case[0][0]; weight_in[0][1] = W_case[0][1]; weight_in[0][2] = W_case[0][2]; weight_in[0][3] = W_case[0][3];
+      weight_in[1][0] = W_case[1][0]; weight_in[1][1] = W_case[1][1]; weight_in[1][2] = W_case[1][2]; weight_in[1][3] = W_case[1][3];
+      weight_in[2][0] = W_case[2][0]; weight_in[2][1] = W_case[2][1]; weight_in[2][2] = W_case[2][2]; weight_in[2][3] = W_case[2][3];
+      weight_in[3][0] = W_case[3][0]; weight_in[3][1] = W_case[3][1]; weight_in[3][2] = W_case[3][2]; weight_in[3][3] = W_case[3][3];
+      weight_load = '1;
+      a_raw = '0;
+      step();
+      weight_load = '0;
+
+      active_cyc     = 0;
+      active_cyc_max = (case_M - 1) + 7 + 2; // margin past last readout, same as run_case()
+      fi = 0;
+
+      while (active_cyc <= active_cyc_max) begin
+        m_drv = (active_cyc < case_M) ? active_cyc : (case_M - 1);
+        a_raw[0] = A_case[m_drv][0];
+        a_raw[1] = A_case[m_drv][1];
+        a_raw[2] = A_case[m_drv][2];
+        a_raw[3] = A_case[m_drv][3];
+
+        if (fi < num_freezes && active_cyc == freeze_starts[fi]) begin
+          for (s = 0; s < freeze_lens[fi]; s = s + 1) begin
+            capture_snapshot();
+            array_en = 0;
+            a_raw    = {4{8'hA5}}; // don't-care garbage; DUT must ignore it while frozen
+            step();   // frozen edge -- active_cyc does NOT advance
+            check_frozen($sformatf("%s freeze#%0d cyc %0d/%0d @active_cyc=%0d", label, fi, s + 1, freeze_lens[fi], active_cyc));
+          end
+          array_en = 1;
+          a_raw[0] = A_case[m_drv][0];
+          a_raw[1] = A_case[m_drv][1];
+          a_raw[2] = A_case[m_drv][2];
+          a_raw[3] = A_case[m_drv][3];
+          fi = fi + 1;
+        end
+
+        array_en = 1;
+        step(); // active edge
+        active_cyc = active_cyc + 1;
+
+        m = active_cyc - 7;
+        if (m >= 0 && m < case_M) begin
+          for (j = 0; j < 4; j = j + 1) begin
+            exp_val = ref_c_elem(W_case, A_case, m, j, mode_unsigned);
+            checks  = checks + 1;
+            if (c_out[j] !== exp_val) begin
+              errs_this_pass = errs_this_pass + 1;
+              errors = errors + 1;
+              $display("FAIL [%s]: active_cyc=%0d c_out[%0d] (C[%0d][%0d]) exp=%0d got=%0d",
+                        label, active_cyc, j, m, j, exp_val, c_out[j]);
+            end
+          end
+        end
+      end
+    end
+  endtask
+
   // Runs one full pass of 'name' (reset -> preload -> compute), optionally
   // inserting one randomised stall of 1-5 cycles at active_cyc ==
   // trigger_active_cyc. Checks c_out against C_case[m][*] at
@@ -404,6 +589,182 @@ module unpu_stall_tb;
       $display("ALL CHECKS PASSED");
     else
       $display("%0d FAILURE(S) (checks=%0d)", errors, checks);
+    $display("----------------------------------------");
+
+    // ==== Task 022, Part A: extreme freeze-combination directed cases.
+    // Not re-proving task 005/013's baseline (one randomized 1-5-cycle
+    // freeze per run) or task 021's exhaustive-position/single-freeze
+    // coverage -- these specifically target freeze *combinations*
+    // neither tried, still through this file's own 44-register bit-exact
+    // lens via run_pass_freezes()/check_frozen(), reused unmodified. ====
+    begin : part_a
+      int errs;
+      int meta_M;
+      string meta_mode;
+      int mfd, mrc;
+      int fstarts [0:MAX_FREEZES-1];
+      int flens   [0:MAX_FREEZES-1];
+      int bidx;
+
+      mfd = $fopen("model/vectors/cross_terms_meta.txt", "r");
+      if (mfd == 0)
+        $fatal(1, "could not open model/vectors/cross_terms_meta.txt -- run model/golden first");
+      mrc = $fscanf(mfd, "M=%d\nMODE=%s\n", meta_M, meta_mode);
+      $fclose(mfd);
+      if (mrc != 2)
+        $fatal(1, "could not parse model/vectors/cross_terms_meta.txt (got %0d fields)", mrc);
+
+      $readmemh("model/vectors/cross_terms_a.hex", A_case);
+      $readmemh("model/vectors/cross_terms_w.hex", W_case);
+      case_M        = meta_M;
+      mode_unsigned = (meta_mode == "UNSIGNED") ? 1'b1 : 1'b0;
+
+      // ---- A1: multiple freezes in one pass -- three separate freezes
+      // at active_cyc 1, 4, and 8, each an independent random 1-10-cycle
+      // duration, all 44 registers checked bit-exact through each. ----
+      reset_dut();
+      fstarts[0] = 1; flens[0] = 1 + ($unsigned($random(g_seed)) % 10);
+      fstarts[1] = 4; flens[1] = 1 + ($unsigned($random(g_seed)) % 10);
+      fstarts[2] = 8; flens[2] = 1 + ($unsigned($random(g_seed)) % 10);
+      $display("---- Part A1: 3 freezes in one pass @active_cyc 1/4/8, durations %0d/%0d/%0d ----", flens[0], flens[1], flens[2]);
+      run_pass_freezes("multi-freeze", 3, fstarts, flens, errs);
+
+      // ---- A2: extreme-duration freeze -- 50-100 cycles, well past the
+      // 1-5-cycle range used so far, every one of the 44 registers
+      // checked bit-exact on every cycle of the hold (not spot-checked),
+      // since check_frozen() runs inside the freeze loop every cycle. ----
+      reset_dut();
+      fstarts[0] = 5; flens[0] = 50 + ($unsigned($random(g_seed)) % 51);
+      $display("---- Part A2: extreme-duration freeze (%0d cycles) @active_cyc=5 ----", flens[0]);
+      run_pass_freezes("extreme-duration", 1, fstarts, flens, errs);
+
+      // ---- A3: freeze exactly on a data-validity boundary -- the two
+      // highest-risk moments for an off-by-one in what array_en gates:
+      // active_cyc==7 (first C row would normally become valid) and
+      // active_cyc==(M-1)+7 (last row's validity cycle). ----
+      reset_dut();
+      fstarts[0] = 7; flens[0] = 1 + ($unsigned($random(g_seed)) % 5);
+      $display("---- Part A3a: freeze exactly at active_cyc==7 (first row's validity cycle), duration=%0d ----", flens[0]);
+      run_pass_freezes("boundary-freeze-at-7", 1, fstarts, flens, errs);
+
+      reset_dut();
+      fstarts[0] = (case_M - 1) + 7; flens[0] = 1 + ($unsigned($random(g_seed)) % 5);
+      $display("---- Part A3b: freeze exactly at active_cyc==(M-1)+7=%0d (last row's validity cycle), duration=%0d ----", fstarts[0], flens[0]);
+      run_pass_freezes("boundary-freeze-at-M-1+7", 1, fstarts, flens, errs);
+
+      // ---- A4: back-to-back freezes with zero gap -- freeze, resume
+      // for exactly one cycle, freeze again immediately, repeated 4
+      // times (active_cyc 2,3,4,5: consecutive integers, per
+      // run_pass_freezes()'s own header note on what "zero gap" reduces
+      // to). ----
+      reset_dut();
+      for (bidx = 0; bidx < 4; bidx = bidx + 1) begin
+        fstarts[bidx] = 2 + bidx;
+        flens[bidx]   = 2 + ($unsigned($random(g_seed)) % 4);
+      end
+      $display("---- Part A4: 4x zero-gap back-to-back freezes @active_cyc 2/3/4/5, durations %0d/%0d/%0d/%0d ----",
+                flens[0], flens[1], flens[2], flens[3]);
+      run_pass_freezes("zero-gap-back-to-back", 4, fstarts, flens, errs);
+
+      $display("----------------------------------------");
+      if (errors == 0)
+        $display("Part A (multi-freeze, extreme-duration, both validity-boundary freezes, zero-gap back-to-back): ALL PASSED, checks=%0d frozen_checks=%0d so far", checks, frozen_checks);
+      else
+        $display("Part A: %0d FAILURE(S) SO FAR (checks=%0d frozen_checks=%0d)", errors, checks, frozen_checks);
+      $display("----------------------------------------");
+    end
+
+    // ==== Task 022, Part B: long multi-pass sequences with varying
+    // freeze density. The specific thing this pushes hard: does the
+    // single global array_en correctly gate every one of the 44
+    // registers, every time, under adversarial freeze density (0-4
+    // freezes per pass, randomly placed and durationed), across hundreds
+    // of back-to-back passes with no reset and no idle gap, without ever
+    // once drifting. ====
+    begin : part_b
+      localparam int NUM_SEQ = 20;
+
+      logic [31:0] master_rng, rng, seq_seed;
+      int seq_idx, pass_idx, num_passes, total_passes;
+      int mm, kk, jj, this_M;
+      int window_max, freeze_count, prev_start, candidate, fi;
+      int b_starts [0:MAX_FREEZES-1];
+      int b_lens   [0:MAX_FREEZES-1];
+      int errs;
+      int checks_before_partb, frozen_before_partb;
+
+      master_rng = 32'h5eed0016; // per-task seed convention (0x5eed0000 + task number, hex)
+      $display("Stall Part B multi-pass master seed = 32'h%08h", master_rng);
+      total_passes         = 0;
+      checks_before_partb  = checks;
+      frozen_before_partb  = frozen_checks;
+
+      for (seq_idx = 0; seq_idx < NUM_SEQ; seq_idx = seq_idx + 1) begin
+        master_rng = xorshift32(master_rng);
+        seq_seed   = master_rng;
+        rng        = seq_seed;
+        $display("Stall Part B sequence %0d: seed = 32'h%08h", seq_idx, seq_seed);
+
+        rng = xorshift32(rng);
+        num_passes = 10 + (rng % 11); // 10..20 passes per sequence
+
+        reset_dut(); // ONE reset for the whole sequence -- every pass after the first gets no reset and no idle gap
+
+        for (pass_idx = 0; pass_idx < num_passes; pass_idx = pass_idx + 1) begin
+          rng = xorshift32(rng);
+          this_M = 1 + (rng % 4);
+          case_M = this_M;
+
+          rng = xorshift32(rng);
+          mode_unsigned = rng[0];
+
+          for (mm = 0; mm < 4; mm = mm + 1)
+            for (kk = 0; kk < 4; kk = kk + 1)
+              A_case[mm][kk] = biased_byte(rng);
+          for (kk = 0; kk < 4; kk = kk + 1)
+            for (jj = 0; jj < 4; jj = jj + 1)
+              W_case[kk][jj] = biased_byte(rng);
+
+          // ---- Random freeze density (0-4), independently placed
+          // (strictly increasing within this pass's own active window)
+          // and durationed (1-20 cycles). ----
+          window_max = (case_M - 1) + 7;
+          rng = xorshift32(rng);
+          freeze_count = rng % 5; // 0..4
+          prev_start = -1;
+          for (fi = 0; fi < freeze_count; fi = fi + 1) begin
+            if (prev_start + 1 > window_max) begin
+              freeze_count = fi; // window too small to fit another -- shrink rather than duplicate a start
+              break;
+            end
+            rng = xorshift32(rng);
+            candidate = prev_start + 1 + (rng % (window_max - prev_start));
+            b_starts[fi] = candidate;
+            prev_start   = candidate;
+            rng = xorshift32(rng);
+            b_lens[fi] = 1 + (rng % 20);
+          end
+
+          run_pass_freezes($sformatf("seq%0d/pass%0d(M=%0d,freezes=%0d)", seq_idx, pass_idx, this_M, freeze_count),
+                            freeze_count, b_starts, b_lens, errs);
+          total_passes = total_passes + 1;
+        end
+      end
+
+      $display("----------------------------------------");
+      $display("Part B: %0d sequences, %0d total passes (>=200 required), %0d C-value check(s) + %0d register-check(s) this part, %0d failures",
+                NUM_SEQ, total_passes, (checks - checks_before_partb), (frozen_checks - frozen_before_partb), errors);
+      if (errors == 0)
+        $display("Part B: ALL PASSED");
+      $display("----------------------------------------");
+    end
+
+    $display("----------------------------------------");
+    if (errors == 0)
+      $display("ALL TASK 005/013 + TASK 022 STALL CHECKS PASSED (baseline+early/mid/late + 64 crv_* cases + Part A freeze-combination cases + Part B adversarial multi-pass sequences), checks=%0d frozen_checks=%0d",
+                checks, frozen_checks);
+    else
+      $display("%0d TOTAL FAILURE(S) ACROSS ALL STALL CHECKS (checks=%0d frozen_checks=%0d)", errors, checks, frozen_checks);
     $display("----------------------------------------");
 
     $finish;
