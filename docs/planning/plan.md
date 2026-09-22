@@ -874,7 +874,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 1 | `unpu_pe` | `docs/planning/tasks/019-pe-breaktest.md` | **Done** — see below |
 | 2 | `unpu_grid` | `docs/planning/tasks/020-grid-breaktest.md` | **Done** — see below |
 | 3 | `unpu_skew`/`unpu_deskew` | `docs/planning/tasks/021-skew-deskew-breaktest.md` | **Done** — see below |
-| 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | Sent to Execution |
+| 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | **Done** — see below |
 | 5 | `unpu_seq` | — | Not started |
 | 6 | `unpu_wbuf`/`unpu_actbuf` | — | Not started |
 | 7 | `unpu_dma` | — | Not started |
@@ -973,6 +973,33 @@ this session rather than relayed through the peer session that
 originally dispatched it, which had gone unreachable under its prior
 name by completion time — the same session-identity churn noted after
 task 021 was sent. No impact on the result.
+
+### Module 4 — `unpu_stall` (composite) — done, no RTL defect found, strongest result in the campaign so far
+
+Committed `126f0af`, pushed. Reused `capture_snapshot()`/
+`check_frozen()` completely unmodified via a new `run_pass_freezes()`
+task generalizing the existing single-freeze design to an array of
+independent freeze windows per pass — no rebuild of already-correct
+machinery.
+
+Part A: all 4 sub-cases pass — 3 freezes within one pass, a 50-cycle
+extreme-duration freeze checked bit-exact on *every* held cycle (not
+spot-checked), both data-validity-boundary freezes
+(`active_cyc==7` and `==(M-1)+7=10` for `cross_terms`), and 4 zero-gap
+back-to-back freezes. 2,624 `C`-checks + 29,700 register-checks. Part
+B: 20 sequences, 305 total passes, 0–4 freezes per pass at random
+positions/durations — **220,545 register-checks in Part B alone**,
+clearing the 15,000 floor by more than an order of magnitude, no
+padding needed (as instructed, and confirmed genuinely, not adjusted to
+hit a number).
+
+**Total: 5,732 `C`-checks + 250,245 register-checks, 0 failures on the
+first run.** No RTL defect, no reference-model bug (reused the same
+stateless `ref_c_elem` from tasks 020/021). All four RTL files
+confirmed untouched. Task 005/013's existing baseline and 64-`crv_*`-
+case counts matched exactly (2,544/26,055), confirming this task didn't
+disturb the existing suite while adding to it. Four-testbench regression
+green, including `unpu_skew_tb`, which shares this chain.
 
 ---
 
