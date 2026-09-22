@@ -872,7 +872,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | # | Module | Task | Status |
 |---|---|---|---|
 | 1 | `unpu_pe` | `docs/planning/tasks/019-pe-breaktest.md` | **Done** — see below |
-| 2 | `unpu_grid` | `docs/planning/tasks/020-grid-breaktest.md` | Sent to Execution |
+| 2 | `unpu_grid` | `docs/planning/tasks/020-grid-breaktest.md` | **Done** — see below |
 | 3 | `unpu_skew`/`unpu_deskew` | — | Not started |
 | 4 | `unpu_stall` (composite) | — | Not started |
 | 5 | `unpu_seq` | — | Not started |
@@ -910,6 +910,29 @@ one). **Flagged forward**: this is an easy, specific way for a
 from-scratch reference model to accidentally end up "accumulating" state
 a module doesn't actually carry — worth double-checking on every
 subsequent module in this campaign, not just assumed fixed here.
+
+### Module 2 — `unpu_grid` — done, no RTL defect found, reference model verified clean this time
+
+Committed `da39f61`, pushed. Execution took the module-1 caution
+seriously: made the independent reference a **stateless pure function**
+(recomputes each `C[m][j]` from scratch off the current `A`/`W`
+snapshots every call), which structurally rules out the accumulation-bug
+class task 019 hit — and used Part A's 16-position walking-one sweep as
+a built-in sanity check of that model itself (each sub-case has a
+trivially hand-verifiable expected pattern, `C[m][j] = A[m][k_pos]` when
+`j==j_pos` else `0`; all 16 passed clean).
+
+Part A: max-magnitude both modes, the 16-position walking-one sweep, and
+the exhaustive freeze-point sweep on `cross_terms` (11 sub-cases,
+`active_cyc` 0 through `(M-1)+7` inclusive, matching CLAUDE.md's `M+7`
+figure exactly) — reused task 005's `active_cyc` convention directly via
+a shared `run_pass()` task, nothing reinvented. Part B: 20 sequences, 401
+total passes (comfortably over the 200 floor), one reset per sequence
+and zero idle gap between passes — the specific thing this part was
+built to break. 11,306 checks in Part B alone. **12,474 total checks
+across the file, 0 failures.** `rtl/unpu_pe.sv`/`rtl/unpu_grid.sv`
+untouched, confirmed via `git status`. Task 013's existing coverage and
+a four-testbench regression sanity check both still green.
 
 ---
 
