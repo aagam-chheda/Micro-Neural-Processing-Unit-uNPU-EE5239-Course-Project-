@@ -873,6 +873,21 @@ narrowed, or quietly dropped to keep a run green. Pause and wait for the
 user only once all ten modules are done, or the moment anything actually
 fails.
 
+**Standing rule (user, 2026-09-25): don't hardcode anything.** Expected
+values in every check must come from a genuine computation — a
+reference model, a formula derived from the timing contract, something
+independently arrived at — never a constant typed in because it matched
+an observed DUT output. No cherry-picked seeds swapped in because a
+different one produced a cleaner-looking result; the seed that's used is
+the seed that's printed. No thresholds or iteration counts quietly
+narrowed to dodge a case that's inconvenient to compute a reference for
+— if a corner case is genuinely hard to verify, that gets flagged, not
+silently asserted as passing. This generalizes exactly what task 019's
+reference-model bug already demonstrated: a wrong "expected" side that
+happens to look plausible is worse than no check at all, because it
+reads as verified when it isn't. Applies to every task in this
+campaign, task 023 (already dispatched) included.
+
 Module order (matches the project's own build order and the freeze
 report's ten-testbench table, `unpu_apb` replacing the retired
 `unpu_slave`):
