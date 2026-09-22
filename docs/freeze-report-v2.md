@@ -1,6 +1,6 @@
 # RTL freeze report v2 — task 029, post-campaign re-certification
 
-**Frozen commit:** `e6bb0fbab02f1c2e3ff9a31eaa2a2eef86af7e7c`
+**Frozen commit:** `862d840a3c1d64e424b77d223b4a17032604fd4a`
 
 **Lineage:** first freeze (`87d31bf`, `docs/freeze-report.md`, task 015, pre-APB-revert,
 pre-campaign) → APB revert (`9f5deab`, task 018, CPU↔NPU interface reverted from
