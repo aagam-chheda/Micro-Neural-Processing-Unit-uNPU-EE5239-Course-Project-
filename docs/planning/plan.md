@@ -903,7 +903,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 7 | `unpu_dma` | `docs/planning/tasks/025-dma-breaktest.md` | **Done** — see below |
 | 8 | `unpu_csr` | `docs/planning/tasks/026-csr-breaktest.md` | **Done** — see below |
 | 9 | `unpu_apb` | `docs/planning/tasks/027-apb-breaktest.md` | **Done** — see below |
-| 10 | `unpu_top` | `docs/planning/tasks/028-top-breaktest.md` | Sent to Execution (final module) |
+| 10 | `unpu_top` | `docs/planning/tasks/028-top-breaktest.md` | **Done** — see below. **Campaign complete.** |
 
 If any task in this campaign finds a real RTL defect, that task reports
 it rather than fixing it in place, per the campaign's own instruction —
@@ -1218,7 +1218,90 @@ nine other testbenches green.
 
 ---
 
-## Back-end prerequisites
+### Module 10 — `unpu_top` — done, no RTL defect found. Campaign complete.
+
+Committed `b6d6a03` (rebased to `d5e992a`), pushed. The final module,
+and the only one where a genuine integration-level defect could still
+have existed — none did.
+
+**Both structurally-impossible-below-top-level risks confirmed working
+correctly.** Mid-flight register write (A2): `cross_terms` started,
+stepped well into its fetch, a second full config (`seq_mixed`) injected
+over APB mid-flight without touching `npu_ctrl` — the first op completed
+and read back correctly, unaffected, and the second op (once actually
+started) correctly picked up the injected config. This is the first
+proof in the whole campaign that `unpu_seq`'s `LATCH_CFG` shadow-copy
+protects an in-flight op through the *real* APB→CSR→DMA→sequencer path,
+not just at the signal level the way module 5's version had to settle
+for. Mid-flight status polling (A3): a DMA beat held stalled
+indefinitely, 30 interleaved `npu_status` reads confirmed `DONE` stayed
+`0` throughout, operation completed correctly once released. (One
+testbench-side bug caught during A2's development — a stale shared
+`c_case` global got overwritten by the second op's preload before the
+first op's check ran; fixed by snapshotting locally, not an RTL issue.)
+
+**A1's wraparound case reached further than task 025 could.** Task
+025's DMA-only version could only prove the *address sequence* wraps
+correctly — its isolated model SRAM couldn't represent content at a
+wrapped address coherently. Here, decoded through the same model-SRAM
+address convention, the actual computed `C` values were read back and
+checked correct near `32'hFFFF_FFFF` — the first point in the campaign
+proving wraparound doesn't corrupt *data*, not just addressing.
+
+Part A: all 5 directed cases pass, 669 checks (512 baseline + 157 new).
+**Part B — the largest single stress run in the campaign**: 30
+independently-seeded sequences, zero reset within a sequence, **51,995
+total ops** (average ~1,733 per sequence — far past the ≥450 floor),
+each combining every adversarial axis the campaign built at once:
+random legal shape/mode/addresses (~5.6% wraparound-band), extreme-
+biased data, ~12% illegal ops interspersed (6,258 total), extreme DMA
+back-pressure (~25% toggled into the 50–100-cycle range, 13,000 ops),
+and extreme APB pacing (zero-gap writes, ~1/8 long-SETUP holds, ~1/4
+sparse polling).
+
+**343,341 total checks, 0 failures — the largest total in the entire
+campaign** (previous largest: module 4's 250,245 frozen-register
+checks). Deterministic and reproducible, master seed `32'h5eed011c`
+printed. `tb/unpu_top_tb.sv` the only file changed, no RTL touched;
+original 512-check baseline untouched by the diff. Full regression on
+all nine other testbenches green.
+
+## Campaign summary — 10/10 modules, zero RTL defects found
+
+Every module from `unpu_pe` through `unpu_top` was individually
+adversarially stress-tested, extending well past task 013's already-
+solid baseline coverage into long/adversarial sequences, exhaustive
+value and boundary sweeps, extreme back-pressure, protocol misuse
+probes, and — at the top level — genuine integration-only risks. **Not
+a single real RTL defect was found across any of the ten tasks.**
+
+| Module | Task | Checks | RTL defect? |
+|---|---|---|---|
+| `unpu_pe` | 019 | 11,702 | None |
+| `unpu_grid` | 020 | 12,474 | None |
+| `unpu_skew`/`unpu_deskew` | 021 | 17,665 | None |
+| `unpu_stall` (composite) | 022 | 250,245 | None |
+| `unpu_seq` | 023 | 19,840 | None |
+| `unpu_wbuf`/`unpu_actbuf` | 024 | 17,975 | None |
+| `unpu_dma` | 025 | 19,009 | None |
+| `unpu_csr` | 026 | 20,041 | None |
+| `unpu_apb` | 027 | 32,545 | None |
+| `unpu_top` | 028 | 343,341 | None |
+| **Total** | | **~744,837** | **0** |
+
+What this did find, consistently, was **testbench/reference-model bugs
+caught before they could produce a false result** — task 019's
+accumulate-from-prior-state reference bug (the finding that shaped the
+whole campaign's "don't hardcode, watch for accidental state" discipline
+afterward), task 025's `D_ACK` cycle-counting gap, task 027's
+`DONE`-clearing-pulse timing gap, and two smaller ones in tasks 020/028
+— every one root-caused against the actual RTL behavior before being
+fixed, and every one reported rather than silently patched, per the
+campaign's standing rule.
+
+No RTL changed at any point in this campaign. The design that was
+frozen at `87d31bf`, then revised for APB (`9f5deab`), is the same
+design this campaign spent ~745,000 checks trying to break.
 
 Real work, not RTL work, chased by email — does not gate freeze.
 
