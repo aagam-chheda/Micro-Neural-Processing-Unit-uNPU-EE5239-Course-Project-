@@ -129,6 +129,57 @@ module unpu_pe_tb;
     end
   endfunction
 
+  task automatic check_weight_reg(input logic [7:0] exp, input string what);
+    if (dut.weight_reg !== exp) begin
+      $display("VECTOR %0d FAIL (weight_reg, hierarchical): %s -- exp=%0h got=%0h", vec_num, what, exp, dut.weight_reg);
+      errors++;
+    end
+  endtask
+
+  // ---- Task 019: biased random draws for the adversarial long-sequence
+  // test. ~1/8 of draws land on a boundary extreme instead of a plain
+  // uniform value -- deliberately, per the task's own instruction not to
+  // rely on uniform random to find the boundaries by chance. Each call
+  // advances rng by reference, same one-call-per-draw discipline the
+  // rest of this file already uses (rng = xorshift32(rng); ...), just
+  // packaged so the adversarial loop below isn't three lines of biasing
+  // logic per field. ----
+  function automatic logic [7:0] biased_byte(ref logic [31:0] rng);
+    logic [31:0] r1, r2;
+    begin
+      rng = xorshift32(rng); r1 = rng;
+      if (r1[3:0] < 4'd2) begin // ~1/8 chance
+        rng = xorshift32(rng); r2 = rng;
+        case (r2[1:0])
+          2'd0: biased_byte = 8'h00;
+          2'd1: biased_byte = 8'hFF;
+          2'd2: biased_byte = 8'h80;
+          default: biased_byte = 8'h7F;
+        endcase
+      end else begin
+        biased_byte = r1[15:8]; // reuse this draw's other bits rather than a second xorshift call
+      end
+    end
+  endfunction
+
+  function automatic logic [31:0] biased_word32(ref logic [31:0] rng);
+    logic [31:0] r1, r2;
+    begin
+      rng = xorshift32(rng); r1 = rng;
+      if (r1[3:0] < 4'd2) begin // ~1/8 chance
+        rng = xorshift32(rng); r2 = rng;
+        case (r2[1:0])
+          2'd0: biased_word32 = 32'h0000_0000;
+          2'd1: biased_word32 = 32'hFFFF_FFFF;
+          2'd2: biased_word32 = 32'h8000_0000;
+          default: biased_word32 = 32'h7FFF_FFFF;
+        endcase
+      end else begin
+        biased_word32 = r1;
+      end
+    end
+  endfunction
+
   initial begin
     errors        = 0;
     vec_num       = 0;
@@ -560,9 +611,319 @@ module unpu_pe_tb;
       mode_unsigned = 1'b0;
     end
 
+    // ==== Task 019: directed boundary cases the adversarial random
+    // sequences below might not reliably hit on their own. ====
+
+    // ---- Vector 21: weight_load asserted on the very first cycle
+    // after reset. ----
+    vec_num = 21;
+    rst_n = 0; array_en = 0; weight_load = 0; mode_unsigned = 0;
+    weight_in = 8'h00; act_in = 8'h00; psum_in = 32'd0;
+    step();
+    step();
+    rst_n    = 1;
+    array_en = 1;
+    weight_load = 1;
+    weight_in   = 8'hA5;
+    act_in      = 8'h00;
+    psum_in     = 32'd0;
+    step(); // first cycle after reset, weight_load asserted immediately
+    weight_load = 0;
+    check_weight_reg(8'hA5, "weight_load asserted on the very first post-reset cycle latches correctly");
+    act_in  = 8'h02;
+    psum_in = 32'd0;
+    step();
+    check_psum(expected_mac(8'hA5, 8'h02, 32'd0, 1'b0), "product uses the weight latched on the very first post-reset cycle");
+    pass_report("weight_load on the very first cycle after reset");
+
+    // ---- Vector 22: weight_load=1 while array_en=0, simultaneously --
+    // confirm nothing latches (matches unpu_pe.sv's own documented
+    // behavior: "array_en == 0: every register holds, including
+    // weight_reg even if weight_load happens to be asserted"). ----
+    vec_num = 22;
+    load_weight(8'h11);
+    begin : vec22_scope
+      logic [7:0]  pre_act;
+      logic [31:0] pre_psum;
+      pre_act  = act_out;
+      pre_psum = psum_out;
+      array_en    = 0;
+      weight_load = 1;
+      weight_in   = 8'h99;
+      act_in      = 8'hFF;
+      psum_in     = 32'hDEAD_BEEF;
+      step();
+      weight_load = 0;
+      array_en    = 1;
+      check_weight_reg(8'h11, "weight_load while array_en=0 does not latch weight_reg");
+      check_act(pre_act, "act_out also frozen (unaffected) while array_en=0 despite weight_load");
+      check_psum(pre_psum, "psum_out also frozen (unaffected) while array_en=0 despite weight_load");
+    end
+    pass_report("weight_load simultaneous with array_en=0 latches nothing");
+
+    // ---- Vector 23: rst_n deasserted for one cycle in the MIDDLE of an
+    // otherwise-normal sequence -- confirm every register clears
+    // immediately and the sequence resumes correctly afterward. ----
+    vec_num = 23;
+    load_weight(8'h07);
+    act_in  = 8'h03;
+    psum_in = 32'd50;
+    step(); // normal operation: 50 + 3*7 = 71
+    check_psum(32'd71, "pre-mid-sequence-reset baseline");
+    rst_n = 0;
+    step();
+    check_act(8'h00, "act_out clears immediately on mid-sequence reset");
+    check_psum(32'd0, "psum_out clears immediately on mid-sequence reset");
+    check_weight_reg(8'h00, "weight_reg clears immediately on mid-sequence reset");
+    rst_n = 1;
+    act_in  = 8'h05;
+    psum_in = 32'd0;
+    step(); // weight_reg cleared, product is 0: 0 + 5*0 = 0
+    check_psum(32'd0, "resumes correctly post-reset: cleared weight_reg gives zero product");
+    load_weight(8'h04);
+    act_in  = 8'h06;
+    psum_in = 32'd0;
+    step(); // 0 + 6*4 = 24
+    check_psum(32'd24, "normal operation fully restored after the mid-sequence reset");
+    pass_report("mid-sequence single-cycle reset clears and resumes correctly");
+
+    // ---- Vector 24: weight_load held high for >=5 consecutive cycles
+    // with a distinct weight_in each cycle, array_en=1 throughout --
+    // confirm weight_reg updates every one of those cycles, not just the
+    // first (task 013's 50-iteration sweep only exercised single
+    // pulses). ----
+    vec_num = 24;
+    array_en    = 1;
+    weight_load = 1;
+    weight_in = 8'h01; act_in = 8'h00; psum_in = 32'd0;
+    step();
+    check_weight_reg(8'h01, "consecutive weight_load hold, cycle 1 of >=5");
+    weight_in = 8'h02;
+    step();
+    check_weight_reg(8'h02, "consecutive weight_load hold, cycle 2 of >=5");
+    weight_in = 8'h03;
+    step();
+    check_weight_reg(8'h03, "consecutive weight_load hold, cycle 3 of >=5");
+    weight_in = 8'h04;
+    step();
+    check_weight_reg(8'h04, "consecutive weight_load hold, cycle 4 of >=5");
+    weight_in = 8'h05;
+    step();
+    check_weight_reg(8'h05, "consecutive weight_load hold, cycle 5 of >=5");
+    weight_load = 0;
+    weight_in = 8'hFF; // should now be ignored
+    act_in  = 8'h02;
+    psum_in = 32'd0;
+    step();
+    check_weight_reg(8'h05, "weight_reg holds the final consecutive-load value once weight_load deasserts");
+    check_psum(32'd10, "product uses the held final weight (5) once loading stops: 2*5=10");
+    pass_report("weight_load held >=5 consecutive cycles, distinct weight_in each cycle, updates every cycle");
+
     $display("----------------------------------------");
     if (errors == 0)
-      $display("ALL TASK 013 PART A CHECKS PASSED (20 directed vectors + exhaustive operand sweep + accumulator sweep + randomized weight-load timing)");
+      $display("ALL TASK 019 DIRECTED BOUNDARY CASES PASSED (vectors 21-24)");
+    else
+      $display("%0d TOTAL FAILURE(S) ACROSS ALL PE CHECKS SO FAR", errors);
+    $display("----------------------------------------");
+
+    // ==== Task 019: adversarial long-sequence test -- the core of this
+    // task. Independent, cycle-accurate reference model (shadow state:
+    // sh_weight_reg/sh_act_out/sh_psum_out, all reset to 0), derived
+    // from unpu_pe.sv's own documented header/comment behavior, not
+    // transcribed from its code -- expected_mac() above already carries
+    // that same independent-derivation discipline forward from task 013
+    // (arithmetic sign extension, not a $signed() cast mirroring the
+    // RTL's own operator back at itself); this block adds the
+    // surrounding sequential control (array_en freeze, weight_reg
+    // latch-on-load, registered act_out pass-through) fresh, since that
+    // part of the model is new here. Not re-proving task 013's
+    // operand-space coverage (131,072 combinations already exhaustive,
+    // nothing left to sample) -- this is about long, adversarial,
+    // multi-cycle sequences where many interacting decisions (freeze,
+    // reload, mode-switch, extreme values) compound over hundreds of
+    // cycles, which an isolated single-cycle check structurally can't
+    // reach. If this finds a real divergence: stop, report the seed +
+    // cycle + full signal state, do not tune the bias to avoid it and do
+    // not patch rtl/unpu_pe.sv here -- that's this task's actual job,
+    // not a problem with the task. ====
+    begin : adversarial_break_test
+      localparam int NUM_SEQ = 20;
+
+      logic [31:0] master_rng, rng, seq_seed;
+      int seq_idx, seq_len, cyc;
+
+      logic [7:0]  sh_weight_reg, sh_act_out, next_sh_weight_reg, next_sh_act_out;
+      logic [31:0] sh_psum_out, next_sh_psum_out;
+
+      bit          d_array_en, d_weight_load, d_mode_unsigned;
+      logic [7:0]  d_weight_in, d_act_in;
+      logic [31:0] d_psum_in;
+
+      int freeze_remaining, wload_remaining;
+      bit just_ended_freeze, force_freeze_now;
+
+      longint total_cyc_checks, total_sig_checks;
+      int     total_seq_errors;
+
+      master_rng = 32'h5eed0013; // per-task seed convention (0x5eed0000 + task number, hex)
+      $display("PE adversarial long-sequence master seed = 32'h%08h", master_rng);
+      total_cyc_checks = 0;
+      total_sig_checks = 0;
+      total_seq_errors = 0;
+
+      for (seq_idx = 0; seq_idx < NUM_SEQ; seq_idx = seq_idx + 1) begin
+        master_rng = xorshift32(master_rng);
+        seq_seed   = master_rng;
+        rng        = seq_seed;
+        $display("PE adversarial sequence %0d: seed = 32'h%08h", seq_idx, seq_seed);
+
+        rng = xorshift32(rng);
+        seq_len = 500 + (rng % 201); // 500..700 cycles -- reproducible from the printed seed alone
+
+        // ---- Reset DUT and shadow model together. ----
+        rst_n = 0; array_en = 0; weight_load = 0; mode_unsigned = 0;
+        weight_in = 8'h00; act_in = 8'h00; psum_in = 32'd0;
+        step();
+        step();
+        rst_n = 1;
+        step();
+        sh_weight_reg = 8'h00;
+        sh_act_out    = 8'h00;
+        sh_psum_out   = 32'd0;
+
+        freeze_remaining  = 0;
+        wload_remaining   = 0;
+        just_ended_freeze = 1'b0;
+        force_freeze_now  = 1'b0;
+
+        for (cyc = 0; cyc < seq_len; cyc = cyc + 1) begin
+          // ---- array_en: freeze bursts (1-20 cycles typical, up to
+          // ~50 occasionally), including deliberate back-to-back
+          // freezes separated by only a 1-cycle gap. ----
+          if (freeze_remaining > 0) begin
+            d_array_en = 1'b0;
+            freeze_remaining = freeze_remaining - 1;
+            if (freeze_remaining == 0)
+              just_ended_freeze = 1'b1;
+          end else if (force_freeze_now) begin
+            force_freeze_now = 1'b0;
+            d_array_en = 1'b0;
+            rng = xorshift32(rng);
+            freeze_remaining = rng % 15; // this cycle + 0..14 more = 1..15 total
+          end else begin
+            d_array_en = 1'b1;
+            if (just_ended_freeze) begin
+              just_ended_freeze = 1'b0;
+              rng = xorshift32(rng);
+              if (rng[1:0] == 2'd0) // ~25% of the time: re-freeze right after this exact 1-cycle gap
+                force_freeze_now = 1'b1;
+            end else begin
+              rng = xorshift32(rng);
+              if (rng[4:0] == 5'h0) begin // ~1/32 chance to start a fresh freeze burst
+                d_array_en = 1'b0;
+                rng = xorshift32(rng);
+                if (rng[4:0] == 5'h0) begin // occasionally a long freeze
+                  rng = xorshift32(rng);
+                  freeze_remaining = 29 + (rng % 21); // this cycle + 29..49 more = 30..50 total
+                end else begin
+                  rng = xorshift32(rng);
+                  freeze_remaining = rng % 20; // this cycle + 0..19 more = 1..20 total
+                end
+              end
+            end
+          end
+
+          // ---- weight_load: random pulses, biased toward multi-cycle
+          // holds with a different weight_in each held cycle. ----
+          if (wload_remaining > 0) begin
+            d_weight_load = 1'b1;
+            d_weight_in   = biased_byte(rng);
+            wload_remaining = wload_remaining - 1;
+          end else begin
+            rng = xorshift32(rng);
+            if (rng[3:0] < 4'd3) begin // ~3/16 chance to start a load event
+              d_weight_load = 1'b1;
+              d_weight_in   = biased_byte(rng);
+              rng = xorshift32(rng);
+              if (rng[1:0] == 2'd0) begin // ~1/4 of load-starts become a multi-cycle hold
+                rng = xorshift32(rng);
+                wload_remaining = 1 + (rng % 5); // 1..5 MORE held cycles (2..6 total incl. this one)
+              end
+            end else begin
+              d_weight_load = 1'b0;
+              d_weight_in   = biased_byte(rng); // driven but ignored -- realistic bus noise
+            end
+          end
+
+          // ---- act_in / psum_in: full-range, biased toward extremes. ----
+          d_act_in  = biased_byte(rng);
+          d_psum_in = biased_word32(rng);
+
+          // ---- mode_unsigned: random toggle every cycle. ----
+          rng = xorshift32(rng);
+          d_mode_unsigned = rng[0];
+
+          // ---- Drive the DUT. ----
+          array_en      = d_array_en;
+          weight_load   = d_weight_load;
+          weight_in     = d_weight_in;
+          act_in        = d_act_in;
+          psum_in       = d_psum_in;
+          mode_unsigned = d_mode_unsigned;
+
+          // ---- Advance the reference model, using sh_weight_reg's
+          // PRE-update value for this cycle's product -- a same-cycle
+          // weight_load must not affect this cycle's product. ----
+          if (d_array_en) begin
+            next_sh_psum_out   = expected_mac(sh_weight_reg, d_act_in, d_psum_in, d_mode_unsigned);
+            next_sh_act_out    = d_act_in;
+            next_sh_weight_reg = d_weight_load ? d_weight_in : sh_weight_reg;
+          end else begin
+            next_sh_psum_out   = sh_psum_out;
+            next_sh_act_out    = sh_act_out;
+            next_sh_weight_reg = sh_weight_reg;
+          end
+
+          step();
+
+          sh_psum_out   = next_sh_psum_out;
+          sh_act_out    = next_sh_act_out;
+          sh_weight_reg = next_sh_weight_reg;
+
+          total_cyc_checks = total_cyc_checks + 1;
+          if (act_out !== sh_act_out) begin
+            total_seq_errors = total_seq_errors + 1;
+            errors = errors + 1;
+            $display("FAIL adversarial[seq=%0d seed=32'h%08h cyc=%0d]: act_out got=%0h expected=%0h (array_en=%0b weight_load=%0b weight_in=%0h act_in=%0h psum_in=%0h mode_unsigned=%0b)",
+                      seq_idx, seq_seed, cyc, act_out, sh_act_out, d_array_en, d_weight_load, d_weight_in, d_act_in, d_psum_in, d_mode_unsigned);
+          end
+          total_sig_checks = total_sig_checks + 1;
+
+          if (psum_out !== sh_psum_out) begin
+            total_seq_errors = total_seq_errors + 1;
+            errors = errors + 1;
+            $display("FAIL adversarial[seq=%0d seed=32'h%08h cyc=%0d]: psum_out got=%0d expected=%0d (array_en=%0b weight_load=%0b weight_in=%0h act_in=%0h psum_in=%0h mode_unsigned=%0b)",
+                      seq_idx, seq_seed, cyc, psum_out, sh_psum_out, d_array_en, d_weight_load, d_weight_in, d_act_in, d_psum_in, d_mode_unsigned);
+          end
+          total_sig_checks = total_sig_checks + 1;
+
+          if (dut.weight_reg !== sh_weight_reg) begin
+            total_seq_errors = total_seq_errors + 1;
+            errors = errors + 1;
+            $display("FAIL adversarial[seq=%0d seed=32'h%08h cyc=%0d]: weight_reg (hierarchical) got=%0h expected=%0h (array_en=%0b weight_load=%0b weight_in=%0h act_in=%0h psum_in=%0h mode_unsigned=%0b)",
+                      seq_idx, seq_seed, cyc, dut.weight_reg, sh_weight_reg, d_array_en, d_weight_load, d_weight_in, d_act_in, d_psum_in, d_mode_unsigned);
+          end
+          total_sig_checks = total_sig_checks + 1;
+        end
+      end
+
+      $display("PE adversarial long-sequence testing: %0d sequences, %0d total cycle-checks, %0d individual signal-checks, %0d failures",
+                NUM_SEQ, total_cyc_checks, total_sig_checks, total_seq_errors);
+    end
+
+    $display("----------------------------------------");
+    if (errors == 0)
+      $display("ALL TASK 013 + TASK 019 PE CHECKS PASSED (20 directed vectors + exhaustive operand sweep + accumulator sweep + randomized weight-load timing + 4 task-019 directed boundary vectors + adversarial long-sequence testing)");
     else
       $display("%0d TOTAL FAILURE(S) ACROSS ALL PE CHECKS", errors);
     $display("----------------------------------------");
