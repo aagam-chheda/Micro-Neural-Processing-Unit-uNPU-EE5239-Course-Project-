@@ -871,7 +871,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 
 | # | Module | Task | Status |
 |---|---|---|---|
-| 1 | `unpu_pe` | `docs/planning/tasks/019-pe-breaktest.md` | Sent to Execution |
+| 1 | `unpu_pe` | `docs/planning/tasks/019-pe-breaktest.md` | **Done** — see below |
 | 2 | `unpu_grid` | — | Not started |
 | 3 | `unpu_skew`/`unpu_deskew` | — | Not started |
 | 4 | `unpu_stall` (composite) | — | Not started |
@@ -886,6 +886,30 @@ If any task in this campaign finds a real RTL defect, that task reports
 it rather than fixing it in place, per the campaign's own instruction —
 a found bug pauses this list for a deliberate fix-and-verify cycle, not
 a quiet patch.
+
+### Module 1 — `unpu_pe` — done, no RTL defect found
+
+Committed `551ea26`, pushed. 20 independently-seeded adversarial
+sequences (500–700 cycles each), 11,702 total cycle-checks (35,106
+individual signal-checks across `act_out`/`psum_out`/`weight_reg`), 0
+failures. All 4 directed boundary cases pass. Task 013's baseline
+sweeps unchanged and still pass. `rtl/unpu_pe.sv` untouched — confirmed
+via `git status`, only `tb/unpu_pe_tb.sv` changed.
+
+**Worth recording, not as an RTL finding but as a campaign-wide
+caution**: Execution's first-draft independent reference model had a
+real bug — it accumulated `psum_out` from the shadow model's own prior
+value instead of from each cycle's freshly-driven external `psum_in`.
+`unpu_pe` doesn't accumulate internally; that's the real systolic
+chain's job (north-neighbor `psum_in` wiring), absent in this isolated
+per-module test. All 20 sequences failed from cycle 0 on the first run;
+the DUT's values were confirmed correct by hand, the *reference* was
+wrong. Caught and fixed within the same task (same standard as any other
+testbench bug found during development, task 007/008/010/011 all had
+one). **Flagged forward**: this is an easy, specific way for a
+from-scratch reference model to accidentally end up "accumulating" state
+a module doesn't actually carry — worth double-checking on every
+subsequent module in this campaign, not just assumed fixed here.
 
 ---
 
