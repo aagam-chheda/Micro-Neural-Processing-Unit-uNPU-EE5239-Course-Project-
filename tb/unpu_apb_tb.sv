@@ -379,6 +379,409 @@ module unpu_apb_tb;
       $display("CRV: %0d iterations completed with randomized idle-gap + SETUP/ACCESS pacing", NUM_ITERS);
     end
 
+    // ==== Task 027, Part A1: ignored-bits immunity. paddr[31:12] and
+    // paddr[1:0] randomized on every draw while paddr[11:2] stays fixed
+    // at src_A's offset -- direct proof csr_sel=paddr[11:2] really does
+    // ignore everything else, not just that it happens to work on the
+    // clean addresses every other test in this project has used. ====
+    begin : part_a1
+      localparam int NUM_A1 = 60;
+      logic [31:0] rng;
+      int ii;
+      logic [19:0] hi_bits;
+      logic [1:0]  lo_bits;
+      logic [31:0] wval;
+
+      do_reset();
+      rng = 32'h5eed001b; // per-task seed convention (0x5eed0000 + task number, hex)
+      $display("Part A1 ignored-bits seed = 32'h%08h", rng);
+
+      for (ii = 0; ii < NUM_A1; ii = ii + 1) begin
+        rng = xorshift32(rng);
+        hi_bits = rng[19:0];
+        rng = xorshift32(rng);
+        lo_bits = rng[1:0];
+        rng = xorshift32(rng);
+        wval = rng;
+
+        paddr   = {hi_bits, 10'd0, lo_bits}; // sel fixed at 0 (src_a); hi/lo garbage
+        pwdata  = wval;
+        pwrite  = 1'b1;
+        psel    = 1'b1;
+        penable = 1'b0;
+        step();
+        penable = 1'b1;
+        step();
+        checks = checks + 1;
+        if (src_a !== wval) begin
+          errors = errors + 1;
+          $display("FAIL [partA1-ignoredbits #%0d write]: paddr=%0h (hi=%0h lo=%0b) src_a=%0h expected %0h", ii, paddr, hi_bits, lo_bits, src_a, wval);
+        end
+        psel = 1'b0; penable = 1'b0;
+
+        // Read back through a DIFFERENT random hi/lo combination --
+        // confirms the read also hits the same register regardless of
+        // whatever garbage sits in the ignored bits this time.
+        rng = xorshift32(rng);
+        hi_bits = rng[19:0];
+        rng = xorshift32(rng);
+        lo_bits = rng[1:0];
+        paddr   = {hi_bits, 10'd0, lo_bits};
+        pwrite  = 1'b0;
+        psel    = 1'b1;
+        penable = 1'b0;
+        step();
+        penable = 1'b1;
+        step();
+        checks = checks + 1;
+        if (prdata !== wval) begin
+          errors = errors + 1;
+          $display("FAIL [partA1-ignoredbits #%0d readback]: paddr=%0h prdata=%0h expected %0h", ii, paddr, prdata, wval);
+        end
+        psel = 1'b0; penable = 1'b0;
+      end
+      $display("Part A1: ignored-bits immunity, %0d random paddr[31:12]/[1:0] draws (write+readback each), paddr[11:2] fixed, checks=%0d so far", NUM_A1, checks);
+    end
+
+    // ==== Task 027, Part A2: penable without psel. psel=0, penable=1,
+    // pwrite=1, real write data present -- confirms psel is a NECESSARY
+    // term in csr_wen's AND, not redundant with penable in the cases
+    // already tested. ====
+    begin : part_a2
+      do_reset();
+      psel = 1'b0; penable = 1'b1; pwrite = 1'b1;
+      paddr = {20'd0, 10'd0, 2'b00}; pwdata = 32'hDEAD_CAFE;
+      step();
+      checks = checks + 1;
+      if (src_a !== 32'd0) begin
+        errors = errors + 1;
+        $display("FAIL [partA2-penable-no-psel]: src_a=%0h expected 0 -- psel=0 failed to block a write despite penable=1/pwrite=1", src_a);
+      end else begin
+        $display("PASS [partA2-penable-no-psel]: psel=0/penable=1/pwrite=1 with real write data does not commit -- psel is load-bearing in csr_wen's AND");
+      end
+      psel = 1'b0; penable = 1'b0;
+    end
+
+    // ==== Task 027, Part A3: adversarially long SETUP phase, paddr/
+    // pwdata changing every cycle throughout, then one final, distinct
+    // set of values right before ACCESS -- confirms only those final
+    // values commit, none of the transient SETUP-phase garbage leaks
+    // through (csr_wen/csr_wdata are pure combinational reads of
+    // whatever's present the instant penable asserts, nothing latched
+    // earlier in SETUP). ====
+    begin : part_a3
+      localparam int LONG_SETUP = 55;
+      logic [31:0] rng;
+      int si;
+      logic [31:0] final_wdata;
+
+      do_reset();
+      rng = 32'h5eed011b;
+      $display("Part A3 long-SETUP seed = 32'h%08h", rng);
+
+      psel = 1'b1; penable = 1'b0; pwrite = 1'b1;
+      for (si = 0; si < LONG_SETUP; si = si + 1) begin
+        rng = xorshift32(rng);
+        paddr = {rng[29:0], 2'b00};
+        rng = xorshift32(rng);
+        pwdata = rng;
+        step(); // still SETUP throughout
+      end
+      checks = checks + 1;
+      if (src_a !== 32'd0) begin
+        errors = errors + 1;
+        $display("FAIL [partA3-long-setup]: src_a=%0h expected 0 -- a transient SETUP-phase value leaked through before ACCESS", src_a);
+      end
+
+      paddr       = {20'd0, 10'd0, 2'b00}; // sel=0 (src_a)
+      final_wdata = 32'hF00D_BEEF;
+      pwdata      = final_wdata;
+      step(); // one more SETUP cycle, now holding the final distinct values
+      penable = 1'b1;
+      step(); // ACCESS -- only these final values should commit
+      checks = checks + 1;
+      if (src_a !== final_wdata) begin
+        errors = errors + 1;
+        $display("FAIL [partA3-long-setup]: src_a=%0h expected %0h (only the final pre-ACCESS SETUP values should commit)", src_a, final_wdata);
+      end else begin
+        $display("PASS [partA3-long-setup]: %0d-cycle SETUP with changing paddr/pwdata every cycle, only the final values committed, no transient leak", LONG_SETUP);
+      end
+      psel = 1'b0; penable = 1'b0;
+    end
+
+    // ==== Task 027, Part A4: zero-gap back-to-back transactions.
+    // apb_xact() itself already produces this -- its trailing psel=0/
+    // penable=0 execute in the same zero-simulation-time window as the
+    // next call's leading psel=1, so the DUT never sees a real idle
+    // cycle between calls made back to back. >=20 consecutive
+    // transactions at maximum APB rate, none dropped or duplicated. ====
+    begin : part_a4
+      localparam int NUM_BACKTOBACK = 24;
+      int bi;
+      logic [9:0]  sel_bi;
+      logic [31:0] val_bi;
+
+      do_reset();
+      for (bi = 0; bi < NUM_BACKTOBACK; bi = bi + 1) begin
+        sel_bi = bi % 6; // src_a/src_b/dest_c/dim_m/dim_n/dim_k -- no W1P/RO complications
+        val_bi = 32'hB000_0000 + bi;
+        apb_xact(sel_bi, val_bi, 1'b1);
+        checks = checks + 1;
+        case (sel_bi)
+          10'd0: if (src_a  !== val_bi) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d write]: src_a=%0h expected %0h", bi, sel_bi, src_a, val_bi); end
+          10'd1: if (src_b  !== val_bi) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d write]: src_b=%0h expected %0h", bi, sel_bi, src_b, val_bi); end
+          10'd2: if (dest_c !== val_bi) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d write]: dest_c=%0h expected %0h", bi, sel_bi, dest_c, val_bi); end
+          10'd3: if ({29'd0, dim_m} !== {29'd0, val_bi[2:0]}) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d write]: dim_m mismatch", bi, sel_bi); end
+          10'd4: if ({29'd0, dim_n} !== {29'd0, val_bi[2:0]}) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d write]: dim_n mismatch", bi, sel_bi); end
+          default: if ({29'd0, dim_k} !== {29'd0, val_bi[2:0]}) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d write]: dim_k mismatch", bi, sel_bi); end
+        endcase
+
+        apb_xact(sel_bi, 32'hFFFF_FFFF, 1'b0); // immediate zero-gap readback
+        checks = checks + 1;
+        case (sel_bi)
+          10'd0, 10'd1, 10'd2: if (prdata !== val_bi) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d readback]: prdata=%0h expected %0h", bi, sel_bi, prdata, val_bi); end
+          default:             if (prdata !== {29'd0, val_bi[2:0]}) begin errors = errors + 1; $display("FAIL [partA4-backtoback #%0d sel=%0d readback]: prdata=%0h expected %0h", bi, sel_bi, prdata, {29'd0, val_bi[2:0]}); end
+        endcase
+      end
+      $display("Part A4: %0d write+readback pairs (%0d total transactions) at zero-gap maximum APB rate, none dropped/duplicated, checks=%0d so far", NUM_BACKTOBACK, NUM_BACKTOBACK * 2, checks);
+    end
+
+    // ==== Task 027, Part A5: pwrite flips between SETUP and ACCESS --
+    // confirms the same-cycle sampling (csr_wen = psel && penable &&
+    // pwrite, evaluated AT ACCESS, not latched from SETUP) both
+    // directions: a write-looking SETUP that becomes a read at ACCESS
+    // must not commit; a read-looking SETUP that becomes a write at
+    // ACCESS must commit. ====
+    begin : part_a5
+      do_reset();
+      apb_xact(10'd0, 32'hCAFE_0000, 1'b1); // known baseline in src_a
+
+      paddr   = {20'd0, 10'd0, 2'b00};
+      pwdata  = 32'hBAD0_BAD0; // would land in src_a if wrongly treated as a write
+      pwrite  = 1'b1;          // SETUP: looks like a write
+      psel    = 1'b1;
+      penable = 1'b0;
+      step();
+      pwrite  = 1'b0;          // flip to READ right at ACCESS
+      penable = 1'b1;
+      step();
+      checks = checks + 1;
+      if (src_a !== 32'hCAFE_0000) begin
+        errors = errors + 1;
+        $display("FAIL [partA5-pwrite-flip 1->0]: src_a=%0h expected unchanged 32'hCAFE_0000 -- pwrite flipping to 0 at ACCESS should make this a read", src_a);
+      end
+      checks = checks + 1;
+      if (prdata !== 32'hCAFE_0000) begin
+        errors = errors + 1;
+        $display("FAIL [partA5-pwrite-flip 1->0]: prdata=%0h expected 32'hCAFE_0000", prdata);
+      end
+      psel = 1'b0; penable = 1'b0;
+
+      paddr   = {20'd0, 10'd1, 2'b00}; // src_b
+      pwdata  = 32'hFEED_FACE;
+      pwrite  = 1'b0;          // SETUP: looks like a read
+      psel    = 1'b1;
+      penable = 1'b0;
+      step();
+      pwrite  = 1'b1;          // flip to WRITE right at ACCESS
+      penable = 1'b1;
+      step();
+      checks = checks + 1;
+      if (src_b !== 32'hFEED_FACE) begin
+        errors = errors + 1;
+        $display("FAIL [partA5-pwrite-flip 0->1]: src_b=%0h expected 32'hFEED_FACE -- pwrite flipping to 1 at ACCESS should commit as a write", src_b);
+      end else begin
+        $display("PASS [partA5-pwrite-flip]: pwrite sampled at ACCESS, not latched from SETUP, confirmed both directions (1->0 blocks, 0->1 commits)");
+      end
+      psel = 1'b0; penable = 1'b0;
+    end
+
+    // ==== Task 027, Part B: high-volume extreme-biased CRV -- >=2,000
+    // iterations (matching task 026's scale), ~15-20% of drawn wdata
+    // forced to an extreme value, randomized pacing that mixes in
+    // occasional long-SETUP (Part A3's mechanism) and zero-gap-prone
+    // idle gaps with ordinary single-cycle-SETUP transactions. Same
+    // shadow model as the baseline CRV above -- no extension needed,
+    // since only the FINAL pre-ACCESS SETUP values ever matter to it
+    // (Part A3 already proved that), and done_i is held low through
+    // every non-tracked cycle (idle gap or long-SETUP garbage) for the
+    // same desync-avoidance reason the baseline CRV's own comment gives. ====
+    begin : part_b
+      localparam int NUM_ITERS_B = 2000;
+      logic [31:0] rng;
+      int iter;
+
+      logic [9:0]  sel_v;
+      logic [31:0] wdata_v;
+      bit          pwrite_v;
+      bit          wen_v;
+      int          idle_gap;
+      int          gap_i;
+      int          setup_len;
+      int          su_i;
+      logic [31:0] extreme_vals [0:3];
+
+      logic [31:0] sh_src_a, sh_src_b, sh_dest_c;
+      logic [2:0]  sh_dim_m, sh_dim_n, sh_dim_k;
+      logic        sh_ctrl_signed;
+      logic        sh_start_pulse;
+      logic        sh_status_done;
+
+      logic [31:0] new_src_a, new_src_b, new_dest_c;
+      logic [2:0]  new_dim_m, new_dim_n, new_dim_k;
+      logic        new_ctrl_signed;
+      logic        new_start_pulse;
+      logic        new_status_done;
+      logic [31:0] exp_rdata;
+
+      extreme_vals[0] = 32'h0000_0000;
+      extreme_vals[1] = 32'hFFFF_FFFF;
+      extreme_vals[2] = 32'h8000_0000;
+      extreme_vals[3] = 32'h7FFF_FFFF;
+
+      rng = 32'h5eed021b; // per-task seed convention, distinct sub-stream
+      $display("Part B CRV seed = 32'h%08h", rng);
+
+      do_reset();
+      sh_src_a = 32'd0; sh_src_b = 32'd0; sh_dest_c = 32'd0;
+      sh_dim_m = 3'd0; sh_dim_n = 3'd0; sh_dim_k = 3'd0;
+      sh_ctrl_signed = 1'b0; sh_start_pulse = 1'b0; sh_status_done = 1'b0;
+      done_i = 1'b0; error_i = 1'b0; error_code_i = 3'd0;
+
+      for (iter = 0; iter < NUM_ITERS_B; iter = iter + 1) begin
+        // ---- Idle gap, done_i held low throughout (same desync-
+        // avoidance reasoning as the baseline CRV). ----
+        rng = xorshift32(rng);
+        idle_gap = rng[2:0];
+        psel = 1'b0; penable = 1'b0;
+        done_i = 1'b0;
+        for (gap_i = 0; gap_i < idle_gap; gap_i = gap_i + 1)
+          step();
+
+        // ---- Occasional long SETUP, changing garbage every cycle --
+        // done_i held low throughout this phase too, same reason. ----
+        rng = xorshift32(rng);
+        if (rng[4:0] == 5'h0) begin // ~1/32 of iterations
+          rng = xorshift32(rng);
+          setup_len = 2 + (rng % 20);
+          psel = 1'b1; penable = 1'b0; done_i = 1'b0;
+          for (su_i = 0; su_i < setup_len; su_i = su_i + 1) begin
+            rng = xorshift32(rng);
+            paddr  = {rng[29:0], 2'b00};
+            rng = xorshift32(rng);
+            pwdata = rng;
+            pwrite = rng[0];
+            step();
+          end
+        end
+
+        // ---- This iteration's real, tracked transaction. ----
+        rng = xorshift32(rng);
+        if (rng[0])
+          sel_v = {7'd0, rng[12:10]};
+        else
+          sel_v = rng[9:0];
+
+        rng = xorshift32(rng);
+        if (rng[4:0] < 5'd6) begin // ~18.75%, within the requested 15-20% band
+          rng = xorshift32(rng);
+          wdata_v = extreme_vals[rng[1:0]];
+        end else begin
+          rng = xorshift32(rng);
+          wdata_v = rng;
+        end
+
+        rng = xorshift32(rng);
+        pwrite_v = (rng[1:0] != 2'd0);
+
+        rng = xorshift32(rng);
+        done_i       = (rng[2:0] == 3'd0);
+        error_i      = (rng[5:3] == 3'd0);
+        error_code_i = rng[8:6];
+
+        paddr   = {20'd0, sel_v, 2'b00};
+        pwdata  = wdata_v;
+        pwrite  = pwrite_v;
+        psel    = 1'b1;
+        penable = 1'b0;
+        step();
+
+        penable = 1'b1;
+        wen_v = pwrite_v;
+
+        new_src_a       = (wen_v && sel_v == 10'd0) ? wdata_v      : sh_src_a;
+        new_src_b       = (wen_v && sel_v == 10'd1) ? wdata_v      : sh_src_b;
+        new_dest_c      = (wen_v && sel_v == 10'd2) ? wdata_v      : sh_dest_c;
+        new_dim_m       = (wen_v && sel_v == 10'd3) ? wdata_v[2:0] : sh_dim_m;
+        new_dim_n       = (wen_v && sel_v == 10'd4) ? wdata_v[2:0] : sh_dim_n;
+        new_dim_k       = (wen_v && sel_v == 10'd5) ? wdata_v[2:0] : sh_dim_k;
+        new_ctrl_signed = (wen_v && sel_v == 10'd6) ? wdata_v[1]   : sh_ctrl_signed;
+        new_start_pulse = wen_v && (sel_v == 10'd6) && wdata_v[0];
+        new_status_done = sh_start_pulse ? 1'b0 : (done_i ? 1'b1 : sh_status_done);
+
+        step(); // ACCESS cycle itself
+
+        sh_src_a = new_src_a; sh_src_b = new_src_b; sh_dest_c = new_dest_c;
+        sh_dim_m = new_dim_m; sh_dim_n = new_dim_n; sh_dim_k = new_dim_k;
+        sh_ctrl_signed = new_ctrl_signed;
+        sh_start_pulse = new_start_pulse;
+        sh_status_done = new_status_done;
+
+        check_eq32($sformatf("PartB-CRV[%0d] src_a", iter), src_a, sh_src_a);
+        check_eq32($sformatf("PartB-CRV[%0d] src_b", iter), src_b, sh_src_b);
+        check_eq32($sformatf("PartB-CRV[%0d] dest_c", iter), dest_c, sh_dest_c);
+        check_eq32($sformatf("PartB-CRV[%0d] dim_m", iter), {29'd0, dim_m}, {29'd0, sh_dim_m});
+        check_eq32($sformatf("PartB-CRV[%0d] dim_n", iter), {29'd0, dim_n}, {29'd0, sh_dim_n});
+        check_eq32($sformatf("PartB-CRV[%0d] dim_k", iter), {29'd0, dim_k}, {29'd0, sh_dim_k});
+        check_eq1($sformatf("PartB-CRV[%0d] mode_unsigned", iter), mode_unsigned, ~sh_ctrl_signed);
+        check_eq1($sformatf("PartB-CRV[%0d] start_pulse", iter), start_pulse, sh_start_pulse);
+
+        case (sel_v)
+          10'd0: exp_rdata = sh_src_a;
+          10'd1: exp_rdata = sh_src_b;
+          10'd2: exp_rdata = sh_dest_c;
+          10'd3: exp_rdata = {29'd0, sh_dim_m};
+          10'd4: exp_rdata = {29'd0, sh_dim_n};
+          10'd5: exp_rdata = {29'd0, sh_dim_k};
+          10'd6: exp_rdata = {30'd0, sh_ctrl_signed, 1'b0};
+          10'd7: exp_rdata = {27'd0, error_code_i, error_i, sh_status_done};
+          default: exp_rdata = 32'd0;
+        endcase
+        check_eq32($sformatf("PartB-CRV[%0d] prdata sel=%0d", iter, sel_v), prdata, exp_rdata);
+
+        // ---- Consume start_pulse's one-cycle pulse *now*, before the
+        // next iteration's idle-gap/long-setup cycles run. The real
+        // DUT's status_done_reg reacts to start_pulse on the very next
+        // edge after it's set, whichever kind of cycle that happens to
+        // be -- tracked ACCESS, idle gap, or long-SETUP garbage. Letting
+        // sh_start_pulse/sh_status_done linger unconsumed until the next
+        // TRACKED iteration's own new_status_done computation (as a
+        // naive single-step shadow would) makes that lingering "clear"
+        // wrongly out-compete the next iteration's own done_i, when in
+        // the real DUT the clear already resolved (and start_pulse
+        // already dropped back to 0) one edge earlier, before that
+        // done_i ever took effect. First caught as 4 real failures in
+        // this exact block during development (npu_status reading DONE=1
+        // where the unconsumed-shadow formula predicted 0) -- root-
+        // caused to this gap, not an RTL issue (the original 150-
+        // iteration baseline CRV never hit it, likely luck of the draw
+        // with its shorter idle-gap range, not evidence it's immune).
+        if (sh_start_pulse) begin
+          sh_status_done = 1'b0;
+          sh_start_pulse = 1'b0;
+        end
+
+        psel = 1'b0; penable = 1'b0;
+      end
+
+      psel = 1'b0; penable = 1'b0;
+      $display("----------------------------------------");
+      $display("Part B: %0d iterations, ~18.75%% extreme-biased data, randomized pacing (idle gaps + occasional long-SETUP), checks so far=%0d", NUM_ITERS_B, checks);
+      if (errors == 0)
+        $display("Part B: ALL PASSED");
+      $display("----------------------------------------");
+    end
+
     $display("----------------------------------------");
     $display("checked %0d value(s)/assertion(s) total", checks);
     if (errors == 0)
