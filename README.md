@@ -593,7 +593,7 @@ Full detail in `docs/freeze-report.md`.
 
 ## Credits
 
-Course project for **EE5239, Chip Design and Tapeout**. Team of five, ~8 weeks.
+Course project for **EE5239, RTL to GDSII**. Team of five, ~8 weeks.
 
 The block is Project 2 of the *Frankenstein* 180 nm IP-validation SoC; Project 1 owns the
 PicoRV32 core, the 32 KB SRAM, the arbiter and the SPI controller.
