@@ -94,7 +94,6 @@ module unpu_top_tb;
   endfunction
 
   assign bp_delay_eff = bp_have_delay ? bp_delay_reg : (bp_rng[2:0] < 3'd6 ? bp_rng[2:0] : 3'd5);
-  assign dma_ready     = dma_valid && (bp_delay_eff == 3'd0);
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -131,6 +130,8 @@ module unpu_top_tb;
       rst_n = 0;
       paddr = 0; pwdata = 0; pwrite = 0; psel = 0; penable = 0;
       bp_rng = 32'h5eed000c;
+      bp_mode_extreme = 1'b0;
+      force_stall = 1'b0;
       step();
       step();
       rst_n = 1;
@@ -233,6 +234,301 @@ module unpu_top_tb;
           if (mem[(base_c >> 2) + m * 4 + j] !== c_case[m][j]) begin
             errors = errors + 1;
             $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", label, m, j, mem[(base_c >> 2) + m * 4 + j], c_case[m][j]);
+          end
+        end
+      end
+    end
+  endtask
+
+  // ==== Task 028 (final, module 10): independent reference model +
+  // shared adversarial helpers, combining every technique the campaign
+  // built. ref_c_elem carries no persistent state between calls -- every
+  // call recomputes its one C[m][j] from scratch off the A/W snapshots
+  // and the actual dim_k passed in, same stateless discipline modules
+  // 2-5/7 used, ruling out the class of bug task 019's first-draft PE
+  // reference model had. ====
+  function automatic int signed to_signed8(input logic [7:0] v);
+    if (v[7])
+      return int'(v) - 256;
+    else
+      return int'(v);
+  endfunction
+
+  function automatic logic [31:0] ref_c_elem(input logic [7:0] Wm [0:3][0:3], input logic [7:0] Am [0:3][0:3],
+                                              input int mrow, input int jcol, input int dk, input bit mode_uns);
+    int kk;
+    int unsigned acc_u, uw, ua;
+    int signed   acc_s, sw, sa;
+    begin
+      if (mode_uns) begin
+        acc_u = 0;
+        for (kk = 0; kk < dk; kk = kk + 1) begin
+          uw = {24'd0, Wm[kk][jcol]};
+          ua = {24'd0, Am[mrow][kk]};
+          acc_u = acc_u + uw * ua;
+        end
+        ref_c_elem = acc_u;
+      end else begin
+        acc_s = 0;
+        for (kk = 0; kk < dk; kk = kk + 1) begin
+          sw = to_signed8(Wm[kk][jcol]);
+          sa = to_signed8(Am[mrow][kk]);
+          acc_s = acc_s + sw * sa;
+        end
+        ref_c_elem = acc_s;
+      end
+    end
+  endfunction
+
+  // ~1/8 chance of a boundary extreme, same discipline every prior
+  // module used.
+  function automatic logic [7:0] biased_byte(ref logic [31:0] rng);
+    logic [31:0] r1, r2;
+    begin
+      rng = xorshift32(rng); r1 = rng;
+      if (r1[3:0] < 4'd2) begin
+        rng = xorshift32(rng); r2 = rng;
+        case (r2[1:0])
+          2'd0: biased_byte = 8'h00;
+          2'd1: biased_byte = 8'hFF;
+          2'd2: biased_byte = 8'h80;
+          default: biased_byte = 8'h7F;
+        endcase
+      end else begin
+        biased_byte = r1[15:8];
+      end
+    end
+  endfunction
+
+  // ---- A SEPARATE, wider back-pressure model for extreme-stall testing
+  // (50-200 cycles/beat), same additive approach tasks 023/025 used --
+  // OFF by default (bp_mode_extreme==0 keeps dma_ready driven by the
+  // original 0-5-cycle model exactly as before; force_stall (below) is a
+  // third, independent override for holding a single beat indefinitely
+  // on demand, used by Part A's mid-flight-polling case). ----
+  logic        bp_mode_extreme;
+  logic [31:0] bp_ext_rng;
+  logic [6:0]  bp_ext_delay_reg;
+  logic        bp_ext_have_delay;
+  logic [6:0]  bp_ext_delay_eff;
+  logic        force_stall;
+
+  assign bp_ext_delay_eff = bp_ext_have_delay ? bp_ext_delay_reg : (7'd50 + (bp_ext_rng[6:0] % 7'd51)); // 50-100
+  assign dma_ready = force_stall ? 1'b0 :
+                      dma_valid && (bp_mode_extreme ? (bp_ext_delay_eff == 7'd0) : (bp_delay_eff == 3'd0));
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      bp_ext_rng        <= 32'h5eed001c;
+      bp_ext_delay_reg  <= 7'd0;
+      bp_ext_have_delay <= 1'b0;
+    end else if (!bp_mode_extreme || !dma_valid) begin
+      bp_ext_have_delay <= 1'b0;
+    end else if (!bp_ext_have_delay) begin
+      bp_ext_have_delay <= 1'b1;
+      bp_ext_delay_reg  <= (bp_ext_delay_eff == 7'd0) ? 7'd0 : (bp_ext_delay_eff - 7'd1);
+      bp_ext_rng        <= xorshift32(bp_ext_rng);
+    end else if (bp_ext_delay_reg != 7'd0) begin
+      bp_ext_delay_reg <= bp_ext_delay_reg - 7'd1;
+    end
+  end
+
+  // Same-shape APB write, but holds SETUP for setup_len cycles with
+  // changing garbage paddr/pwdata first, committing only the final,
+  // real (addr,wdata) pair -- module 9's Part A3 pattern, reused here to
+  // mix adversarial pacing into a real op's own register-write sequence.
+  task automatic apb_write_long_setup(input logic [31:0] addr, input logic [31:0] wdata, input int setup_len);
+    int si;
+    logic [31:0] rng_local;
+    begin
+      psel = 1'b1; penable = 1'b0; pwrite = 1'b1;
+      rng_local = 32'hBADD_CAFE ^ addr;
+      for (si = 0; si < setup_len; si = si + 1) begin
+        rng_local = xorshift32(rng_local);
+        paddr  = rng_local;
+        pwdata = rng_local ^ 32'hFFFF_0000;
+        step();
+      end
+      paddr  = addr;
+      pwdata = wdata;
+      step(); // one more SETUP cycle holding the real, final values
+      penable = 1'b1;
+      step(); // ACCESS -- commits
+      psel = 1'b0; penable = 1'b0;
+    end
+  endtask
+
+  // ---- Wraparound-aware preload/check: mirrors preload_case()/
+  // check_writeback()'s own job exactly, but computes each word's real
+  // 32-bit byte address via plain logic[31:0] arithmetic (which wraps at
+  // 32 bits exactly like the DUT's own address registers do) and indexes
+  // mem[] via that address's [19:2] slice -- the SAME decode convention
+  // dma_rdata's own assign already applies -- rather than preload_case's
+  // plain (base>>2)+offset pointer arithmetic, which is only valid when
+  // nothing wraps and would index far out of mem[]'s bounds otherwise. ----
+  task automatic preload_case_wrap(input string name, input logic [31:0] base_a, input logic [31:0] base_w);
+    int rr;
+    logic [31:0] byte_addr;
+    begin
+      $readmemh({"model/vectors/", name, "_a.hex"}, a_case);
+      $readmemh({"model/vectors/", name, "_w.hex"}, w_case);
+      $readmemh({"model/vectors/", name, "_c.hex"}, c_case);
+      for (rr = 0; rr < 4; rr = rr + 1) begin
+        byte_addr = base_a + (32'(rr) * 32'd4);
+        mem[byte_addr[19:2]] = {a_case[rr][3], a_case[rr][2], a_case[rr][1], a_case[rr][0]};
+        byte_addr = base_w + (32'(rr) * 32'd4);
+        mem[byte_addr[19:2]] = {w_case[rr][3], w_case[rr][2], w_case[rr][1], w_case[rr][0]};
+      end
+    end
+  endtask
+
+  // ==== Task 028 Part B helpers: synthetic per-op data generation +
+  // checking (no golden.c vector file exists for arbitrary random
+  // shapes), supporting both safe and wraparound-decoded addressing. ====
+  logic [7:0] b_a_case [0:3][0:3];
+  logic [7:0] b_w_case [0:3][0:3];
+
+  task automatic gen_and_load_op_b(input logic [31:0] base_a, input logic [31:0] base_w, input bit use_wrap, ref logic [31:0] rng);
+    int rr, cc;
+    logic [31:0] byte_addr;
+    begin
+      for (rr = 0; rr < 4; rr = rr + 1)
+        for (cc = 0; cc < 4; cc = cc + 1) begin
+          b_a_case[rr][cc] = biased_byte(rng);
+          b_w_case[rr][cc] = biased_byte(rng);
+        end
+      for (rr = 0; rr < 4; rr = rr + 1) begin
+        if (use_wrap) begin
+          byte_addr = base_a + (32'(rr) * 32'd4);
+          mem[byte_addr[19:2]] = {b_a_case[rr][3], b_a_case[rr][2], b_a_case[rr][1], b_a_case[rr][0]};
+          byte_addr = base_w + (32'(rr) * 32'd4);
+          mem[byte_addr[19:2]] = {b_w_case[rr][3], b_w_case[rr][2], b_w_case[rr][1], b_w_case[rr][0]};
+        end else begin
+          mem[(base_a >> 2) + rr] = {b_a_case[rr][3], b_a_case[rr][2], b_a_case[rr][1], b_a_case[rr][0]};
+          mem[(base_w >> 2) + rr] = {b_w_case[rr][3], b_w_case[rr][2], b_w_case[rr][1], b_w_case[rr][0]};
+        end
+      end
+    end
+  endtask
+
+  task automatic check_op_b(input string label, input logic [31:0] base_c, input bit use_wrap,
+                             input int drv_m, input int drv_n, input int drv_k, input bit mode_uns);
+    int mm, jj;
+    logic [31:0] byte_addr, exp_val, got_val;
+    begin
+      for (mm = 0; mm < drv_m; mm = mm + 1) begin
+        for (jj = 0; jj < drv_n; jj = jj + 1) begin
+          exp_val = ref_c_elem(b_w_case, b_a_case, mm, jj, drv_k, mode_uns);
+          checks  = checks + 1;
+          if (use_wrap) begin
+            byte_addr = base_c + (32'(mm) * 32'd16) + (32'(jj) * 32'd4);
+            got_val = mem[byte_addr[19:2]];
+          end else begin
+            got_val = mem[(base_c >> 2) + mm * 4 + jj];
+          end
+          if (got_val !== exp_val) begin
+            errors = errors + 1;
+            $display("FAIL [%s]: C[%0d][%0d]=%0d expected %0d", label, mm, jj, got_val, exp_val);
+          end
+        end
+      end
+    end
+  endtask
+
+  // Drives one full legal op: 7-register config (optionally mixing
+  // long-SETUP for src_A and npu_ctrl with zero-gap for the rest),
+  // START, then polls npu_status (optionally sparse) until DONE.
+  task automatic run_op_b(input string label, input logic [31:0] base_a, input logic [31:0] base_w, input logic [31:0] base_c,
+                           input int drv_m, input int drv_k, input int drv_n, input bit drv_signed_bit,
+                           input bit use_long_setup, input int setup_len_a, input int setup_len_ctrl,
+                           input bit sparse_poll, output bit ok);
+    int poll_i, idle_i;
+    logic [31:0] rdata_b;
+    begin
+      if (use_long_setup)
+        apb_write_long_setup(CSR_BASE + OFF_SRC_A, base_a, setup_len_a);
+      else
+        apb_write(CSR_BASE + OFF_SRC_A, base_a);
+      apb_write(CSR_BASE + OFF_SRC_B,  base_w);
+      apb_write(CSR_BASE + OFF_DEST_C, base_c);
+      apb_write(CSR_BASE + OFF_DIM_M,  {29'd0, drv_m[2:0]});
+      apb_write(CSR_BASE + OFF_DIM_N,  {29'd0, drv_n[2:0]});
+      apb_write(CSR_BASE + OFF_DIM_K,  {29'd0, drv_k[2:0]});
+      if (use_long_setup)
+        apb_write_long_setup(CSR_BASE + OFF_NPU_CTRL, {30'd0, drv_signed_bit, 1'b1}, setup_len_ctrl);
+      else
+        apb_write(CSR_BASE + OFF_NPU_CTRL, {30'd0, drv_signed_bit, 1'b1}); // bit0=START, bit1=SIGNED
+
+      ok = 1'b0;
+      for (poll_i = 0; poll_i < 6000; poll_i = poll_i + 1) begin
+        if (sparse_poll) begin
+          for (idle_i = 0; idle_i < 3; idle_i = idle_i + 1)
+            step();
+        end
+        apb_read(CSR_BASE + OFF_NPU_STAT, rdata_b);
+        if (rdata_b[0] == 1'b1) begin
+          ok = 1'b1;
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!ok) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: npu_status DONE never observed within poll bound", label);
+      end
+    end
+  endtask
+
+  // Drives one deliberately illegal op: 7-register config with one
+  // dimension forced illegal, START, confirms ERROR + error_code==1.
+  task automatic run_op_illegal_b(input string label, input int drv_m, input int drv_k, input int drv_n,
+                                   input bit drv_signed_bit, output bit ok);
+    int ii2;
+    logic [31:0] rdata_b;
+    begin
+      apb_write(CSR_BASE + OFF_SRC_A,  32'd0);
+      apb_write(CSR_BASE + OFF_SRC_B,  32'd0);
+      apb_write(CSR_BASE + OFF_DEST_C, 32'd0);
+      apb_write(CSR_BASE + OFF_DIM_M,  {29'd0, drv_m[2:0]});
+      apb_write(CSR_BASE + OFF_DIM_N,  {29'd0, drv_n[2:0]});
+      apb_write(CSR_BASE + OFF_DIM_K,  {29'd0, drv_k[2:0]});
+      apb_write(CSR_BASE + OFF_NPU_CTRL, {30'd0, drv_signed_bit, 1'b1});
+
+      ok = 1'b0;
+      for (ii2 = 0; ii2 < 100; ii2 = ii2 + 1) begin
+        apb_read(CSR_BASE + OFF_NPU_STAT, rdata_b);
+        if (rdata_b[1] == 1'b1) begin
+          ok = 1'b1;
+          break;
+        end
+        step();
+      end
+      checks = checks + 1;
+      if (!ok) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: npu_status ERROR bit never observed", label);
+      end else begin
+        checks = checks + 1;
+        if (rdata_b[4:2] !== 3'd1) begin
+          errors = errors + 1;
+          $display("FAIL [%s]: npu_status error_code=%0d expected 1", label, rdata_b[4:2]);
+        end
+      end
+    end
+  endtask
+
+  task automatic check_writeback_wrap(input string label, input logic [31:0] base_c, input int drv_m, input int drv_n);
+    int mm, jj;
+    logic [31:0] byte_addr;
+    begin
+      for (mm = 0; mm < drv_m; mm = mm + 1) begin
+        for (jj = 0; jj < drv_n; jj = jj + 1) begin
+          byte_addr = base_c + (32'(mm) * 32'd16) + (32'(jj) * 32'd4);
+          checks = checks + 1;
+          if (mem[byte_addr[19:2]] !== c_case[mm][jj]) begin
+            errors = errors + 1;
+            $display("FAIL [%s]: mem[wrapped addr=%0h idx=%0h] C[%0d][%0d]=%0d expected %0d",
+                      label, byte_addr, byte_addr[19:2], mm, jj, mem[byte_addr[19:2]], c_case[mm][jj]);
           end
         end
       end
@@ -350,6 +646,350 @@ module unpu_top_tb;
     end
 
     $display("CRV: 64 cases completed");
+
+    // ==== Task 028, Part A1: address wraparound WITH real data
+    // correctness. Module 7 (task 025) could only prove the DMA address
+    // sequence itself wraps correctly -- its isolated model SRAM
+    // couldn't represent content at a wrapped address coherently. Here,
+    // with the real end-to-end datapath live, preload_case_wrap()/
+    // check_writeback_wrap() use the exact same [19:2] decode convention
+    // this file's own dma_rdata assign already applies, so this proves
+    // the ACTUAL COMPUTED C values land correctly at wherever the
+    // wraparound resolves to -- not just that addressing survives. ====
+    begin : part_a1
+      logic [31:0] wbase_a, wbase_w, wbase_c;
+      do_reset();
+      // base_a: row 0 at 0xFFFFFFFC, rows 1-3 wrap to 0x00000000/4/8.
+      // base_w: same wraparound shape. base_c: M=N=4 writeback's max
+      // offset is 3*16+3*4=60 bytes, so starting 32 bytes from the top
+      // wraps partway through row 2.
+      wbase_a = 32'hFFFF_FFFC;
+      wbase_w = 32'hFFFF_FFE0;
+      wbase_c = 32'hFFFF_FFE0;
+      preload_case_wrap("cross_terms", wbase_a, wbase_w);
+      run_case_via_cpu("wraparound-with-data", wbase_a, wbase_w, wbase_c, 4, 4, 4, 1'b1, 1'b0, ok);
+      check_writeback_wrap("wraparound-with-data", wbase_c, 4, 4);
+      $display("Part A1: address wraparound with real end-to-end data correctness (base_a/base_w/base_c all near 32'hFFFF_FFFF), checks=%0d so far", checks);
+    end
+
+    // ==== Task 028, Part A2: mid-flight register write during an active
+    // op -- structurally impossible to test below the full-system level
+    // (needs CSR, APB, DMA, and the sequencer all live simultaneously).
+    // Starts a real op, injects config writes with DIFFERENT values
+    // while it's still running (LATCH_CFG's shadow copy should protect
+    // it), confirms the first op completes correctly, THEN starts a
+    // second op and confirms it picks up exactly the values written
+    // during the first op's run -- proving the shadow copy protects the
+    // CURRENT op without silently discarding the NEXT one's config. ====
+    begin : part_a2
+      bit ok2a;
+      logic [31:0] c_case_op1 [0:3][0:3]; // snapshot -- c_case is a shared scratch buffer that the second preload_case() call below overwrites
+      int m2, j2;
+      do_reset();
+      preload_case("cross_terms", 32'h0004_0000, 32'h0004_0100);
+      c_case_op1 = c_case; // snapshot cross_terms's own expected C before it gets clobbered
+      apb_write(CSR_BASE + OFF_SRC_A,  32'h0004_0000);
+      apb_write(CSR_BASE + OFF_SRC_B,  32'h0004_0100);
+      apb_write(CSR_BASE + OFF_DEST_C, 32'h0004_0200);
+      apb_write(CSR_BASE + OFF_DIM_M,  32'd4);
+      apb_write(CSR_BASE + OFF_DIM_N,  32'd4);
+      apb_write(CSR_BASE + OFF_DIM_K,  32'd4);
+      apb_write(CSR_BASE + OFF_NPU_CTRL, {30'd0, 1'b1, 1'b1}); // START+SIGNED
+
+      repeat (20) step(); // well before DONE -- mid-fetch, genuinely in flight
+
+      // Inject config writes with DIFFERENT values while the first op
+      // is still running -- these are what the SECOND op (below) should
+      // end up using.
+      preload_case("seq_mixed", 32'h0004_1000, 32'h0004_1100);
+      apb_write(CSR_BASE + OFF_SRC_A,  32'h0004_1000);
+      apb_write(CSR_BASE + OFF_SRC_B,  32'h0004_1100);
+      apb_write(CSR_BASE + OFF_DEST_C, 32'h0004_1200);
+      apb_write(CSR_BASE + OFF_DIM_M,  32'd3);
+      apb_write(CSR_BASE + OFF_DIM_N,  32'd3);
+      apb_write(CSR_BASE + OFF_DIM_K,  32'd2);
+      // Deliberately no npu_ctrl write here -- that would be a mid-
+      // flight START, a different (also-interesting, but not this)
+      // scenario; this case is about config writes landing mid-flight.
+
+      ok2a = 1'b0;
+      for (i = 0; i < 4000; i = i + 1) begin
+        apb_read(CSR_BASE + OFF_NPU_STAT, rdata);
+        if (rdata[0] == 1'b1) begin
+          ok2a = 1'b1;
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!ok2a) begin
+        errors = errors + 1;
+        $display("FAIL [mid-flight-write]: first op (cross_terms) never completed after mid-flight config writes");
+      end
+      for (m2 = 0; m2 < 4; m2 = m2 + 1) begin
+        for (j2 = 0; j2 < 4; j2 = j2 + 1) begin
+          checks = checks + 1;
+          if (mem[(32'h0004_0200 >> 2) + m2 * 4 + j2] !== c_case_op1[m2][j2]) begin
+            errors = errors + 1;
+            $display("FAIL [mid-flight-write: first op unaffected]: mem C[%0d][%0d]=%0d expected %0d", m2, j2, mem[(32'h0004_0200 >> 2) + m2 * 4 + j2], c_case_op1[m2][j2]);
+          end
+        end
+      end
+
+      // Second op: START now, using exactly the config written mid-
+      // flight above -- confirms it was captured, not discarded.
+      apb_write(CSR_BASE + OFF_NPU_CTRL, {30'd0, 1'b1, 1'b1}); // START+SIGNED
+      ok2a = 1'b0;
+      for (i = 0; i < 4000; i = i + 1) begin
+        apb_read(CSR_BASE + OFF_NPU_STAT, rdata);
+        if (rdata[0] == 1'b1) begin
+          ok2a = 1'b1;
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!ok2a) begin
+        errors = errors + 1;
+        $display("FAIL [mid-flight-write]: second op never completed");
+      end
+      check_writeback("mid-flight-write: second op correctly picks up mid-flight-written config (seq_mixed, M=3/K=2/N=3)", 32'h0004_1200, 3, 3);
+      $display("Part A2: mid-flight register write during an active op -- first op unaffected, second op correctly picked up the mid-flight config, checks=%0d so far", checks);
+    end
+
+    // ==== Task 028, Part A3: mid-flight status polling during active
+    // DMA beats. force_stall holds a real beat stalled indefinitely on
+    // demand; while it's stalled, rapid npu_status reads are interleaved
+    // -- confirms polling never disturbs the stalled operation itself,
+    // and DONE eventually reads correctly once it actually completes.
+    // Also structurally impossible below the full-system level: needs
+    // CSR, APB, DMA, and the sequencer all live at once. ====
+    begin : part_a3
+      bit ok3a;
+      int pi;
+      do_reset();
+      preload_case("cross_terms", 32'h0005_0000, 32'h0005_0100);
+      force_stall = 1'b1; // before any register writes -- the very first DMA beat will stall the instant it's dispatched
+      apb_write(CSR_BASE + OFF_SRC_A,  32'h0005_0000);
+      apb_write(CSR_BASE + OFF_SRC_B,  32'h0005_0100);
+      apb_write(CSR_BASE + OFF_DEST_C, 32'h0005_0200);
+      apb_write(CSR_BASE + OFF_DIM_M,  32'd4);
+      apb_write(CSR_BASE + OFF_DIM_N,  32'd4);
+      apb_write(CSR_BASE + OFF_DIM_K,  32'd4);
+      apb_write(CSR_BASE + OFF_NPU_CTRL, {30'd0, 1'b1, 1'b1}); // START+SIGNED -- dispatches W_FETCH's first beat, which immediately stalls (force_stall=1)
+
+      for (pi = 0; pi < 30; pi = pi + 1) begin
+        apb_read(CSR_BASE + OFF_NPU_STAT, rdata);
+        checks = checks + 1;
+        if (rdata[0] !== 1'b0) begin
+          errors = errors + 1;
+          $display("FAIL [mid-flight-polling]: npu_status DONE read as 1 at poll #%0d while the op is genuinely still stalled mid-beat", pi);
+        end
+      end
+
+      force_stall = 1'b0; // release -- normal 0-5-cycle back-pressure resumes from here
+
+      ok3a = 1'b0;
+      for (i = 0; i < 4000; i = i + 1) begin
+        apb_read(CSR_BASE + OFF_NPU_STAT, rdata);
+        if (rdata[0] == 1'b1) begin
+          ok3a = 1'b1;
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!ok3a) begin
+        errors = errors + 1;
+        $display("FAIL [mid-flight-polling]: op never completed after the stall was released");
+      end
+      check_writeback("mid-flight-polling: op completes correctly despite 30 interleaved status polls during a genuine mid-beat stall", 32'h0005_0200, 4, 4);
+      $display("Part A3: mid-flight status polling during a genuinely stalled DMA beat never disturbed the operation, checks=%0d so far", checks);
+    end
+
+    // ==== Task 028, Part A4: maximum-speed config write -- a full
+    // 7-register config sequence as zero-gap back-to-back APB
+    // transactions (apb_write()'s own trailing psel=0/penable=0 and the
+    // next call's leading psel=1 land in the same zero-simulation-time
+    // window, module 9's own finding), repeated across several ops. ====
+    begin : part_a4
+      do_reset();
+      preload_case("cross_terms", 32'h0006_0000, 32'h0006_0100);
+      run_case_via_cpu("max-speed-config #0", 32'h0006_0000, 32'h0006_0100, 32'h0006_0200, 4, 4, 4, 1'b1, 1'b0, ok);
+      check_writeback("max-speed-config #0", 32'h0006_0200, 4, 4);
+
+      preload_case("seq_k1", 32'h0006_1000, 32'h0006_1100);
+      run_case_via_cpu("max-speed-config #1", 32'h0006_1000, 32'h0006_1100, 32'h0006_1200, 4, 1, 4, 1'b1, 1'b0, ok);
+      check_writeback("max-speed-config #1", 32'h0006_1200, 4, 4);
+
+      preload_case("seq_n1", 32'h0006_2000, 32'h0006_2100);
+      run_case_via_cpu("max-speed-config #2", 32'h0006_2000, 32'h0006_2100, 32'h0006_2200, 4, 4, 1, 1'b1, 1'b0, ok);
+      check_writeback("max-speed-config #2", 32'h0006_2200, 4, 1);
+
+      preload_case("seq_mixed", 32'h0006_3000, 32'h0006_3100);
+      run_case_via_cpu("max-speed-config #3", 32'h0006_3000, 32'h0006_3100, 32'h0006_3200, 3, 2, 3, 1'b1, 1'b0, ok);
+      check_writeback("max-speed-config #3", 32'h0006_3200, 3, 3);
+
+      $display("Part A4: 4 ops, each with a full 7-register config sequence at zero-gap maximum APB rate, checks=%0d so far", checks);
+    end
+
+    // ==== Task 028, Part A5: combined extreme APB pacing through a real
+    // op -- long-SETUP phases (module 9's pattern) mixed with zero-gap
+    // writes within the SAME op's register-write sequence. ====
+    begin : part_a5
+      do_reset();
+      preload_case("cross_terms", 32'h0007_0000, 32'h0007_0100);
+      apb_write_long_setup(CSR_BASE + OFF_SRC_A,  32'h0007_0000, 30);
+      apb_write(CSR_BASE + OFF_SRC_B,  32'h0007_0100); // zero-gap normal
+      apb_write_long_setup(CSR_BASE + OFF_DEST_C, 32'h0007_0200, 25);
+      apb_write(CSR_BASE + OFF_DIM_M,  32'd4);
+      apb_write_long_setup(CSR_BASE + OFF_DIM_N,  32'd4, 15);
+      apb_write(CSR_BASE + OFF_DIM_K,  32'd4);
+      apb_write_long_setup(CSR_BASE + OFF_NPU_CTRL, {30'd0, 1'b1, 1'b1}, 20); // START+SIGNED, also via long-SETUP
+
+      ok = 1'b0;
+      for (i = 0; i < 4000; i = i + 1) begin
+        apb_read(CSR_BASE + OFF_NPU_STAT, rdata);
+        if (rdata[0] == 1'b1) begin
+          ok = 1'b1;
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!ok) begin
+        errors = errors + 1;
+        $display("FAIL [combined-pacing]: op never completed");
+      end
+      check_writeback("combined-pacing: cross_terms configured via a mix of long-SETUP and zero-gap APB writes", 32'h0007_0200, 4, 4);
+      $display("Part A5: combined extreme APB pacing (long-SETUP + zero-gap mixed within one op's config sequence), checks=%0d so far", checks);
+    end
+
+    // ==== Task 028, Part B: the maximal adversarial long-chain campaign.
+    // >=30 independently-seeded sequences, each >=15 back-to-back ops,
+    // zero reset between ops within a sequence. Every op combines: random
+    // legal M/N/K/mode with random addresses (occasionally wraparound),
+    // extreme-biased A/W data, ~10-15% deliberately illegal ops mixed in,
+    // extreme DMA back-pressure (moderate + 50-100-cycle extreme mixed),
+    // extreme APB pacing (zero-gap + long-SETUP + sparse polling mixed).
+    // Fixed address bands are reused across ops relying on the
+    // write-then-check-immediately discipline: each op's data is written
+    // and checked before the next op reuses the same band. ====
+    begin : part_b
+      localparam int NUM_SEQ = 30;
+      int seq_idx, op_idx, num_ops;
+      logic [31:0] master_rng, seq_rng;
+      int roll;
+      bit use_wrap_b, use_bp_extreme_b, use_long_setup_b, sparse_poll_b, signed_bit_b;
+      int drv_m_b, drv_k_b, drv_n_b, setup_len_a_b, setup_len_ctrl_b;
+      logic [31:0] base_a_b, base_w_b, base_c_b;
+      bit ok_b;
+      int illeg_vals_b [0:3];
+      int illeg_dim_b, illeg_val_b;
+      int total_ops_b, total_illegal_b, total_wrap_b, total_bpext_b;
+
+      illeg_vals_b[0] = 0;
+      illeg_vals_b[1] = 5;
+      illeg_vals_b[2] = 6;
+      illeg_vals_b[3] = 7;
+
+      master_rng = 32'h5eed011c;
+      total_ops_b = 0;
+      total_illegal_b = 0;
+      total_wrap_b = 0;
+      total_bpext_b = 0;
+
+      for (seq_idx = 0; seq_idx < NUM_SEQ; seq_idx = seq_idx + 1) begin
+        master_rng = xorshift32(master_rng);
+        seq_rng = master_rng ^ (32'h9e3779b9 * (seq_idx + 1));
+        do_reset();
+        bp_mode_extreme = 1'b0;
+
+        seq_rng = xorshift32(seq_rng);
+        num_ops = 15 + (seq_rng % 3586); // 15..3600, scaled up so Part B's combined-adversarial total is the largest in the campaign
+
+        for (op_idx = 0; op_idx < num_ops; op_idx = op_idx + 1) begin
+          total_ops_b = total_ops_b + 1;
+
+          seq_rng = xorshift32(seq_rng);
+          roll = seq_rng % 100;
+
+          seq_rng = xorshift32(seq_rng);
+          use_bp_extreme_b = (seq_rng % 4) == 0; // ~25%
+          bp_mode_extreme = use_bp_extreme_b;
+          if (use_bp_extreme_b) total_bpext_b = total_bpext_b + 1;
+
+          if (roll < 12) begin
+            // ~12%: deliberately illegal op
+            total_illegal_b = total_illegal_b + 1;
+            seq_rng = xorshift32(seq_rng);
+            illeg_dim_b = seq_rng % 3; // which of M/K/N goes illegal
+            seq_rng = xorshift32(seq_rng);
+            illeg_val_b = illeg_vals_b[seq_rng % 4];
+            seq_rng = xorshift32(seq_rng);
+            signed_bit_b = seq_rng[0];
+
+            drv_m_b = 1 + (seq_rng % 4);
+            seq_rng = xorshift32(seq_rng);
+            drv_k_b = 1 + (seq_rng % 4);
+            seq_rng = xorshift32(seq_rng);
+            drv_n_b = 1 + (seq_rng % 4);
+
+            case (illeg_dim_b)
+              0: drv_m_b = illeg_val_b;
+              1: drv_k_b = illeg_val_b;
+              default: drv_n_b = illeg_val_b;
+            endcase
+
+            run_op_illegal_b($sformatf("partB seq=%0d op=%0d illegal(dim=%0d val=%0d)", seq_idx, op_idx, illeg_dim_b, illeg_val_b),
+                              drv_m_b, drv_k_b, drv_n_b, signed_bit_b, ok_b);
+          end else begin
+            // legal op
+            seq_rng = xorshift32(seq_rng);
+            drv_m_b = 1 + (seq_rng % 4);
+            seq_rng = xorshift32(seq_rng);
+            drv_k_b = 1 + (seq_rng % 4);
+            seq_rng = xorshift32(seq_rng);
+            drv_n_b = 1 + (seq_rng % 4);
+            seq_rng = xorshift32(seq_rng);
+            signed_bit_b = seq_rng[0];
+
+            seq_rng = xorshift32(seq_rng);
+            use_wrap_b = (seq_rng % 16) == 0; // ~1/16
+            seq_rng = xorshift32(seq_rng);
+            use_long_setup_b = (seq_rng % 8) == 0; // ~1/8
+            seq_rng = xorshift32(seq_rng);
+            sparse_poll_b = (seq_rng % 4) == 0; // ~1/4
+
+            if (use_wrap_b) begin
+              total_wrap_b = total_wrap_b + 1;
+              base_a_b = 32'hFFFF_FFFC;
+              base_w_b = 32'hFFFF_FFE0;
+              base_c_b = 32'hFFFF_FFE0;
+            end else begin
+              base_a_b = 32'h0008_0000;
+              base_w_b = 32'h0008_0100;
+              base_c_b = 32'h0008_0200;
+            end
+
+            setup_len_a_b    = 5 + (seq_rng % 20);
+            seq_rng = xorshift32(seq_rng);
+            setup_len_ctrl_b = 5 + (seq_rng % 20);
+
+            gen_and_load_op_b(base_a_b, base_w_b, use_wrap_b, seq_rng);
+
+            run_op_b($sformatf("partB seq=%0d op=%0d legal(M=%0d K=%0d N=%0d wrap=%0b bpext=%0b longsetup=%0b sparse=%0b)",
+                                seq_idx, op_idx, drv_m_b, drv_k_b, drv_n_b, use_wrap_b, use_bp_extreme_b, use_long_setup_b, sparse_poll_b),
+                      base_a_b, base_w_b, base_c_b, drv_m_b, drv_k_b, drv_n_b, signed_bit_b,
+                      use_long_setup_b, setup_len_a_b, setup_len_ctrl_b, sparse_poll_b, ok_b);
+
+            if (ok_b)
+              check_op_b($sformatf("partB seq=%0d op=%0d legal", seq_idx, op_idx),
+                         base_c_b, use_wrap_b, drv_m_b, drv_n_b, drv_k_b, ~signed_bit_b);
+          end
+        end
+      end
+
+      bp_mode_extreme = 1'b0;
+      $display("Part B: %0d sequences, %0d total ops (%0d illegal, %0d wraparound, %0d under extreme back-pressure), checks=%0d so far",
+                NUM_SEQ, total_ops_b, total_illegal_b, total_wrap_b, total_bpext_b, checks);
+    end
 
     $display("----------------------------------------");
     $display("checked %0d value(s)/assertion(s) total", checks);
