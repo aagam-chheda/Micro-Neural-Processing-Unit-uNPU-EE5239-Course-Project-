@@ -901,7 +901,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | **Done** — see below |
 | 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | **Done** — see below |
 | 7 | `unpu_dma` | `docs/planning/tasks/025-dma-breaktest.md` | **Done** — see below |
-| 8 | `unpu_csr` | `docs/planning/tasks/026-csr-breaktest.md` | Sent to Execution |
+| 8 | `unpu_csr` | `docs/planning/tasks/026-csr-breaktest.md` | **Done** — see below |
 | 9 | `unpu_apb` | — | Not started |
 | 10 | `unpu_top` | — | Not started |
 
@@ -1142,6 +1142,41 @@ extended beat-0 stall. **19,009 total checks, 0 failures on the final
 run.** `rtl/unpu_dma.sv` untouched. Task 008's baseline and all 64
 `crv_*` cases still pass unchanged. Full regression on all nine other
 testbenches green.
+
+---
+
+### Module 8 — `unpu_csr` — done, no RTL defect found
+
+Committed `713fbf6`, pushed. **Sustained-`START` case handled exactly
+right**: built the 10-consecutive-cycle test without assuming the
+outcome going in, and it confirmed `start_pulse` fires on all 10
+cycles — matching `unpu_csr.sv`'s own header comment, but now verified
+directly rather than trusted from the comment. Worth noting the test
+was genuinely capable of catching the other outcome: an edge-detected
+design would have shown `start_pulse` high only on cycle 1 then
+dropping, which this test would have caught had it been true.
+
+**Cross-talk matrix (Part A3) handled a real false-positive risk
+correctly**: 8 rounds × 8 reads = 64 checks, one register written a
+distinct pattern per round, all 8 read back each time. The `npu_ctrl`
+round specifically used bit 0 = 0 to stay clear of a real `START`
+write's documented side effect (clearing `npu_status.DONE`) — that's
+expected behavior, not cross-talk, and would have been a false failure
+if not accounted for. The `npu_status` round confirmed its known
+write-ignored behavior extends to leaving every other register (and its
+own derived value) untouched.
+
+Part A1 (6 extreme values × 3 pointer registers), A2 (all 8 values ×
+3 dimension registers), A5 (74 reserved-offset sub-cases) — all
+straightforward exhaustive checks, all pass. Part B: CRV extended to
+2,000 iterations (10× the original), ~18.75% extreme-biased data — no
+shadow-model extension was actually needed, since the cross-talk and
+sustained-write rules were already implicit in the existing model.
+
+**20,041 total checks, 0 failures on the first run.** `rtl/unpu_csr.sv`
+untouched. Task 009's 1,838-check baseline confirmed unchanged exactly
+(checked immediately before Part A1 begins, not just assumed). Full
+regression on all nine other testbenches green.
 
 ---
 
