@@ -442,8 +442,9 @@ swap, not a register-map revision. `unpu_csr` was deliberately built
 bus-protocol-agnostic specifically so a change like this wouldn't
 cascade into it.
 
-Task written, held pending the user's instruction to dispatch:
-`docs/planning/tasks/018-apb-revert.md`. Reopens RTL freeze again
-(third time: task 017, now task 018), scoped to `rtl/unpu_top.sv`
+Task written, DMA↔SRAM-native scope confirmed by the user, sent to
+Execution 2026-09-22: `docs/planning/tasks/018-apb-revert.md`. Reopens
+RTL freeze again (third time: task 017, now task 018), scoped to
+`rtl/unpu_top.sv`
 (rewritten), a new `rtl/unpu_apb.sv`, and the retirement of
 `rtl/unpu_slave.sv`/`tb/unpu_slave_tb.sv` — no other module touched.

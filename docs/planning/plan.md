@@ -169,7 +169,8 @@ verification-methodology requirement below before writing any of them.
    Task 017's provisional protocol is **fully superseded, not layered
    under APB** — `psel`/`penable` already provide what `npu_enable`/
    `npu_start_req` were approximating, and START stays a register write
-   like it always was. Task written, held pending dispatch:
+   like it always was. Task written, DMA↔SRAM-native scope confirmed by
+   the user, sent to Execution 2026-09-22:
    `docs/planning/tasks/018-apb-revert.md`. `unpu_csr.sv` (task 009) was
    deliberately built bus-protocol-agnostic — this is a bus-transport
    swap, not a register-map or semantics change, and that module needs
