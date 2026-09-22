@@ -290,6 +290,80 @@ module unpu_buf_tb;
   int compute_len;
   logic [31:0] swap_seed;
 
+  // ==== Task 024: independent reference model + shared randomization
+  // helpers for Part B's synthetic (non-golden.c-file) data. This file
+  // had no existing ref_c_elem-equivalent (its CRV loop checks against
+  // model/golden.c's own precomputed C files, not an inline reference),
+  // so one is derived here fresh, same discipline modules 2-5 used:
+  // ref_c_elem carries no persistent state between calls -- every call
+  // recomputes its one C[m][j] from scratch off the A/W snapshots and
+  // the actual dim_k passed in, ruling out the class of bug task 019's
+  // first-draft PE reference model had (accumulating from its own prior
+  // state instead of each cycle's driven input). ====
+  function automatic int signed to_signed8(input logic [7:0] v);
+    if (v[7])
+      return int'(v) - 256;
+    else
+      return int'(v);
+  endfunction
+
+  function automatic logic [31:0] ref_c_elem(input logic [7:0] Wm [0:3][0:3], input logic [7:0] Am [0:3][0:3],
+                                              input int mrow, input int jcol, input int dk, input bit mode_uns);
+    int kk;
+    int unsigned acc_u, uw, ua;
+    int signed   acc_s, sw, sa;
+    begin
+      if (mode_uns) begin
+        acc_u = 0;
+        for (kk = 0; kk < dk; kk = kk + 1) begin
+          uw = {24'd0, Wm[kk][jcol]};
+          ua = {24'd0, Am[mrow][kk]};
+          acc_u = acc_u + uw * ua;
+        end
+        ref_c_elem = acc_u;
+      end else begin
+        acc_s = 0;
+        for (kk = 0; kk < dk; kk = kk + 1) begin
+          sw = to_signed8(Wm[kk][jcol]);
+          sa = to_signed8(Am[mrow][kk]);
+          acc_s = acc_s + sw * sa;
+        end
+        ref_c_elem = acc_s;
+      end
+    end
+  endfunction
+
+  function automatic logic [31:0] xorshift32(input logic [31:0] x);
+    logic [31:0] y;
+    begin
+      y = x;
+      y = y ^ (y << 13);
+      y = y ^ (y >> 17);
+      y = y ^ (y << 5);
+      xorshift32 = y;
+    end
+  endfunction
+
+  // ~1/8 chance of a boundary extreme, same discipline tasks 019-023
+  // used.
+  function automatic logic [7:0] biased_byte(ref logic [31:0] rng);
+    logic [31:0] r1, r2;
+    begin
+      rng = xorshift32(rng); r1 = rng;
+      if (r1[3:0] < 4'd2) begin
+        rng = xorshift32(rng); r2 = rng;
+        case (r2[1:0])
+          2'd0: biased_byte = 8'h00;
+          2'd1: biased_byte = 8'hFF;
+          2'd2: biased_byte = 8'h80;
+          default: biased_byte = 8'h7F;
+        endcase
+      end else begin
+        biased_byte = r1[15:8];
+      end
+    end
+  endfunction
+
   initial begin
     errors = 0;
     checks = 0;
@@ -416,6 +490,321 @@ module unpu_buf_tb;
 
     // Final case (63) was loaded+swapped in but not yet computed/checked.
     run_compute_and_check("crv_0063 (final)", c_cur, m_cur, n_cur, mode_cur);
+
+    // ==== Task 024, Part A1: exhaustive (K,N) masking boundary sweep,
+    // all 16 combinations, M=4 fixed (isolating K/N masking from M's).
+    // W/A filled UNIFORMLY with an extreme byte (0xFF) rather than only
+    // at the two boundary rows/columns the task names -- a uniform fill
+    // includes those boundary positions as a strict subset while making
+    // ANY off-by-one in the masking cutoff visible everywhere at once
+    // (a masked cell reading anything but 0x00, or a real cell reading
+    // anything but 0xFF), checked via both wbuf's stage[]/actbuf's
+    // bank[] whitebox reads and the grid-based functional result
+    // (task 007's own method, via ref_c_elem since this data has no
+    // corresponding golden.c vector file). ====
+    begin : part_a1
+      int kk, nn, ar, ac;
+      logic [31:0] exp_val;
+
+      for (kk = 1; kk <= 4; kk = kk + 1) begin
+        for (nn = 1; nn <= 4; nn = nn + 1) begin
+          do_reset();
+          for (ar = 0; ar < 4; ar = ar + 1)
+            for (ac = 0; ac < 4; ac = ac + 1) begin
+              a_tmp[ar][ac] = 8'hFF;
+              w_tmp[ar][ac] = 8'hFF;
+            end
+          drive_load_pair(a_tmp, w_tmp, 4, kk, nn);
+
+          // whitebox: wbuf's stage[col][row] -- row masked by K, col by N.
+          for (ar = 0; ar < 4; ar = ar + 1) begin
+            for (ac = 0; ac < 4; ac = ac + 1) begin
+              checks  = checks + 1;
+              exp_val = (ar < kk && ac < nn) ? 32'h0000_00FF : 32'h0;
+              if ({24'd0, u_wbuf.bank_b[ac][ar]} !== exp_val) begin
+                errors = errors + 1;
+                $display("FAIL [partA1-KN K=%0d N=%0d]: wbuf stage[%0d][%0d]=%0d expected %0d", kk, nn, ac, ar, u_wbuf.bank_b[ac][ar], exp_val[7:0]);
+              end
+            end
+          end
+          // whitebox: actbuf's bank[row][col] -- M=4 fixed here (row
+          // never masked), col masked by K.
+          for (ar = 0; ar < 4; ar = ar + 1) begin
+            for (ac = 0; ac < 4; ac = ac + 1) begin
+              checks  = checks + 1;
+              exp_val = (ac < kk) ? 32'h0000_00FF : 32'h0;
+              if ({24'd0, u_actbuf.bank_b[ar][ac]} !== exp_val) begin
+                errors = errors + 1;
+                $display("FAIL [partA1-KN K=%0d N=%0d]: actbuf bank[%0d][%0d]=%0d expected %0d", kk, nn, ar, ac, u_actbuf.bank_b[ar][ac], exp_val[7:0]);
+              end
+            end
+          end
+
+          for (ar = 0; ar < 4; ar = ar + 1)
+            for (ac = 0; ac < 4; ac = ac + 1)
+              c_cur[ar][ac] = ref_c_elem(w_tmp, a_tmp, ar, ac, kk, 1'b0);
+          swap_both();
+          run_compute_and_check($sformatf("partA1-KN K=%0d N=%0d", kk, nn), c_cur, 4, nn, 1'b0);
+        end
+      end
+      $display("Part A1: all 16 (K,N) masking combinations checked (whitebox stage[]/bank[] + grid-based), checks=%0d so far", checks);
+    end
+
+    // ==== Task 024, Part A2: unpu_wbuf reverse-row settling, K=1,2,3
+    // individually (task 007 only ever confirmed K=4, via cross_terms's
+    // directed test above). Uses DISTINCT per-position data (not
+    // Part A1's uniform fill) specifically because uniform data can't
+    // reveal a position/transposition bug -- every real cell would read
+    // the identical value regardless of where it actually landed. ====
+    begin : part_a2
+      int kk, ar, ac;
+      logic [31:0] exp_val;
+
+      for (kk = 1; kk <= 3; kk = kk + 1) begin
+        do_reset();
+        for (ar = 0; ar < 4; ar = ar + 1)
+          for (ac = 0; ac < 4; ac = ac + 1)
+            w_tmp[ar][ac] = 8'(16 * ar + ac + 1); // distinct per position
+        for (ar = 0; ar < 4; ar = ar + 1)
+          for (ac = 0; ac < 4; ac = ac + 1)
+            a_tmp[ar][ac] = 8'hAA; // irrelevant to this check
+        drive_load_pair(a_tmp, w_tmp, 4, kk, 4);
+
+        for (ar = 0; ar < 4; ar = ar + 1) begin
+          for (ac = 0; ac < 4; ac = ac + 1) begin
+            checks  = checks + 1;
+            exp_val = (ar < kk) ? {24'd0, w_tmp[ar][ac]} : 32'h0;
+            if ({24'd0, u_wbuf.bank_b[ac][ar]} !== exp_val) begin
+              errors = errors + 1;
+              $display("FAIL [partA2-settle K=%0d]: stage[%0d][%0d]=%0d expected %0d", kk, ac, ar, u_wbuf.bank_b[ac][ar], exp_val[7:0]);
+            end
+          end
+        end
+        $display("PASS [partA2-settle K=%0d]: stage[col][row] settles correctly, distinct per-position data, masked rows read zero", kk);
+      end
+    end
+
+    // ==== Task 024, Part A3: unpu_actbuf combinational-read stress --
+    // the read-side analogue of module 3's depth-0-wire zero-latency
+    // checks. rd_row driven with a rapidly-changing, non-repeating
+    // sequence; rd_data checked with NO clock edge at all (#1 settle
+    // only) to directly confirm the pure-combinational contract, then
+    // reconfirmed after a real clock edge too. Run twice -- once against
+    // the bank made active by the first swap, once against a second,
+    // freshly-loaded bank made active by a second swap -- covering both
+    // "before" and "after a bank swap" as asked. ====
+    begin : part_a3
+      localparam int NUM_A3_CYCLES = 80;
+      logic [31:0] rng;
+      int ci, phase, ar, ac;
+      logic [1:0] new_row, prev_row;
+
+      do_reset();
+      for (ar = 0; ar < 4; ar = ar + 1)
+        for (ac = 0; ac < 4; ac = ac + 1)
+          w_tmp[ar][ac] = 8'hAA; // irrelevant to this check
+      rng = 32'h5eed0018; // per-task seed convention (0x5eed0000 + task number, hex)
+      $display("Part A3 actbuf combinational-read stress seed = 32'h%08h", rng);
+
+      prev_row = 2'd0;
+      for (phase = 0; phase < 2; phase = phase + 1) begin
+        for (ar = 0; ar < 4; ar = ar + 1)
+          for (ac = 0; ac < 4; ac = ac + 1)
+            a_tmp[ar][ac] = 8'(16 * ar + ac + 1 + phase * 100); // distinct per position, distinct per phase so the two banks are distinguishable
+        drive_load_pair(a_tmp, w_tmp, 4, 4, 4);
+        swap_both();
+
+        for (ci = 0; ci < NUM_A3_CYCLES; ci = ci + 1) begin
+          rng = xorshift32(rng);
+          new_row = rng[1:0];
+          if (new_row == prev_row) // avoid repeats where avoidable
+            new_row = new_row + 2'd1;
+          a_rd_row = new_row;
+          #1; // no clock edge at all -- pure combinational settle
+          checks = checks + 1;
+          if (a_rd_data[0] !== a_tmp[new_row][0] || a_rd_data[1] !== a_tmp[new_row][1] ||
+              a_rd_data[2] !== a_tmp[new_row][2] || a_rd_data[3] !== a_tmp[new_row][3]) begin
+            errors = errors + 1;
+            $display("FAIL [partA3 phase=%0d cyc=%0d]: rd_row=%0d rd_data=%0h_%0h_%0h_%0h expected=%0h_%0h_%0h_%0h (zero-latency combinational read)",
+                      phase, ci, new_row, a_rd_data[3], a_rd_data[2], a_rd_data[1], a_rd_data[0],
+                      a_tmp[new_row][3], a_tmp[new_row][2], a_tmp[new_row][1], a_tmp[new_row][0]);
+          end
+          step(); // also cross a real clock edge -- must still read correctly, not drift
+          checks = checks + 1;
+          if (a_rd_data[0] !== a_tmp[new_row][0] || a_rd_data[1] !== a_tmp[new_row][1] ||
+              a_rd_data[2] !== a_tmp[new_row][2] || a_rd_data[3] !== a_tmp[new_row][3]) begin
+            errors = errors + 1;
+            $display("FAIL [partA3 phase=%0d cyc=%0d post-step]: rd_row=%0d rd_data mismatch", phase, ci, new_row);
+          end
+          prev_row = new_row;
+        end
+      end
+      $display("Part A3: actbuf combinational read confirmed zero-latency across %0d cycles x 2 phases (pre/post a second swap), no repeats", NUM_A3_CYCLES);
+    end
+
+    // ==== Task 024, Part A4: rapid-fire back-to-back load->swap cycles,
+    // swap the instant load_done fires, next load starts immediately, no
+    // compute in between -- confirms the ping-pong bank-select never
+    // gets confused under maximum swap frequency (checked directly via
+    // active_sel, not just inferred from data correctness) and every
+    // swap's data is correct. ====
+    begin : part_a4
+      localparam int NUM_RAPID = 24;
+      int ri, ar, ac;
+      bit expect_sel;
+
+      do_reset();
+      expect_sel = 1'b0; // post-reset active_sel=0 (bank_a active); first load targets bank_b
+
+      for (ri = 0; ri < NUM_RAPID; ri = ri + 1) begin
+        for (ar = 0; ar < 4; ar = ar + 1)
+          for (ac = 0; ac < 4; ac = ac + 1) begin
+            w_tmp[ar][ac] = 8'(ri * 16 + ar * 4 + ac + 1);
+            a_tmp[ar][ac] = 8'(ri * 16 + ar * 4 + ac + 129);
+          end
+        drive_load_pair(a_tmp, w_tmp, 4, 4, 4); // loads into the currently-INACTIVE bank; checks load_done pulsed
+        swap_both(); // swap immediately, no gap
+        expect_sel = ~expect_sel;
+
+        checks = checks + 1;
+        if (u_wbuf.active_sel !== expect_sel) begin
+          errors = errors + 1;
+          $display("FAIL [partA4 iter=%0d]: wbuf active_sel=%0b expected=%0b (ping-pong desync)", ri, u_wbuf.active_sel, expect_sel);
+        end
+        checks = checks + 1;
+        if (u_actbuf.active_sel !== expect_sel) begin
+          errors = errors + 1;
+          $display("FAIL [partA4 iter=%0d]: actbuf active_sel=%0b expected=%0b (ping-pong desync)", ri, u_actbuf.active_sel, expect_sel);
+        end
+
+        for (ar = 0; ar < 4; ar = ar + 1) begin
+          for (ac = 0; ac < 4; ac = ac + 1) begin
+            checks = checks + 1;
+            if (expect_sel) begin
+              if (u_wbuf.bank_b[ac][ar] !== w_tmp[ar][ac]) begin
+                errors = errors + 1;
+                $display("FAIL [partA4 iter=%0d]: wbuf bank_b[%0d][%0d]=%0d expected %0d", ri, ac, ar, u_wbuf.bank_b[ac][ar], w_tmp[ar][ac]);
+              end
+            end else begin
+              if (u_wbuf.bank_a[ac][ar] !== w_tmp[ar][ac]) begin
+                errors = errors + 1;
+                $display("FAIL [partA4 iter=%0d]: wbuf bank_a[%0d][%0d]=%0d expected %0d", ri, ac, ar, u_wbuf.bank_a[ac][ar], w_tmp[ar][ac]);
+              end
+            end
+          end
+        end
+      end
+      $display("Part A4: %0d consecutive rapid-fire load->swap cycles, ping-pong bank-select never desynced, every swap's data correct, checks=%0d so far", NUM_RAPID, checks);
+    end
+
+    // ==== Task 024, Part B: long adversarial chains of concurrent
+    // load/swap racing compute. Mirrors the existing 64-crv_*-case
+    // fork/join chain above exactly (same structure, already proven
+    // correct there), but with synthetic ~1/8-extreme-biased data
+    // (checked against ref_c_elem, since no golden.c vector file exists
+    // for arbitrary random shapes) and a freshly-randomized load-start
+    // delay every single pass -- the existing CRV loop already
+    // randomizes this per case, this just does many more sequences of it
+    // with adversarial data on top. ====
+    begin : part_b
+      localparam int NUM_SEQ = 20;
+      logic [31:0] master_rng, rng, seq_seed;
+      int seq_idx, pass_idx, num_passes, total_passes;
+      int m_cur2, k_cur2, n_cur2;
+      bit mode_cur2;
+      int m_next, k_next, n_next;
+      bit mode_next;
+      logic [7:0]  a_cur2 [0:3][0:3];
+      logic [7:0]  w_cur2 [0:3][0:3];
+      logic [7:0]  a_next [0:3][0:3];
+      logic [7:0]  w_next [0:3][0:3];
+      logic [31:0] c_cur2 [0:3][0:3];
+      int compute_len2, delay_cyc2;
+      int rr, cc;
+
+      master_rng = 32'h5eed0118; // distinct from Part A3's 0x5eed0018 -- same per-task base, different sub-stream
+      $display("Part B master seed = 32'h%08h", master_rng);
+      total_passes = 0;
+
+      for (seq_idx = 0; seq_idx < NUM_SEQ; seq_idx = seq_idx + 1) begin
+        master_rng = xorshift32(master_rng);
+        seq_seed   = master_rng;
+        rng        = seq_seed;
+        $display("Part B sequence %0d: seed = 32'h%08h", seq_idx, seq_seed);
+
+        rng = xorshift32(rng);
+        num_passes = 80 + (rng % 81); // 80..160 passes per sequence
+
+        do_reset();
+
+        // Establish pass 0 as the baseline active case (no concurrency).
+        rng = xorshift32(rng);
+        m_cur2 = 1 + (rng % 4);
+        rng = xorshift32(rng);
+        k_cur2 = 1 + (rng % 4);
+        rng = xorshift32(rng);
+        n_cur2 = 1 + (rng % 4);
+        rng = xorshift32(rng);
+        mode_cur2 = rng[0];
+        for (rr = 0; rr < 4; rr = rr + 1)
+          for (cc = 0; cc < 4; cc = cc + 1) begin
+            a_cur2[rr][cc] = biased_byte(rng);
+            w_cur2[rr][cc] = biased_byte(rng);
+          end
+        drive_load_pair(a_cur2, w_cur2, m_cur2, k_cur2, n_cur2);
+        swap_both();
+        for (rr = 0; rr < 4; rr = rr + 1)
+          for (cc = 0; cc < 4; cc = cc + 1)
+            c_cur2[rr][cc] = ref_c_elem(w_cur2, a_cur2, rr, cc, k_cur2, mode_cur2);
+
+        for (pass_idx = 1; pass_idx < num_passes; pass_idx = pass_idx + 1) begin
+          rng = xorshift32(rng);
+          m_next = 1 + (rng % 4);
+          rng = xorshift32(rng);
+          k_next = 1 + (rng % 4);
+          rng = xorshift32(rng);
+          n_next = 1 + (rng % 4);
+          rng = xorshift32(rng);
+          mode_next = rng[0];
+          for (rr = 0; rr < 4; rr = rr + 1)
+            for (cc = 0; cc < 4; cc = cc + 1) begin
+              a_next[rr][cc] = biased_byte(rng);
+              w_next[rr][cc] = biased_byte(rng);
+            end
+
+          compute_len2 = m_cur2 + 7;
+          rng = xorshift32(rng);
+          delay_cyc2 = rng % compute_len2; // randomized early/mid/late, per pass
+
+          fork
+            run_compute_and_check($sformatf("partB seq%0d/pass%0d", seq_idx, pass_idx - 1), c_cur2, m_cur2, n_cur2, mode_cur2);
+            begin
+              repeat (delay_cyc2) step();
+              drive_load_pair(a_next, w_next, m_next, k_next, n_next);
+            end
+          join
+
+          swap_both();
+          m_cur2 = m_next; k_cur2 = k_next; n_cur2 = n_next; mode_cur2 = mode_next;
+          a_cur2 = a_next; w_cur2 = w_next;
+          for (rr = 0; rr < 4; rr = rr + 1)
+            for (cc = 0; cc < 4; cc = cc + 1)
+              c_cur2[rr][cc] = ref_c_elem(w_cur2, a_cur2, rr, cc, k_cur2, mode_cur2);
+
+          total_passes = total_passes + 1;
+        end
+
+        // Final pass of this sequence was loaded+swapped but not yet computed/checked.
+        run_compute_and_check($sformatf("partB seq%0d/final", seq_idx), c_cur2, m_cur2, n_cur2, mode_cur2);
+        total_passes = total_passes + 1;
+      end
+
+      $display("----------------------------------------");
+      $display("Part B: %0d sequences, %0d total passes (>=200 required), checks so far=%0d", NUM_SEQ, total_passes, checks);
+      if (errors == 0)
+        $display("Part B: ALL PASSED");
+      $display("----------------------------------------");
+    end
 
     $display("----------------------------------------");
     $display("checked %0d value(s)/assertion(s) total", checks);
