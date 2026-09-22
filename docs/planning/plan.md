@@ -872,7 +872,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | # | Module | Task | Status |
 |---|---|---|---|
 | 1 | `unpu_pe` | `docs/planning/tasks/019-pe-breaktest.md` | **Done** — see below |
-| 2 | `unpu_grid` | — | Not started |
+| 2 | `unpu_grid` | `docs/planning/tasks/020-grid-breaktest.md` | Sent to Execution |
 | 3 | `unpu_skew`/`unpu_deskew` | — | Not started |
 | 4 | `unpu_stall` (composite) | — | Not started |
 | 5 | `unpu_seq` | — | Not started |
