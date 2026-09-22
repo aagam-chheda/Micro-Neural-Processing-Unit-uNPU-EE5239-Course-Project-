@@ -899,7 +899,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 3 | `unpu_skew`/`unpu_deskew` | `docs/planning/tasks/021-skew-deskew-breaktest.md` | **Done** — see below |
 | 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | **Done** — see below |
 | 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | **Done** — see below |
-| 6 | `unpu_wbuf`/`unpu_actbuf` | — | Not started |
+| 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | Sent to Execution |
 | 7 | `unpu_dma` | — | Not started |
 | 8 | `unpu_csr` | — | Not started |
 | 9 | `unpu_apb` | — | Not started |
