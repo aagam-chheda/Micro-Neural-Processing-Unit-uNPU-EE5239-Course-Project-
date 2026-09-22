@@ -873,7 +873,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 |---|---|---|---|
 | 1 | `unpu_pe` | `docs/planning/tasks/019-pe-breaktest.md` | **Done** — see below |
 | 2 | `unpu_grid` | `docs/planning/tasks/020-grid-breaktest.md` | **Done** — see below |
-| 3 | `unpu_skew`/`unpu_deskew` | `docs/planning/tasks/021-skew-deskew-breaktest.md` | Sent to Execution |
+| 3 | `unpu_skew`/`unpu_deskew` | `docs/planning/tasks/021-skew-deskew-breaktest.md` | **Done** — see below |
 | 4 | `unpu_stall` (composite) | — | Not started |
 | 5 | `unpu_seq` | — | Not started |
 | 6 | `unpu_wbuf`/`unpu_actbuf` | — | Not started |
@@ -933,6 +933,46 @@ built to break. 11,306 checks in Part B alone. **12,474 total checks
 across the file, 0 failures.** `rtl/unpu_pe.sv`/`rtl/unpu_grid.sv`
 untouched, confirmed via `git status`. Task 013's existing coverage and
 a four-testbench regression sanity check both still green.
+
+### Module 3 — `unpu_skew`/`unpu_deskew` — done, no RTL defect found
+
+Committed `f27972d`, pushed. Same stateless `ref_c_elem` as task 020
+(structurally rules out task 019's accumulation-bug class); sanity-
+checked against two hand-verifiable walking-one positions through the
+full chain rather than repeating all 16 (task 020 already proved the
+underlying math, so this only needed to confirm skew/de-skew's own
+pipeline depths didn't disturb it).
+
+**Depth-0 wire stress turned up a real nuance worth keeping**: for
+`unpu_skew` row 0, Execution also toggled `array_en` throughout the
+rapidly-alternating-value check, since that wire has *zero* `array_en`
+gating at all — `tb/unpu_stall_tb.sv`'s own `check_frozen()` already
+excludes it for exactly that reason. For `unpu_deskew` column 3, no
+reference model was even needed — `c_out[3]` was compared directly
+against `grid_psum_out[3]` every cycle, both already testbench-visible.
+Drove genuinely-random-every-cycle data (tracked: 54/60 cycles actually
+changed, gated on a ≥50 threshold) specifically to prevent a
+buggy one-cycle-registered column 3 from "catching up" on static data
+and coincidentally passing — the exact false-pass risk the task
+description called out, closed with a concrete, checked guarantee
+rather than an assumption.
+
+Part A: max-magnitude both modes, the exhaustive 11-sub-case freeze-
+point sweep across the *full* chain's window (reused
+`unpu_stall_tb.sv`'s `active_cyc` convention directly), `M=1`/`M=4`
+explicit cases. Part B: 20 sequences, 406 total passes, `M` transitions
+biased (75% redraw-once on a same-`M` repeat, plus an explicit forced
+`4→1→4→1` opening on sequence 0) — 16,604 checks in Part B alone.
+**17,665 total checks, 0 failures.** All four RTL files confirmed
+untouched. Task 013's existing coverage and a four-testbench regression
+(including `unpu_stall_tb`, which shares this exact chain) all still
+green.
+
+**Process note, not a concern**: this task was reported directly to
+this session rather than relayed through the peer session that
+originally dispatched it, which had gone unreachable under its prior
+name by completion time — the same session-identity churn noted after
+task 021 was sent. No impact on the result.
 
 ---
 
