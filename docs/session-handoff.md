@@ -63,13 +63,19 @@ totalling 4. That would pass on a 4-bit accumulator. The test only proves what
 it is meant to prove in unsigned mode. Hence the mode bit, and we run the test
 both ways.
 
-## 5. Q7, AHB vs native — RESOLVED (native)
+## 5. Q7, AHB vs native — RESOLVED (native), CPU-facing half later reverted to APB — see §17
 
 The PM confirmed **native** for both interfaces: the DMA↔SRAM master port and
 the CPU↔NPU register port. APB is no longer part of the design. This
 validates the argument below (kept for the record) and means `unpu_apb.sv`,
 wherever it was going to live, becomes a native-protocol slave FSM instead —
 a redesign, not a rename. See §12 for the full knock-on effect on the plan.
+
+**2026-09-22: the CPU↔NPU half of this decision was reversed** — a later
+cross-team conversation (PM + SoC-top team) landed on APB after all, for
+that interface only. The DMA↔SRAM half below stands unchanged. Full
+detail in §17; this section is kept as-is as the historical record of
+what was decided and why, at the time.
 
 ### Original argument (superseded by the answer above, kept for context)
 
@@ -396,3 +402,48 @@ this note exists so a reader of this file's chronological history
 doesn't have to guess whether the provisional task above ever actually
 landed. **Still provisional** until the SoC-team conversation happens;
 this is what's live in the meantime.
+
+## 17. SoC-team conversation happened — CPU↔NPU interface reverts to APB
+
+2026-09-22, the user, the PM, and the SoC-top team met and decided: the
+CPU↔NPU register interface goes back to APB. This resolves what §16's
+provisional task (017) was a placeholder for, and answers it differently
+than either signal-shape option that task's own text anticipated (a
+per-transaction native `valid`, or a discrete enable/start pin) — APB
+was the actual answer all along, not a variant of native.
+
+**Scope: CPU↔NPU only.** The DMA↔SRAM master port (`unpu_dma`'s native
+port) is unaffected — §5's native resolution stands for that half. If
+this scope understanding turns out wrong, that's a much bigger change
+than task 018 below is scoped for.
+
+**Task 017's provisional `npu_enable`/`npu_start_req` protocol is fully
+superseded**, not layered under APB — APB's own `psel`/`penable`
+handshake already does what those two signals were approximating
+(`psel` = target identification, the role `npu_enable` was standing in
+for; `penable` qualifies real access, and START stays an ordinary
+register write, same as it always was — no discrete start signal needed
+at all). Both signals are removed entirely in task 018.
+
+**A genuine irony worth noting**: `docs/unpu-notebook.html` §05 B1 (the
+original APB slave design) was flagged stale in §8 above the moment the
+native pivot happened ("describes a design that no longer exists").
+That flag was correct *then*. As of this reversal, §05 B1 is relevant
+again — not stale, not to be "un-flagged" retroactively (§8 stands as
+the historical record of when and why it was marked stale), but worth
+knowing that a document once marked obsolete became current again. This
+is exactly the kind of thing that makes wholesale-editing a stale
+document risky versus flagging it and moving on, which is why §8 never
+rewrote or deleted that section in the first place.
+
+**What doesn't change**: the 8-register map, its offsets, and all
+register semantics (`unpu_csr.sv`, task 009) — this is a bus-transport
+swap, not a register-map revision. `unpu_csr` was deliberately built
+bus-protocol-agnostic specifically so a change like this wouldn't
+cascade into it.
+
+Task written, held pending the user's instruction to dispatch:
+`docs/planning/tasks/018-apb-revert.md`. Reopens RTL freeze again
+(third time: task 017, now task 018), scoped to `rtl/unpu_top.sv`
+(rewritten), a new `rtl/unpu_apb.sv`, and the retirement of
+`rtl/unpu_slave.sv`/`tb/unpu_slave_tb.sv` — no other module touched.

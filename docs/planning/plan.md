@@ -7,12 +7,17 @@ everything already known to be outside this plan's scope (back-end,
 firmware — see below).
 
 **Reopened, provisionally, 2026-09-20** — task 017
-(`docs/planning/tasks/017-interim-enable-start.md`) adds an interim
+(`docs/planning/tasks/017-interim-enable-start.md`) added an interim
 `npu_enable`/`npu_start_req` protocol to `rtl/unpu_top.sv` only, ahead of
-a SoC-team conversation the user is having tomorrow. See "Open
-questions" item 5's 2026-09-20 update below for the full reasoning. Once
-that conversation happens, this may need a follow-up task to revise or
-revert.
+a SoC-team conversation. Landed (`5767bfc`), then **fully superseded**
+below once that conversation happened.
+
+**Reopened again, 2026-09-22** — the SoC-team conversation landed on
+**APB**, not a variant of native, for the CPU↔NPU register interface
+(DMA↔SRAM stays native, unaffected). Task 017's interim protocol is
+removed entirely, not layered under APB. Task written, held pending
+dispatch: `docs/planning/tasks/018-apb-revert.md`. See "Open questions"
+item 5 below for full detail.
 
 Live status document. Update step status here as work completes. Task prompts
 are written one at a time, only when asked, as `docs/planning/tasks/NNN-*.md`.
@@ -65,7 +70,7 @@ verification-methodology requirement below before writing any of them.
 
 ---
 
-## Open questions — address window: partially resolved, pending a cross-team conversation
+## Open questions — address window: RESOLVED (2026-09-22, CPU↔NPU reverts to APB)
 
 5. **Does the `0x4000_0000`–`0x4000_0FFF` address window still apply
    unchanged now that the control interface is native rather than
@@ -130,7 +135,8 @@ verification-methodology requirement below before writing any of them.
    conversation lands on. **Explicitly provisional** — may be revised or
    reverted once that conversation happens.
 
-   **Done.** Committed `5767bfc`, pushed. `git diff --stat rtl/`
+   **Done.** Committed `5767bfc`, pushed. (Superseded below,
+   2026-09-22 — see the final update to this item.) `git diff --stat rtl/`
    confirmed only `unpu_top.sv` changed — no submodule touched. Four new
    directed cases (`npu_enable=0` blocks access, `npu_start_req`
    triggers a full `cross_terms` matmul, the exact edge-timing boundary,
@@ -151,6 +157,25 @@ verification-methodology requirement below before writing any of them.
    explicitly rather than silently bent — same standard as every prior
    hierarchical-access exception in this project (task 007's `stage[]`
    check, task 005's stall-register probes).
+
+   **Final resolution, 2026-09-22 — the SoC-team conversation happened.**
+   User, PM, and the SoC-top team decided: CPU↔NPU reverts to **APB**,
+   not a variant of native. DMA↔SRAM is unaffected, still native. This
+   answers the question differently than either option this item's text
+   anticipated (per-transaction native `valid`, or a discrete
+   enable/start pin over native) — APB was the actual answer, not a
+   shape of native.
+
+   Task 017's provisional protocol is **fully superseded, not layered
+   under APB** — `psel`/`penable` already provide what `npu_enable`/
+   `npu_start_req` were approximating, and START stays a register write
+   like it always was. Task written, held pending dispatch:
+   `docs/planning/tasks/018-apb-revert.md`. `unpu_csr.sv` (task 009) was
+   deliberately built bus-protocol-agnostic — this is a bus-transport
+   swap, not a register-map or semantics change, and that module needs
+   no changes at all. Reopens RTL freeze a second time, scoped to
+   `rtl/unpu_top.sv` (rewritten) plus a new `rtl/unpu_apb.sv` replacing
+   the retired `rtl/unpu_slave.sv`.
 
 ---
 
