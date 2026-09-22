@@ -178,6 +178,25 @@ verification-methodology requirement below before writing any of them.
    `rtl/unpu_top.sv` (rewritten) plus a new `rtl/unpu_apb.sv` replacing
    the retired `rtl/unpu_slave.sv`.
 
+   **Done.** Committed `9f5deab`, pushed. Scope held exactly as
+   specified: `git diff --stat rtl/` showed only `unpu_top.sv` changed
+   besides the new `unpu_apb.sv` and deleted `unpu_slave.sv`;
+   `unpu_csr.sv` confirmed untouched by reading it first, not assumed;
+   `unpu_dma.sv` and its wiring untouched, DMA↔SRAM-native boundary
+   held. `csr_wen = psel && penable && pwrite` implemented exactly as
+   specified, with the SETUP-phase-must-not-commit boundary directly
+   tested. `tb/unpu_apb_tb.sv`: 150 CRV iterations, 2259 checks.
+   `tb/unpu_top_tb.sv`: task 017's four now-obsolete directed cases
+   dropped; 512 checks over APB — an exact match to task 012's original
+   native-transport baseline, which makes sense: same test content,
+   different bus underneath. Full regression on the eight other
+   untouched testbenches green; a whole-design lint pass came back clean
+   beyond the same pre-existing `unpu_grid.sv` `GENUNNAMED` warnings
+   task 015's freeze report already catalogued as isolated and
+   pre-existing — nothing new introduced. `CLAUDE.md`'s repo layout
+   fixed (`unpu_slave.sv` → `unpu_apb.sv`), confirmed matching
+   `ls rtl/*.sv`.
+
 ---
 
 ## Verification methodology — constrained random, starting now

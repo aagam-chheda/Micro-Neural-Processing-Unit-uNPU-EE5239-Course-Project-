@@ -448,3 +448,10 @@ RTL freeze again (third time: task 017, now task 018), scoped to
 `rtl/unpu_top.sv`
 (rewritten), a new `rtl/unpu_apb.sv`, and the retirement of
 `rtl/unpu_slave.sv`/`tb/unpu_slave_tb.sv` — no other module touched.
+
+**Landed, 2026-09-22:** committed `9f5deab`, pushed. Scope confirmed
+exactly as intended — `unpu_csr.sv` and `unpu_dma.sv` both untouched
+(verified by reading, not assumed), only `unpu_top.sv` changed besides
+the new `unpu_apb.sv` and the deleted `unpu_slave.sv`. Full detail and
+test results in `docs/planning/plan.md`'s open-question-5 entry, not
+duplicated here.
