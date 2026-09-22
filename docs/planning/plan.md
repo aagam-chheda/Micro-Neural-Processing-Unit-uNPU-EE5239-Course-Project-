@@ -1303,7 +1303,7 @@ No RTL changed at any point in this campaign. The design that was
 frozen at `87d31bf`, then revised for APB (`9f5deab`), is the same
 design this campaign spent ~745,000 checks trying to break.
 
-## Freeze v2 — post-campaign re-certification, task written
+## Freeze v2 — post-campaign re-certification, sent to Execution
 
 User's instruction: write a second freeze pass, every criterion
 strictly tighter than task 015's, as thorough as possible. Task written:
