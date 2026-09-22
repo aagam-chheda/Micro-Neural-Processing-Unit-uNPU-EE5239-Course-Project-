@@ -900,7 +900,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | **Done** — see below |
 | 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | **Done** — see below |
 | 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | **Done** — see below |
-| 7 | `unpu_dma` | — | Not started |
+| 7 | `unpu_dma` | `docs/planning/tasks/025-dma-breaktest.md` | Sent to Execution |
 | 8 | `unpu_csr` | — | Not started |
 | 9 | `unpu_apb` | — | Not started |
 | 10 | `unpu_top` | — | Not started |
