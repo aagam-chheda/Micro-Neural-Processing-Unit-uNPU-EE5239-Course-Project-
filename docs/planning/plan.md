@@ -902,7 +902,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | **Done** — see below |
 | 7 | `unpu_dma` | `docs/planning/tasks/025-dma-breaktest.md` | **Done** — see below |
 | 8 | `unpu_csr` | `docs/planning/tasks/026-csr-breaktest.md` | **Done** — see below |
-| 9 | `unpu_apb` | `docs/planning/tasks/027-apb-breaktest.md` | Sent to Execution |
+| 9 | `unpu_apb` | `docs/planning/tasks/027-apb-breaktest.md` | **Done** — see below |
 | 10 | `unpu_top` | — | Not started |
 
 If any task in this campaign finds a real RTL defect, that task reports
@@ -1177,6 +1177,44 @@ sustained-write rules were already implicit in the existing model.
 untouched. Task 009's 1,838-check baseline confirmed unchanged exactly
 (checked immediately before Part A1 begins, not just assumed). Full
 regression on all nine other testbenches green.
+
+---
+
+### Module 9 — `unpu_apb` — done, no RTL defect found
+
+Committed `cd66567`, pushed. **`penable`-without-`psel` handled exactly
+as intended**: `psel=0`, `penable=1`, `pwrite=1`, real write data —
+checked directly against `src_a` staying at 0, without assuming going in
+that `psel` would prove load-bearing. It did: no write committed.
+
+**A real shadow-model bug found and fixed during development, worth
+recording precisely**: Part B's first run produced 4 failures, all
+`npu_status` reading `DONE=1` where the shadow predicted `0`.
+`start_pulse`'s one-cycle `DONE`-clearing effect could land during an
+idle-gap or long-SETUP cycle — one real clock edge before the next
+tracked iteration's own `done_i` takes effect. The shadow's naive
+single-step formula let that clear linger unconsumed and wrongly
+out-compete the next iteration's `done_i`, when in the actual DUT both
+the clear and `start_pulse` itself (a genuine one-cycle pulse) had
+already resolved an edge earlier. Traced against the RTL's actual multi-
+edge sequence before touching anything; fixed by having the shadow
+consume the pulse immediately after each iteration's own checks rather
+than letting it carry forward. Left task 018's existing 150-iteration
+baseline untouched (confirmed purely additive, 403 insertions / 0
+deletions) — it apparently never happened to draw the exact timing
+combination that exposes this, which is noted as a fact, not claimed as
+evidence the baseline is immune to it.
+
+Part A1 (60-draw ignored-bits sweep), A3 (55-cycle changing SETUP,
+only final values commit), A4 (48 zero-gap back-to-back transactions),
+A5 (`pwrite` flip both directions) all pass as designed. Part B: 2,000
+iterations, ~18.75% extreme-biased data, randomized pacing mixing
+long-SETUP and idle-gap patterns.
+
+**32,545 total checks, 0 failures on the final run** — the highest
+total in the campaign so far. Both RTL files confirmed untouched. Task
+018's baseline untouched by diff and unaffected. Full regression on all
+nine other testbenches green.
 
 ---
 
