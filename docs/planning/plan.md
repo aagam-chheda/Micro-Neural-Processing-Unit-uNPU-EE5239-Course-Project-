@@ -900,7 +900,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | **Done** — see below |
 | 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | **Done** — see below |
 | 6 | `unpu_wbuf`/`unpu_actbuf` | `docs/planning/tasks/024-buf-breaktest.md` | **Done** — see below |
-| 7 | `unpu_dma` | `docs/planning/tasks/025-dma-breaktest.md` | Sent to Execution |
+| 7 | `unpu_dma` | `docs/planning/tasks/025-dma-breaktest.md` | **Done** — see below |
 | 8 | `unpu_csr` | — | Not started |
 | 9 | `unpu_apb` | — | Not started |
 | 10 | `unpu_top` | — | Not started |
@@ -1100,6 +1100,47 @@ synthetic data, freshly-randomized load-start delay every single pass
 **17,975 total checks, 0 failures on the first run.** Both RTL files
 confirmed untouched. Task 007's 531-check baseline and all 64 `crv_*`
 cases still pass unchanged. Full regression on all nine other
+testbenches green.
+
+---
+
+### Module 7 — `unpu_dma` — done, no RTL defect found
+
+Committed `f3fd3db`, pushed. **Wraparound (Part A1) confirmed exactly as
+framed**: base `32'hFFFF_FFF0`, full 16-beat writeback, all 16 addresses
+matched a reference doing plain 32-bit unsigned arithmetic — it wraps,
+and wraps correctly. Memory content wasn't checked there (the
+behavioral SRAM model only decodes `dma_addr[14:2]`, so it can't
+represent a wrapped address's content coherently) — the address
+sequence itself was the thing under test, appropriately scoped rather
+than forcing a content check that couldn't mean anything.
+
+**`BUF_LOAD` staging (Part A4, flagged as the sharpest structural check)
+confirmed precisely**: a `K=4` fetch fills all 4 `stage[]` slots, an
+immediately-following `K=1` fetch (same inactive bank, no swap between)
+only refreshes `stage[0]` — confirmed both halves: `stage[0]` genuinely
+holds fresh data, and `stage[1..3]`'s *masked outputs* read 0 despite
+still holding stale `K=4` leftovers underneath. Worth noting precisely:
+it's `unpu_dma`'s own masking doing the zeroing there, not
+`unpu_wbuf`'s — a useful clarification of which module is actually
+responsible for that correctness, not just that the end result is
+right.
+
+**A testbench bug found and fixed during development, flagged per the
+"report in full" standing rule even though it wasn't an RTL finding**:
+Part A3's extreme-back-pressure test produced 1,739 false failures on
+its first run, all from beat 1 onward. Root cause was in the test, not
+the DUT — `D_ACK` occupies its own full cycle between beats (`dma_valid`
+drops for exactly that cycle), which the per-beat stall-re-arming loop
+hadn't accounted for. Traced against the RTL's own `D_REQ`/`D_ACK`
+transitions to confirm before touching anything, fixed, reran clean.
+
+Part A2: all 24 exhaustive burst-length sub-cases, exact beat count and
+address sequence every time. Part B: 20 sequences, 1,199 total jobs,
+random kind order, ~1/16 near-wraparound, ~1/8 of the rest given an
+extended beat-0 stall. **19,009 total checks, 0 failures on the final
+run.** `rtl/unpu_dma.sv` untouched. Task 008's baseline and all 64
+`crv_*` cases still pass unchanged. Full regression on all nine other
 testbenches green.
 
 ---
