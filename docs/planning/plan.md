@@ -857,13 +857,21 @@ the one large-space axis PE actually has.
 
 User's directive, ahead of the next freeze pass: extensive directed +
 ~10,000-check CRV testing, varying seeds, module by module, explicitly
-trying to break the system rather than just re-confirm it. **One task
-per module, dispatched sequentially — write and send the next task only
-after the user reviews the previous module's results and says to
-continue.** Not a repeat of task 013 (which already gave every module a
-solid CRV baseline) — each task here is scoped to extend *past* that
-baseline into whatever axis each module's prior coverage left thinnest
-(long adversarial sequences for PE, for example — see task 019).
+trying to break the system rather than just re-confirm it. Not a repeat
+of task 013 (which already gave every module a solid CRV baseline) —
+each task here is scoped to extend *past* that baseline into whatever
+axis each module's prior coverage left thinnest (long adversarial
+sequences for PE, for example — see task 019).
+
+**Dispatch mode changed after module 4** (user, 2026-09-25): no longer
+pausing for review after every module — write and send the next
+module's task immediately once the current one lands clean, straight
+through to module 10. **The one standing rule this doesn't relax:
+nothing fails silently.** Any RTL defect, any check that can't be made
+to pass, gets stopped on and reported in full — never softened,
+narrowed, or quietly dropped to keep a run green. Pause and wait for the
+user only once all ten modules are done, or the moment anything actually
+fails.
 
 Module order (matches the project's own build order and the freeze
 report's ten-testbench table, `unpu_apb` replacing the retired
@@ -875,7 +883,7 @@ report's ten-testbench table, `unpu_apb` replacing the retired
 | 2 | `unpu_grid` | `docs/planning/tasks/020-grid-breaktest.md` | **Done** — see below |
 | 3 | `unpu_skew`/`unpu_deskew` | `docs/planning/tasks/021-skew-deskew-breaktest.md` | **Done** — see below |
 | 4 | `unpu_stall` (composite) | `docs/planning/tasks/022-stall-breaktest.md` | **Done** — see below |
-| 5 | `unpu_seq` | — | Not started |
+| 5 | `unpu_seq` | `docs/planning/tasks/023-seq-breaktest.md` | Sent to Execution |
 | 6 | `unpu_wbuf`/`unpu_actbuf` | — | Not started |
 | 7 | `unpu_dma` | — | Not started |
 | 8 | `unpu_csr` | — | Not started |
