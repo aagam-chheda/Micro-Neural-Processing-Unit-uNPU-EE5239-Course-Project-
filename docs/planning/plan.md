@@ -851,6 +851,44 @@ the one large-space axis PE actually has.
   shape. Now: the same randomized stall logic run across ≥16 (ideally all
   64) `crv_*` cases instead of only `cross_terms`.
 
+---
+
+## Adversarial "break it" testing campaign — pre-freeze-pass, 2026-09-22
+
+User's directive, ahead of the next freeze pass: extensive directed +
+~10,000-check CRV testing, varying seeds, module by module, explicitly
+trying to break the system rather than just re-confirm it. **One task
+per module, dispatched sequentially — write and send the next task only
+after the user reviews the previous module's results and says to
+continue.** Not a repeat of task 013 (which already gave every module a
+solid CRV baseline) — each task here is scoped to extend *past* that
+baseline into whatever axis each module's prior coverage left thinnest
+(long adversarial sequences for PE, for example — see task 019).
+
+Module order (matches the project's own build order and the freeze
+report's ten-testbench table, `unpu_apb` replacing the retired
+`unpu_slave`):
+
+| # | Module | Task | Status |
+|---|---|---|---|
+| 1 | `unpu_pe` | `docs/planning/tasks/019-pe-breaktest.md` | Sent to Execution |
+| 2 | `unpu_grid` | — | Not started |
+| 3 | `unpu_skew`/`unpu_deskew` | — | Not started |
+| 4 | `unpu_stall` (composite) | — | Not started |
+| 5 | `unpu_seq` | — | Not started |
+| 6 | `unpu_wbuf`/`unpu_actbuf` | — | Not started |
+| 7 | `unpu_dma` | — | Not started |
+| 8 | `unpu_csr` | — | Not started |
+| 9 | `unpu_apb` | — | Not started |
+| 10 | `unpu_top` | — | Not started |
+
+If any task in this campaign finds a real RTL defect, that task reports
+it rather than fixing it in place, per the campaign's own instruction —
+a found bug pauses this list for a deliberate fix-and-verify cycle, not
+a quiet patch.
+
+---
+
 ## Back-end prerequisites
 
 Real work, not RTL work, chased by email — does not gate freeze.
