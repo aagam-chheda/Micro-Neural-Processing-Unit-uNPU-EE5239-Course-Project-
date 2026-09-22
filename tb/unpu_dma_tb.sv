@@ -340,6 +340,193 @@ module unpu_dma_tb;
     end
   endtask
 
+  // ~1/8 chance of a boundary extreme, same discipline tasks 019-024
+  // used, built on this file's own already-existing xorshift32.
+  function automatic logic [7:0] biased_byte(ref logic [31:0] rng);
+    logic [31:0] r1, r2;
+    begin
+      rng = xorshift32(rng); r1 = rng;
+      if (r1[3:0] < 4'd2) begin
+        rng = xorshift32(rng); r2 = rng;
+        case (r2[1:0])
+          2'd0: biased_byte = 8'h00;
+          2'd1: biased_byte = 8'hFF;
+          2'd2: biased_byte = 8'h80;
+          default: biased_byte = 8'h7F;
+        endcase
+      end else begin
+        biased_byte = r1[15:8];
+      end
+    end
+  endfunction
+
+  // Plain random 32-bit value with an occasional (~1/8) boundary
+  // extreme -- used for Part B's WRITE_C payloads, which unpu_dma just
+  // moves verbatim and doesn't interpret as INT8 weight/activation data,
+  // so this doesn't need biased_byte's per-byte granularity.
+  function automatic logic [31:0] biased_word32(ref logic [31:0] rng);
+    logic [31:0] r1, r2;
+    begin
+      rng = xorshift32(rng); r1 = rng;
+      if (r1[3:0] < 4'd2) begin
+        rng = xorshift32(rng); r2 = rng;
+        case (r2[1:0])
+          2'd0: biased_word32 = 32'h0000_0000;
+          2'd1: biased_word32 = 32'hFFFF_FFFF;
+          2'd2: biased_word32 = 32'h8000_0000;
+          default: biased_word32 = 32'h7FFF_FFFF;
+        endcase
+      end else begin
+        biased_word32 = r1;
+      end
+    end
+  endfunction
+
+  // Task 025 Part B: like run_job(), but forces dma_ready low for
+  // stall_len cycles at beat 0 before letting the job run to completion
+  // normally -- a lighter-weight, per-job variant of Part A3's full-job
+  // extreme stalling, spot-checking that extreme back-pressure combines
+  // correctly with the random-kind-order chain, not just in isolation.
+  task automatic run_job_with_stall0(input string label, input logic [1:0] kind, input logic [31:0] base,
+                                      input int m, input int k, input int n, input int stall_len);
+    int cyc, s;
+    bit seen_done;
+    begin
+      force_stall = 1;
+      job_kind = kind; job_base_addr = base; job_m = m[2:0]; job_k = k[2:0]; job_n = n[2:0];
+      job_start = 1;
+      step();
+      job_start = 0;
+      for (s = 0; s < stall_len; s = s + 1)
+        step();
+      force_stall = 0;
+
+      seen_done = 1'b0;
+      for (cyc = 0; cyc < 400; cyc = cyc + 1) begin
+        step();
+        if (job_done) begin
+          seen_done = 1'b1;
+          step();
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!seen_done) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: job_done never observed within 400 cycles (extended beat-0 stall=%0d)", label, stall_len);
+      end
+    end
+  endtask
+
+  // ==== Task 025 Part A helpers: exact beat-count + exact address-
+  // sequence checks, independent of memory content (the behavioral SRAM
+  // model above only ever decodes dma_addr[14:2] -- 15 bits -- so it
+  // cannot represent a genuinely-wrapped 32-bit address's content
+  // coherently; the DUT's own dma_addr output is checked directly
+  // against a plain 32-bit-unsigned-arithmetic reference instead, which
+  // wraps the exact same way a real address register would). ====
+
+  // Runs a FETCH job (A or W), counting actual beats (valid&&ready
+  // cycles) and checking each beat's dma_addr against base+beat*4 --
+  // computed as plain logic[31:0] arithmetic, which wraps at 32 bits
+  // exactly like the DUT's own registers would.
+  task automatic run_fetch_check_addr(input string label, input logic [1:0] kind, input logic [31:0] base,
+                                       input int rows, output int actual_beats);
+    int cyc;
+    bit seen_done;
+    int beat_seen;
+    logic [31:0] exp_addr;
+    begin
+      job_kind = kind; job_base_addr = base; job_m = rows[2:0]; job_k = rows[2:0]; job_n = rows[2:0];
+      job_start = 1;
+      step();
+      job_start = 0;
+      beat_seen = 0;
+      seen_done = 1'b0;
+      for (cyc = 0; cyc < 300; cyc = cyc + 1) begin
+        if (dma_valid && dma_ready) begin
+          exp_addr = base + (32'(beat_seen) * 32'd4);
+          checks  = checks + 1;
+          if (dma_addr !== exp_addr) begin
+            errors = errors + 1;
+            $display("FAIL [%s]: beat %0d addr=%0h expected=%0h", label, beat_seen, dma_addr, exp_addr);
+          end
+          beat_seen = beat_seen + 1;
+        end
+        step();
+        if (job_done) begin
+          seen_done = 1'b1;
+          step();
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!seen_done) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: job_done never observed within 300 cycles", label);
+      end
+      checks = checks + 1;
+      if (beat_seen !== rows) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: observed %0d beats, expected exactly %0d", label, beat_seen, rows);
+      end
+      actual_beats = beat_seen;
+    end
+  endtask
+
+  // Same shape for WRITE_C, whose address formula is base+m*16+j*4 with
+  // m/j advancing per the real drv_m x drv_n submatrix -- computed here
+  // independently of the DUT's own cur_m/cur_j registers.
+  task automatic run_write_check_addr(input string label, input logic [31:0] base, input int drv_m, input int drv_n,
+                                       output int actual_beats);
+    int cyc;
+    bit seen_done;
+    int beat_seen, exp_m, exp_j;
+    logic [31:0] exp_addr;
+    begin
+      job_kind = JOB_WRITE_C; job_base_addr = base; job_m = drv_m[2:0]; job_k = 3'd4; job_n = drv_n[2:0];
+      job_start = 1;
+      step();
+      job_start = 0;
+      beat_seen = 0; exp_m = 0; exp_j = 0;
+      seen_done = 1'b0;
+      for (cyc = 0; cyc < 300; cyc = cyc + 1) begin
+        if (dma_valid && dma_ready) begin
+          exp_addr = base + (32'(exp_m) * 32'd16) + (32'(exp_j) * 32'd4);
+          checks  = checks + 1;
+          if (dma_addr !== exp_addr) begin
+            errors = errors + 1;
+            $display("FAIL [%s]: beat %0d (m=%0d,j=%0d) addr=%0h expected=%0h", label, beat_seen, exp_m, exp_j, dma_addr, exp_addr);
+          end
+          beat_seen = beat_seen + 1;
+          if (exp_j == drv_n - 1) begin
+            exp_j = 0;
+            exp_m = exp_m + 1;
+          end else begin
+            exp_j = exp_j + 1;
+          end
+        end
+        step();
+        if (job_done) begin
+          seen_done = 1'b1;
+          step();
+          break;
+        end
+      end
+      checks = checks + 1;
+      if (!seen_done) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: job_done never observed within 300 cycles", label);
+      end
+      checks = checks + 1;
+      if (beat_seen !== drv_m * drv_n) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: observed %0d beats, expected exactly %0d", label, beat_seen, drv_m * drv_n);
+      end
+      actual_beats = beat_seen;
+    end
+  endtask
+
   int i, r, c;
   int meta_m, meta_k, meta_n;
   int fd, scan_rc;
@@ -536,6 +723,385 @@ module unpu_dma_tb;
       swap_both();
       check_actbuf({crv_name, " post-swap actbuf"}, meta_m, meta_k);
       writeback_and_check({crv_name, " WRITE_C"}, base_c, meta_m, meta_n);
+    end
+
+    // ==== Task 025, Part A1: address wraparound. job_base_addr near
+    // 32'hFFFF_FFF0, a full 16-beat writeback (M=N=4) so base+m*16+j*4
+    // genuinely wraps past 32'hFFFF_FFFF. Checked via run_write_check_addr,
+    // which computes its own expected address as plain logic[31:0]
+    // arithmetic -- that silently wraps at 32 bits exactly like a real
+    // address register, so this is a like-for-like comparison, not an
+    // assumption that addresses stay in a comfortable range. Memory
+    // content is deliberately not checked here -- the behavioral SRAM
+    // model only ever decodes dma_addr[14:2] and can't represent a
+    // wrapped address's content coherently; the address sequence itself
+    // is the property under test. ====
+    begin : part_a1
+      int actual_beats;
+      do_reset();
+      c_src = '0;
+      for (r = 0; r < 4; r = r + 1)
+        for (c = 0; c < 4; c = c + 1)
+          c_src[r][c] = 32'(r * 4 + c + 1); // distinct per position, irrelevant to the address check itself
+      run_write_check_addr("partA1-wraparound", 32'hFFFF_FFF0, 4, 4, actual_beats);
+      $display("Part A1: address-wraparound writeback (base=32'hFFFF_FFF0, M=N=4), %0d beats, all addresses matched 32-bit-wrapping reference, checks=%0d so far", actual_beats, checks);
+    end
+
+    // ==== Task 025, Part A2: exhaustive burst-length coverage -- every
+    // M for fetch-A, every K for fetch-W, all 16 (M,N) for writeback-C.
+    // Exact beat count AND exact address sequence for each, not just
+    // whatever mix 64 generically-random crv_* shapes happened to draw. ====
+    begin : part_a2
+      int mm, kk, nn, actual_beats;
+
+      for (mm = 1; mm <= 4; mm = mm + 1) begin
+        do_reset();
+        run_fetch_check_addr($sformatf("partA2-fetchA-M%0d", mm), JOB_FETCH_A, 32'h0000_6000, mm, actual_beats);
+      end
+      for (kk = 1; kk <= 4; kk = kk + 1) begin
+        do_reset();
+        run_fetch_check_addr($sformatf("partA2-fetchW-K%0d", kk), JOB_FETCH_W, 32'h0000_6100, kk, actual_beats);
+      end
+      for (mm = 1; mm <= 4; mm = mm + 1) begin
+        for (nn = 1; nn <= 4; nn = nn + 1) begin
+          do_reset();
+          c_src = '0;
+          for (r = 0; r < 4; r = r + 1)
+            for (c = 0; c < 4; c = c + 1)
+              c_src[r][c] = 32'(r * 4 + c + 1);
+          run_write_check_addr($sformatf("partA2-writeC-M%0dN%0d", mm, nn), 32'h0000_6200, mm, nn, actual_beats);
+        end
+      end
+      $display("Part A2: exhaustive burst-length coverage (4 fetch-A + 4 fetch-W + 16 writeback-C = 24 sub-cases), every beat count and address sequence exact, checks=%0d so far", checks);
+    end
+
+    // ==== Task 025, Part A3: extreme back-pressure -- a full 16-beat
+    // writeback with every single beat individually stalled 50-200
+    // cycles (an order of magnitude past the 0-5-cycle range already
+    // exercised). force_stall holds dma_ready low directly; the
+    // underlying random bp model keeps counting its own (much shorter)
+    // delay down to 0 the whole time dma_valid stays high, so it's
+    // already stuck at "would grant immediately" well before force_stall
+    // is released each beat -- confirmed explicitly below, not assumed. ====
+    begin : part_a3
+      localparam int NUM_BEATS_C = 16;
+      logic [31:0] rng;
+      int beat_i, stall_len, s, exp_m, exp_j;
+      logic [31:0] addr_snap;
+
+      do_reset();
+      c_src = '0;
+      for (r = 0; r < 4; r = r + 1)
+        for (c = 0; c < 4; c = c + 1)
+          c_src[r][c] = 32'(r * 4 + c + 1);
+
+      rng = 32'h5eed0119; // per-task seed convention (0x5eed0000 + task number, hex, distinct sub-stream)
+      $display("Part A3 extreme back-pressure seed = 32'h%08h", rng);
+
+      force_stall = 1;
+      job_kind = JOB_WRITE_C; job_base_addr = 32'h0000_6300; job_m = 3'd4; job_k = 3'd4; job_n = 3'd4;
+      job_start = 1;
+      step();
+      job_start = 0;
+
+      exp_m = 0; exp_j = 0;
+      for (beat_i = 0; beat_i < NUM_BEATS_C; beat_i = beat_i + 1) begin
+        rng = xorshift32(rng);
+        stall_len = 50 + (rng % 151); // 50..200
+        addr_snap = dma_addr;
+        for (s = 0; s < stall_len; s = s + 1) begin
+          checks = checks + 1;
+          if (dma_addr !== addr_snap || dma_valid !== 1'b1 || dma_wdata !== c_src[exp_m][exp_j]) begin
+            errors = errors + 1;
+            $display("FAIL [partA3 beat=%0d cyc=%0d]: addr/valid/wdata drifted during a %0d-cycle stall", beat_i, s, stall_len);
+          end
+          step();
+        end
+        force_stall = 0;
+        #1; // let dma_ready's combinational dependency on force_stall settle before checking it
+        checks = checks + 1;
+        if (!(dma_valid && dma_ready)) begin
+          errors = errors + 1;
+          $display("FAIL [partA3 beat=%0d]: beat not granted on the cycle after releasing a %0d-cycle stall", beat_i, stall_len);
+        end
+        step(); // the granted edge -- state moves D_REQ -> D_ACK here (beat consumed)
+        force_stall = 1; // re-assert before the next beat's D_REQ is reached
+        if (beat_i != NUM_BEATS_C - 1)
+          step(); // D_ACK's own cycle (dma_valid=0 for exactly this one cycle) -> D_REQ for the next beat, address now advanced
+        if (exp_j == 3) begin
+          exp_j = 0;
+          exp_m = exp_m + 1;
+        end else begin
+          exp_j = exp_j + 1;
+        end
+      end
+      force_stall = 0;
+
+      begin : part_a3_drain
+        int cyc2;
+        bit seen;
+        seen = 1'b0;
+        for (cyc2 = 0; cyc2 < 300; cyc2 = cyc2 + 1) begin
+          step();
+          if (job_done) begin
+            seen = 1'b1;
+            step();
+            break;
+          end
+        end
+        checks = checks + 1;
+        if (!seen) begin
+          errors = errors + 1;
+          $display("FAIL [partA3]: job never completed after all 16 beats' extreme stalling");
+        end
+      end
+
+      for (r = 0; r < 4; r = r + 1) begin
+        for (c = 0; c < 4; c = c + 1) begin
+          checks = checks + 1;
+          if (mem[(32'h0000_6300 >> 2) + r * 4 + c] !== c_src[r][c]) begin
+            errors = errors + 1;
+            $display("FAIL [partA3]: mem C[%0d][%0d] mismatch after full-job 50-200-cycle-per-beat stalling", r, c);
+          end
+        end
+      end
+      $display("Part A3: full 16-beat writeback, every beat individually stalled 50-200 cycles, zero address/data drift, job completed, correct content, checks=%0d so far", checks);
+    end
+
+    // ==== Task 025, Part A4: BUF_LOAD staging correctness across
+    // differing burst sizes back to back -- the sharpest structural
+    // check here. A K=4 fetch fills all 4 stage[] slots; a K=1 fetch
+    // immediately after (no swap between them, so both target the same
+    // inactive bank) only writes stage[0] fresh -- stage[1..3] are never
+    // touched by this second job and still hold the FIRST job's stale
+    // content. Confirms unpu_dma's own masking (not unpu_wbuf's) zeros
+    // the unused rows correctly regardless of that stale content, and
+    // that row 0 genuinely reflects the fresh fetch, not anything left
+    // over. Deliberately constructed exactly, not left to Part B's
+    // random ordering to produce reliably. ====
+    begin : part_a4
+      logic [7:0] fresh_row [0:3];
+
+      do_reset();
+      for (r = 0; r < 4; r = r + 1)
+        mem[(32'h0000_7000 >> 2) + r] = {8'(200 + r * 4 + 3), 8'(200 + r * 4 + 2), 8'(200 + r * 4 + 1), 8'(200 + r * 4 + 0)};
+      run_job("partA4 K=4 fetch", JOB_FETCH_W, 32'h0000_7000, 4, 4, 4);
+      // No swap -- the just-loaded bank (bank_b, reset default inactive) stays inactive.
+
+      fresh_row[0] = 8'hAB; fresh_row[1] = 8'hCD; fresh_row[2] = 8'hEF; fresh_row[3] = 8'h12;
+      mem[(32'h0000_7100 >> 2) + 0] = {fresh_row[3], fresh_row[2], fresh_row[1], fresh_row[0]};
+      run_job("partA4 K=1 fetch", JOB_FETCH_W, 32'h0000_7100, 4, 1, 4);
+
+      for (c = 0; c < 4; c = c + 1) begin
+        checks = checks + 1;
+        if (u_wbuf.bank_b[c][0] !== fresh_row[c]) begin
+          errors = errors + 1;
+          $display("FAIL [partA4-bufload]: bank_b[%0d][0]=%0d expected fresh K=1 row value %0d (stale/leftover data suspected)", c, u_wbuf.bank_b[c][0], fresh_row[c]);
+        end
+        checks = checks + 1;
+        if (u_wbuf.bank_b[c][1] !== 8'h00) begin
+          errors = errors + 1;
+          $display("FAIL [partA4-bufload]: bank_b[%0d][1]=%0d expected 0 (masked, K=1) -- possible stale leftover from the prior K=4 fetch", c, u_wbuf.bank_b[c][1]);
+        end
+        checks = checks + 1;
+        if (u_wbuf.bank_b[c][2] !== 8'h00) begin
+          errors = errors + 1;
+          $display("FAIL [partA4-bufload]: bank_b[%0d][2]=%0d expected 0 (masked, K=1) -- possible stale leftover from the prior K=4 fetch", c, u_wbuf.bank_b[c][2]);
+        end
+        checks = checks + 1;
+        if (u_wbuf.bank_b[c][3] !== 8'h00) begin
+          errors = errors + 1;
+          $display("FAIL [partA4-bufload]: bank_b[%0d][3]=%0d expected 0 (masked, K=1) -- possible stale leftover from the prior K=4 fetch", c, u_wbuf.bank_b[c][3]);
+        end
+      end
+      $display("Part A4: BUF_LOAD staging (K=4 fetch immediately followed by K=1 fetch), stage[0] genuinely fresh, masked rows correctly zero despite stale stage[1..3], checks=%0d so far", checks);
+    end
+
+    // ==== Task 025, Part B: long adversarial job chains, random kind
+    // order -- fetch-A, fetch-W, and writeback-C interleaved in any
+    // order (not the natural fetch-A->fetch-W->writeback-C sequence a
+    // real op produces), zero gap between jobs. Never swaps -- bank_b
+    // stays the loading target throughout for both buffers, so every
+    // fetch job's freshly-loaded data is directly whitebox-checkable
+    // against what was just written to mem[] immediately beforehand
+    // (task 008's own verification method, generalized off a real
+    // shape/address per job instead of a fixed case). Addresses are
+    // mostly kept within the behavioral SRAM model's real 32 KB decode
+    // window for full content verification; a ~1/16 fraction are drawn
+    // near the wraparound boundary instead, for which content can't be
+    // checked (the model only ever decodes the low 15 address bits) --
+    // those jobs get the same address-sequence-only verification Part A1
+    // used. ~1/8 of jobs additionally get an extended, beat-0 stall
+    // (Part A3's mechanism, one beat per job here rather than all 16),
+    // spot-checking that extreme back-pressure combines correctly with
+    // random job ordering, not just in isolation. ====
+    begin : part_b
+      localparam int NUM_SEQ = 20;
+      logic [31:0] master_rng, rng, seq_seed;
+      int seq_idx, job_idx, num_jobs, total_jobs;
+      int kind_pick;
+      logic [1:0] jkind;
+      int jm, jk, jn;
+      logic [31:0] jbase;
+      bit near_wrap, do_extreme_stall;
+      int stall_len2;
+      int rr, cc, ab;
+      logic [7:0]  fetch_data [0:3][0:3];
+      logic [31:0] wc_data    [0:3][0:3];
+      string jlabel;
+
+      master_rng = 32'h5eed0219; // per-task seed convention, distinct sub-stream
+      $display("Part B master seed = 32'h%08h", master_rng);
+      total_jobs = 0;
+
+      for (seq_idx = 0; seq_idx < NUM_SEQ; seq_idx = seq_idx + 1) begin
+        master_rng = xorshift32(master_rng);
+        seq_seed   = master_rng;
+        rng        = seq_seed;
+        $display("Part B sequence %0d: seed = 32'h%08h", seq_idx, seq_seed);
+
+        rng = xorshift32(rng);
+        num_jobs = 40 + (rng % 41); // 40..80 jobs per sequence
+
+        do_reset(); // ONE reset per sequence -- every job after the first gets no reset and no idle gap
+
+        for (job_idx = 0; job_idx < num_jobs; job_idx = job_idx + 1) begin
+          rng = xorshift32(rng);
+          kind_pick = rng % 3;
+          jkind = kind_pick[1:0];
+          jlabel = $sformatf("partB seq%0d/job%0d", seq_idx, job_idx);
+
+          rng = xorshift32(rng);
+          jm = 1 + (rng % 4);
+          rng = xorshift32(rng);
+          jk = 1 + (rng % 4);
+          rng = xorshift32(rng);
+          jn = 1 + (rng % 4);
+
+          rng = xorshift32(rng);
+          near_wrap = (rng[3:0] == 4'h0); // ~1/16
+          if (near_wrap) begin
+            rng = xorshift32(rng);
+            jbase = 32'hFFFF_FF00 + {24'd0, rng[7:0]};
+          end else begin
+            rng = xorshift32(rng);
+            jbase = ({20'd0, rng[9:0]} * 32'd16); // spread within the model's real 32 KB window
+          end
+
+          rng = xorshift32(rng);
+          do_extreme_stall = !near_wrap && (rng[2:0] == 3'h0); // ~1/8 of non-wraparound jobs
+
+          total_jobs = total_jobs + 1;
+
+          if (near_wrap) begin
+            // Address-only verification -- same reasoning as Part A1.
+            if (jkind == JOB_WRITE_C) begin
+              c_src = '0;
+              for (rr = 0; rr < 4; rr = rr + 1)
+                for (cc = 0; cc < 4; cc = cc + 1)
+                  c_src[rr][cc] = biased_word32(rng);
+              run_write_check_addr(jlabel, jbase, jm, jn, ab);
+            end else begin
+              run_fetch_check_addr(jlabel, jkind, jbase, (jkind == JOB_FETCH_A) ? jm : jk, ab);
+            end
+          end else if (jkind == JOB_FETCH_A) begin
+            for (rr = 0; rr < 4; rr = rr + 1)
+              for (cc = 0; cc < 4; cc = cc + 1)
+                fetch_data[rr][cc] = biased_byte(rng);
+            for (rr = 0; rr < 4; rr = rr + 1)
+              mem[(jbase >> 2) + rr] = {fetch_data[rr][3], fetch_data[rr][2], fetch_data[rr][1], fetch_data[rr][0]};
+
+            if (do_extreme_stall) begin
+              rng = xorshift32(rng);
+              stall_len2 = 20 + (rng % 131); // 20..150
+              run_job_with_stall0(jlabel, JOB_FETCH_A, jbase, jm, jk, jn, stall_len2);
+            end else begin
+              run_job(jlabel, JOB_FETCH_A, jbase, jm, jk, jn);
+            end
+
+            for (rr = 0; rr < 4; rr = rr + 1) begin
+              for (cc = 0; cc < 4; cc = cc + 1) begin
+                checks = checks + 1;
+                if (rr < jm && cc < jk) begin
+                  if (u_actbuf.bank_b[rr][cc] !== fetch_data[rr][cc]) begin
+                    errors = errors + 1;
+                    $display("FAIL [%s FETCH_A]: bank_b[%0d][%0d]=%0d expected %0d", jlabel, rr, cc, u_actbuf.bank_b[rr][cc], fetch_data[rr][cc]);
+                  end
+                end else begin
+                  if (u_actbuf.bank_b[rr][cc] !== 8'h00) begin
+                    errors = errors + 1;
+                    $display("FAIL [%s FETCH_A]: bank_b[%0d][%0d]=%0d expected 0 (M/K-masked)", jlabel, rr, cc, u_actbuf.bank_b[rr][cc]);
+                  end
+                end
+              end
+            end
+          end else if (jkind == JOB_FETCH_W) begin
+            for (rr = 0; rr < 4; rr = rr + 1)
+              for (cc = 0; cc < 4; cc = cc + 1)
+                fetch_data[rr][cc] = biased_byte(rng);
+            for (rr = 0; rr < 4; rr = rr + 1)
+              mem[(jbase >> 2) + rr] = {fetch_data[rr][3], fetch_data[rr][2], fetch_data[rr][1], fetch_data[rr][0]};
+
+            if (do_extreme_stall) begin
+              rng = xorshift32(rng);
+              stall_len2 = 20 + (rng % 131);
+              run_job_with_stall0(jlabel, JOB_FETCH_W, jbase, jm, jk, jn, stall_len2);
+            end else begin
+              run_job(jlabel, JOB_FETCH_W, jbase, jm, jk, jn);
+            end
+
+            for (rr = 0; rr < 4; rr = rr + 1) begin
+              for (cc = 0; cc < 4; cc = cc + 1) begin
+                checks = checks + 1;
+                if (rr < jk && cc < jn) begin
+                  if (u_wbuf.bank_b[cc][rr] !== fetch_data[rr][cc]) begin
+                    errors = errors + 1;
+                    $display("FAIL [%s FETCH_W]: stage[%0d][%0d]=%0d expected %0d", jlabel, cc, rr, u_wbuf.bank_b[cc][rr], fetch_data[rr][cc]);
+                  end
+                end else begin
+                  if (u_wbuf.bank_b[cc][rr] !== 8'h00) begin
+                    errors = errors + 1;
+                    $display("FAIL [%s FETCH_W]: stage[%0d][%0d]=%0d expected 0 (K/N-masked)", jlabel, cc, rr, u_wbuf.bank_b[cc][rr]);
+                  end
+                end
+              end
+            end
+          end else begin // JOB_WRITE_C
+            c_src = '0;
+            for (rr = 0; rr < 4; rr = rr + 1)
+              for (cc = 0; cc < 4; cc = cc + 1)
+                if (rr < jm && cc < jn)
+                  wc_data[rr][cc] = biased_word32(rng);
+            for (rr = 0; rr < 4; rr = rr + 1)
+              for (cc = 0; cc < 4; cc = cc + 1)
+                c_src[rr][cc] = (rr < jm && cc < jn) ? wc_data[rr][cc] : 32'd0;
+
+            if (do_extreme_stall) begin
+              rng = xorshift32(rng);
+              stall_len2 = 20 + (rng % 131);
+              run_job_with_stall0(jlabel, JOB_WRITE_C, jbase, jm, jk, jn, stall_len2);
+            end else begin
+              run_job(jlabel, JOB_WRITE_C, jbase, jm, jk, jn);
+            end
+
+            for (rr = 0; rr < jm; rr = rr + 1) begin
+              for (cc = 0; cc < jn; cc = cc + 1) begin
+                checks = checks + 1;
+                if (mem[(jbase >> 2) + rr * 4 + cc] !== wc_data[rr][cc]) begin
+                  errors = errors + 1;
+                  $display("FAIL [%s WRITE_C]: mem C[%0d][%0d]=%0d expected %0d", jlabel, rr, cc, mem[(jbase >> 2) + rr * 4 + cc], wc_data[rr][cc]);
+                end
+              end
+            end
+          end
+        end
+      end
+
+      $display("----------------------------------------");
+      $display("Part B: %0d sequences, %0d total jobs (>=400 required), checks so far=%0d", NUM_SEQ, total_jobs, checks);
+      if (errors == 0)
+        $display("Part B: ALL PASSED");
+      $display("----------------------------------------");
     end
 
     $display("----------------------------------------");
