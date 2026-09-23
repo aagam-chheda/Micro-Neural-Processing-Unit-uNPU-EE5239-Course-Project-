@@ -1473,3 +1473,38 @@ testbenches (plus four mutations aimed at what 030 changed, notably an
 address-alias bug and a freeze bug) and append an "Addendum 1" to
 `docs/freeze-report-v2.md` recording the Xcelium result and the stall
 floor revision. Sent to Execution.
+
+### Task 031 result (Execution, `3ab92be`) — all seven mutations caught; Addendum 1 written
+
+Planning re-verified: RTL diff vs `9f5deab` empty, `git worktree list` shows
+only the main tree, tree clean, addendum is additions-only (191 lines
+added, 0 removed).
+
+- Mutations 1–3 (task 029's) caught again against the post-030 testbenches
+  (seq 6,537; pe 106,273; dma 1,774 — task 029's counts reproduce).
+- **Mutation 4 (address alias) confirmed task 030's diagnosis was a real
+  coverage gap, not just tidiness**: run against the pre-030 testbenches
+  (`629380e`), a forced-low `dma_addr[20]` **survived `seq` and `top`
+  entirely** (both PASS, full counts); the old `dma` caught it only via its
+  exact-address wraparound test. After task 030 all three catch bits 15,
+  16 and 20 (bit 15 is now caught inside the CRV loop, at `crv_0032`).
+- Mutation 5: stuck-high high bits caught by the DMA window monitor
+  (the only catcher in seq/top); with the exemption forced off on clean
+  RTL, windows flag beats only in wraparound tests, so the exemption is no
+  wider than intended.
+- Mutation 6: removed `array_en` hold on `unpu_deskew.col0_q3` — caught,
+  first FAIL names the exact register (stall 336, skew 1,842).
+- Mutation 7: shrinking the SRAM reproduces 1,259 bounds + 686 window.
+- **Known limit (not a survivor, recorded in the addendum):** a
+  bit-21 stuck-at-1 that acts only during wraparound ops is caught by
+  `dma` (exact 32-bit address compare) but passes `seq` and `top`; top's
+  wraparound ops check data through the aliased low bits and are exempt
+  from the window monitor. Same behaviour existed pre-030 — no regression.
+  Full-width address exactness under wraparound is carried by
+  `unpu_dma_tb` alone.
+- The `*W` warning identity (DSEMEL/DSEM2009) is recorded as reported,
+  not confirmed from Xcelium logs.
+
+Net: freeze v2 + Addendum 1 is the current certified record. Functional
+verification is done on two simulators. Remaining gates are back-end
+(timing/STA, DRC/LVS) and firmware.
