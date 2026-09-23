@@ -1457,3 +1457,19 @@ Verilator: all ten green, every count unchanged except `unpu_stall`
 **Freeze-report consequence:** the `unpu_stall` floor in
 `docs/freeze-report-v2.md` (250,245) is superseded by 250,560. Addendum to
 follow after the Xcelium run passes all ten.
+
+### Xcelium cross-check — GREEN (user's server run, 2026-09-23)
+
+`bash scripts/run_xrun.sh` on the institute server (Xcelium 22.09-s003,
+repo at `649bab6`, RTL identical to `9f5deab`): **all ten testbenches PASS**,
+every count identical to Verilator's, including `stall`
+`frozen_checks=250,560` (confirms the `$random` diagnosis: with the
+portable RNG both simulators agree). First cross-simulator result in the
+project. Two informational `*W` warnings per run (IEEE-1800-2009
+semantics notices).
+
+Next: task 031 — re-run the mutation spot-check against the post-030
+testbenches (plus four mutations aimed at what 030 changed, notably an
+address-alias bug and a freeze bug) and append an "Addendum 1" to
+`docs/freeze-report-v2.md` recording the Xcelium result and the stall
+floor revision. Sent to Execution.
