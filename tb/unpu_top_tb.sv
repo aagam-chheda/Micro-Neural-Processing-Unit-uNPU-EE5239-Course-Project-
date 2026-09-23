@@ -72,13 +72,27 @@ module unpu_top_tb;
   // ---- Behavioral SRAM model on the dma_* port, same design as tasks
   // 008/011: word-addressable, combinational read, randomized 0-5 cycle
   // per-beat back-pressure via a same-cycle-lookahead draw. ----
-  localparam int MEM_WORDS = 1 << 18; // 256K words, generous per-case address bands
+  //
+  // Size: MEM_WORDS = 2**MEM_ADDR_BITS words (2 MiB). The CRV loop places
+  // case i at 0x10_0000 + i*4096 (top end ~0x13F240), which needs 21 address
+  // bits; the original 2**18-word / [19:2] model only reached 0xF_FFFF, so
+  // those TB-side writes were out of range (task 030: Verilator silently
+  // wrapped the index, a 4-state simulator drops the write and the DUT reads
+  // x). The DUT-facing decode takes exactly MEM_ADDR_BITS address bits, so
+  // it cannot go out of range. Two rules keep aliasing deliberate only:
+  //   * TB-side computed indexes go through mem_ix() (bounds-checked), or,
+  //     for the address-wraparound tests where aliasing is intended,
+  //     through wrap_ix() (the same decode the DUT-facing assign uses);
+  //   * the window monitor reports any DMA beat whose address has bits
+  //     ABOVE the decode set unless the test declared wrap_expected. ----
+  localparam int MEM_ADDR_BITS = 19;
+  localparam int MEM_WORDS     = 1 << MEM_ADDR_BITS;
   logic [31:0] mem [0:MEM_WORDS-1];
-  assign dma_rdata = mem[dma_addr[19:2]];
+  assign dma_rdata = mem[dma_addr[MEM_ADDR_BITS+1:2]];
 
   always_ff @(posedge clk) begin
     if (dma_valid && dma_ready && dma_wstrb == 4'hF)
-      mem[dma_addr[19:2]] <= dma_wdata;
+      mem[dma_addr[MEM_ADDR_BITS+1:2]] <= dma_wdata;
   end
 
   logic [31:0] bp_rng;
@@ -124,6 +138,53 @@ module unpu_top_tb;
   localparam logic [31:0] OFF_NPU_STAT = 32'h1C;
 
   int errors, checks;
+
+  // ---- Model-SRAM bounds discipline (task 030). mem_ix() turns a
+  // byte-address + word-offset into a mem[] index and FAILS LOUDLY if it is
+  // out of range, instead of leaving the outcome to whatever the simulator
+  // does with an out-of-range array write (Verilator: wraps; Xcelium: drops
+  // the write and reads back x). Returns 0 after reporting so the run
+  // continues, but errors is already incremented. Not counted in `checks`:
+  // it is a guard on the test's own addressing, not a DUT check. ----
+  function automatic int mem_ix(input logic [31:0] byte_addr, input int word_off, input string who);
+    logic [31:0] idx;
+    begin
+      idx = (byte_addr >> 2) + 32'(word_off);
+      if (idx >= 32'(MEM_WORDS)) begin
+        errors = errors + 1;
+        $display("FAIL [mem bounds]: %s: byte_addr=0x%08h word_off=%0d -> word index %0d >= MEM_WORDS=%0d (out-of-range model-SRAM access)", who, byte_addr, word_off, idx, MEM_WORDS);
+        mem_ix = 0;
+      end else begin
+        mem_ix = int'(idx);
+      end
+    end
+  endfunction
+
+  // Explicit, INTENDED aliasing for the address-wraparound tests: the word
+  // index is the low MEM_ADDR_BITS of the (already 32-bit-wrapped) byte
+  // address -- exactly the decode the DUT-facing assign applies, so the TB
+  // and the model agree by construction rather than by accident.
+  function automatic int wrap_ix(input logic [31:0] byte_addr);
+    wrap_ix = int'(byte_addr[MEM_ADDR_BITS+1:2]);
+  endfunction
+
+  // Set by a test that DELIBERATELY drives addresses past the SRAM window
+  // (32-bit wraparound cases); the window monitor then allows aliasing.
+  logic wrap_expected;
+  initial wrap_expected = 1'b0;
+
+  always @(posedge clk) begin
+    if (dma_valid && dma_ready && (dma_addr >> (MEM_ADDR_BITS + 2)) != 32'd0 && !wrap_expected) begin
+      errors = errors + 1;
+      $display("FAIL [mem window]: DMA beat at addr 0x%08h is outside the %0d-word model SRAM window but no wraparound was declared (aliasing would be silent)", dma_addr, MEM_WORDS);
+    end
+  end
+
+  // Back-pressure overrides. Declared here, ahead of do_reset (their first
+  // use), because IEEE 1800 requires declaration before use (Xcelium:
+  // *E,UNDIDN). Semantics are described with the extreme-stall model below.
+  logic        bp_mode_extreme; // 1 = wide 50-100 cycle/beat model instead of 0-5
+  logic        force_stall;     // 1 = hold the current beat stalled indefinitely
 
   task automatic do_reset;
     begin
@@ -180,8 +241,8 @@ module unpu_top_tb;
       $readmemh({"model/vectors/", name, "_w.hex"}, w_case);
       $readmemh({"model/vectors/", name, "_c.hex"}, c_case);
       for (r = 0; r < 4; r = r + 1) begin
-        mem[(base_a >> 2) + r] = {a_case[r][3], a_case[r][2], a_case[r][1], a_case[r][0]};
-        mem[(base_w >> 2) + r] = {w_case[r][3], w_case[r][2], w_case[r][1], w_case[r][0]};
+        mem[mem_ix(base_a, r, "preload_case A")] = {a_case[r][3], a_case[r][2], a_case[r][1], a_case[r][0]};
+        mem[mem_ix(base_w, r, "preload_case W")] = {w_case[r][3], w_case[r][2], w_case[r][1], w_case[r][0]};
       end
     end
   endtask
@@ -231,9 +292,9 @@ module unpu_top_tb;
       for (m = 0; m < drv_m; m = m + 1) begin
         for (j = 0; j < drv_n; j = j + 1) begin
           checks = checks + 1;
-          if (mem[(base_c >> 2) + m * 4 + j] !== c_case[m][j]) begin
+          if (mem[mem_ix(base_c, m * 4 + j, "check_writeback")] !== c_case[m][j]) begin
             errors = errors + 1;
-            $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", label, m, j, mem[(base_c >> 2) + m * 4 + j], c_case[m][j]);
+            $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", label, m, j, mem[mem_ix(base_c, m * 4 + j, "check_writeback")], c_case[m][j]);
           end
         end
       end
@@ -306,12 +367,10 @@ module unpu_top_tb;
   // original 0-5-cycle model exactly as before; force_stall (below) is a
   // third, independent override for holding a single beat indefinitely
   // on demand, used by Part A's mid-flight-polling case). ----
-  logic        bp_mode_extreme;
   logic [31:0] bp_ext_rng;
   logic [6:0]  bp_ext_delay_reg;
   logic        bp_ext_have_delay;
   logic [6:0]  bp_ext_delay_eff;
-  logic        force_stall;
 
   assign bp_ext_delay_eff = bp_ext_have_delay ? bp_ext_delay_reg : (7'd50 + (bp_ext_rng[6:0] % 7'd51)); // 50-100
   assign dma_ready = force_stall ? 1'b0 :
@@ -362,7 +421,7 @@ module unpu_top_tb;
   // check_writeback()'s own job exactly, but computes each word's real
   // 32-bit byte address via plain logic[31:0] arithmetic (which wraps at
   // 32 bits exactly like the DUT's own address registers do) and indexes
-  // mem[] via that address's [19:2] slice -- the SAME decode convention
+  // mem[] via wrap_ix() (that address's low MEM_ADDR_BITS slice) -- the SAME decode convention
   // dma_rdata's own assign already applies -- rather than preload_case's
   // plain (base>>2)+offset pointer arithmetic, which is only valid when
   // nothing wraps and would index far out of mem[]'s bounds otherwise. ----
@@ -375,9 +434,9 @@ module unpu_top_tb;
       $readmemh({"model/vectors/", name, "_c.hex"}, c_case);
       for (rr = 0; rr < 4; rr = rr + 1) begin
         byte_addr = base_a + (32'(rr) * 32'd4);
-        mem[byte_addr[19:2]] = {a_case[rr][3], a_case[rr][2], a_case[rr][1], a_case[rr][0]};
+        mem[wrap_ix(byte_addr)] = {a_case[rr][3], a_case[rr][2], a_case[rr][1], a_case[rr][0]};
         byte_addr = base_w + (32'(rr) * 32'd4);
-        mem[byte_addr[19:2]] = {w_case[rr][3], w_case[rr][2], w_case[rr][1], w_case[rr][0]};
+        mem[wrap_ix(byte_addr)] = {w_case[rr][3], w_case[rr][2], w_case[rr][1], w_case[rr][0]};
       end
     end
   endtask
@@ -400,12 +459,12 @@ module unpu_top_tb;
       for (rr = 0; rr < 4; rr = rr + 1) begin
         if (use_wrap) begin
           byte_addr = base_a + (32'(rr) * 32'd4);
-          mem[byte_addr[19:2]] = {b_a_case[rr][3], b_a_case[rr][2], b_a_case[rr][1], b_a_case[rr][0]};
+          mem[wrap_ix(byte_addr)] = {b_a_case[rr][3], b_a_case[rr][2], b_a_case[rr][1], b_a_case[rr][0]};
           byte_addr = base_w + (32'(rr) * 32'd4);
-          mem[byte_addr[19:2]] = {b_w_case[rr][3], b_w_case[rr][2], b_w_case[rr][1], b_w_case[rr][0]};
+          mem[wrap_ix(byte_addr)] = {b_w_case[rr][3], b_w_case[rr][2], b_w_case[rr][1], b_w_case[rr][0]};
         end else begin
-          mem[(base_a >> 2) + rr] = {b_a_case[rr][3], b_a_case[rr][2], b_a_case[rr][1], b_a_case[rr][0]};
-          mem[(base_w >> 2) + rr] = {b_w_case[rr][3], b_w_case[rr][2], b_w_case[rr][1], b_w_case[rr][0]};
+          mem[mem_ix(base_a, rr, "gen_and_load_op_b A")] = {b_a_case[rr][3], b_a_case[rr][2], b_a_case[rr][1], b_a_case[rr][0]};
+          mem[mem_ix(base_w, rr, "gen_and_load_op_b W")] = {b_w_case[rr][3], b_w_case[rr][2], b_w_case[rr][1], b_w_case[rr][0]};
         end
       end
     end
@@ -422,9 +481,9 @@ module unpu_top_tb;
           checks  = checks + 1;
           if (use_wrap) begin
             byte_addr = base_c + (32'(mm) * 32'd16) + (32'(jj) * 32'd4);
-            got_val = mem[byte_addr[19:2]];
+            got_val = mem[wrap_ix(byte_addr)];
           end else begin
-            got_val = mem[(base_c >> 2) + mm * 4 + jj];
+            got_val = mem[mem_ix(base_c, mm * 4 + jj, "check_op_b")];
           end
           if (got_val !== exp_val) begin
             errors = errors + 1;
@@ -525,10 +584,10 @@ module unpu_top_tb;
         for (jj = 0; jj < drv_n; jj = jj + 1) begin
           byte_addr = base_c + (32'(mm) * 32'd16) + (32'(jj) * 32'd4);
           checks = checks + 1;
-          if (mem[byte_addr[19:2]] !== c_case[mm][jj]) begin
+          if (mem[wrap_ix(byte_addr)] !== c_case[mm][jj]) begin
             errors = errors + 1;
             $display("FAIL [%s]: mem[wrapped addr=%0h idx=%0h] C[%0d][%0d]=%0d expected %0d",
-                      label, byte_addr, byte_addr[19:2], mm, jj, mem[byte_addr[19:2]], c_case[mm][jj]);
+                      label, byte_addr, wrap_ix(byte_addr), mm, jj, mem[wrap_ix(byte_addr)], c_case[mm][jj]);
           end
         end
       end
@@ -652,7 +711,7 @@ module unpu_top_tb;
     // sequence itself wraps correctly -- its isolated model SRAM
     // couldn't represent content at a wrapped address coherently. Here,
     // with the real end-to-end datapath live, preload_case_wrap()/
-    // check_writeback_wrap() use the exact same [19:2] decode convention
+    // check_writeback_wrap() use the exact same wrap_ix() decode convention
     // this file's own dma_rdata assign already applies, so this proves
     // the ACTUAL COMPUTED C values land correctly at wherever the
     // wraparound resolves to -- not just that addressing survives. ====
@@ -667,7 +726,9 @@ module unpu_top_tb;
       wbase_w = 32'hFFFF_FFE0;
       wbase_c = 32'hFFFF_FFE0;
       preload_case_wrap("cross_terms", wbase_a, wbase_w);
+      wrap_expected = 1'b1; // intended aliasing: addresses wrap past 32'hFFFF_FFFF
       run_case_via_cpu("wraparound-with-data", wbase_a, wbase_w, wbase_c, 4, 4, 4, 1'b1, 1'b0, ok);
+      wrap_expected = 1'b0;
       check_writeback_wrap("wraparound-with-data", wbase_c, 4, 4);
       $display("Part A1: address wraparound with real end-to-end data correctness (base_a/base_w/base_c all near 32'hFFFF_FFFF), checks=%0d so far", checks);
     end
@@ -728,9 +789,9 @@ module unpu_top_tb;
       for (m2 = 0; m2 < 4; m2 = m2 + 1) begin
         for (j2 = 0; j2 < 4; j2 = j2 + 1) begin
           checks = checks + 1;
-          if (mem[(32'h0004_0200 >> 2) + m2 * 4 + j2] !== c_case_op1[m2][j2]) begin
+          if (mem[mem_ix(32'h0004_0200, m2 * 4 + j2, "mid-flight-write readback")] !== c_case_op1[m2][j2]) begin
             errors = errors + 1;
-            $display("FAIL [mid-flight-write: first op unaffected]: mem C[%0d][%0d]=%0d expected %0d", m2, j2, mem[(32'h0004_0200 >> 2) + m2 * 4 + j2], c_case_op1[m2][j2]);
+            $display("FAIL [mid-flight-write: first op unaffected]: mem C[%0d][%0d]=%0d expected %0d", m2, j2, mem[mem_ix(32'h0004_0200, m2 * 4 + j2, "mid-flight-write readback")], c_case_op1[m2][j2]);
           end
         end
       end
@@ -974,10 +1035,12 @@ module unpu_top_tb;
 
             gen_and_load_op_b(base_a_b, base_w_b, use_wrap_b, seq_rng);
 
+            wrap_expected = use_wrap_b; // intended aliasing only for the wraparound ops
             run_op_b($sformatf("partB seq=%0d op=%0d legal(M=%0d K=%0d N=%0d wrap=%0b bpext=%0b longsetup=%0b sparse=%0b)",
                                 seq_idx, op_idx, drv_m_b, drv_k_b, drv_n_b, use_wrap_b, use_bp_extreme_b, use_long_setup_b, sparse_poll_b),
                       base_a_b, base_w_b, base_c_b, drv_m_b, drv_k_b, drv_n_b, signed_bit_b,
                       use_long_setup_b, setup_len_a_b, setup_len_ctrl_b, sparse_poll_b, ok_b);
+            wrap_expected = 1'b0;
 
             if (ok_b)
               check_op_b($sformatf("partB seq=%0d op=%0d legal", seq_idx, op_idx),

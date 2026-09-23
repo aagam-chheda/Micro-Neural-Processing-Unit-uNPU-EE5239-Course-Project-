@@ -3,3 +3,16 @@
 model/golden
 model/golden.exe
 model/vectors/
+
+# Cadence Xcelium (xrun) output -- scripts/run_xrun.sh writes everything
+# under xrun_out/; the rest is what a bare xrun drops in the working dir.
+xrun_out/
+xcelium.d/
+INCA_libs/
+xrun.history
+xrun.key
+xrun.log
+xmsim.key
+*.shm/
+.simvision/
+*.log

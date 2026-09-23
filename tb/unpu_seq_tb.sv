@@ -214,13 +214,25 @@ module unpu_seq_tb;
   // back-pressure via a same-cycle-lookahead draw (unpu_wbuf's
   // effective_sel idiom, task 007) so a delay of 0 can still grant on
   // the very first cycle a request appears. ----
-  localparam int MEM_WORDS = 65536;
+  //
+  // Size: MEM_WORDS = 2**MEM_ADDR_BITS words (2 MiB). The CRV loop places
+  // case i at 0x10_0000 + i*4096 (top end ~0x13F240), which needs 21 address
+  // bits; the original 65536-word / [17:2] model only reached 0x3_FFFF, so
+  // the TB-side writes were out of range (task 030: Verilator silently
+  // wrapped the index, a 4-state simulator drops the write and the DUT reads
+  // x). The DUT-facing decode takes exactly MEM_ADDR_BITS address bits, so
+  // it cannot go out of range; any beat with address bits ABOVE the decode
+  // set is reported by the window monitor. This TB never uses wraparound,
+  // so there is no exemption -- aliasing here is always a bug. TB-side
+  // computed indexes go through mem_ix().
+  localparam int MEM_ADDR_BITS = 19;
+  localparam int MEM_WORDS     = 1 << MEM_ADDR_BITS;
   logic [31:0] mem [0:MEM_WORDS-1];
-  assign dma_rdata = mem[dma_addr[17:2]]; // 16-bit word index, covers MEM_WORDS=65536
+  assign dma_rdata = mem[dma_addr[MEM_ADDR_BITS+1:2]];
 
   always_ff @(posedge clk) begin
     if (dma_valid && dma_ready && dma_wstrb == 4'hF)
-      mem[dma_addr[17:2]] <= dma_wdata;
+      mem[dma_addr[MEM_ADDR_BITS+1:2]] <= dma_wdata;
   end
 
   logic [31:0] bp_rng;
@@ -288,6 +300,34 @@ module unpu_seq_tb;
   end
 
   int errors, checks;
+
+  // ---- Model-SRAM bounds discipline (task 030). mem_ix() turns a
+  // byte-address + word-offset into a mem[] index and FAILS LOUDLY if it is
+  // out of range, instead of leaving the outcome to whatever the simulator
+  // does with an out-of-range array write (Verilator: wraps; Xcelium: drops
+  // the write and reads back x). Returns 0 after reporting so the run
+  // continues, but errors is already incremented. Not counted in `checks`:
+  // it is a guard on the test's own addressing, not a DUT check. ----
+  function automatic int mem_ix(input logic [31:0] byte_addr, input int word_off, input string who);
+    logic [31:0] idx;
+    begin
+      idx = (byte_addr >> 2) + 32'(word_off);
+      if (idx >= 32'(MEM_WORDS)) begin
+        errors = errors + 1;
+        $display("FAIL [mem bounds]: %s: byte_addr=0x%08h word_off=%0d -> word index %0d >= MEM_WORDS=%0d (out-of-range model-SRAM access)", who, byte_addr, word_off, idx, MEM_WORDS);
+        mem_ix = 0;
+      end else begin
+        mem_ix = int'(idx);
+      end
+    end
+  endfunction
+
+  always @(posedge clk) begin
+    if (dma_valid && dma_ready && (dma_addr >> (MEM_ADDR_BITS + 2)) != 32'd0) begin
+      errors = errors + 1;
+      $display("FAIL [mem window]: DMA beat at addr 0x%08h is outside the %0d-word model SRAM window (this TB never uses wraparound; aliasing would be silent)", dma_addr, MEM_WORDS);
+    end
+  end
 
   task automatic do_reset;
     int i;
@@ -366,6 +406,10 @@ module unpu_seq_tb;
       end
     end
   endfunction
+
+  // job_start pulse counter, shared by step_and_count and the run_op_* tasks.
+  // Declared before first use: IEEE 1800 requires it (Xcelium: *E,UNDIDN).
+  int job_start_count;
 
   task automatic step_and_count;
     begin
@@ -466,8 +510,8 @@ module unpu_seq_tb;
       $readmemh({"model/vectors/", name, "_w.hex"}, w_case);
       $readmemh({"model/vectors/", name, "_c.hex"}, c_case);
       for (r = 0; r < 4; r = r + 1) begin
-        mem[(base_a >> 2) + r] = {a_case[r][3], a_case[r][2], a_case[r][1], a_case[r][0]};
-        mem[(base_w >> 2) + r] = {w_case[r][3], w_case[r][2], w_case[r][1], w_case[r][0]};
+        mem[mem_ix(base_a, r, "preload_case A")] = {a_case[r][3], a_case[r][2], a_case[r][1], a_case[r][0]};
+        mem[mem_ix(base_w, r, "preload_case W")] = {w_case[r][3], w_case[r][2], w_case[r][1], w_case[r][0]};
       end
     end
   endtask
@@ -476,8 +520,6 @@ module unpu_seq_tb;
   // taking one extra settle cycle past `done` before returning so a
   // caller can immediately issue the next `start` without it being
   // dropped (DONE -> IDLE settle, see file header).
-  int job_start_count;
-
   task automatic run_op(input string label, input int drv_m, input int drv_k, input int drv_n,
                          input bit drv_mode_u, input logic [31:0] a_addr, input logic [31:0] b_addr,
                          input logic [31:0] c_addr, output bit ok);
@@ -517,9 +559,9 @@ module unpu_seq_tb;
       for (m = 0; m < drv_m; m = m + 1) begin
         for (j = 0; j < drv_n; j = j + 1) begin
           checks = checks + 1;
-          if (mem[(c_addr >> 2) + m * 4 + j] !== c_case[m][j]) begin
+          if (mem[mem_ix(c_addr, m * 4 + j, "check_writeback")] !== c_case[m][j]) begin
             errors = errors + 1;
-            $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", label, m, j, mem[(c_addr >> 2) + m * 4 + j], c_case[m][j]);
+            $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", label, m, j, mem[mem_ix(c_addr, m * 4 + j, "check_writeback")], c_case[m][j]);
           end
         end
       end
@@ -686,8 +728,8 @@ module unpu_seq_tb;
           e_w_case[rr][cc] = biased_byte(rng);
 
       for (rr = 0; rr < 4; rr = rr + 1) begin
-        mem[(base_a_i >> 2) + rr] = {e_a_case[rr][3], e_a_case[rr][2], e_a_case[rr][1], e_a_case[rr][0]};
-        mem[(base_w_i >> 2) + rr] = {e_w_case[rr][3], e_w_case[rr][2], e_w_case[rr][1], e_w_case[rr][0]};
+        mem[mem_ix(base_a_i, rr, "gen_and_load_op A")] = {e_a_case[rr][3], e_a_case[rr][2], e_a_case[rr][1], e_a_case[rr][0]};
+        mem[mem_ix(base_w_i, rr, "gen_and_load_op W")] = {e_w_case[rr][3], e_w_case[rr][2], e_w_case[rr][1], e_w_case[rr][0]};
       end
     end
   endtask
@@ -701,9 +743,9 @@ module unpu_seq_tb;
         for (jj = 0; jj < drv_n; jj = jj + 1) begin
           exp_val = ref_c_elem(e_w_case, e_a_case, mm, jj, drv_k, drv_mode_u);
           checks = checks + 1;
-          if (mem[(c_addr_i >> 2) + mm * 4 + jj] !== exp_val) begin
+          if (mem[mem_ix(c_addr_i, mm * 4 + jj, "check_writeback_ref")] !== exp_val) begin
             errors = errors + 1;
-            $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", lbl, mm, jj, mem[(c_addr_i >> 2) + mm * 4 + jj], exp_val);
+            $display("FAIL [%s]: mem C[%0d][%0d]=%0d expected %0d", lbl, mm, jj, mem[mem_ix(c_addr_i, mm * 4 + jj, "check_writeback_ref")], exp_val);
           end
         end
       end
@@ -858,7 +900,7 @@ module unpu_seq_tb;
       if (scan_rc != 4)
         $fatal(1, "could not parse model/vectors/%s_meta.txt (got %0d fields)", crv_name, scan_rc);
 
-      // Per-case address band, well separated (1024 words = 4KB apart),
+      // Per-case address band, well separated (1024 words = 4KB apart; MEM_ADDR_BITS covers the whole 0x10_0000..0x13_F240 band),
       // same convention as tb/unpu_dma_tb.sv (task 008).
       base_a = 32'h0010_0000 + (32'(i) * 32'd4096);
       base_w = base_a + 32'd256;
