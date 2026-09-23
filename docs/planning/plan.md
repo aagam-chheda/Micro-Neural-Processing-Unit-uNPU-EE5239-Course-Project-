@@ -1370,6 +1370,20 @@ the entire break-it campaign's ~882,000 checks, exact reconciled counts,
 proven identity with the APB-revert commit, and direct proof the test
 suite would actually catch a real defect if one existed.
 
+Real work, not RTL work, chased by email — does not gate freeze.
+
+- SCL 180 nm PDK access (lib files, tech/LEF, corner definitions) — needed
+  for steps 3 and 5.
+- IC Compiler access/setup confirmation — needed for step 5.
+- DRC/LVS/formal-equivalence/IR-drop tool decision — needed post-freeze, not
+  covered by this plan.
+- MNIST network shape (784→64 doesn't fit 32 KB SRAM) — needed to fill in
+  SRAM memory layout; not needed to write or freeze the RTL itself.
+- CNN vs MLP for the signoff test — same, needed for the firmware/test
+  content, not the RTL.
+- Who owns the arbiter RTL, us or the SoC team — affects co-design of
+  back-pressure behavior (step 11) but doesn't block writing our side.
+
 ## Xcelium cross-check — first run, 2026-09-23 — findings, task 030 written
 
 Server access obtained; repo cloned to `~/aagams_workspace/unpu` at
@@ -1408,17 +1422,3 @@ Execution can't run Xcelium (no license locally); the user pulls and runs
 it on the server. **Freeze v2 stands for RTL identity and functional
 scope, but its "cross-simulator" status is: not yet green. Addendum to
 follow once Xcelium passes all ten.**
-
-Real work, not RTL work, chased by email — does not gate freeze.
-
-- SCL 180 nm PDK access (lib files, tech/LEF, corner definitions) — needed
-  for steps 3 and 5.
-- IC Compiler access/setup confirmation — needed for step 5.
-- DRC/LVS/formal-equivalence/IR-drop tool decision — needed post-freeze, not
-  covered by this plan.
-- MNIST network shape (784→64 doesn't fit 32 KB SRAM) — needed to fill in
-  SRAM memory layout; not needed to write or freeze the RTL itself.
-- CNN vs MLP for the signoff test — same, needed for the firmware/test
-  content, not the RTL.
-- Who owns the arbiter RTL, us or the SoC team — affects co-design of
-  back-pressure behavior (step 11) but doesn't block writing our side.
