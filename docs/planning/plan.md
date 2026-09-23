@@ -1370,6 +1370,45 @@ the entire break-it campaign's ~882,000 checks, exact reconciled counts,
 proven identity with the APB-revert commit, and direct proof the test
 suite would actually catch a real defect if one existed.
 
+## Xcelium cross-check — first run, 2026-09-23 — findings, task 030 written
+
+Server access obtained; repo cloned to `~/aagams_workspace/unpu` at
+`bd3a814`, golden model rebuilt there (all self-checks pass), Xcelium
+22.09-s003 (tools require `csh` + `source cad_cshrc`; the bare bash shell
+has no `xrun` env). All ten testbenches run against unchanged RTL.
+
+| TB | Xcelium | Verilator floor |
+|---|---|---|
+| pe | all pass | pass |
+| grid | 12,474 pass | 12,474 |
+| skew | 17,665 pass | 17,665 |
+| stall | 5,732 / frozen 252,225, pass | 5,732 / 250,245 — **counts differ** |
+| buf | 17,975 pass | 17,975 |
+| dma | **753 failures** | 0 |
+| csr, apb | "ALL CHECKS PASSED" (counts not captured) | 20,041 / 32,545 |
+| seq | **compile error** | pass |
+| top | **compile error** | pass |
+
+Findings — all in testbenches so far, none pointing at RTL:
+1. `seq`/`top`: identifiers used before declaration (Xcelium enforces
+   IEEE, Verilator doesn't). 
+2. `dma`: CRV bases (`0x1_0000 + i*1024`) index a `MEM_WORDS=8192` model
+   SRAM out of range; 4-state sim drops the write, DUT reads `x`. Only the
+   CRV portion fails; directed cases (bases ≤ 0x7000) pass. **Diagnosis is
+   Planning's read of the source, to be confirmed by Execution.** If
+   confirmed, Verilator was tolerating out-of-range writes, so that
+   file's prior CRV "pass" needs re-weighing (data path still exercised,
+   but via accidental aliasing).
+3. `stall`: `frozen_checks` differs by 1,980 between simulators —
+   unexplained; must be root-caused, not re-floored.
+
+Task: `docs/planning/tasks/030-xcelium-fixes.md` (also adds
+`scripts/run_xrun.sh` that decides pass/fail from the log, not exit code).
+Execution can't run Xcelium (no license locally); the user pulls and runs
+it on the server. **Freeze v2 stands for RTL identity and functional
+scope, but its "cross-simulator" status is: not yet green. Addendum to
+follow once Xcelium passes all ten.**
+
 Real work, not RTL work, chased by email — does not gate freeze.
 
 - SCL 180 nm PDK access (lib files, tech/LEF, corner definitions) — needed
