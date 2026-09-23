@@ -52,7 +52,14 @@ module unpu_stall_tb;
   int errors;
   int checks;
   int frozen_checks;
-  int g_seed;
+  // Single seeded stream for baseline, crv and Part A draws. This used to be $random(g_seed)
+  // (task 030): $random's algorithm is implementation-defined -- Verilator
+  // implements its own (VL_RANDOM_SEEDED_II reseeds an internal xoshiro
+  // generator), Xcelium another -- so the same seed gave different stall
+  // lengths per simulator and frozen_checks differed (Verilator 250,245 vs
+  // Xcelium 252,225, a whole 44 stall cycles x 45 registers). Now drawn from
+  // this file's own xorshift32(), like Part B and every other campaign TB.
+  logic [31:0] g_rng;
 
   unpu_skew u_skew (
     .clk      (clk),
@@ -297,6 +304,15 @@ module unpu_stall_tb;
     end
   endfunction
 
+  // Advances g_rng one xorshift32 step and returns it modulo n. Every
+  // `base + draw_mod(n)` stall/freeze length in this file goes through here.
+  function automatic int unsigned draw_mod(input int unsigned n);
+    begin
+      g_rng = xorshift32(g_rng);
+      draw_mod = g_rng % n;
+    end
+  endfunction
+
   // ~1/8 chance of a boundary extreme, same discipline tasks 019-021
   // used, biased toward the values most likely to expose a wiring/width
   // bug instead of trusting uniform random to find them by chance.
@@ -489,7 +505,7 @@ module unpu_stall_tb;
         a_raw[3] = A_case[m_drv][3];
 
         if (do_stall && active_cyc == trigger_active_cyc) begin
-          stall_len = 1 + ($unsigned($random(g_seed)) % 5); // 1-5 cycles
+          stall_len = 1 + (draw_mod(5)); // 1-5 cycles
           $display("  stalling %0d cycle(s) at active_cyc=%0d (run=%s)",
                     stall_len, active_cyc, run_label);
           for (s = 0; s < stall_len; s = s + 1) begin
@@ -533,8 +549,8 @@ module unpu_stall_tb;
     errors        = 0;
     checks        = 0;
     frozen_checks = 0;
-    g_seed        = 32'h5EED_0005;
-    $display("stall RNG seed = 32'h%08h", g_seed);
+    g_rng         = 32'h5EED_0005;
+    $display("stall RNG seed = 32'h%08h", g_rng);
 
     // Baseline: no stall, re-confirms task 004's result and this tb's own
     // active_cyc bookkeeping before it's trusted for the stalled runs.
@@ -558,7 +574,7 @@ module unpu_stall_tb;
     // time is milliseconds per earlier tasks' runs, so there's no
     // runtime reason to stop short of full coverage). Trigger points are
     // clamped to each case's own active_cyc_max so they stay valid for
-    // M<4 cases -- see the file header note. g_seed keeps accumulating
+    // M<4 cases -- see the file header note. g_rng keeps accumulating
     // from the cross_terms runs above (same single seeded stream for the
     // whole file, printed once at the top), so stall_len draws inside
     // run_case() remain reproducible from that one seed. ====
@@ -623,9 +639,9 @@ module unpu_stall_tb;
       // at active_cyc 1, 4, and 8, each an independent random 1-10-cycle
       // duration, all 44 registers checked bit-exact through each. ----
       reset_dut();
-      fstarts[0] = 1; flens[0] = 1 + ($unsigned($random(g_seed)) % 10);
-      fstarts[1] = 4; flens[1] = 1 + ($unsigned($random(g_seed)) % 10);
-      fstarts[2] = 8; flens[2] = 1 + ($unsigned($random(g_seed)) % 10);
+      fstarts[0] = 1; flens[0] = 1 + (draw_mod(10));
+      fstarts[1] = 4; flens[1] = 1 + (draw_mod(10));
+      fstarts[2] = 8; flens[2] = 1 + (draw_mod(10));
       $display("---- Part A1: 3 freezes in one pass @active_cyc 1/4/8, durations %0d/%0d/%0d ----", flens[0], flens[1], flens[2]);
       run_pass_freezes("multi-freeze", 3, fstarts, flens, errs);
 
@@ -634,7 +650,7 @@ module unpu_stall_tb;
       // checked bit-exact on every cycle of the hold (not spot-checked),
       // since check_frozen() runs inside the freeze loop every cycle. ----
       reset_dut();
-      fstarts[0] = 5; flens[0] = 50 + ($unsigned($random(g_seed)) % 51);
+      fstarts[0] = 5; flens[0] = 50 + (draw_mod(51));
       $display("---- Part A2: extreme-duration freeze (%0d cycles) @active_cyc=5 ----", flens[0]);
       run_pass_freezes("extreme-duration", 1, fstarts, flens, errs);
 
@@ -643,12 +659,12 @@ module unpu_stall_tb;
       // active_cyc==7 (first C row would normally become valid) and
       // active_cyc==(M-1)+7 (last row's validity cycle). ----
       reset_dut();
-      fstarts[0] = 7; flens[0] = 1 + ($unsigned($random(g_seed)) % 5);
+      fstarts[0] = 7; flens[0] = 1 + (draw_mod(5));
       $display("---- Part A3a: freeze exactly at active_cyc==7 (first row's validity cycle), duration=%0d ----", flens[0]);
       run_pass_freezes("boundary-freeze-at-7", 1, fstarts, flens, errs);
 
       reset_dut();
-      fstarts[0] = (case_M - 1) + 7; flens[0] = 1 + ($unsigned($random(g_seed)) % 5);
+      fstarts[0] = (case_M - 1) + 7; flens[0] = 1 + (draw_mod(5));
       $display("---- Part A3b: freeze exactly at active_cyc==(M-1)+7=%0d (last row's validity cycle), duration=%0d ----", fstarts[0], flens[0]);
       run_pass_freezes("boundary-freeze-at-M-1+7", 1, fstarts, flens, errs);
 
@@ -660,7 +676,7 @@ module unpu_stall_tb;
       reset_dut();
       for (bidx = 0; bidx < 4; bidx = bidx + 1) begin
         fstarts[bidx] = 2 + bidx;
-        flens[bidx]   = 2 + ($unsigned($random(g_seed)) % 4);
+        flens[bidx]   = 2 + (draw_mod(4));
       end
       $display("---- Part A4: 4x zero-gap back-to-back freezes @active_cyc 2/3/4/5, durations %0d/%0d/%0d/%0d ----",
                 flens[0], flens[1], flens[2], flens[3]);
