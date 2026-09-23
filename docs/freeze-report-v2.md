@@ -1,5 +1,7 @@
 # RTL freeze report v2 — task 029, post-campaign re-certification
 
+> **Addendum 1** (task 031, at the end of this file) records the first cross-simulator (Xcelium) result, the task-030 testbench changes, the `unpu_stall` `frozen_checks` floor revision 250,245 → 250,560, and a re-run of the mutation spot-check against the current testbenches. The text below is the unmodified record of the task-029 pass.
+
 **Frozen commit:** `862d840a3c1d64e424b77d223b4a17032604fd4a`
 
 **Lineage:** first freeze (`87d31bf`, `docs/freeze-report.md`, task 015, pre-APB-revert,
@@ -299,3 +301,192 @@ than assumed carried over:
 If back-end work later reveals 50 MHz doesn't close, or DRC/LVS finds a
 macro-level problem, that reopens RTL — an accepted risk per `plan.md`'s
 freeze-gate section, not a defect in this freeze.
+
+---
+
+# Addendum 1 — Xcelium cross-check, task 030 testbench changes, mutation re-check (task 031)
+
+Appended after the task-029 record above; nothing above this line was rewritten
+(the only other edit to this file is the one-line pointer under the title).
+RTL identity, the mutation results and the regression counts below were
+observed by the Execution session on Verilator 5.053. **The Xcelium results in
+the first section were NOT observed by that session** — it cannot run Xcelium
+(local WSL, no license). They are quoted from the user's own server run, as
+relayed by the Planning session.
+
+## A1.1 Xcelium cross-check result (quoted from the user's server run)
+
+- **Tool:** Cadence Xcelium 22.09-s003, on the institute server.
+- **Command:** `git pull && bash scripts/run_xrun.sh` (task 030's runner, which
+  decides PASS/FAIL from each testbench's log rather than from `xrun`'s exit
+  code).
+- **Repo at:** `649bab6` or later; RTL identical to `9f5deab`.
+- **Result:** all ten testbenches PASS, with the same counts Verilator reports.
+  This is the first cross-simulator result in the project.
+
+| TB | Xcelium count (as printed by `run_xrun.sh`) | Verilator |
+|---|---|---|
+| `unpu_pe` | 65,536 + 65,536 exhaustive sweeps; 256 accumulator; 255 cycle-checks (weight-load timing); 11,702 cycle-checks / 35,106 signal-checks (adversarial) | identical |
+| `unpu_grid` | 12,474 | 12,474 |
+| `unpu_skew` | 17,665 | 17,665 |
+| `unpu_stall` | `checks`=5,732, `frozen_checks`=**250,560** | identical (see A1.3) |
+| `unpu_buf` | 17,975 | 17,975 |
+| `unpu_dma` | 19,009 | 19,009 |
+| `unpu_csr` | 20,041 | 20,041 |
+| `unpu_seq` | 19,840 | 19,840 |
+| `unpu_apb` | 32,545 | 32,545 |
+| `unpu_top` | 343,341 | 343,341 |
+
+Each run also printed two informational `*W` warnings. Planning describes them
+as the IEEE-1800-2009 semantics notices (`DSEMEL`/`DSEM2009`). **I did not see
+the Xcelium logs and have not confirmed the warning identity myself**; it is
+recorded here as reported, not observed.
+
+## A1.2 What task 030 changed, and why
+
+Testbench-only changes (commits `aba94f7`, `7151a60`); no RTL file changed.
+The first Xcelium run found testbench defects that Verilator's two-state,
+lenient semantics had hidden.
+
+1. **Use-before-declaration** (`seq`: `job_start_count`; `top`:
+   `bp_mode_extreme`, `force_stall`). IEEE 1800 requires declaration before use;
+   Xcelium enforces it, Verilator does not. Declarations moved above first use;
+   a scope-aware audit of all ten testbenches found no other instance.
+2. **Model-SRAM out-of-range indexing** (`dma`, `seq`, `top`). The CRV loops
+   placed cases beyond the end of each testbench's model SRAM (`dma`: bases from
+   `0x1_0000` against 8,192 words; `seq`/`top`: from `0x10_0000` against 65,536 /
+   2^18 words). **Verilator wrapped the out-of-range index** (checked directly:
+   readback at word 16,446 equalled `mem[16446 & 8191]`), and the DUT-facing
+   decode wrapped identically, so write and read aliased consistently. The old
+   `dma`/`seq`/`top` CRV passes were therefore **genuine, but did not exercise
+   address separation**: a DUT address bug that was a multiple of the alias
+   period would have been invisible. A 4-state simulator instead drops the
+   out-of-range write and the DUT reads `x`, which is the 753 `dma` failures
+   seen on Xcelium. Fixed by widening the model SRAMs (`dma` 2^15 words,
+   `seq`/`top` 2^19 words) so every case is in range by construction, with
+   bases, case count and jitter unchanged; every testbench-side computed index
+   now goes through a bounds-checked `mem_ix()`, and a DMA window monitor fails
+   any beat addressed beyond the decode unless the test has declared a
+   deliberate wraparound (`wrap_expected`). Address separation is now covered;
+   A1.4 (mutations 4 and 7) demonstrates it.
+3. **`$random(seed)` → `xorshift32`** (`stall`). Eight baseline/CRV/Part-A
+   stall-length draws used `$random(g_seed)`, whose algorithm is
+   implementation-defined (Verilator reseeds its own generator; Xcelium uses
+   another), so the same seed produced different stall lengths per simulator.
+   They now draw from the file's own `xorshift32` (same seed
+   `32'h5eed0005`, same ranges). No race was involved. Kept in its own commit
+   (`7151a60`) so it is independently revertible.
+
+## A1.3 Floor revision: `unpu_stall` `frozen_checks` 250,245 → 250,560
+
+The task-029 tables above cite `frozen_checks` = 250,245; that figure is
+**superseded by 250,560**. The reason is the stimulus source (item 3 above),
+not what is checked: the same freeze-check code runs, the seed, ranges and
+`checks` (5,732) are unchanged, but the concrete random stall lengths differ.
+Arithmetic: every stalled cycle checks 45 items (44 probed registers plus
+`active_cyc`), so `frozen_checks` = 45 × (total stalled cycles):
+250,245 = 45 × 5,561 (old `$random` stream) and **250,560 = 45 × 5,568** (new
+`xorshift32` stream). The +315 is seven more stalled cycles. The new value is
+identical on Verilator (Execution) and Xcelium (user's server run).
+
+## A1.4 Mutation re-check against the post-030 testbenches (task 031 Part A)
+
+Task 029 Part F was run against the testbenches as they were at `bd3a814`.
+Task 030 then edited four of them, so the "the suite has teeth" claim was
+re-proved at current HEAD (`a7ae354`), with four new mutations aimed at what
+task 030 changed.
+
+**Method.** One throwaway worktree (`git worktree add --detach
+../unpu-mutation-check HEAD`, outside the tracked tree, golden vectors
+regenerated there and confirmed byte-identical to the main tree's). A
+**control run of all ten testbenches passed with the expected counts before any
+mutation**; each mutation was applied on its own, **all ten testbenches** were
+built and run, the mutation was reverted (`git checkout -- rtl tb`, empty
+`git diff` confirmed), and **a full control re-ran clean (10/10, expected
+counts) after each of the 13 mutations 1–4c, 5a–5c, 6 and 7a–7c**. Experiment
+5d and the pre-task-030 comparison runs were reverted and confirmed by an empty
+`git status`/`git diff` instead, without a separate control. Failure numbers
+are each testbench's own reported total. Nothing was committed.
+
+| # | Mutation (RTL, applied in the worktree only) | Caught by (failures) | First FAIL line (log order) |
+|---|---|---|---|
+| 1 | `unpu_seq.sv`: `cycle == m_lat + 4'd6` → `+ 4'd5` | `seq` 6,537; `top` 113,373 | `FAIL [cross_terms]: mem C[3][0]=0 expected 43` (last row dropped — points at COMPUTE exiting early) |
+| 2 | `unpu_pe.sv`: `if (mode_unsigned)` → `if (!mode_unsigned)` | `pe` 106,273; `grid` 6,787; `skew` 4,432; `stall` 4,488; `buf` 13,200; `seq` 14,910; `top` 256,827 | `pe`: `VECTOR 5 FAIL (psum_out): signed 0xFF*0xFF = (-1)*(-1) = 1 -- exp=1 got=65025` |
+| 3 | `unpu_dma.sv`: `cur_m * 32'd16` → `32'd15` | `dma` 1,774; `seq` 10,478; `top` 177,969 | `FAIL [cross_terms WRITE_C]: mem C[0][3]=19 expected 8` (row-stride corruption) |
+| 4a | `unpu_dma.sv` `dma_addr` bit 15 forced low (`~32'h0000_8000 &`) | `dma` 573; `seq` 15,714; `top` 17,917 | `dma`: `FAIL [crv_0032 post-swap actbuf]: active[0][0]=0 expected 94` (first case with bit 15 set: 0x10000+32·1024); `seq`/`top`: `[post-error recovery: cross_terms]: mem C[0][0]=0 expected 7` |
+| 4b | bit 16 forced low (`~32'h0001_0000 &`) | `dma` 883; `seq` 15,976; `top` 17,939 | `dma`: `[crv_0000 post-swap actbuf]: active[0][0]=0 expected 169`; `seq`/`top`: `[crv_0016]: mem C[0][0]=0 expected 15336` |
+| 4c | bit 20 forced low (`~32'h0010_0000 &`) | `dma` 135; `seq` 372; `top` 18,090 | `dma`: `[partA1-wraparound]: beat 0 addr=ffeffff0 expected=fffffff0`; `seq`/`top`: `[crv_0000]: mem C[0][0]=0 expected 4294964374` |
+| 5a | `dma_addr` bit 30 stuck at 1 (`32'h4000_0000 \|`), i.e. above every decode, in ordinary ops | `dma` 5,286 (5,152 window + 134 exact-address); `seq` 30,493 and `top` 481,749 — **all window-monitor failures** (data checks pass, as the decode ignores that bit) | `FAIL [mem window]: DMA beat at addr 0x40001100 is outside the ... model SRAM window` |
+| 5b | bit 21 stuck at 1 (`32'h0020_0000 \|`) | identical counts to 5a | `FAIL [mem window]: ... addr 0x00201100 ...` |
+| 5c | bit 21 stuck at 1 **only when `base_lat[31:16]==16'hFFFF`** (wraparound ops only) | `dma` 14 (exact address compare); `seq` and `top` **pass** | `dma`: `[partA1-wraparound]: beat 4 (m=1,j=0) addr=200000 expected=0` |
+| 5d | *Testbench* experiment on clean RTL: every `wrap_expected` assignment forced to 0 (exemption removed) | `dma` 135 and `top` 22,739 window failures, `seq` 0 (it has no wrap ops) | `FAIL [mem window]: DMA beat at addr 0xfffffff0 ...` / `0xffffffe0 ...` |
+| 6 | `unpu_deskew.sv`: `array_en` hold removed from **one register, `col0_q3`** (updates every cycle) | `stall` 336; `skew` 1,842 (other TBs have no mid-compute stall and pass) | `stall`: `FAIL FREEZE [late stall cyc 1/4]: u_deskew.col0_q3 changed` — names the mutated register; `skew`: `[freeze-sweep-fullchain[fp=6]]: c_out[0] changed during frozen cycle` |
+| 7a | *Testbench* mutation, clean RTL: `unpu_dma_tb` `MEM_ADDR_BITS` 15 → 13 (old 8,192-word model) | `dma` 2,693, of which **1,259 `mem bounds` + 686 `mem window`** | `FAIL [mem bounds]: preload_case A: byte_addr=0x000100f8 ... word index 16446 >= MEM_WORDS=8192` |
+| 7b | `unpu_seq_tb` `MEM_ADDR_BITS` 19 → 16 (old 65,536 words) | `seq` 2,317: **1,259 + 686** | `[mem bounds]: preload_case A: byte_addr=0x00100000 ... index 262144 >= MEM_WORDS=65536` |
+| 7c | `unpu_top_tb` `MEM_ADDR_BITS` 19 → 18 (old 2^18 words) | `top` 2,317: **1,259 + 686** | `[mem bounds]: preload_case A: byte_addr=0x00100000 ... index 262144 >= MEM_WORDS=262144` |
+
+Mutations 1–3 reproduce task 029 Part F exactly (`seq` 6,537 identical;
+task 029's `pe` 106,276 and `dma` 1,775 counted every log line containing
+`FAIL`, which includes a few summary lines — on that basis they reproduce
+exactly; the testbenches' own totals are 106,273 and 1,774). **Every mutation
+1–7 was caught; none survived.** The mutation-7 numbers (1,259 + 686) reproduce
+task 030's; the remaining failures in 7a–7c are downstream data mismatches from
+`mem_ix()` clamping a bad index to 0 after reporting it.
+
+**Was the address-alias gap real?** Yes. Mutations 4a–4c were also run against
+the pre-task-030 testbenches (`629380e`), with the same RTL mutation:
+
+| RTL mutation | pre-030 `dma` | pre-030 `seq` | pre-030 `top` | post-030 `dma` / `seq` / `top` |
+|---|---|---|---|---|
+| 4a bit 15 low | 135 (Part A1 wraparound only) | 15,714 | 17,917 | 573 / 15,714 / 17,917 |
+| 4b bit 16 low | 135 (Part A1 only) | 15,976 | 17,939 | 883 / 15,976 / 17,939 |
+| 4c bit 20 low | 135 (Part A1 only) | **PASS** | **PASS** | 135 / **372** / **18,090** |
+
+Before task 030, `dma`'s CRV portion did not see bit-15/16 aliasing at all
+(only the directed exact-address wraparound test did), and **a bit-20 alias
+survived `seq` and `top` entirely** (both PASS at their full 19,840 / 343,341
+checks). All three are now caught, and 4a/4b are now caught inside `dma`'s CRV
+loop itself. This is the concrete gain of task 030 item 2.
+
+**Observations, not survivors:**
+
+- **5a/5b:** in `seq` and `top` the *only* thing that fails is the new window
+  monitor — the data checks correctly pass, since the decode ignores those
+  bits. The monitor is therefore a detector with unique reach, not redundant.
+- **5d:** with the exemption removed on unmutated RTL, window failures appear
+  only in `dma` and `top` (the two testbenches with intentional wraparound ops)
+  and `seq` has none; with it in place there are zero. So every beat the
+  monitor would flag lies inside a declared wraparound window.
+- **5c (a limit, pre-existing):** a bug that acts *only during wraparound ops*
+  and only on a bit above the decode is caught by `dma` (its wraparound tests
+  compare the exact 32-bit address sequence) but **not by `top`**, whose
+  wraparound ops are exempt from the monitor and whose data check aliases
+  through the same decode. `top`'s wraparound tests verify data correctness
+  through the low bits, not full-width address exactness; `dma` carries that
+  property. `top` used the same wrap decode before task 030, so this is not a
+  regression.
+- 6 was run on a deskew register; the freeze property is checked only by
+  `stall` and `skew` (the system-level testbenches never drop `array_en`
+  mid-compute), as expected.
+
+**Cleanup, with evidence.** After the last experiment: `git worktree remove
+--force ../unpu-mutation-check` and `git worktree prune`; `git worktree list`
+shows only `/home/aagam_chheda/Projects/unpu a7ae354 [main]`; the worktree
+directory no longer exists; `git status --short` in the main tree was empty
+before this addendum was written.
+
+## A1.5 RTL identity re-verified
+
+`git diff 9f5deab..HEAD -- rtl/` is empty (0 bytes, no `--stat` lines) at
+`a7ae354`, the commit the mutation re-check ran against, and it is re-verified
+again immediately before this addendum is committed. Task 031 added no RTL and
+no testbench change.
+
+## A1.6 What this freeze still does **not** cover
+
+Unchanged, restated deliberately: **no timing/STA** (50 MHz closure unconfirmed;
+Genus/IC Compiler trials remain blocked on PDK/tool access), **no
+DRC/LVS/formal-equivalence signoff**, **no firmware**, and **no scan-chain/BIST
+simulation**. Additionally, the Xcelium result above is one server run on one
+tool version; it establishes that the ten testbenches agree across two
+simulators, not that they would agree on a third.
