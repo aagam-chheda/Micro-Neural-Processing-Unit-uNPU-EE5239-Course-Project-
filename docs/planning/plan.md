@@ -1422,3 +1422,38 @@ Execution can't run Xcelium (no license locally); the user pulls and runs
 it on the server. **Freeze v2 stands for RTL identity and functional
 scope, but its "cross-simulator" status is: not yet green. Addendum to
 follow once Xcelium passes all ten.**
+
+### Task 030 result (Execution, `aba94f7` + `7151a60`) — Verilator green, Xcelium re-run pending
+
+RTL untouched (`git diff 9f5deab..HEAD -- rtl/` empty, re-verified by Planning).
+Verilator: all ten green, every count unchanged except `unpu_stall`
+`frozen_checks` 250,245 → **250,560** (see below). Also passed with
+`--x-initial unique` / random reset at two seeds, identical counts.
+
+1. **Use-before-declaration** fixed (`seq_tb`: `job_start_count`; `top_tb`:
+   `bp_mode_extreme`, `force_stall`); scope-aware audit script found no others.
+   Xcelium stops at the first error per file, so `seq`/`top` may still
+   surface more Xcelium-only errors.
+2. **`dma` diagnosis confirmed.** Verilator wraps out-of-range indices
+   (`mem[16446]` read back as `mem[16446 & 8191]`), and the DUT decode wraps
+   the same way, so the old CRV passes were genuine but never exercised
+   address *separation* (a DUT address bug that was a multiple of the 32 KiB
+   alias period would have been invisible). Same latent bug in `seq` and
+   `top`. Fixed by widening model SRAMs (dma 2^15, seq/top 2^19 words);
+   bounds checks (`mem_ix()`) plus a DMA-window monitor now fail loudly,
+   with `wrap_expected` set only around intentional wraparound tests. Shown
+   to fire (1,259 bounds + 686 window failures) in scratch copies.
+3. **`stall` count difference: not a race.** Eight `$random(seed)` sites use
+   a simulator-defined algorithm, so Xcelium drew different stall lengths.
+   Replaced by `draw_mod(n)` (xorshift32, same seed `32'h5eed0005`, same
+   ranges/checks). Xcelium's exact algorithm was not reproduced — mechanism
+   rests on the count arithmetic (250,245 = 45×5,561; Xcelium's excess =
+   45×44) and Verilator's source. The new floor for `frozen_checks` is
+   **250,560**. Separate commit (`7151a60`) so it's independently revertible.
+4. `scripts/run_xrun.sh`: pass/fail from log content (not exit code), per-TB
+   counts, exit 1 on failure / 2 on environment problem. Tested against a
+   fake `xrun` shim only; not shellchecked (not installed).
+
+**Freeze-report consequence:** the `unpu_stall` floor in
+`docs/freeze-report-v2.md` (250,245) is superseded by 250,560. Addendum to
+follow after the Xcelium run passes all ten.
