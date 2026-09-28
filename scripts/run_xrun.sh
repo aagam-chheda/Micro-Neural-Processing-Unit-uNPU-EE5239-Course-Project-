@@ -7,6 +7,12 @@
 #
 #   bash scripts/run_xrun.sh                # all ten testbenches
 #   bash scripts/run_xrun.sh dma seq top    # just these
+#   bash scripts/run_xrun.sh ext1 ext2      # the two adapted external
+#                                           # testbenches (task 032)
+#
+# ext1/ext2 are NOT in the default list: the default stays the frozen ten
+# (the freeze report quotes "ten testbenches"); the external pair is
+# additional and is reported separately.
 #
 # Environment:
 #   XRUN_FLAGS   extra flags appended to every xrun invocation (e.g. a
@@ -30,6 +36,8 @@
 set -u
 
 ALL_TBS=(pe grid skew stall buf dma csr seq apb top)
+# Accepted by name only, never run by default (task 032).
+EXTRA_TBS=(ext1 ext2)
 
 # The one line each TB prints only when it finished with errors == 0. Kept
 # in step with the tb/*.sv sources; the simple TBs share "ALL CHECKS PASSED".
@@ -39,6 +47,7 @@ pass_regex() {
     grid)  echo '^ALL TASK 013 \+ TASK 020 GRID CHECKS PASSED' ;;
     skew)  echo '^ALL TASK 013 \+ TASK 021 SKEW/DESKEW CHECKS PASSED' ;;
     stall) echo '^ALL TASK 005/013 \+ TASK 022 STALL CHECKS PASSED' ;;
+    ext1|ext2) echo '^ALL TESTS PASSED' ;;
     *)     echo '^ALL CHECKS PASSED' ;;
   esac
 }
@@ -66,6 +75,7 @@ count_lines() {
 usage() {
   sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
   echo "Testbench names: ${ALL_TBS[*]}"
+  echo "Additional (by name only, not in the default run): ${EXTRA_TBS[*]}"
 }
 
 # Always work from the repo root, wherever the script was invoked from: the
@@ -86,9 +96,9 @@ fi
 
 for t in "${TBS[@]}"; do
   ok=0
-  for k in "${ALL_TBS[@]}"; do [ "$t" = "$k" ] && ok=1; done
+  for k in "${ALL_TBS[@]}" "${EXTRA_TBS[@]}"; do [ "$t" = "$k" ] && ok=1; done
   if [ "$ok" -ne 1 ]; then
-    echo "run_xrun.sh: unknown testbench '$t' (valid: ${ALL_TBS[*]})" >&2
+    echo "run_xrun.sh: unknown testbench '$t' (valid: ${ALL_TBS[*]} ${EXTRA_TBS[*]})" >&2
     exit 2
   fi
 done
