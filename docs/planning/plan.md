@@ -1524,3 +1524,40 @@ adding signed corners, replacing the masked 64 KB SRAM and `$urandom` with the
 task-030 idioms, and requiring the four task-031 mutations to be caught. RTL
 stays frozen; a failure on clean RTL is a stop-and-report finding. Default
 runner list (the frozen ten) is unchanged. Awaiting the user's go to dispatch.
+
+## Task 032 result (Execution, uncommitted, held for the peer's OK)
+
+Both adapted testbenches pass on clean RTL under Verilator: `ext1` 34 checks,
+`ext2` 15,231 checks (325 rounds, 325 passed; seeds 0x5EEDE200 / 0x5EEDE201).
+Randomized-init runs (six seeds) give identical counts. Full existing
+regression unchanged (all ten green, counts as in Addendum 1). RTL identity
+holds (`git diff 9f5deab..HEAD -- rtl/` empty). Checked by Planning:
+working tree has only `scripts/run_xrun.sh` modified, the two new TBs
+untracked, `temp/` unchanged, `git worktree list` shows only the main tree.
+
+Mutations (task 031 #1-#4, throwaway worktree, controls clean): every one is
+caught by `ext2` (2,032 / 6,636 / 5,152 / 3,872 / 3,712 / 3,632 failures for
+#1, #2, #3, #4a bit 15, #4b bit 16, #4c bit 20). `ext1` alone misses #2 and
+#4 by construction (1..16 is identical signed/unsigned; 4 KiB window never
+sets high address bits). Peer's test left as written.
+
+Dropped or replaced: standalone `unpu_dma` watchdog, `DEAD_BEEF` (ours reads
+0 for unmapped offsets), rows x cols factorisation (now the full 64-combo
+M/N/K sweep, both modes), CTRL soft-reset (ours has none; rst_n mid-load
+instead). Added signed corners and an address-sequence check on every DMA
+beat.
+
+Observations for the project (not TB failures, RTL untouched):
+1. `npu_status[4:2]` (error_code) keeps its last value with ERROR=0, so after
+   an illegal-config op later legal ops read status 0x5 until reset. By the
+   documented "meaningful only while error=1", but firmware must test bits
+   [1:0], not the whole word. Belongs in the firmware notes.
+2. No hardware watchdog: a never-ready SRAM hangs the block until `rst_n`.
+   Not a spec requirement anywhere in the record; flag to the user.
+3. `ext2`'s random sweep cannot reach address bits above the 2 MiB window;
+   `top_tb` wraparound cases and `dma_tb` own that.
+
+Pending: user relays the peer's OK -> Execution commits TBs + runner change
+and pushes -> user runs `git pull --ff-only` and `bash scripts/run_xrun.sh
+ext1 ext2` on the server (expect 34 and 15,231) -> Planning writes
+Addendum 2.
