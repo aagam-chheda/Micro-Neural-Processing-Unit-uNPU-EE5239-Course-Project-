@@ -2,6 +2,8 @@
 
 > **Addendum 1** (task 031, at the end of this file) records the first cross-simulator (Xcelium) result, the task-030 testbench changes, the `unpu_stall` `frozen_checks` floor revision 250,245 → 250,560, and a re-run of the mutation spot-check against the current testbenches. The text below is the unmodified record of the task-029 pass.
 
+> **Addendum 2** (task 033, at the end of this file) records the independent cross-check with two adapted peer testbenches, `ext1` and `ext2` (task 032): what they are, the per-test disposition, the Verilator and Xcelium results, and a re-run of mutations #1–#4 against them. They are additional to the frozen ten.
+
 **Frozen commit:** `862d840a3c1d64e424b77d223b4a17032604fd4a`
 
 **Lineage:** first freeze (`87d31bf`, `docs/freeze-report.md`, task 015, pre-APB-revert,
@@ -490,3 +492,167 @@ DRC/LVS/formal-equivalence signoff**, **no firmware**, and **no scan-chain/BIST
 simulation**. Additionally, the Xcelium result above is one server run on one
 tool version; it establishes that the ten testbenches agree across two
 simulators, not that they would agree on a third.
+
+---
+
+# Addendum 2 — independent cross-check with two adapted peer testbenches, `ext1` / `ext2` (task 032)
+
+Appended after Addendum 1 above; nothing above this line was rewritten (the only
+other edit to this file is the one-line pointer under the Addendum 1 pointer at
+the top). The Verilator results, the mutation table and the RTL identity below
+were observed by the Execution session on Verilator 5.053. **The Xcelium
+results in A2.3 were NOT observed by that session** — it cannot run Xcelium
+(local WSL, no license). They are quoted from the user's own server run, as
+relayed by the Planning session.
+
+## A2.1 What was run and where it came from
+
+`tb/unpu_ext1_tb.sv` and `tb/unpu_ext2_tb.sv` (commit `f374e60`) were adapted
+in task 032 from two testbenches written by a peer for a **DiP-array
+(diagonal-input, permuted-weight) implementation of the same course project**.
+The author is not named here. The peer agreed to the adapted versions being
+committed to this repository (relayed by the user).
+
+They matter because they were written **independently of this repository's
+testbenches and of `model/golden.c`**. The peer's own approach was kept: an
+in-testbench software reference model, computed from the operands as they sit
+in SRAM rather than from `model/vectors`, extended here to a 32-bit
+accumulator and to both signed and unsigned interpretation. If a design
+misreading were shared between `model/golden.c` and this repo's own testbenches,
+these are the checks that could disagree with it. `ext1` is the peer's
+single-case smoke test (W = A = 1..16); `ext2` is the peer's stress testbench.
+The peer's `behavioral_sram` was folded into `ext2` as a local model (one
+module per file). Both files carry a header stating the source, what changed
+and what was dropped.
+
+## A2.2 Per-test disposition (from the header of `tb/unpu_ext2_tb.sv`, checked against it)
+
+| Original test | Disposition | What happened and why |
+|---|---|---|
+| `tb1` single 1..16 case | ADAPTED → `ext1` | Registers, job shape and byte order mapped to this design; run in both modes; result region sentinel-filled before each pass |
+| `tb2` 1 reset behaviour | ADAPTED | `npu_status` and all eight registers read 0 after reset |
+| `tb2` 2 APB register map | ADAPTED | Five peer registers → our eight; `MATRIX_CFG` → `dim_m`/`dim_n`/`dim_k` (bits [2:0] only). The peer expected `32'hDEAD_BEEF` for unmapped reads; this design returns 0 and ignores writes to unmapped offsets, so that is what is tested |
+| `tb2` 3 invalid rows/cols config | ADAPTED | `dim_m`, `dim_n`, `dim_k` each 0, 5, 7 → ERROR, `error_code` 1, sticky, no DMA beat. The peer cleared with a soft-reset pulse; this design has none, so the tested clearing path is the next legal START from the ERROR state |
+| `tb2` 4 extreme-value corners | ADAPTED, every round in both modes | Plus the added signed corners (below) |
+| `tb2` 5 rows × cols factorisations of 16 | REPLACED | The peer's 1×16..16×1 is a shape of its own DMA. Replaced by the full legal `dim_m`, `dim_k`, `dim_n` ∈ 1..4 sweep: all 64 combinations × both modes, each with a sentinel check that words outside the M×N result are untouched |
+| `tb2` 6 overlapping / adjacent regions | ADAPTED | W, A and C regions directly adjacent |
+| `tb2` 7 soft-reset mid-transfer | REPLACED | `npu_ctrl` has no soft reset (bit0 START, bit1 SIGNED). Equivalent for this design: `rst_n` asserted mid-load, then idle status, cleared registers, no bus activity, and a correct round afterwards |
+| `tb2` 8 redundant START while busy | ADAPTED | The redundant START carries a different `src_a` and the opposite SIGNED bit; the test proves the busy window was hit and that no second op follows |
+| `tb2` 9 back-to-back rounds | ADAPTED | Both modes |
+| `tb2` 10 standalone `unpu_dma` watchdog | DROPPED, with an equivalent REPLACEMENT | The peer instantiated its own `unpu_dma` (`start`/`cfg_rows`/`cu_*`, `TIMEOUT_CYCLES`); this repo's `unpu_dma` has a different `job_*` interface, and no module here has a timeout or watchdog (a grep of `rtl/` for `timeout`/`watchdog` is empty). Replaced by a stuck-SRAM test: with the SRAM never ready for 1,000 cycles the block holds quietly (no ERROR, no DONE, request stays asserted, zero beats accepted) and completes correctly once ready returns |
+| `tb2` 11 randomized regression | ADAPTED | 60 iterations × both modes; addresses across the whole 2 MiB model window, distinct and in range by construction |
+| protocol checker (`dma_*` stable while `valid && !ready`) | KEPT | |
+| global watchdog | KEPT | Now also a counted failure |
+
+**Added in task 032, not in the originals:**
+
+- **Signed corner cases** (the originals are unsigned-only): every ordered pair
+  of constant matrices from {`0x80` (−128), `0x7F` (+127), `0xFF` (−1)} for W
+  and A (nine pairs, including `0x7F`×`0x80` and `0x7F`×`0xFF`), plus two
+  mixed-lane patterns, each in both modes.
+- **Per-beat DMA address-sequence check.** Every accepted DMA beat is logged
+  and compared with the sequence `rtl/unpu_dma.sv` documents: W rows at
+  `src_b + 4k`, A rows at `src_a + 4m`, then C at `dest + 16m + 4j` with
+  `wstrb` 4'hF and the reference value as write data (count, order, address,
+  strobe). This covers first and last beat of each stream and pins the fetch
+  order (W first).
+- **Model-SRAM honesty** (task 030's lesson): a 2 MiB window, any DMA beat
+  above it is a counted failure, every TB-side index bounds-checked; the
+  peer's model masked any 32-bit address into 64 KiB.
+- **Portable randomness:** `$urandom` / `$urandom_range` replaced by the
+  `xorshift32` idiom of `unpu_stall_tb.sv`, so check counts do not depend on
+  the simulator's RNG.
+
+## A2.3 Results
+
+| | `ext1` | `ext2` |
+|---|---|---|
+| Verilator 5.053 (clean RTL) | 34 checks | 15,231 checks; rounds: 325 run, 325 passed |
+| Xcelium 22.09-s003 (institute server, `f374e60`) — **quoted, not observed by Execution** | 34 checks, PASS | 15,231 checks, PASS; rounds: 325 run, 325 passed |
+
+- **Seeds** printed by `ext2`: `SEED_MAIN=0x5EEDE200` (operands, addresses,
+  modes) and `SEED_SRAM=0x5EEDE201` (SRAM ready draws). `ext1` uses no
+  randomness.
+- **Randomized initial state.** Both testbenches were also run under
+  `--x-initial unique --x-assign unique` with `+verilator+rand+reset+2` and
+  seeds 1, 7, 12345, 99, 4242 and 31337: all six seeds pass with counts
+  identical to the fixed-init run (34 and 15,231).
+- **A testbench bug found this way, and fixed before commit:** with seed 12345
+  `ext1` reported a spurious "DMA beat outside the window" failure. The window
+  monitor was sampling the DUT's power-up flop state before the first clock edge
+  under reset. It is now gated by `rst_n` in both files. It was a testbench
+  fault, not a DUT beat.
+- **Xcelium:** run on the institute server with `bash scripts/run_xrun.sh ext1
+  ext2` after `git pull --ff-only`. Each run reportedly printed two
+  informational `*W` warnings; Planning describes them as in Addendum 1. **I did
+  not see the Xcelium logs and have not confirmed the warning identity myself**;
+  it is recorded as reported, not observed.
+
+## A2.4 Mutation check against the ext pair (task 031 mutations #1–#4, re-run for this addendum)
+
+Method as task 031: a throwaway worktree (`git worktree add --detach
+../unpu-mutation-check HEAD`, outside the tracked tree), one mutation applied at
+a time, the mutation reverted (`git checkout -- rtl`, empty `git diff -- rtl`
+confirmed) before the next, **a clean control run of both testbenches before the
+first mutation and again after each of the six**, nothing committed, worktree
+removed with `git worktree remove --force` and `git worktree prune`. Run at
+`78b2b23`. **These numbers were re-derived by re-running, not copied from task
+032's report, and they reproduce it exactly (no discrepancy)**; all seven control
+runs (each running both testbenches) passed with 34 and 15,231 checks.
+
+Failure counts are the testbenches' own totals (`N failure(s)`).
+
+| Mutation | `ext1` | `ext2` | First `FAIL` line |
+|---|---|---|---|
+| #1 `unpu_seq.sv`: `COMPUTE` stop `cycle == m_lat + 4'd6` → `+ 4'd5` | **caught**, 8 | **caught**, 2,032 | `ext1`: `FAIL: MISMATCH out[3][0]: got=0 expected=426 (word 76) unsigned mode`; `ext2`: `FAIL [invalid_cfg dim_m=0 -> legal recovery round]: C[1][0] expected=52353 (0x0000cc81) got=0 (0x00000000)` |
+| #2 `unpu_pe.sv`: `if (mode_unsigned)` → `if (!mode_unsigned)` | **not caught** (34 checks pass) | **caught**, 6,636 | `ext2`: `FAIL [invalid_cfg dim_m=0 -> legal recovery round]: C[0][0] expected=21774 (0x0000550e) got=14 (0x0000000e)` |
+| #3 `unpu_dma.sv`: writeback stride `cur_m * 32'd16` → `32'd15` | **caught**, 26 | **caught**, 5,152 | `ext1`: `FAIL: MISMATCH out[0][3]: got=202 expected=120 (word 67) unsigned mode`; `ext2`: `FAIL [invalid_cfg dim_m=0 -> legal recovery round]: word outside the 2x2 result at C[0][3] was touched: got 0x0000cc81, sentinel 0x1b506fdd` |
+| #4a `unpu_dma.sv` `dma_addr` bit 15 forced low | **not caught** | **caught**, 3,872 | `ext2`: `FAIL [random[0] src=0x00000000 dst=0x001fffc0 mode=0 [unsigned]]: C[0][0] expected=38195 (0x00009533) got=731353483 (0x2b97918b)` |
+| #4b bit 16 forced low | **not caught** | **caught**, 3,712 | same first line as #4a |
+| #4c bit 20 forced low | **not caught** | **caught**, 3,632 | same first line as #4a |
+
+**No mutation survived the pair.** `ext2` catches every one.
+
+**Why `ext1` alone misses #2 and #4.** Both are properties of the peer's test as
+written, not defects in it. `ext1`'s operands (1..16, all below 128) mean the
+signed and unsigned interpretations produce identical words, so a polarity flip
+that swaps them is invisible. Its 4 KiB SRAM window never drives the address
+bits that mutations 4a–4c clear (bits 15, 16, 20), so an aliasing bug on those
+bits cannot show. `ext2` adds the signed corner cases and sweeps addresses
+across a 2 MiB window, and catches all of them. In `ext2` the directed rounds
+use low addresses, so the address-bit mutations are first caught by the random
+sweep (iteration 0, destination `0x001fffc0`).
+
+## A2.5 Observations about the design (not defects; RTL unchanged)
+
+1. **`npu_status[4:2]` (`error_code`) keeps its last value while ERROR = 0.**
+   After an illegal-config op, every later legal op reads status `0x5` (DONE +
+   code 1) until reset. This is by the documented "meaningful only while
+   `error=1`" (`unpu_seq`), passed through ungated by `unpu_csr`. Firmware must
+   test `npu_status[1:0]` for done and error, and read the code only when ERROR
+   is 1. `ext2` compares `npu_status[1:0]` for that reason; its first draft
+   asserted the whole word and failed on this, which was an adaptation error,
+   not an RTL defect.
+2. **There is no hardware watchdog.** A never-ready SRAM hangs the block until
+   `rst_n`. No requirement in the record asks for one. If wanted, it belongs in
+   the SoC arbiter or as a firmware-side software timeout.
+3. **`ext2`'s random sweep covers a 2 MiB window** and cannot reach address bits
+   above it. Full-width address exactness under wraparound remains carried by
+   `unpu_dma_tb` and, for data, `unpu_top_tb` (see the known limit in A1.4).
+
+## A2.6 RTL identity
+
+`git diff 9f5deab..HEAD -- rtl/` is empty (0 bytes, no `--stat` lines),
+re-verified immediately before this addendum was committed. Task 032 and this
+addendum add no RTL, no change to the ten frozen testbenches, no change to
+`model/golden.c` and no change to the runner's default list.
+
+## A2.7 What this freeze still does **not** cover
+
+Unchanged, restated deliberately: **no timing/STA** (50 MHz closure
+unconfirmed), **no DRC/LVS/formal-equivalence signoff**, **no firmware**, and
+**no scan-chain/BIST simulation**. `ext1` and `ext2` are **additional to, not
+part of, the frozen ten**: `scripts/run_xrun.sh`'s default list is unchanged and
+still runs exactly ten testbenches, and the freeze report's "ten testbenches"
+statements stand. The Xcelium result for the pair is one server run on one tool
+version.
