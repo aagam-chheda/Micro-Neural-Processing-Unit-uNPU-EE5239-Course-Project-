@@ -1575,3 +1575,18 @@ results, the mutation table (re-derived, not copied), the three design
 observations (sticky error_code, no watchdog, ext2 address reach), RTL
 identity, and what is still uncovered. Frozen ten and the runner default
 are unchanged.
+
+## Task 033 result (Execution, 9bb3b32)
+
+Addendum 2 appended to `docs/freeze-report-v2.md` (166 lines added, 0
+removed; sections A2.1–A2.7; pointer line added under Addendum 1's). Checked
+by Planning: local = origin = `9bb3b32`, only that file changed, RTL diff
+against `9f5deab` empty. Mutation numbers re-derived, identical to task 032
+(no discrepancy); controls clean at 34 / 15,231; full regression 12 of 12
+(frozen ten + ext1 + ext2). The Xcelium row is marked quoted-from-user, not
+observed by Execution.
+
+Net: freeze v2 + Addenda 1 and 2 is the current certified record.
+Functional verification: ten own testbenches plus two independent peer
+testbenches, on Verilator and Xcelium. Remaining gates unchanged: back-end
+(timing/STA, DRC/LVS) and firmware.
