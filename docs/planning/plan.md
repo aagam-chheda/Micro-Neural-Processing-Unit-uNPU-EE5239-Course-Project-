@@ -1561,3 +1561,17 @@ Pending: user relays the peer's OK -> Execution commits TBs + runner change
 and pushes -> user runs `git pull --ff-only` and `bash scripts/run_xrun.sh
 ext1 ext2` on the server (expect 34 and 15,231) -> Planning writes
 Addendum 2.
+
+## Xcelium cross-check of ext1/ext2 — GREEN; task 033 written (2026-09-28)
+
+User's server run at `f374e60` (Xcelium 22.09-s003): `ext1` PASS
+(34 checks), `ext2` PASS (15,231 checks, `rounds: 325 run, 325 passed`
+confirmed from `xrun_out/ext2.log`), 2 informational `*W` per run. Counts
+identical to Verilator. Peer confirmed the adapted files may be committed.
+
+Task 033 (Execution): append "Addendum 2" to `docs/freeze-report-v2.md`
+(append-only) recording provenance, per-test disposition, both simulators'
+results, the mutation table (re-derived, not copied), the three design
+observations (sticky error_code, no watchdog, ext2 address reach), RTL
+identity, and what is still uncovered. Frozen ten and the runner default
+are unchanged.
