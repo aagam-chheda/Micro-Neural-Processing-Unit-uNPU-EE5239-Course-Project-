@@ -1508,3 +1508,19 @@ added, 0 removed).
 Net: freeze v2 + Addendum 1 is the current certified record. Functional
 verification is done on two simulators. Remaining gates are back-end
 (timing/STA, DRC/LVS) and firmware.
+
+## External testbenches — task 032 written (2026-09-28, not yet dispatched)
+
+The user placed two testbenches in `temp/` (`tb1.txt` 252 lines, `tb2.txt`
+986 lines, untracked) and wants them modified and used against our RTL.
+Read in full: both were written for a **different implementation** (different
+top parameters, `dma_rvalid` port, five-register APB map with one `src` and
+`MATRIX` word, unsigned-only 18-bit psum, a standalone `unpu_dma` instance
+with `cu_*` ports). Neither compiles against `unpu_top` as is.
+
+Task 032 adapts them to `tb/unpu_ext1_tb.sv` / `tb/unpu_ext2_tb.sv`, keeping
+their in-TB golden model (independence from `model/golden.c` is the value),
+adding signed corners, replacing the masked 64 KB SRAM and `$urandom` with the
+task-030 idioms, and requiring the four task-031 mutations to be caught. RTL
+stays frozen; a failure on clean RTL is a stop-and-report finding. Default
+runner list (the frozen ten) is unchanged. Awaiting the user's go to dispatch.
