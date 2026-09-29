@@ -545,3 +545,8 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
 - Which Calibre deck runs DRC and LVS, and how it is invoked, is untested.
 - Whether the frozen testbenches run unchanged against the gate-level netlist
   with the SCL simulation models is unknown.
+- `constraints/unpu_top.sdc` exists (task 034, `2f271c3`) but has not been read
+  by any Synopsys tool. Its driving cell, output load and interface budget are
+  unset or assumed; see the file header. Only the 20 ns clock period is a fact.
+- How the macro `.lib` is produced, whether pads are needed, and what "clean"
+  covers are questions for the PM.

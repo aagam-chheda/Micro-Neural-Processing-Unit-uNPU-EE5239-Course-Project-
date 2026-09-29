@@ -1590,3 +1590,39 @@ Net: freeze v2 + Addenda 1 and 2 is the current certified record.
 Functional verification: ten own testbenches plus two independent peer
 testbenches, on Verilator and Xcelium. Remaining gates unchanged: back-end
 (timing/STA, DRC/LVS) and firmware.
+
+## Back-end flow fixed; task 034 (SDC) done (2026-09-29)
+
+Instructor's RTL-to-GDS flow adopted (recorded in `docs/session-handoff.md`
+§18, commit `c647cb8`): Xcelium RTL sim, Design Compiler, (DFT omitted, PM: no
+scan), Xcelium pre-layout gate-level sim, ICC2, Calibre DRC/LVS, PrimeTime
+signoff STA, Xcelium post-layout sim. 4M1L metal stack (course requirement).
+Genus and Tempus are installed but not part of the flow. SCL kit found on the
+server (paths in §18.3); corners ss 125 C / 1.62 V (setup) and ff -40 C /
+1.98 V (hold), typical-only TLUPlus, no typical `.lib`. `$FOUNDRY` is a
+generic TSMC-style kit, not SCL: do not use.
+
+Licence check on the server (user's run): `dc_shell` (Design-Compiler,
+DC-Expert), `icc2_shell` (ICCompilerII-NX) and `pt_shell` (PrimeTime) all
+check out. PrimeTime reports PT-063 (no `lc_shell`), so it must read the kit's
+`.db` files, not `.lib`. Calibre binary runs; its licence is untested until a
+real DRC/LVS run.
+
+Task 034 (Execution, `2f271c3`): `constraints/unpu_top.sdc`, one new file, 129
+lines, RTL diff against `9f5deab` empty. Checked by Planning: all 15 ports
+covered (clock in `create_clock`, the rest with -max and -min), explicit port
+groups, no false path on `rst_n`, all budget numbers in a variable block
+(CLK_PERIOD 20.0 is the only project fact; every other value is an assumption
+pending the SoC team). Tcl parse check run by Planning with `tclsh` 8.6.17 and
+stub commands: file parses, 24 commands, expressions evaluate (6.0 ns delays).
+That proves Tcl validity only; DC/ICC2/PT acceptance is untested.
+
+Open, from the task: driving cell (needs an SCL buffer name), output load
+(needs the SoC team), the interface budget itself, and the APB in-to-out path
+`prdata = f(paddr)` (8 ns budget at the placeholder values).
+
+Next, not yet written: Design Compiler bring-up (`unpu_pe` first, then
+`unpu_top`), then pre-layout gate-level simulation, ICC2 library build (untested
+`icc2_lm_shell` step), floorplan through route, extraction and PrimeTime,
+Calibre DRC/LVS, post-layout simulation. Open questions for the PM: how the
+macro `.lib` is produced, whether pads are needed, what "clean" covers.
