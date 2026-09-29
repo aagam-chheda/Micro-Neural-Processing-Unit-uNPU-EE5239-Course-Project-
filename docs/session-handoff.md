@@ -19,6 +19,9 @@ We deliver validated RTL plus a DRC/LVS-clean macro as `.lef`, `.lib`, `.gds`.
 ## 2. Environment
 
 - Process: SCL 180 nm
+- **SUPERSEDED 2026-09-29 — see §18.** The instructor's RTL-to-GDS flow now
+  fixes the tools (Design Compiler, ICC2, Calibre, PrimeTime, Xcelium). The
+  two bullets below are kept as the historical record.
 - Tools available: Cadence Xcelium (sim), Genus (synth), Tempus (STA),
   Synopsys IC Compiler (P&R)
 - **Not yet resolved**: which tools for DRC, LVS, formal equivalence, IR drop.
@@ -124,7 +127,8 @@ proceed.
 All four questions that were blocking RTL work (native vs. AHB, extra CSRs,
 scan pins, port-list-frozen) are now answered — see §4 and §12. What's left:
 
-1. Tools for DRC, LVS, formal equivalence, IR drop.
+1. Tools for DRC, LVS, formal equivalence, IR drop. (DRC/LVS resolved
+   2026-09-29: Calibre, see §18. Formal equivalence and IR drop still open.)
 2. Who owns the arbiter RTL, us or the SoC team.
 3. MNIST network shape. A 784→64 first layer needs 49 KB of INT8 weights; the
    whole SoC has 32 KB. The reference network does not fit. Options: shrink to
@@ -184,6 +188,8 @@ interface spend three weeks before they can multiply two numbers.
    max negative, zero weight, weight-load-while-computing).
 3. Stand up the Genus flow on a trivial design — this is a full week of work and
    is the most commonly deferred, most commonly fatal task on the schedule.
+   (2026-09-29: the flow is now Design Compiler, not Genus — see §18. The
+   "trivial design first" advice stands.)
 
 ## 11. Standing rule — commit and push per completed task
 
@@ -455,3 +461,87 @@ exactly as intended — `unpu_csr.sv` and `unpu_dma.sv` both untouched
 the new `unpu_apb.sv` and the deleted `unpu_slave.sv`. Full detail and
 test results in `docs/planning/plan.md`'s open-question-5 entry, not
 duplicated here.
+
+---
+
+## 18. Back-end flow and SCL kit — fixed 2026-09-29
+
+Source: the instructor's RTL-to-GDS flow (handwritten, photographed by the
+user; the instructor said to follow it, some steps may be omitted). Kit and
+tool facts below come from the user's server sessions (pasted output);
+Planning did not observe the server directly. Nothing has been run in the
+back-end yet.
+
+### 18.1 The flow
+
+| Step | Tool |
+|---|---|
+| RTL simulation | Xcelium 22.09 |
+| Synthesis | Design Compiler (`dc_shell` T-2022.03-SP5) |
+| DFT | **Omitted** — PM confirmed no scan (§4 Q10, §6) |
+| Pre-layout gate-level simulation | Xcelium, on the DC netlist |
+| Floorplan, power, place and route, chip finishing | ICC2 (`icc2_shell` U-2022.12-SP3) |
+| DRC and LVS | Calibre 2022.4_37.20 |
+| STA signoff | PrimeTime (`pt_shell` T-2022.03-SP2) |
+| Post-layout simulation | Xcelium |
+| Final DRC and LVS clean, tapeout | |
+
+This replaces the §2 tool list. Genus and Tempus are installed but are not
+part of the flow. Pre- and post-layout gate-level simulation did not exist
+in our plan before; they are new verification work. Formal equivalence
+(Formality V-2023.12-SP4 and Conformal are installed) and IR drop remain
+open, and the instructor's flow does not list them.
+
+### 18.2 Metal stack and corners
+
+- **4 metal layers (4M1L)**, a course requirement stated by the user. The
+  directory is spelled `4M1IL` under `stdcell/fs120/`, `4M1L` elsewhere.
+- Standard cells: `tsl18fs120` (FS120), 1.8 V svt only, 10-track.
+- Only two libraries exist, no typical:
+  `tsl18fs120_scl_ss` (process 1.2, 125 C, 1.62 V) for setup, and
+  `tsl18fs120_scl_ff` (process 0.8, -40 C, 1.98 V) for hold.
+- Parasitics: TLUPlus **typical only**
+  (`SCL_TLUPLUS_4M1L_TYP.tlup`). No min/max RC.
+
+### 18.3 Where things are on the server
+
+Kit root: `/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/`
+
+| Item | Path under the kit root |
+|---|---|
+| `.lib` / `.db` (ss, ff) | `stdcell/fs120/4M1IL/liberty/lib_flow_{ss,ff}/tsl18fs120_scl_{ss,ff}.{lib,db}` |
+| Tech LEF, cell LEF | `stdcell/fs120/4M1IL/lef/scl18fs120_tech.lef`, `scl18fs120_std.lef` |
+| Std-cell GDS, CDL | `stdcell/fs120/4M1IL/gds`, `cdl` |
+| Simulation models | `stdcell/fs120/4M1IL/verilog/vcs_sim_model` |
+| Milkyway (old ICC format) | `stdcell/fs120/4M1IL/milkyway/SCL_4LM/` |
+| Synopsys tech file, TLUPlus, GDS map | `digital_pnr_kit/snps/non_rh/4M1L/` (`SCL_4LM.tf`, `SCL_TLUPLUS_4M1L.map`, `SCL_TLUPLUS_4M1L_TYP.tlup`, `icc_gds_out_4LM.map`) |
+| Calibre DRC/LVS/PEX setup | `pdk/cdns/sclpdk_v3/HOTCODE/techs/generic/calibre/` |
+| Documents | `doc/` (README, DRM, std_cell_guidelines, chip_finishing, io_guidelines) |
+| SRAM cuts | `memory/spram`, `memory/dpram` (not used; the macro has no SRAM) |
+
+Standard-cell rules (`doc/std_cell_guidelines.pdf`):
+- **Don't-use cells:** `slnht*`, `skbrb*`, `slbhb*`, `slnhn*`, `slnln*`,
+  `mx08d*`.
+- No tap cells needed. Fillers: `feedth`, `feedth3`, `feedth9`.
+- P&R GDS holds abstract layer data only; it must be merged with the
+  standard-cell GDS for the final deliverable.
+
+### 18.4 Server setup
+
+- Login shell is csh. Per session: `source ~/cad_cshrc`, then
+  `source ~/synopsys_cshrc`. For Calibre, `~/mentor.cshrc` sets the path
+  correctly; the path line in `cad_cshrc` does not resolve.
+- `starrc` and the classic `icc_shell` are not on the PATH.
+  `icc2_lm_shell` is under Fusion Compiler V-2023.12-SP4.
+- csh has no `2>/dev/null`; use `|&` or `>&`.
+- **Do not use `$FOUNDRY`.** `cad_cshrc` points it at
+  `/home/Cadence_tools/FOUNDRY`, a generic TSMC-style 0.18 um kit
+  (`tpz973g*.lib`, `all.lef`, `t018s6m*` RC). It is not the SCL process.
+
+### 18.5 Open items
+
+- ICC2 needs a library built from the SCL LEF and tech file (Milkyway is the
+  older format). `icc2_lm_shell` should do it; untested.
+- Which Calibre deck runs DRC and LVS, and how it is invoked, is untested.
+- Whether the frozen testbenches run unchanged against the gate-level netlist
+  with the SCL simulation models is unknown.
