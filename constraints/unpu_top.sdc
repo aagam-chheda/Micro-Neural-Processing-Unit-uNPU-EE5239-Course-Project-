@@ -51,6 +51,17 @@
 
 
 # -----------------------------------------------------------------------------
+# Units. Time only: the ss library (tsl18fs120_scl_ss) declares time_unit : 1ns
+# (read from its .lib header on the server), and every number in this file is
+# a time. The ff library's header has NOT been read; it is assumed to match
+# and must be confirmed before PrimeTime. No capacitance unit is set here: the
+# library's capacitive unit has not been read and no capacitance is used until
+# set_load is added; the capacitance unit is added together with set_load.
+# -----------------------------------------------------------------------------
+set_units -time ns
+
+
+# -----------------------------------------------------------------------------
 # Variable block. Every number used below this block comes from here.
 # -----------------------------------------------------------------------------
 set CLK_PERIOD        20.0   ;# 50 MHz, from CLAUDE.md
