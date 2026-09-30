@@ -1626,3 +1626,20 @@ Next, not yet written: Design Compiler bring-up (`unpu_pe` first, then
 `icc2_lm_shell` step), floorplan through route, extraction and PrimeTime,
 Calibre DRC/LVS, post-layout simulation. Open questions for the PM: how the
 macro `.lib` is produced, whether pads are needed, what "clean" covers.
+
+## Paused 2026-09-30 — user will drive the server steps
+
+Task 035 Part A is in (`b4634d7`); the first Design Compiler runs of `unpu_pe`
+and `unpu_top` were done and both compiled. Part B (analysis) is **not
+complete** and is paused by the user, who wants to run and debug the server
+steps themselves. Working position: `constraints/unpu_top.sdc` (with
+`set_units -time ns`) is the first edition of the SDC and stands as is.
+
+Known script defects found by that run, not yet fixed (Execution, when
+asked): `report_lib` fails (needs Library Compiler, LCSH-3), a redundant
+`read_db` (DDB-24), and `change_names` missing before the netlist write.
+Open questions from the run: the real cell names for the `mx08d*` don't-use
+pattern (matched 0 cells), the check_design/LINT-99 and check_timing reports,
+the critical path, and what the Dont-Touch cells are. Slack was +0.05 ns
+(`unpu_pe`) and +0.10 ns (`unpu_top`) after optimisation, which is not
+margin. Next flow step after this: pre-layout gate-level simulation.
