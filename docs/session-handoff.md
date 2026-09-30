@@ -538,6 +538,24 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
   `/home/Cadence_tools/FOUNDRY`, a generic TSMC-style 0.18 um kit
   (`tpz973g*.lib`, `all.lef`, `t018s6m*` RC). It is not the SCL process.
 
+### 18.4a Library facts read from the ss and ff `.lib` (user's server run, 2026-09-30)
+
+- The ss library `tsl18fs120_scl_ss` has 534 cells.
+- Units, ss: time 1 ns, capacitance 1 pF (`capacitive_load_unit(1, pf)`),
+  voltage 1 V, current 1 uA, resistance 1 kohm, leakage power 1 pW.
+- ff library: time 1 ns and capacitance 1 pF, the same as ss.
+- Plain buffers: the `buffd*` family (`buffd1`, `2`, `3`, `4`, `7`, `da`).
+  `buffd2` was inspected: input `I`, output `Z`, function `"I"`, area 18.82.
+  The `buftd*`/`invtd*` and `bufbd*`/`invbd*` families were not inspected
+  (probably tri-state and balanced/clock buffers, from the names only).
+- Latch cells (`lachq4`, `lanhq1`) and scan-type flops (`sd*`, `se*`) exist in
+  the library, so the latch check on the DC netlist matters.
+- The don't-use pattern `slbhb*` matches at least one cell (`slbhb2`);
+  `slnhq2` and `slnlb2` do not match their patterns (`slnhn*`, `slnln*`).
+- A driving cell for the SDC would be `buffd2` with output pin `Z`
+  (`set_driving_cell -lib_cell buffd2 -pin Z`). The drive strength is an
+  assumption until the SoC team says what drives the inputs.
+
 ### 18.5 Open items
 
 - ICC2 needs a library built from the SCL LEF and tech file (Milkyway is the
