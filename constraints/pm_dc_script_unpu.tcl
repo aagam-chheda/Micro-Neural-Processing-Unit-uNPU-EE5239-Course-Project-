@@ -12,12 +12,11 @@
 # Only the lines marked "CHANGED" differ from the PM's file:
 #
 #   1. top_module       counter_4bit  ->  unpu_top
-#   2. corner switch    new: ss (default) or ff, from env CORNER or `set corner`
-#   2b. tech_lib        UMC65 uk65... ->  tsl18fs120_scl_<corner>
-#   3. target_library   UMC65 .db     ->  SCL FS120 4M1IL .db for the corner
+#   2. tech_lib         UMC65 uk65... ->  tsl18fs120_scl_ss (ff commented out)
+#   3. target_library   UMC65 .db     ->  SCL FS120 4M1IL ss .db (ff commented out)
 #   4. RTL read         counter_4bit.v, -format verilog
 #                       ->  the 11 rtl/*.sv files, explicit list, -format sverilog
-#   5. report paths     ./reports     ->  syn/out/pm_flow_<corner> (git-ignored)
+#   5. report paths     ./reports     ->  syn/out/pm_flow (git-ignored)
 #
 # Run dc_shell from the repo root (paths are relative).
 #
@@ -38,32 +37,18 @@
 set top_module  unpu_top
 set clk_name    clk
 
-# CHANGED: corner switch. One script, one corner per run: ss (default) or ff.
-# Pick it before sourcing the script, either way:
-#     csh, before starting dc_shell:     setenv CORNER ff
-#     at the dc_shell> prompt:           set corner ff
-# The two corners are separate runs on purpose. The ss and ff libraries define
-# the same cell names, so they are not listed together in target_library.
-if {![info exists corner]} {
-    if {[info exists ::env(CORNER)] && $::env(CORNER) ne ""} {
-        set corner $::env(CORNER)
-    } else {
-        set corner ss
-    }
-}
-if {$corner ne "ss" && $corner ne "ff"} {
-    error "corner must be ss or ff, got '$corner'"
-}
-puts "Info: corner = $corner"
-
-# CHANGED: SCL 180 nm FS120 library for the chosen corner.
-set tech_lib    tsl18fs120_scl_$corner
+# CHANGED: SCL 180 nm FS120 library. One corner per run: the ss line is
+# active, the ff line is commented out. To run ff, comment the ss lines and
+# uncomment the ff lines, in BOTH places (tech_lib here and target_library
+# below); they must always be the same corner.
+set tech_lib    tsl18fs120_scl_ss
+# set tech_lib  tsl18fs120_scl_ff
 
 set synthetic_library dw_foundation.sldb
 
-# CHANGED: SCL kit .db for the chosen corner (4M1L; the directory really is
-# spelled 4M1IL).
-set target_library "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_$corner/tsl18fs120_scl_$corner.db"
+# CHANGED: SCL kit .db files (4M1L; the directory really is spelled 4M1IL)
+set target_library "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss/tsl18fs120_scl_ss.db"
+# set target_library "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ff/tsl18fs120_scl_ff.db"
 
 set link_library "* $target_library $synthetic_library"
 
@@ -270,9 +255,8 @@ compile -map_effort high
 # 7. Reports and outputs
 # -----------------------------------------------------------------------------
 
-# CHANGED: reports go under syn/out/ (git-ignored) instead of ./reports, one
-# directory per corner so the ss and ff runs do not overwrite each other.
-set rpt_dir syn/out/pm_flow_$corner
+# CHANGED: reports go under syn/out/ (git-ignored) instead of ./reports.
+set rpt_dir syn/out/pm_flow
 file mkdir $rpt_dir
 
 report_area > $rpt_dir/$top_module.area
