@@ -66,6 +66,7 @@ set_units -time ns
 # -----------------------------------------------------------------------------
 set CLK_PERIOD        20.0   ;# 50 MHz, from CLAUDE.md
 set CLK_UNCERT         0.5   ;# ASSUMPTION, pre-CTS margin
+set CLK_TRANSITION     0.3   ;# ASSUMPTION, slew at the flop clock pins (see note below)
 # The APB read path prdata = f(paddr) is combinational (in to out, through the
 # CSR read mux), so its budget is
 #     CLK_PERIOD * (1 - APB_IN_PCT - APB_OUT_PCT) - CLK_UNCERT
@@ -100,6 +101,17 @@ set RST_IN_PORTS   {rst_n}
 # -----------------------------------------------------------------------------
 create_clock -name clk -period $CLK_PERIOD [get_ports clk]
 set_clock_uncertainty $CLK_UNCERT [get_clocks clk]
+
+# Clock slew. Without this an ideal clock has a perfectly square edge at every
+# flop clock pin, so the tool reads setup/hold/clk-Q from the most optimistic
+# entries in the library tables. This forces a finite transition instead. It
+# applies ONLY while the clock is ideal: after set_propagated_clock in ICC2 the
+# real computed transitions are used and this is ignored.
+# The value has no measured basis yet. Check the library's own limit with
+#   grep -m2 -E 'default_max_transition|max_transition' <ss .lib>
+# and keep this well under it; a clock tree is normally built far tighter than
+# the data-net limit.
+set_clock_transition $CLK_TRANSITION [get_clocks clk]
 
 
 # -----------------------------------------------------------------------------
