@@ -96,7 +96,7 @@ if {$find_clock != [list]} {
     puts "clock present"
 } else {
     set clk_name vclk
-    create_clock -period 20 -name $clk_name
+    create_clock -period 50 -name $clk_name
     puts "clock not present"
 }
 
