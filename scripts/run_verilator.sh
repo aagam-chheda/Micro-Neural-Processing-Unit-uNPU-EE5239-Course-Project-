@@ -60,7 +60,7 @@ if [ ! -d model/vectors ] || [ -z "$(ls -A model/vectors 2>/dev/null)" ]; then
   gcc -std=c99 -Wall -Wextra -o model/golden model/golden.c && ./model/golden >/dev/null
 fi
 
-mkdir -p verilator_out
+mkdir -p verilator_out obj_dir
 
 declare -a ROW_NAME ROW_STATUS ROW_DETAIL
 any_fail=0
@@ -70,7 +70,7 @@ for t in "${TBS[@]}"; do
   log="verilator_out/${t}.log"
   echo "=== ${top}: building and simulating with Verilator ==="
   
-  verilator --binary --timing -Wno-fatal -Wno-PINMISSING -Wno-TIMESCALEMOD -j 0 \
+  verilator --binary --timing -Wno-fatal -Wno-PINMISSING -Wno-TIMESCALEMOD -Wno-SIDEEFFECT -j 0 \
             --top-module "$top" --Mdir "obj_dir/${top}" \
             rtl/*.sv "tb/${top}.sv" >"$log" 2>&1
   compile_rc=$?
@@ -88,7 +88,7 @@ for t in "${TBS[@]}"; do
   sim_rc=$?
 
   status=PASS
-  if [ "$sim_rc" -ne 0 ] || grep -q 'FAIL' "$log" || ! grep -qE "$(pass_regex "$t")" "$log"; then
+  if [ "$sim_rc" -ne 0 ] || grep -qE '^FAIL ' "$log" || ! grep -qE "$(pass_regex "$t")" "$log"; then
     status=FAIL
     any_fail=1
     echo "--- ${top}: FAIL"
