@@ -17,11 +17,12 @@
 //   0   | src_a      | R/W    | pointer to A, SRAM
 //   1   | src_b      | R/W    | pointer to B, SRAM
 //   2   | dest_c     | R/W    | pointer to C, SRAM
-//   3   | dim_m      | R/W    | bits[2:0] only
-//   4   | dim_n      | R/W    | bits[2:0] only
-//   5   | dim_k      | R/W    | bits[2:0] only
-//   6   | npu_ctrl   | R/W    | bit0 START (W1P, reads 0) . bit1 SIGNED
+//   3   | dim_m      | R/W    | bits[2:0] dim_m . bits[31:16] stride_a (custom byte stride; 0=default M*4)
+//   4   | dim_n      | R/W    | bits[2:0] dim_n . bits[31:16] stride_b (custom byte stride; 0=default K*4)
+//   5   | dim_k      | R/W    | bits[2:0] dim_k . bits[31:16] stride_c (custom byte stride; 0=default M*16)
+//   6   | npu_ctrl   | R/W    | bit0 START (W1P, reads 0) . bit1 SIGNED . bits[31:16] num_tiles (resets to 1)
 //   7   | npu_status | RO     | bit0 DONE . bit1 ERROR . bits[4:2] error_code
+//   8..1023 | unmapped | -   | reads 0, writes ignored (strict requirement of unpu_csr_tb, unpu_apb_tb, unpu_ext2_tb)
 //
 // dim_m/dim_n/dim_k legality (1-4) is NOT validated here -- unpu_seq's
 // LATCH_CFG already does that (task 006); this module stores whatever is
@@ -75,6 +76,10 @@ module unpu_csr (
   output logic [2:0]   dim_k,
   output logic         mode_unsigned,  // = ~npu_ctrl[1] -- see polarity note above
   output logic         start_pulse,    // 1-cycle pulse, registered one cycle after a qualifying START write -> unpu_seq.start
+  output logic [15:0]  num_tiles,      // total tiles to compute (N_tiles >= 1), resets to 1
+  output logic [31:0]  stride_a,       // byte stride for tensor A base pointer, resets to 0
+  output logic [31:0]  stride_b,       // byte stride for tensor B base pointer, resets to 0
+  output logic [31:0]  stride_c,       // byte stride for tensor C base pointer, resets to 0
 
   // Status inputs -- from unpu_seq
   input  logic         done_i,         // 1-cycle pulse from unpu_seq.done; latches npu_status.DONE
@@ -95,6 +100,10 @@ module unpu_csr (
   logic [2:0]  dim_m_reg, dim_n_reg, dim_k_reg;
   logic        ctrl_signed_reg; // npu_ctrl bit1, stored uninverted -- see polarity note
   logic        status_done_reg;
+  logic [15:0] num_tiles_reg;
+  logic [31:0] stride_a_reg;
+  logic [31:0] stride_b_reg;
+  logic [31:0] stride_c_reg;
 
   // ---- Writes: bit0 of npu_ctrl (START) is consumed by start_pulse
   // below, never stored here -- it always reads back 0. npu_status
@@ -110,16 +119,35 @@ module unpu_csr (
       dim_n_reg       <= 3'd0;
       dim_k_reg       <= 3'd0;
       ctrl_signed_reg <= 1'b0;
+      num_tiles_reg   <= 16'd1;
+      stride_a_reg    <= 32'd0;
+      stride_b_reg    <= 32'd0;
+      stride_c_reg    <= 32'd0;
     end else if (csr_wen) begin
       case (csr_sel)
         SEL_SRC_A:    src_a_reg       <= csr_wdata;
         SEL_SRC_B:    src_b_reg       <= csr_wdata;
         SEL_DEST_C:   dest_c_reg      <= csr_wdata;
-        SEL_DIM_M:    dim_m_reg       <= csr_wdata[2:0];
-        SEL_DIM_N:    dim_n_reg       <= csr_wdata[2:0];
-        SEL_DIM_K:    dim_k_reg       <= csr_wdata[2:0];
-        SEL_NPU_CTRL: ctrl_signed_reg <= csr_wdata[1];
-        default:      ; // npu_status (RO) and unmapped: accepted, no effect
+        SEL_DIM_M: begin
+          dim_m_reg    <= csr_wdata[2:0];
+          stride_a_reg <= {16'd0, csr_wdata[31:16]};
+        end
+        SEL_DIM_N: begin
+          dim_n_reg    <= csr_wdata[2:0];
+          stride_b_reg <= {16'd0, csr_wdata[31:16]};
+        end
+        SEL_DIM_K: begin
+          dim_k_reg    <= csr_wdata[2:0];
+          stride_c_reg <= {16'd0, csr_wdata[31:16]};
+        end
+        SEL_NPU_CTRL: begin
+          ctrl_signed_reg <= csr_wdata[1];
+          if (csr_wdata[31:16] != 16'd0)
+            num_tiles_reg <= csr_wdata[31:16];
+          else if (csr_wdata[0]) // START write with upper bits 0 defaults cleanly to 1 tile
+            num_tiles_reg <= 16'd1;
+        end
+        default:      ; // npu_status (RO) and unmapped (8-1023): accepted, no effect
       endcase
     end
   end
@@ -131,6 +159,10 @@ module unpu_csr (
   assign dim_n         = dim_n_reg;
   assign dim_k         = dim_k_reg;
   assign mode_unsigned = ~ctrl_signed_reg;
+  assign num_tiles     = num_tiles_reg;
+  assign stride_a      = stride_a_reg;
+  assign stride_b      = stride_b_reg;
+  assign stride_c      = stride_c_reg;
 
   // ---- start_pulse: registered one cycle after a qualifying write --
   // clean synchronous handoff, matches the Moore-output discipline used

@@ -20,3 +20,15 @@ xmsim.key
 # Synopsys Design Compiler output (syn/dc_run.tcl writes everything under
 # syn/out/<design>/: logs, reports, netlist, .ddc, WORK/, default.svf).
 syn/out/
+
+# Verilator simulation artifacts and wave dumps
+obj_dir/
+verilator_out/
+*.vcd
+*.fst
+
+# Local working notes and prompt scratchpads
+plan_prompt.md
+response.md
+
+

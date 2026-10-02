@@ -64,6 +64,8 @@ module unpu_top (
   logic [2:0]  dim_m, dim_n, dim_k;
   logic        mode_unsigned;
   logic        start_pulse;
+  logic [15:0] num_tiles;
+  logic [31:0] stride_a, stride_b, stride_c;
 
   // ---- unpu_seq -> unpu_csr (status) ----
   logic        seq_done, seq_error;
@@ -158,6 +160,10 @@ module unpu_top (
     .dim_k         (dim_k),
     .mode_unsigned (mode_unsigned),
     .start_pulse   (start_pulse),
+    .num_tiles     (num_tiles),
+    .stride_a      (stride_a),
+    .stride_b      (stride_b),
+    .stride_c      (stride_c),
     .done_i        (seq_done),
     .error_i       (seq_error),
     .error_code_i  (seq_error_code)
@@ -174,6 +180,10 @@ module unpu_top (
     .src_a           (src_a),
     .src_b           (src_b),
     .dest_c          (dest_c),
+    .num_tiles       (num_tiles),
+    .stride_a        (stride_a),
+    .stride_b        (stride_b),
+    .stride_c        (stride_c),
     .c_dst           (c_dst),
     .done            (seq_done),
     /* verilator lint_off PINCONNECTEMPTY */

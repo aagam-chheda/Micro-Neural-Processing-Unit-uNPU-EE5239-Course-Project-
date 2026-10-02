@@ -31,7 +31,7 @@
 // Simulated with Verilator (--binary --timing), consistent with every
 // task since 006.
 `timescale 1ns/1ps
-
+/* verilator lint_off SIDEEFFECT */
 module unpu_top_tb;
 
   logic clk, rst_n;
@@ -136,6 +136,10 @@ module unpu_top_tb;
   localparam logic [31:0] OFF_DIM_K    = 32'h14;
   localparam logic [31:0] OFF_NPU_CTRL = 32'h18;
   localparam logic [31:0] OFF_NPU_STAT = 32'h1C;
+  localparam logic [31:0] OFF_NUM_TILES = 32'h20;
+  localparam logic [31:0] OFF_STRIDE_A  = 32'h24;
+  localparam logic [31:0] OFF_STRIDE_B  = 32'h28;
+  localparam logic [31:0] OFF_STRIDE_C  = 32'h2C;
 
   int errors, checks;
 
@@ -247,27 +251,52 @@ module unpu_top_tb;
     end
   endtask
 
-  // Drives one full op as real firmware would: write src_A/src_B/
-  // dest_C/dim_M/dim_N/dim_K, then npu_ctrl LAST with START+SIGNED,
-  // then poll npu_status (APB reads) until DONE, optionally with idle
-  // gaps between polls (sparse CPU-side pacing). Every register access
-  // is a full APB SETUP->ACCESS sequence (task 018).
-  task automatic run_case_via_cpu(input string label, input logic [31:0] base_a, input logic [31:0] base_w,
-                                   input logic [31:0] base_c, input int drv_m, input int drv_k, input int drv_n,
-                                   input bit ctrl_signed_bit, input bit sparse_poll, output bit ok);
+  // Drives a multi-tile operation via APB register programming and polls
+  // npu_status until DONE. Programs base addresses, dimensions, strides
+  // (both packed in DIM_M/N/K and via 0x20..0x2C), and triggers via NPU_CTRL.
+  task automatic run_multitile_case_via_cpu(
+    input  string       label,
+    input  logic [31:0] base_a,
+    input  logic [31:0] base_w,
+    input  logic [31:0] base_c,
+    input  int          drv_m,
+    input  int          drv_k,
+    input  int          drv_n,
+    input  logic [15:0] stride_a_val,
+    input  logic [15:0] stride_b_val,
+    input  logic [15:0] stride_c_val,
+    input  logic [15:0] num_tiles_val,
+    input  bit          ctrl_signed_bit,
+    input  bit          sparse_poll,
+    output bit          ok,
+    output int          wall_cycles
+  );
     logic [31:0] rdata;
     int poll_i, idle_i;
+    int max_poll;
     begin
-      apb_write(CSR_BASE + OFF_SRC_A,  base_a);
-      apb_write(CSR_BASE + OFF_SRC_B,  base_w);
-      apb_write(CSR_BASE + OFF_DEST_C, base_c);
-      apb_write(CSR_BASE + OFF_DIM_M,  {29'd0, drv_m[2:0]});
-      apb_write(CSR_BASE + OFF_DIM_N,  {29'd0, drv_n[2:0]});
-      apb_write(CSR_BASE + OFF_DIM_K,  {29'd0, drv_k[2:0]});
-      apb_write(CSR_BASE + OFF_NPU_CTRL, {30'd0, ctrl_signed_bit, 1'b1}); // bit0=START, bit1=SIGNED
+      // 1. Program Base Pointers
+      apb_write(CSR_BASE + OFF_SRC_A,      base_a);
+      apb_write(CSR_BASE + OFF_SRC_B,      base_w);
+      apb_write(CSR_BASE + OFF_DEST_C,     base_c);
 
+      // 2. Program Dimensions and Strides (both packed in DIM_M/N/K and 0x20..0x2C offsets)
+      apb_write(CSR_BASE + OFF_DIM_M,      {stride_a_val, 13'd0, drv_m[2:0]});
+      apb_write(CSR_BASE + OFF_DIM_N,      {stride_b_val, 13'd0, drv_n[2:0]});
+      apb_write(CSR_BASE + OFF_DIM_K,      {stride_c_val, 13'd0, drv_k[2:0]});
+
+      apb_write(CSR_BASE + OFF_NUM_TILES,  {16'd0, num_tiles_val});
+      apb_write(CSR_BASE + OFF_STRIDE_A,   {16'd0, stride_a_val});
+      apb_write(CSR_BASE + OFF_STRIDE_B,   {16'd0, stride_b_val});
+      apb_write(CSR_BASE + OFF_STRIDE_C,   {16'd0, stride_c_val});
+
+      // 3. Trigger Operation with Packed num_tiles & START bit in NPU_CTRL
+      apb_write(CSR_BASE + OFF_NPU_CTRL,   {num_tiles_val, 14'd0, ctrl_signed_bit, 1'b1});
+
+      // 4. Bounded Poll on npu_status[0] (DONE)
+      max_poll = (bp_mode_extreme ? 50000 : 10000) * int'(num_tiles_val);
       ok = 1'b0;
-      for (poll_i = 0; poll_i < 4000; poll_i = poll_i + 1) begin
+      for (poll_i = 0; poll_i < max_poll; poll_i = poll_i + 1) begin
         if (sparse_poll) begin
           for (idle_i = 0; idle_i < 3; idle_i = idle_i + 1)
             step();
@@ -278,11 +307,25 @@ module unpu_top_tb;
           break;
         end
       end
+      wall_cycles = poll_i;
+
       checks = checks + 1;
       if (!ok) begin
         errors = errors + 1;
-        $display("FAIL [%s]: npu_status DONE never observed within poll bound", label);
+        $display("FAIL [%s]: npu_status DONE never observed within poll bound (%0d polls, num_tiles=%0d)",
+                 label, max_poll, num_tiles_val);
       end
+    end
+  endtask
+
+  // Legacy single-tile wrapper for existing test suites
+  task automatic run_case_via_cpu(input string label, input logic [31:0] base_a, input logic [31:0] base_w,
+                                   input logic [31:0] base_c, input int drv_m, input int drv_k, input int drv_n,
+                                   input bit ctrl_signed_bit, input bit sparse_poll, output bit ok);
+    int unused_wall_cycles;
+    begin
+      run_multitile_case_via_cpu(label, base_a, base_w, base_c, drv_m, drv_k, drv_n,
+                                 16'd0, 16'd0, 16'd0, 16'd1, ctrl_signed_bit, sparse_poll, ok, unused_wall_cycles);
     end
   endtask
 
@@ -590,6 +633,159 @@ module unpu_top_tb;
                       label, byte_addr, wrap_ix(byte_addr), mm, jj, mem[wrap_ix(byte_addr)], c_case[mm][jj]);
           end
         end
+      end
+    end
+  endtask
+
+  // =========================================================================
+  // Multi-Tile Preload & Verification Helpers (Step 3 Part 3B)
+  // =========================================================================
+
+  task automatic preload_multitile_stream(
+    input logic [31:0] base_a_i,
+    input logic [31:0] base_w_i,
+    input int          num_t,
+    input int          drv_m,
+    input int          drv_k,
+    input int          drv_n,
+    input logic [31:0] st_a,
+    input logic [31:0] st_b,
+    input bit          stationary_w,
+    ref   logic [31:0] rng
+  );
+    int t, rr;
+    logic [31:0] cur_a, cur_w;
+    logic [31:0] eff_a_st, eff_w_st;
+    logic [7:0]  w_fixed [0:3][0:3];
+    logic [31:0] w_word, a_word;
+
+    begin
+      eff_a_st = (st_a != 32'd0) ? st_a : (drv_m * 4);
+      eff_w_st = (st_b != 32'd0) ? st_b : (drv_k * 4);
+
+      if (stationary_w) begin
+        for (rr = 0; rr < 4; rr = rr + 1) begin
+          for (int cc = 0; cc < 4; cc = cc + 1) begin
+            w_fixed[rr][cc] = biased_byte(rng);
+          end
+        end
+      end
+
+      for (t = 0; t < num_t; t = t + 1) begin
+        cur_a = base_a_i + (t * eff_a_st);
+        cur_w = base_w_i + (t * eff_w_st);
+
+        // Preload Activation tile t (4 rows in model SRAM)
+        for (rr = 0; rr < 4; rr = rr + 1) begin
+          if (rr < drv_m)
+            a_word = {biased_byte(rng), biased_byte(rng), biased_byte(rng), biased_byte(rng)};
+          else
+            a_word = 32'd0;
+          mem[mem_ix(cur_a, rr, "preload_multitile A")] = a_word;
+        end
+
+        // Preload Weight tile t (4 rows in model SRAM)
+        for (rr = 0; rr < 4; rr = rr + 1) begin
+          if (stationary_w) begin
+            if (rr < drv_k)
+              w_word = {w_fixed[rr][3], w_fixed[rr][2], w_fixed[rr][1], w_fixed[rr][0]};
+            else
+              w_word = 32'd0;
+          end else begin
+            if (rr < drv_k)
+              w_word = {biased_byte(rng), biased_byte(rng), biased_byte(rng), biased_byte(rng)};
+            else
+              w_word = 32'd0;
+          end
+          mem[mem_ix(cur_w, rr, "preload_multitile W")] = w_word;
+        end
+      end
+    end
+  endtask
+
+  task automatic verify_multitile_output(
+    input string       label,
+    input logic [31:0] base_a_i,
+    input logic [31:0] base_w_i,
+    input logic [31:0] base_c_i,
+    input int          num_t,
+    input int          drv_m,
+    input int          drv_k,
+    input int          drv_n,
+    input logic [31:0] st_a,
+    input logic [31:0] st_b,
+    input logic [31:0] st_c,
+    input bit          mode_u
+  );
+    int t, mm, jj;
+    logic [7:0]  a_tile [0:3][0:3];
+    logic [7:0]  w_tile [0:3][0:3];
+    logic [31:0] exp_c, act_c;
+    logic [31:0] a_ptr, w_ptr, c_ptr;
+    logic [31:0] a_word, w_word;
+    logic [31:0] eff_a_st, eff_w_st, eff_c_st;
+
+    begin
+      eff_a_st = (st_a != 32'd0) ? st_a : (drv_m * 4);
+      eff_w_st = (st_b != 32'd0) ? st_b : (drv_k * 4);
+      eff_c_st = (st_c != 32'd0) ? st_c : (drv_m * 16);
+
+      a_ptr = base_a_i;
+      w_ptr = base_w_i;
+      c_ptr = base_c_i;
+
+      for (t = 0; t < num_t; t = t + 1) begin
+        // 1. Unpack A tile from SRAM
+        for (mm = 0; mm < 4; mm = mm + 1) begin
+          if (mm < drv_m) begin
+            a_word = mem[mem_ix(a_ptr, mm, "verify A")];
+            a_tile[mm][0] = a_word[7:0];
+            a_tile[mm][1] = a_word[15:8];
+            a_tile[mm][2] = a_word[23:16];
+            a_tile[mm][3] = a_word[31:24];
+          end else begin
+            a_tile[mm][0] = 8'd0;
+            a_tile[mm][1] = 8'd0;
+            a_tile[mm][2] = 8'd0;
+            a_tile[mm][3] = 8'd0;
+          end
+        end
+
+        // 2. Unpack W tile from SRAM
+        for (int kk = 0; kk < 4; kk = kk + 1) begin
+          if (kk < drv_k) begin
+            w_word = mem[mem_ix(w_ptr, kk, "verify W")];
+            w_tile[kk][0] = w_word[7:0];
+            w_tile[kk][1] = w_word[15:8];
+            w_tile[kk][2] = w_word[23:16];
+            w_tile[kk][3] = w_word[31:24];
+          end else begin
+            w_tile[kk][0] = 8'd0;
+            w_tile[kk][1] = 8'd0;
+            w_tile[kk][2] = 8'd0;
+            w_tile[kk][3] = 8'd0;
+          end
+        end
+
+        // 3. Verify C outputs against mathematical reference
+        for (mm = 0; mm < drv_m; mm = mm + 1) begin
+          for (jj = 0; jj < drv_n; jj = jj + 1) begin
+            exp_c = ref_c_elem(w_tile, a_tile, mm, jj, drv_k, mode_u);
+            act_c = mem[mem_ix(c_ptr, mm * 4 + jj, "verify C")];
+            
+            checks = checks + 1;
+            if (act_c !== exp_c) begin
+              errors = errors + 1;
+              $display("FAIL [%s]: Tile %0d C[%0d][%0d] got 0x%08h (%0d) expected 0x%08h (%0d)", 
+                       label, t, mm, jj, act_c, act_c, exp_c, exp_c);
+            end
+          end
+        end
+
+        // 4. Stride advancement
+        a_ptr = a_ptr + eff_a_st;
+        w_ptr = w_ptr + eff_w_st;
+        c_ptr = c_ptr + eff_c_st;
       end
     end
   endtask
@@ -1052,6 +1248,152 @@ module unpu_top_tb;
       bp_mode_extreme = 1'b0;
       $display("Part B: %0d sequences, %0d total ops (%0d illegal, %0d wraparound, %0d under extreme back-pressure), checks=%0d so far",
                 NUM_SEQ, total_ops_b, total_illegal_b, total_wrap_b, total_bpext_b, checks);
+    end
+
+    // =========================================================================
+    // ==== Step 3 Part C: End-to-End Multi-Tile System Validation Campaign ====
+    // =========================================================================
+    begin : part_c_multitile
+      logic [31:0] mt_rng;
+      bit mt_ok;
+      int mt_wall_cycles;
+
+      mt_rng = 32'h5eed0050;
+      $display("================================================================================");
+      $display("Starting Step 3 Part C: Multi-Tile System Integration Suites (Suites MT1 - MT6)");
+      $display("================================================================================");
+
+      // ---- Suite MT-1: 2-Tile Ping-Pong Stress (N=2, dense 4x4x4, Signed & Unsigned) ----
+      begin : suite_mt1
+        do_reset();
+        $display("Part C Suite MT-1: 2-Tile Ping-Pong Stress (N=2, dense 4x4x4, Signed & Unsigned)");
+        // Signed test
+        preload_multitile_stream(32'h000B_0000, 32'h000C_0000, 2, 4, 4, 4, 32'd0, 32'd0, 1'b0, mt_rng);
+        run_multitile_case_via_cpu("Suite MT-1 Signed (N=2)", 32'h000B_0000, 32'h000C_0000, 32'h000D_0000,
+                                   4, 4, 4, 16'd0, 16'd0, 16'd0, 16'd2, 1'b1, 1'b0, mt_ok, mt_wall_cycles);
+        verify_multitile_output("Suite MT-1 Signed (N=2)", 32'h000B_0000, 32'h000C_0000, 32'h000D_0000,
+                                2, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+        if (mt_ok)
+          $display("PASS [Suite MT-1 Signed]: 2 tiles completed in %0d polls, 32 outputs match golden", mt_wall_cycles);
+
+        // Unsigned test
+        preload_multitile_stream(32'h000B_1000, 32'h000C_1000, 2, 4, 4, 4, 32'd0, 32'd0, 1'b0, mt_rng);
+        run_multitile_case_via_cpu("Suite MT-1 Unsigned (N=2)", 32'h000B_1000, 32'h000C_1000, 32'h000D_1000,
+                                   4, 4, 4, 16'd0, 16'd0, 16'd0, 16'd2, 1'b0, 1'b0, mt_ok, mt_wall_cycles);
+        verify_multitile_output("Suite MT-1 Unsigned (N=2)", 32'h000B_1000, 32'h000C_1000, 32'h000D_1000,
+                                2, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b1);
+        if (mt_ok)
+          $display("PASS [Suite MT-1 Unsigned]: 2 tiles completed in %0d polls, 32 outputs match golden", mt_wall_cycles);
+      end
+
+      // ---- Suite MT-2: 4-Tile Stream with Asymmetric Dims (M=3, K=2, N=3, N=4 tiles) ----
+      begin : suite_mt2
+        do_reset();
+        $display("Part C Suite MT-2: 4-Tile Asymmetric Dimensions (M=3, K=2, N=3, explicit strides)");
+        preload_multitile_stream(32'h000B_2000, 32'h000C_2000, 4, 3, 2, 3, 32'd12, 32'd8, 1'b0, mt_rng);
+        run_multitile_case_via_cpu("Suite MT-2 (N=4, M=3, K=2, N=3)", 32'h000B_2000, 32'h000C_2000, 32'h000D_2000,
+                                   3, 2, 3, 16'd12, 16'd8, 16'd48, 16'd4, 1'b1, 1'b0, mt_ok, mt_wall_cycles);
+        verify_multitile_output("Suite MT-2 (N=4, M=3, K=2, N=3)", 32'h000B_2000, 32'h000C_2000, 32'h000D_2000,
+                                4, 3, 2, 3, 32'd12, 32'd8, 32'd48, 1'b0);
+        if (mt_ok)
+          $display("PASS [Suite MT-2]: 4 asymmetric tiles completed in %0d polls, 36 outputs match golden", mt_wall_cycles);
+      end
+
+      // ---- Suite MT-3: Deep Streaming Chain (N=8 and N=16 dense 4x4x4) ----
+      begin : suite_mt3
+        int t8_polls, t16_polls;
+        do_reset();
+        $display("Part C Suite MT-3: Deep Streaming Chain (N=8 and N=16 dense 4x4x4)");
+        // N=8 tiles
+        preload_multitile_stream(32'h000B_3000, 32'h000C_3000, 8, 4, 4, 4, 32'd0, 32'd0, 1'b0, mt_rng);
+        run_multitile_case_via_cpu("Suite MT-3 (N=8)", 32'h000B_3000, 32'h000C_3000, 32'h000D_3000,
+                                   4, 4, 4, 16'd0, 16'd0, 16'd0, 16'd8, 1'b1, 1'b0, mt_ok, t8_polls);
+        verify_multitile_output("Suite MT-3 (N=8)", 32'h000B_3000, 32'h000C_3000, 32'h000D_3000,
+                                8, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+        if (mt_ok)
+          $display("PASS [Suite MT-3.1]: 8 tiles completed in %0d polls, all 128 output words match golden", t8_polls);
+
+        // N=16 tiles
+        preload_multitile_stream(32'h000B_4000, 32'h000C_4000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b0, mt_rng);
+        run_multitile_case_via_cpu("Suite MT-3 (N=16)", 32'h000B_4000, 32'h000C_4000, 32'h000D_4000,
+                                   4, 4, 4, 16'd0, 16'd0, 16'd0, 16'd16, 1'b1, 1'b0, mt_ok, t16_polls);
+        verify_multitile_output("Suite MT-3 (N=16)", 32'h000B_4000, 32'h000C_4000, 32'h000D_4000,
+                                16, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+        if (mt_ok)
+          $display("PASS [Suite MT-3.2]: 16 tiles completed in %0d polls, all 256 output words match golden", t16_polls);
+      end
+
+      // ---- Suite MT-4: Extreme Backpressure & Contention (N=4, bp_mode_extreme=1) ----
+      begin : suite_mt4
+        do_reset();
+        bp_mode_extreme = 1'b1; // 50-100 cycles per beat DMA latency
+        $display("Part C Suite MT-4: Extreme Memory Backpressure (50-100 cyc/beat, N=4 tiles)");
+        preload_multitile_stream(32'h000B_5000, 32'h000C_5000, 4, 4, 4, 4, 32'd0, 32'd0, 1'b0, mt_rng);
+        run_multitile_case_via_cpu("Suite MT-4 Extreme BP (N=4)", 32'h000B_5000, 32'h000C_5000, 32'h000D_5000,
+                                   4, 4, 4, 16'd0, 16'd0, 16'd0, 16'd4, 1'b1, 1'b0, mt_ok, mt_wall_cycles);
+        bp_mode_extreme = 1'b0; // restore normal backpressure
+        verify_multitile_output("Suite MT-4 Extreme BP (N=4)", 32'h000B_5000, 32'h000C_5000, 32'h000D_5000,
+                                4, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+        if (mt_ok)
+          $display("PASS [Suite MT-4]: extreme memory backpressure N=4 op completed cleanly without deadlock, all 64 outputs match golden");
+      end
+
+      // ---- Suite MT-5: Stationary Weight Streaming (N=4, stride_b=0) ----
+      begin : suite_mt5
+        do_reset();
+        $display("Part C Suite MT-5: Weight Stationary Streaming (N=4 tiles, stride_b=0)");
+        preload_multitile_stream(32'h000B_6000, 32'h000C_6000, 4, 4, 4, 4, 32'd0, 32'd0, 1'b1, mt_rng);
+        run_multitile_case_via_cpu("Suite MT-5 Stationary Weights (N=4)", 32'h000B_6000, 32'h000C_6000, 32'h000D_6000,
+                                   4, 4, 4, 16'd0, 16'd0, 16'd0, 16'd4, 1'b1, 1'b0, mt_ok, mt_wall_cycles);
+        verify_multitile_output("Suite MT-5 Stationary Weights (N=4)", 32'h000B_6000, 32'h000C_6000, 32'h000D_6000,
+                                4, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+        if (mt_ok)
+          $display("PASS [Suite MT-5]: stationary weight evaluation across 4 tiles verified");
+      end
+
+      // ---- Suite MT-6: Sparse Output Strides & Memory Gap Protection (Canary intact) ----
+      begin : suite_mt6
+        int ti, gi;
+        logic [31:0] canary_val;
+        bit canary_ok;
+        do_reset();
+        $display("Part C Suite MT-6: Sparse Strides with Memory Gap Protection (Canary integrity)");
+        canary_val = 32'hDEAD_BEEF;
+        // Fill memory region with canary
+        for (ti = 0; ti < 4; ti = ti + 1) begin
+          for (gi = 16; gi < 32; gi = gi + 1) begin
+            mem[mem_ix(32'h000D_7000 + (ti * 128), gi, "canary preload")] = canary_val;
+          end
+        end
+
+        preload_multitile_stream(32'h000B_7000, 32'h000C_7000, 4, 4, 4, 4, 32'd0, 32'd0, 1'b0, mt_rng);
+        // Stride C is 128 bytes (32 words), while each tile writeback is 64 bytes (16 words).
+        run_multitile_case_via_cpu("Suite MT-6 Sparse Strides (N=4)", 32'h000B_7000, 32'h000C_7000, 32'h000D_7000,
+                                   4, 4, 4, 16'd0, 16'd0, 16'd128, 16'd4, 1'b1, 1'b0, mt_ok, mt_wall_cycles);
+        verify_multitile_output("Suite MT-6 Sparse Strides (N=4)", 32'h000B_7000, 32'h000C_7000, 32'h000D_7000,
+                                4, 4, 4, 4, 32'd0, 32'd0, 32'd128, 1'b0);
+
+        canary_ok = 1'b1;
+        for (ti = 0; ti < 4; ti = ti + 1) begin
+          for (gi = 16; gi < 32; gi = gi + 1) begin
+            checks = checks + 1;
+            if (mem[mem_ix(32'h000D_7000 + (ti * 128), gi, "canary check")] !== canary_val) begin
+              canary_ok = 1'b0;
+              errors = errors + 1;
+              $display("FAIL [Suite MT-6]: canary corruption in gap at tile %0d word %0d", ti, gi);
+            end
+          end
+        end
+        if (canary_ok)
+          $display("PASS [Suite MT-6]: sparse stride memory gaps untouched (all canaries intact)");
+      end
+
+      $display("----------------------------------------");
+      if (errors == 0)
+        $display("Part C (Suites MT1 - MT6): ALL MULTI-TILE SYSTEM SUITES PASSED");
+      else
+        $display("Part C: FAILURE(S) present in multi-tile suites");
+      $display("----------------------------------------");
     end
 
     $display("----------------------------------------");

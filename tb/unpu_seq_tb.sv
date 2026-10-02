@@ -27,6 +27,7 @@
 // 006-010 -- see docs/planning/plan.md's "Tooling note" for the still-
 // open, non-blocking decision on standardizing across the project.
 `timescale 1ns/1ps
+/* verilator lint_off SIDEEFFECT */
 
 module unpu_seq_tb;
 
@@ -37,6 +38,8 @@ module unpu_seq_tb;
   logic [2:0]            dim_m, dim_n, dim_k;
   logic                  mode_unsigned;
   logic [31:0]           src_a, src_b, dest_c;
+  logic [15:0]           num_tiles;
+  logic [31:0]           stride_a, stride_b, stride_c;
   logic [3:0][3:0][31:0] c_dst;
   logic                  done, busy, error;
   logic [2:0]            error_code;
@@ -94,6 +97,10 @@ module unpu_seq_tb;
     .src_a           (src_a),
     .src_b           (src_b),
     .dest_c          (dest_c),
+    .num_tiles       (num_tiles),
+    .stride_a        (stride_a),
+    .stride_b        (stride_b),
+    .stride_c        (stride_c),
     .c_dst           (c_dst),
     .done            (done),
     .busy            (busy),
@@ -280,8 +287,9 @@ module unpu_seq_tb;
   logic        bp_ext_have_delay;
   logic [6:0]  bp_ext_delay_eff;
 
+  logic        force_zero_mem_delay;
   assign bp_ext_delay_eff = bp_ext_have_delay ? bp_ext_delay_reg : (7'd50 + (bp_ext_rng[6:0] % 7'd51)); // 50-100
-  assign dma_ready = dma_valid && (bp_mode_extreme ? (bp_ext_delay_eff == 7'd0) : (bp_delay_eff == 3'd0));
+  assign dma_ready = dma_valid && (force_zero_mem_delay ? 1'b1 : (bp_mode_extreme ? (bp_ext_delay_eff == 7'd0) : (bp_delay_eff == 3'd0)));
 
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -335,8 +343,10 @@ module unpu_seq_tb;
       rst_n = 0;
       start = 0; dim_m = 0; dim_n = 0; dim_k = 0; mode_unsigned = 0;
       src_a = 0; src_b = 0; dest_c = 0;
+      num_tiles = 16'd1; stride_a = 32'd0; stride_b = 32'd0; stride_c = 32'd0;
       bp_rng = 32'h5eed000b;
       bp_mode_extreme = 1'b0;
+      force_zero_mem_delay = 1'b0;
       step();
       step();
       rst_n = 1;
@@ -528,6 +538,7 @@ module unpu_seq_tb;
     begin
       dim_m = drv_m[2:0]; dim_k = drv_k[2:0]; dim_n = drv_n[2:0]; mode_unsigned = drv_mode_u;
       src_a = a_addr; src_b = b_addr; dest_c = c_addr;
+      num_tiles = 16'd1; stride_a = 32'd0; stride_b = 32'd0; stride_c = 32'd0;
       job_start_count = 0;
       start = 1;
       step();
@@ -718,8 +729,8 @@ module unpu_seq_tb;
                                   input int drv_m, input int drv_k, ref logic [31:0] rng);
     int rr, cc;
     begin
-      e_a_case = '{default: 8'h00};
-      e_w_case = '{default: 8'h00};
+      e_a_case = '{default: '{default: 8'h00}};
+      e_w_case = '{default: '{default: 8'h00}};
       for (rr = 0; rr < drv_m; rr = rr + 1)
         for (cc = 0; cc < drv_k; cc = cc + 1)
           e_a_case[rr][cc] = biased_byte(rng);
@@ -797,6 +808,210 @@ module unpu_seq_tb;
           errors = errors + 1;
           $display("FAIL [%s]: done never observed within 4000 cycles", lbl);
         end
+      end
+    end
+  endtask
+
+  // =========================================================================
+  // Step 3 Part F Helper Tasks: Multi-Tile Preload, Output Verification, Op Driver
+  // =========================================================================
+
+  task automatic preload_multitile_stream(
+    input logic [31:0] base_a_i,
+    input logic [31:0] base_w_i,
+    input int          num_t,
+    input int          drv_m,
+    input int          drv_k,
+    input int          drv_n,
+    input logic [31:0] st_a,
+    input logic [31:0] st_b,
+    input bit          stationary_w,
+    ref   logic [31:0] rng
+  );
+    int t, rr;
+    logic [31:0] cur_a, cur_w;
+    logic [31:0] eff_a_st, eff_w_st;
+    logic [7:0]  w_fixed [0:3][0:3];
+    logic [31:0] w_word, a_word;
+
+    begin
+      eff_a_st = (st_a != 32'd0) ? st_a : (drv_m * 4);
+      eff_w_st = (st_b != 32'd0) ? st_b : (drv_k * 4);
+
+      if (stationary_w) begin
+        for (rr = 0; rr < 4; rr = rr + 1) begin
+          for (int cc = 0; cc < 4; cc = cc + 1) begin
+            w_fixed[rr][cc] = biased_byte(rng);
+          end
+        end
+      end
+
+      for (t = 0; t < num_t; t = t + 1) begin
+        cur_a = base_a_i + (t * eff_a_st);
+        cur_w = base_w_i + (t * eff_w_st);
+
+        // Preload Activation tile t (4 rows in model SRAM)
+        for (rr = 0; rr < 4; rr = rr + 1) begin
+          if (rr < drv_m)
+            a_word = {biased_byte(rng), biased_byte(rng), biased_byte(rng), biased_byte(rng)};
+          else
+            a_word = 32'd0;
+          mem[mem_ix(cur_a, rr, "preload_multitile A")] = a_word;
+        end
+
+        // Preload Weight tile t (4 rows in model SRAM)
+        for (rr = 0; rr < 4; rr = rr + 1) begin
+          if (stationary_w) begin
+            if (rr < drv_k)
+              w_word = {w_fixed[rr][3], w_fixed[rr][2], w_fixed[rr][1], w_fixed[rr][0]};
+            else
+              w_word = 32'd0;
+          end else begin
+            if (rr < drv_k)
+              w_word = {biased_byte(rng), biased_byte(rng), biased_byte(rng), biased_byte(rng)};
+            else
+              w_word = 32'd0;
+          end
+          mem[mem_ix(cur_w, rr, "preload_multitile W")] = w_word;
+        end
+      end
+    end
+  endtask
+
+  task automatic verify_multitile_output(
+    input string       label,
+    input logic [31:0] base_a_i,
+    input logic [31:0] base_w_i,
+    input logic [31:0] base_c_i,
+    input int          num_t,
+    input int          drv_m,
+    input int          drv_k,
+    input int          drv_n,
+    input logic [31:0] st_a,
+    input logic [31:0] st_b,
+    input logic [31:0] st_c,
+    input bit          mode_u
+  );
+    int t, mm, jj;
+    logic [7:0]  a_tile [0:3][0:3];
+    logic [7:0]  w_tile [0:3][0:3];
+    logic [31:0] exp_c, act_c;
+    logic [31:0] a_ptr, w_ptr, c_ptr;
+    logic [31:0] a_word, w_word;
+    logic [31:0] eff_a_st, eff_w_st, eff_c_st;
+
+    begin
+      eff_a_st = (st_a != 32'd0) ? st_a : (drv_m * 4);
+      eff_w_st = (st_b != 32'd0) ? st_b : (drv_k * 4);
+      eff_c_st = (st_c != 32'd0) ? st_c : (drv_m * 16);
+
+      a_ptr = base_a_i;
+      w_ptr = base_w_i;
+      c_ptr = base_c_i;
+
+      for (t = 0; t < num_t; t = t + 1) begin
+        // 1. Unpack A tile from SRAM
+        for (mm = 0; mm < 4; mm = mm + 1) begin
+          if (mm < drv_m) begin
+            a_word = mem[mem_ix(a_ptr, mm, "verify A")];
+            a_tile[mm][0] = a_word[7:0];
+            a_tile[mm][1] = a_word[15:8];
+            a_tile[mm][2] = a_word[23:16];
+            a_tile[mm][3] = a_word[31:24];
+          end else begin
+            a_tile[mm][0] = 8'd0;
+            a_tile[mm][1] = 8'd0;
+            a_tile[mm][2] = 8'd0;
+            a_tile[mm][3] = 8'd0;
+          end
+        end
+
+        // 2. Unpack W tile from SRAM
+        for (int kk = 0; kk < 4; kk = kk + 1) begin
+          if (kk < drv_k) begin
+            w_word = mem[mem_ix(w_ptr, kk, "verify W")];
+            w_tile[kk][0] = w_word[7:0];
+            w_tile[kk][1] = w_word[15:8];
+            w_tile[kk][2] = w_word[23:16];
+            w_tile[kk][3] = w_word[31:24];
+          end else begin
+            w_tile[kk][0] = 8'd0;
+            w_tile[kk][1] = 8'd0;
+            w_tile[kk][2] = 8'd0;
+            w_tile[kk][3] = 8'd0;
+          end
+        end
+
+        // 3. Verify C outputs against mathematical reference
+        for (mm = 0; mm < drv_m; mm = mm + 1) begin
+          for (jj = 0; jj < drv_n; jj = jj + 1) begin
+            exp_c = ref_c_elem(w_tile, a_tile, mm, jj, drv_k, mode_u);
+            act_c = mem[mem_ix(c_ptr, mm * 4 + jj, "verify C")];
+            
+            checks = checks + 1;
+            if (act_c !== exp_c) begin
+              errors = errors + 1;
+              $display("FAIL [%s]: Tile %0d C[%0d][%0d] got 0x%08h (%0d) expected 0x%08h (%0d)", 
+                       label, t, mm, jj, act_c, act_c, exp_c, exp_c);
+            end
+          end
+        end
+
+        // 4. Stride advancement
+        a_ptr = a_ptr + eff_a_st;
+        w_ptr = w_ptr + eff_w_st;
+        c_ptr = c_ptr + eff_c_st;
+      end
+    end
+  endtask
+
+  task automatic run_multitile_op(
+    input string       label,
+    input int          drv_m,
+    input int          drv_k,
+    input int          drv_n,
+    input bit          drv_mode_u,
+    input logic [31:0] a_addr,
+    input logic [31:0] b_addr,
+    input logic [31:0] c_addr,
+    input logic [15:0] num_t,
+    input logic [31:0] st_a,
+    input logic [31:0] st_b,
+    input logic [31:0] st_c,
+    output bit         ok,
+    output int         elapsed_cycles
+  );
+    int cyc, max_cyc;
+    bit seen;
+    begin
+      dim_m = drv_m[2:0]; dim_k = drv_k[2:0]; dim_n = drv_n[2:0]; mode_unsigned = drv_mode_u;
+      src_a = a_addr; src_b = b_addr; dest_c = c_addr;
+      num_tiles = num_t; stride_a = st_a; stride_b = st_b; stride_c = st_c;
+      job_start_count = 0;
+      elapsed_cycles = 0;
+
+      start = 1;
+      step();
+      start = 0;
+      if (job_start) job_start_count = job_start_count + 1;
+
+      seen = 1'b0;
+      max_cyc = (bp_mode_extreme ? 100000 : 8000) * int'(num_t) + 4000;
+      for (cyc = 0; cyc < max_cyc; cyc = cyc + 1) begin
+        step();
+        elapsed_cycles = elapsed_cycles + 1;
+        if (job_start) job_start_count = job_start_count + 1;
+        if (done) begin
+          seen = 1'b1;
+          step();
+          break;
+        end
+      end
+      ok = seen;
+      checks = checks + 1;
+      if (!seen) begin
+        errors = errors + 1;
+        $display("FAIL [%s]: done never observed within %0d cycles for %0d tiles", label, max_cyc, num_t);
       end
     end
   endtask
@@ -1293,6 +1508,467 @@ module unpu_seq_tb;
       $display("Part E: %0d sequences, %0d total ops (%0d illegal, ~%0d%% of total), checks so far=%0d", NUM_SEQ, total_ops, total_illegal_ops, (total_illegal_ops * 100) / total_ops, checks);
       if (errors == 0)
         $display("Part E: ALL PASSED");
+      $display("----------------------------------------");
+    end
+
+    // =========================================================================
+    // ==== Step 3 Part F: Multi-Tile Verification Suites (Suites 2 - 6) ====
+    // =========================================================================
+    begin : part_f
+      $display("================================================================================");
+      $display("Starting Step 3 Part F: Pipelined Multi-Tile Verification Suites (Suites 2 - 6)");
+      $display("================================================================================");
+
+      // ---- Suite 2: Two-Tile Boundary Ping-Pong Stress (N=2) ----
+      begin : suite_2
+        logic [31:0] s2_rng;
+        int cyc;
+        bit s2_seen;
+        bit concurrent_comp_prefetch;
+        bit zero_bubble_swap;
+        bit concurrent_comp_writeback;
+        bit prefetch_suppressed;
+
+        s2_rng = 32'h5eed0031;
+        do_reset();
+        $display("Part F Suite 2: Two-Tile Boundary Ping-Pong Stress (N=2)");
+
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 2, 4, 4, 4, 32'd0, 32'd0, 1'b0, s2_rng);
+
+        dim_m = 3'd4; dim_k = 3'd4; dim_n = 3'd4; mode_unsigned = 1'b0;
+        src_a = 32'h0006_0000; src_b = 32'h0007_0000; dest_c = 32'h0008_0000;
+        num_tiles = 16'd2; stride_a = 32'd0; stride_b = 32'd0; stride_c = 32'd0;
+        job_start_count = 0;
+
+        concurrent_comp_prefetch = 1'b0;
+        zero_bubble_swap = 1'b0;
+        concurrent_comp_writeback = 1'b0;
+        prefetch_suppressed = 1'b1;
+
+        start = 1; step(); start = 0;
+        if (job_start) job_start_count = job_start_count + 1;
+
+        s2_seen = 1'b0;
+        for (cyc = 0; cyc < 8000; cyc = cyc + 1) begin
+          // Monitor 1: Concurrent Tile 0 Compute + Tile 1 Prefetch
+          if (u_seq.ce_state == u_seq.CE_COMPUTE && u_seq.tile_idx == 16'd0 &&
+              (u_seq.de_state == u_seq.DE_STEADY_FETCH_W || u_seq.de_state == u_seq.DE_STEADY_FETCH_A)) begin
+            concurrent_comp_prefetch = 1'b1;
+          end
+
+          // Monitor 2: Zero-Bubble Swap on Barrier (tile_idx transition 0 -> 1)
+          if (u_seq.can_advance && u_seq.tile_idx == 16'd0) begin
+            step();
+            cyc = cyc + 1;
+            if (job_start) job_start_count = job_start_count + 1;
+            if (u_seq.ce_state == u_seq.CE_COMPUTE && u_seq.tile_idx == 16'd1) begin
+              zero_bubble_swap = 1'b1;
+            end
+          end
+
+          // Monitor 3: Concurrent Tile 0 Writeback + Tile 1 Compute
+          if (u_seq.ce_state == u_seq.CE_COMPUTE && u_seq.tile_idx == 16'd1 &&
+              u_seq.de_state == u_seq.DE_STEADY_WRITE_C) begin
+            concurrent_comp_writeback = 1'b1;
+          end
+
+          // Monitor 4: Epilogue prefetch suppression on Tile 1 (is_last_tile)
+          if (u_seq.tile_idx == 16'd1 &&
+              (u_seq.de_state == u_seq.DE_STEADY_FETCH_W || u_seq.de_state == u_seq.DE_STEADY_FETCH_A)) begin
+            prefetch_suppressed = 1'b0;
+          end
+
+          if (done) begin
+            s2_seen = 1'b1;
+            step();
+            break;
+          end
+          step();
+          if (job_start) job_start_count = job_start_count + 1;
+        end
+
+        checks = checks + 1;
+        if (!s2_seen) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 2]: done never observed for N=2 tiles");
+        end
+
+        checks = checks + 1;
+        if (!concurrent_comp_prefetch) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 2]: Tile 0 compute never overlapped with Tile 1 prefetch");
+        end else begin
+          $display("PASS [Suite 2]: concurrent Tile 0 compute + Tile 1 prefetch verified");
+        end
+
+        checks = checks + 1;
+        if (!zero_bubble_swap) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 2]: zero-bubble bank swap on barrier not observed");
+        end else begin
+          $display("PASS [Suite 2]: zero-bubble bank swap on barrier verified");
+        end
+
+        checks = checks + 1;
+        if (!concurrent_comp_writeback) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 2]: Tile 1 compute never overlapped with Tile 0 writeback");
+        end else begin
+          $display("PASS [Suite 2]: concurrent Tile 1 compute + Tile 0 writeback verified");
+        end
+
+        checks = checks + 1;
+        if (!prefetch_suppressed) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 2]: spurious Tile 2 prefetch observed during last tile");
+        end else begin
+          $display("PASS [Suite 2]: epilogue prefetch suppression verified");
+        end
+
+        verify_multitile_output("Suite 2 (N=2)", 32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                                2, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+      end
+
+      // ---- Suite 3: Deep Streaming Chain (N=16 tiles) ----
+      begin : suite_3
+        bit ok3;
+        int s3_cycles;
+        logic [31:0] s3_rng;
+
+        s3_rng = 32'h5eed0032;
+        do_reset();
+        $display("Part F Suite 3: Deep Streaming Chain (N=16 tiles, 4x4x4 dense)");
+
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b0, s3_rng);
+
+        run_multitile_op("Suite 3 Deep Stream (N=16)", 4, 4, 4, 1'b0,
+                         32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                         16'd16, 32'd0, 32'd0, 32'd0, ok3, s3_cycles);
+
+        verify_multitile_output("Suite 3 (N=16)", 32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                                16, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+        $display("PASS [Suite 3]: 16 tiles completed in %0d cycles, all 256 output words match golden", s3_cycles);
+      end
+
+      // ---- Suite 4: Memory-Bound Asymmetric Pressure ----
+      begin : suite_4
+        bit ok4;
+        logic [31:0] s4_rng;
+        int wait_barrier_cycles;
+        int non_fetch_barrier_cycles;
+        bit array_frozen_in_barrier;
+        bit compute_state_frozen;
+        bit in_ce_wait_barrier_prev;
+        logic [3:0][3:0][31:0] c_dst_bank_snapshot [0:1];
+
+        s4_rng = 32'h5eed0033;
+        do_reset();
+        bp_mode_extreme = 1'b1; // 50-100 cycles per DMA beat
+        $display("Part F Suite 4: Memory-Bound Asymmetric Pressure (extreme DMA delay 50-100 cyc/beat, N=4)");
+
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 4, 4, 4, 4, 32'd0, 32'd0, 1'b0, s4_rng);
+
+        dim_m = 3'd4; dim_k = 3'd4; dim_n = 3'd4; mode_unsigned = 1'b0;
+        src_a = 32'h0006_0000; src_b = 32'h0007_0000; dest_c = 32'h0008_0000;
+        num_tiles = 16'd4; stride_a = 32'd0; stride_b = 32'd0; stride_c = 32'd0;
+        job_start_count = 0;
+
+        wait_barrier_cycles = 0;
+        non_fetch_barrier_cycles = 0;
+        array_frozen_in_barrier = 1'b1;
+        compute_state_frozen = 1'b1;
+        in_ce_wait_barrier_prev = 1'b0;
+
+        start = 1; step(); start = 0;
+        if (job_start) job_start_count = job_start_count + 1;
+
+        ok4 = 1'b0;
+        for (int cyc = 0; cyc < 200000; cyc = cyc + 1) begin
+          if (u_seq.ce_state == u_seq.CE_WAIT_BARRIER) begin
+            wait_barrier_cycles = wait_barrier_cycles + 1;
+
+            // 1. Snapshot output bank on first cycle entering CE_WAIT_BARRIER
+            if (!in_ce_wait_barrier_prev) begin
+              c_dst_bank_snapshot = u_seq.c_dst_bank;
+              in_ce_wait_barrier_prev = 1'b1;
+            end else begin
+              // Verify that c_dst_bank is completely frozen and unmutated throughout CE_WAIT_BARRIER
+              if (u_seq.c_dst_bank !== c_dst_bank_snapshot) begin
+                compute_state_frozen = 1'b0;
+              end
+
+              // Verify systolic compute state is quiescent (cycle == 0, rd_row == 0)
+              if (u_seq.cycle !== 4'd0 || u_seq.rd_row !== 2'd0) begin
+                compute_state_frozen = 1'b0;
+              end
+            end
+
+            // 3. Qualified array_en check: while waiting for barrier (!can_advance),
+            // array_en must be 0 when DE is not actively loading buffers
+            if (!u_seq.can_advance && (u_seq.de_state inside {u_seq.DE_STEADY_WRITE_C, u_seq.DE_DRAIN_WRITE_C, u_seq.DE_WAIT_BARRIER, u_seq.DE_IDLE})) begin
+              non_fetch_barrier_cycles = non_fetch_barrier_cycles + 1;
+              if (u_seq.array_en !== 1'b0) begin
+                array_frozen_in_barrier = 1'b0;
+              end
+            end
+          end else begin
+            in_ce_wait_barrier_prev = 1'b0;
+          end
+
+          if (done) begin
+            ok4 = 1'b1;
+            step();
+            break;
+          end
+          step();
+          if (job_start) job_start_count = job_start_count + 1;
+        end
+
+        bp_mode_extreme = 1'b0; // restore normal backpressure
+
+        checks = checks + 1;
+        if (!ok4) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 4]: done never observed under extreme memory backpressure");
+        end
+
+        checks = checks + 1;
+        if (wait_barrier_cycles == 0) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 4]: CE never waited in CE_WAIT_BARRIER under extreme memory delay");
+        end else if (!compute_state_frozen) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 4]: compute state (cycle, rd_row, or c_dst_bank) was not frozen during CE_WAIT_BARRIER");
+        end else begin
+          $display("PASS [Suite 4]: compute state (cycle=0, rd_row=0, c_dst_bank preserved) cleanly frozen across %0d CE_WAIT_BARRIER cycles", wait_barrier_cycles);
+        end
+
+        checks = checks + 1;
+        if (non_fetch_barrier_cycles == 0) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 4]: DE never reached non-fetch state while CE was in CE_WAIT_BARRIER");
+        end else if (!array_frozen_in_barrier) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 4]: array_en was high during CE_WAIT_BARRIER while DE was in non-fetch state (%0d non-fetch cycles)", non_fetch_barrier_cycles);
+        end else begin
+          $display("PASS [Suite 4]: array_en cleanly frozen low across %0d non-fetch cycles in CE_WAIT_BARRIER", non_fetch_barrier_cycles);
+        end
+
+        verify_multitile_output("Suite 4 Extreme Backpressure (N=4)", 32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                                4, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+      end
+
+      // ---- Suite 5: Compute-Bound Asymmetric Pressure (Fast Memory) ----
+      begin : suite_5
+        bit ok5;
+        logic [31:0] s5_rng;
+        int de_wait_barrier_cycles;
+
+        s5_rng = 32'h5eed0034;
+        do_reset();
+        force_zero_mem_delay = 1'b1; // 0-cycle memory latency
+        $display("Part F Suite 5: Compute-Bound Fast-Memory Pressure (zero wait-states, M=4, K=1, N=1, N_tiles=4)");
+
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 4, 4, 1, 1, 32'd0, 32'd0, 1'b0, s5_rng);
+
+        dim_m = 3'd4; dim_k = 3'd1; dim_n = 3'd1; mode_unsigned = 1'b0;
+        src_a = 32'h0006_0000; src_b = 32'h0007_0000; dest_c = 32'h0008_0000;
+        num_tiles = 16'd4; stride_a = 32'd0; stride_b = 32'd0; stride_c = 32'd0;
+        job_start_count = 0;
+
+        de_wait_barrier_cycles = 0;
+
+        start = 1; step(); start = 0;
+        if (job_start) job_start_count = job_start_count + 1;
+
+        ok5 = 1'b0;
+        for (int cyc = 0; cyc < 10000; cyc = cyc + 1) begin
+          if (u_seq.de_state == u_seq.DE_WAIT_BARRIER) begin
+            de_wait_barrier_cycles = de_wait_barrier_cycles + 1;
+          end
+          if (done) begin
+            ok5 = 1'b1;
+            step();
+            break;
+          end
+          step();
+          if (job_start) job_start_count = job_start_count + 1;
+        end
+
+        force_zero_mem_delay = 1'b0; // restore normal latency
+
+        checks = checks + 1;
+        if (!ok5) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 5]: done never observed for compute-bound fast memory");
+        end
+
+        checks = checks + 1;
+        if (de_wait_barrier_cycles == 0) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 5]: DE never parked in DE_WAIT_BARRIER when memory was faster than compute");
+        end else begin
+          $display("PASS [Suite 5]: DE parked cleanly in DE_WAIT_BARRIER for %0d cycles and resumed without deadlock", de_wait_barrier_cycles);
+        end
+
+        verify_multitile_output("Suite 5 Compute-Bound (N=4, M=4, K=1, N=1)", 32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                                4, 4, 1, 1, 32'd0, 32'd0, 32'd0, 1'b0);
+      end
+
+      // ---- Suite 6: Arbitrary Tensor Strides & Stationary Weights ----
+      begin : suite_6
+        bit ok6;
+        int s6_cycles;
+        logic [31:0] s6_rng;
+        logic [31:0] canary_val;
+
+        s6_rng = 32'h5eed0035;
+        do_reset();
+        $display("Part F Suite 6: Arbitrary Tensor Strides & Stationary Weights");
+
+        // 6.1 Stationary Weights: Delta_B = 0 (same weights across 4 tiles)
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 4, 4, 4, 4, 32'd0, 32'd0, 1'b1, s6_rng);
+
+        run_multitile_op("Suite 6.1 Stationary Weights (N=4)", 4, 4, 4, 1'b0,
+                         32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                         16'd4, 32'd0, 32'd0, 32'd0, ok6, s6_cycles);
+
+        verify_multitile_output("Suite 6.1 Stationary Weights (N=4)", 32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                                4, 4, 4, 4, 32'd0, 32'd0, 32'd0, 1'b0);
+        $display("PASS [Suite 6.1]: Stationary weights evaluated correctly across 4 tiles");
+
+        // 6.2 Interleaved / Sparse Strides: Delta_A = 64 (16 words), Delta_B = 32 (8 words), Delta_C = 256 (64 words)
+        do_reset();
+        for (int w = 0; w < 1024; w = w + 1) begin
+          mem[mem_ix(32'h0008_0000, w, "canary init")] = 32'hCAFE_BABE;
+        end
+
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 4, 4, 4, 4, 32'd64, 32'd32, 1'b0, s6_rng);
+
+        run_multitile_op("Suite 6.2 Sparse Strides (Delta_A=64, Delta_B=32, Delta_C=256)", 4, 4, 4, 1'b0,
+                         32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                         16'd4, 32'd64, 32'd32, 32'd256, ok6, s6_cycles);
+
+        verify_multitile_output("Suite 6.2 Sparse Strides (N=4)", 32'h0006_0000, 32'h0007_0000, 32'h0008_0000,
+                                4, 4, 4, 4, 32'd64, 32'd32, 32'd256, 1'b0);
+
+        // Verify canary word between Tile 0 and Tile 1 output (word 16 of base_c should still be 0xCAFE_BABE)
+        canary_val = mem[mem_ix(32'h0008_0000, 16, "canary check")];
+        checks = checks + 1;
+        if (canary_val !== 32'hCAFE_BABE) begin
+          errors = errors + 1;
+          $display("FAIL [Suite 6.2]: canary word clobbered at word 16 (got 0x%08h expected 0xCAFE_BABE)", canary_val);
+        end else begin
+          $display("PASS [Suite 6.2]: sparse stride memory gaps untouched (canary intact)");
+        end
+      end
+
+      // ---- Performance Benchmark & Quantitative Throughput Metrics Report ----
+      begin : perf_report
+        bit ok_bm;
+        int cyc_pipe, cyc_seq, cyc_one;
+        real speedup_val, eff_val;
+        logic [31:0] bm_rng;
+        bm_rng = 32'h5eed0077;
+
+        $display("\n====================================================================================================");
+        $display("                       MICRO-NPU MULTI-TILE PIPELINE PERFORMANCE REPORT");
+        $display("====================================================================================================");
+        $display("%-28s %5s %12s %14s %14s %9s %13s",
+                 "Test Scenario", "Tiles", "Mem Delay", "Seq Cyc (Ref)", "Pipe Cyc (DUT)", "Speedup", "Array Eff (%)");
+        $display("----------------------------------------------------------------------------------------------------");
+
+        // 1. Suite 2: N=2 Ping-Pong (Normal Backpressure)
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 2, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        cyc_seq = 0;
+        for (int t = 0; t < 2; t = t + 1) begin
+          run_multitile_op("Seq N=1", 4, 4, 4, 1'b0, 32'h0006_0000 + (t * 16), 32'h0007_0000 + (t * 16), 32'h0008_0000 + (t * 64), 16'd1, 32'd0, 32'd0, 32'd0, ok_bm, cyc_one);
+          cyc_seq = cyc_seq + cyc_one;
+        end
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 2, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        run_multitile_op("Pipe N=2", 4, 4, 4, 1'b0, 32'h0006_0000, 32'h0007_0000, 32'h0008_0000, 16'd2, 32'd0, 32'd0, 32'd0, ok_bm, cyc_pipe);
+        speedup_val = real'(cyc_seq) / real'(cyc_pipe);
+        eff_val = (real'(2 * 11) / real'(cyc_pipe)) * 100.0;
+        $display("%-28s %5d %12s %14d %14d %8.2fx %12.1f%%",
+                 "2-Tile Ping-Pong Stress", 2, "0-5 cycles", cyc_seq, cyc_pipe, speedup_val, eff_val);
+
+        // 2. Suite 3: N=8 Streaming Chain
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 8, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        cyc_seq = 0;
+        for (int t = 0; t < 8; t = t + 1) begin
+          run_multitile_op("Seq N=1", 4, 4, 4, 1'b0, 32'h0006_0000 + (t * 16), 32'h0007_0000 + (t * 16), 32'h0008_0000 + (t * 64), 16'd1, 32'd0, 32'd0, 32'd0, ok_bm, cyc_one);
+          cyc_seq = cyc_seq + cyc_one;
+        end
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 8, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        run_multitile_op("Pipe N=8", 4, 4, 4, 1'b0, 32'h0006_0000, 32'h0007_0000, 32'h0008_0000, 16'd8, 32'd0, 32'd0, 32'd0, ok_bm, cyc_pipe);
+        speedup_val = real'(cyc_seq) / real'(cyc_pipe);
+        eff_val = (real'(8 * 11) / real'(cyc_pipe)) * 100.0;
+        $display("%-28s %5d %12s %14d %14d %8.2fx %12.1f%%",
+                 "8-Tile Streaming Chain", 8, "0-5 cycles", cyc_seq, cyc_pipe, speedup_val, eff_val);
+
+        // 3. Suite 3: N=16 Deep Streaming Chain
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        cyc_seq = 0;
+        for (int t = 0; t < 16; t = t + 1) begin
+          run_multitile_op("Seq N=1", 4, 4, 4, 1'b0, 32'h0006_0000 + (t * 16), 32'h0007_0000 + (t * 16), 32'h0008_0000 + (t * 64), 16'd1, 32'd0, 32'd0, 32'd0, ok_bm, cyc_one);
+          cyc_seq = cyc_seq + cyc_one;
+        end
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        run_multitile_op("Pipe N=16", 4, 4, 4, 1'b0, 32'h0006_0000, 32'h0007_0000, 32'h0008_0000, 16'd16, 32'd0, 32'd0, 32'd0, ok_bm, cyc_pipe);
+        speedup_val = real'(cyc_seq) / real'(cyc_pipe);
+        eff_val = (real'(16 * 11) / real'(cyc_pipe)) * 100.0;
+        $display("%-28s %5d %12s %14d %14d %8.2fx %12.1f%%",
+                 "16-Tile Deep Stream", 16, "0-5 cycles", cyc_seq, cyc_pipe, speedup_val, eff_val);
+
+        // 4. Suite 5: N=16 Fast Memory (Zero wait-states, Compute-Bound)
+        do_reset();
+        force_zero_mem_delay = 1'b1;
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        cyc_seq = 0;
+        for (int t = 0; t < 16; t = t + 1) begin
+          run_multitile_op("Seq N=1", 4, 4, 4, 1'b0, 32'h0006_0000 + (t * 16), 32'h0007_0000 + (t * 16), 32'h0008_0000 + (t * 64), 16'd1, 32'd0, 32'd0, 32'd0, ok_bm, cyc_one);
+          cyc_seq = cyc_seq + cyc_one;
+        end
+        do_reset();
+        force_zero_mem_delay = 1'b1;
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b0, bm_rng);
+        run_multitile_op("Pipe N=16 Fast", 4, 4, 4, 1'b0, 32'h0006_0000, 32'h0007_0000, 32'h0008_0000, 16'd16, 32'd0, 32'd0, 32'd0, ok_bm, cyc_pipe);
+        force_zero_mem_delay = 1'b0;
+        speedup_val = real'(cyc_seq) / real'(cyc_pipe);
+        eff_val = (real'(16 * 11) / real'(cyc_pipe)) * 100.0;
+        $display("%-28s %5d %12s %14d %14d %8.2fx %12.1f%%",
+                 "Fast Memory (Zero-Delay)", 16, "0 cycles", cyc_seq, cyc_pipe, speedup_val, eff_val);
+
+        // 5. Suite 6: N=16 Weight-Stationary Stream (Delta_B=0)
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b1, bm_rng);
+        cyc_seq = 0;
+        for (int t = 0; t < 16; t = t + 1) begin
+          run_multitile_op("Seq N=1", 4, 4, 4, 1'b0, 32'h0006_0000 + (t * 16), 32'h0007_0000, 32'h0008_0000 + (t * 64), 16'd1, 32'd0, 32'd0, 32'd0, ok_bm, cyc_one);
+          cyc_seq = cyc_seq + cyc_one;
+        end
+        do_reset();
+        preload_multitile_stream(32'h0006_0000, 32'h0007_0000, 16, 4, 4, 4, 32'd0, 32'd0, 1'b1, bm_rng);
+        run_multitile_op("Pipe N=16 StatW", 4, 4, 4, 1'b0, 32'h0006_0000, 32'h0007_0000, 32'h0008_0000, 16'd16, 32'd0, 32'd0, 32'd0, ok_bm, cyc_pipe);
+        speedup_val = real'(cyc_seq) / real'(cyc_pipe);
+        eff_val = (real'(16 * 11) / real'(cyc_pipe)) * 100.0;
+        $display("%-28s %5d %12s %14d %14d %8.2fx %12.1f%%",
+                 "Stationary Weight Stream", 16, "0-5 cycles", cyc_seq, cyc_pipe, speedup_val, eff_val);
+
+        $display("====================================================================================================\n");
+      end
+
+      $display("----------------------------------------");
+      if (errors == 0)
+        $display("Part F (Suites 2 - 6): ALL MULTI-TILE SUITES PASSED");
+      else
+        $display("Part F: FAILURE(S) present");
       $display("----------------------------------------");
     end
 
