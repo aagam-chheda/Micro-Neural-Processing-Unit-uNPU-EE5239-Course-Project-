@@ -1643,3 +1643,60 @@ pattern (matched 0 cells), the check_design/LINT-99 and check_timing reports,
 the critical path, and what the Dont-Touch cells are. Slack was +0.05 ns
 (`unpu_pe`) and +0.10 ns (`unpu_top`) after optimisation, which is not
 margin. Next flow step after this: pre-layout gate-level simulation.
+
+## Parked: teammate's multi-tile dual-FSM branch (2026-10-03)
+
+A teammate pushed `origin/feature/multitile-dual-fsm` (tip `f18dfb3`, two
+commits on `main` at `b9b88c6`): `unpu_seq` rewritten as a compute FSM plus a
+DMA FSM with a fork-join barrier, ping-pong output staging, `num_tiles` in
+`npu_ctrl[31:16]` and byte strides in `dim_m/n/k[31:16]`. The user asked for
+verification (task 036, `8e9fe51`) and decided **not to merge**. It is parked as
+a possible "v2 extension". Nothing was merged, nothing was pushed to or changed
+on the teammate's branch, and `main`'s RTL is unchanged (`git diff
+9f5deab..HEAD -- rtl/` empty).
+
+Result of the verification (Execution, Verilator only):
+- Original ten testbenches plus `ext1`/`ext2` pass unchanged on the branch RTL:
+  84 of 84 runs (default and six random-init seeds), counts identical to Freeze
+  v2.
+- Single-tile differential, `main` vs branch, 40,009 ops: identical DMA
+  transcripts, DONE cycle, cycle counts and SRAM images. Two observable
+  differences: `error_code` is cleared on every START (main keeps it sticky), and
+  a START in exactly the DONE-pulse cycle is accepted (main drops it).
+- Independent multi-tile campaign (`tb/unpu_mt_xcheck_tb.sv`, local review
+  branch only): about 90k checks per run, all pass. Barrier needs both inputs;
+  weight-swap margin is exactly 2 cycles (safe from M+5, barrier no earlier than
+  M+7) and the DMA is always the slower engine, so the hazard is unreachable.
+- Mutation table: 15+ mutants caught by the new testbench; the teammate's
+  `unpu_top_tb` misses an extra prefetch, an extra tile and a last-tile read.
+- Measured speedup 1.25x for 4x4x4 tiles, best 1.63x (1x1x1 tiles), typically
+  1.16x to 1.46x; the spec's "up to 3.8x" is not observed. DMA is the bottleneck.
+
+Findings against the branch's own claims: "100% backward compatible" is not
+literally true (two differences above); "stationary weights via stride 0" is not
+implemented and the spec contradicts itself; stride field is 16 bits, spec says
+32; a `num_tiles` write followed by a separate START (upper bits 0) silently runs
+one tile; `unpu_top_tb` poll bound loosened from 4,000 to 10,000 per tile;
+`make lint` fails (one unused signal, `dest_c_lat`); port default values in
+`unpu_seq` may be rejected by dc_shell.
+
+Cost if adopted (estimates, no synthesis run): about 700 more flip-flops (about
+28 to 33% on the 2,465 of the current DC run), a new combinational path
+(`array_en`/`w_swap`/`a_swap` depend on the DMA's `job_done`, fanning out to
+about 2,465 flops), and a fourth reopening of the RTL freeze: new addendum, rerun
+of all 12 testbenches, redo of Design Compiler, ICC2, PrimeTime and Calibre, and
+PM sign-off on the changed register fields (the map is still provisional).
+
+Planning's recommendation was not to merge now: the benefit is small and the
+firmware that would show the real saving (fewer CPU round trips) does not exist
+yet. Revisit only if all hold: the PM or instructor wants hardware multi-tile,
+the back-end is DRC/LVS clean with weeks to spare, a Design Compiler run on the
+branch shows no timing regression on the `array_en` path and an acceptable area
+increase, and the teammate fixes the findings above (stride-0 semantics,
+`num_tiles` write ordering, a documented decision on the two behaviour
+differences, restored poll bound and the missing top-level checks, remove
+`dest_c_lat` and the port defaults, correct the spec's claims).
+
+Material: the local branch `review/multitile-dual-fsm-verification` (`85d1354`,
+based on `f18dfb3`) holds the independent testbench and a short note. It is
+unpushed; pushing it is the user's call.
