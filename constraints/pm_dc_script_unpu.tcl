@@ -5,8 +5,8 @@
 # FS120 4M1L kit. Source: the user's copy of the PM's example
 # (temp/temp_constraits.txt, untracked).
 #
-# Every PM constraint and command is kept exactly as given: the clock,
-# set_drive / set_load / set_input_delay / set_output_delay, the operating-
+# Every PM command is kept as given (the clock, drive, load and I/O delays now
+# live in constraints/pm_unpu_top.sdc): the operating-
 # condition and wire-load branches, the optimisation constraints,
 # set_fix_multiple_port_nets, remove_unconnected_ports, and the compile.
 # Only the lines marked "CHANGED" differ from the PM's file:
@@ -20,12 +20,10 @@
 #
 # Run dc_shell from the repo root (paths are relative).
 #
-#   6. ADDED (section 3b): set_units, clock uncertainty and the I/O delays
-#      from constraints/unpu_top.sdc. They override the PM's 0 I/O delays on
-#      the named ports; the PM lines stay in place. Drive and load stay at the
-#      PM's 0 (unpu_top.sdc does not set them).
-#
-# The budgets in section 3b are assumptions pending the SoC team.
+#   6. constraints (clock, drive, load, I/O delays): moved to a pure SDC,
+#      constraints/pm_unpu_top.sdc, which this script reads with read_sdc. That file
+#      keeps the PM's constraints, adds those of constraints/unpu_top.sdc, and adds
+#      an input driving cell and an output load. Its numbers are assumptions.
 # =============================================================================
 
 
@@ -72,105 +70,16 @@ link
 
 
 # -----------------------------------------------------------------------------
-# 2. Create clock
+# 2. Constraints: clock, I/O delays, drive, load
 # -----------------------------------------------------------------------------
 
-set find_clock [find port [list $clk_name]]
-if {$find_clock != [list]} {
-    create_clock $clk_name -period 20
-    puts "clock present"
-} else {
-    set clk_name vclk
-    create_clock -period 20 -name $clk_name
-    puts "clock not present"
-}
-
-
-# -----------------------------------------------------------------------------
-# 3. Operating environment: input/output delay, drive strength
-# -----------------------------------------------------------------------------
-
-if {[string match gscl45nm $tech_lib] == 1} {
-    set_driving_cell -lib_cell INVX1 [all_inputs]
-}
-set_drive 0 [all_inputs]
-set_load  0 [all_outputs]
-set_input_delay  0 [all_inputs]  -clock $clk_name
-set_output_delay 0 [all_outputs] -clock $clk_name
-
-
-# -----------------------------------------------------------------------------
-# 3b. ADDED: constraints taken from constraints/unpu_top.sdc
-#
-# Copied by hand, so if one file changes the other must be updated too. The
-# PM lines above are left in place. For the ports named below, these -max and
-# -min delays replace the PM's 0 (a later set_input_delay / set_output_delay on
-# the same port and the same -max or -min wins). Not taken from unpu_top.sdc:
-#   - create_clock: the PM's clock above is the same (20 ns, 50 MHz, port clk).
-#   - set_driving_cell / set_load: they are only commented TODOs there (driving
-#     cell and load are NOT set), so the PM's set_drive 0 and set_load 0 stay.
-# Every number below is an ASSUMPTION except the 20 ns period (CLAUDE.md),
-# pending the SoC team's interface timing. Never change one to close timing.
-# -----------------------------------------------------------------------------
-
-# Library time unit is ns (read from the ss and ff .lib headers).
-set_units -time ns
-
-set CLK_PERIOD        20.0   ;# 50 MHz, from CLAUDE.md; keep equal to the PM's create_clock -period
-set CLK_UNCERT         0.5   ;# ASSUMPTION, pre-CTS margin
-set CLK_TRANSITION     0.3   ;# ASSUMPTION, slew at the flop clock pins (see note below)
-# The APB read path prdata = f(paddr) is combinational (in to out, through the
-# CSR read mux), so its budget is
-#     CLK_PERIOD * (1 - APB_IN_PCT - APB_OUT_PCT) - CLK_UNCERT
-# APB_IN_PCT and APB_OUT_PCT MUST therefore leave a positive budget for that
-# path. With the values below it is 8 ns before uncertainty.
-set APB_IN_PCT         0.3   ;# ASSUMPTION, fraction of period used outside, max input delay
-set APB_OUT_PCT        0.3   ;# ASSUMPTION, fraction of period the outside needs after prdata/pready
-set DMA_IN_PCT         0.3   ;# ASSUMPTION, dma_rdata, dma_ready
-set DMA_OUT_PCT        0.3   ;# ASSUMPTION, dma_addr/wdata/wstrb/valid
-set RST_IN_PCT         0.3   ;# ASSUMPTION, rst_n
-set IN_MIN_DELAY       0.0   ;# ASSUMPTION, min input delay for hold
-set OUT_MIN_DELAY      0.0   ;# ASSUMPTION, min output delay for hold
-
-# Port groups, listed explicitly. clk is in no group.
-set APB_IN_PORTS   {paddr[*] pwdata[*] pwrite psel penable}
-set APB_OUT_PORTS  {prdata[*] pready}
-set DMA_IN_PORTS   {dma_rdata[*] dma_ready}
-set DMA_OUT_PORTS  {dma_addr[*] dma_wdata[*] dma_wstrb[*] dma_valid}
-set RST_IN_PORTS   {rst_n}
-
-set_clock_uncertainty $CLK_UNCERT [get_clocks $clk_name]
-
-# Clock slew. Without this an ideal clock has a perfectly square edge at every
-# flop clock pin, so DC reads setup/hold/clk-Q from the most optimistic entries
-# in the library tables. This forces a finite transition instead. It applies
-# ONLY while the clock is ideal: after set_propagated_clock in ICC2 the real
-# computed transitions are used and this is ignored.
-# The value has no measured basis yet. Check the library's own limit with
-#   grep -m2 -E 'default_max_transition|max_transition' <ss .lib>
-# and keep this well under it; a clock tree is normally built far tighter than
-# the data-net limit.
-set_clock_transition $CLK_TRANSITION [get_clocks $clk_name]
-
-# Input delays. -max is the setup side, -min the hold side.
-set_input_delay -clock $clk_name -max [expr {$CLK_PERIOD * $APB_IN_PCT}] [get_ports $APB_IN_PORTS]
-set_input_delay -clock $clk_name -min $IN_MIN_DELAY                      [get_ports $APB_IN_PORTS]
-
-set_input_delay -clock $clk_name -max [expr {$CLK_PERIOD * $DMA_IN_PCT}] [get_ports $DMA_IN_PORTS]
-set_input_delay -clock $clk_name -min $IN_MIN_DELAY                      [get_ports $DMA_IN_PORTS]
-
-# rst_n: an ordinary input delay, deliberately with NO set_false_path. Its
-# assertion is asynchronous, but the recovery/removal checks on its release
-# must stay in the analysis, so it is timed like any other input.
-set_input_delay -clock $clk_name -max [expr {$CLK_PERIOD * $RST_IN_PCT}] [get_ports $RST_IN_PORTS]
-set_input_delay -clock $clk_name -min $IN_MIN_DELAY                      [get_ports $RST_IN_PORTS]
-
-# Output delays. -max is the setup side, -min the hold side.
-set_output_delay -clock $clk_name -max [expr {$CLK_PERIOD * $APB_OUT_PCT}] [get_ports $APB_OUT_PORTS]
-set_output_delay -clock $clk_name -min $OUT_MIN_DELAY                      [get_ports $APB_OUT_PORTS]
-
-set_output_delay -clock $clk_name -max [expr {$CLK_PERIOD * $DMA_OUT_PCT}] [get_ports $DMA_OUT_PORTS]
-set_output_delay -clock $clk_name -min $OUT_MIN_DELAY                      [get_ports $DMA_OUT_PORTS]
+# CHANGED: the constraints moved out of this script into a pure SDC file,
+# constraints/pm_unpu_top.sdc, so ICC2 and PrimeTime can read the same file.
+# It holds the PM's original constraints (clock, set_drive, set_load, I/O delays),
+# the constraints from constraints/unpu_top.sdc, and the new driving cell and
+# output load. The PM's "is there a clk port, else make vclk" fallback is gone:
+# unpu_top has a real clk port. The path is relative to the repo root.
+read_sdc constraints/pm_unpu_top.sdc
 
 
 # -----------------------------------------------------------------------------
