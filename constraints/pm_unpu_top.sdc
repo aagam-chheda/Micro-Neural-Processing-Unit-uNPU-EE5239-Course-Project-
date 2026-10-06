@@ -19,9 +19,10 @@
 #   3. NEW: input driving cell and output load. They override the PM's
 #      set_drive 0 and set_load 0 on the named ports.
 #
-# EVERY number below except the 20 ns period (CLAUDE.md) is an ASSUMPTION,
-# pending the SoC team's interface timing and loads. None may be changed to
-# close timing without a written reason and the user's approval.
+# EVERY number below except the 20 ns period (CLAUDE.md) and the 1 pF output
+# load (the course instructor's value) is an ASSUMPTION, pending the SoC team's
+# interface timing and loads. None may be changed to close timing without a
+# written reason and the user's approval.
 #
 # Units: the SCL libraries declare time_unit 1ns and capacitive_load_unit
 # (1, pf) (read from the ss .lib header; the ff library's time unit matches, its
@@ -98,34 +99,33 @@ set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports 
 #
 # Replaces the PM's idealised boundary (set_drive 0 = an infinitely strong
 # driver, set_load 0 = nothing connected) with a finite one. All of it is an
-# ASSUMPTION; the SoC team has not given real numbers.
+# assumption; the SoC team has not given real numbers. The load is the
+# instructor's value; the driving cell is mine.
 #
 # Driving cell: every input is driven by a buffd2, the library's plain buffer
 # (inspected: input I, output Z, function "I", area 18.82), through its output
 # pin Z. A mid-size buffer is a typical stand-in for "something a few gates
 # away in the SoC". clk is excluded (ideal clock, set_clock_transition above).
 #
-# Output load, in pF, per output port:
-#   DMA outputs  0.25  dma_addr / dma_wdata / dma_wstrb / dma_valid go to the
-#                      shared SRAM arbiter and a 4-bank SRAM: several input pins
-#                      (about 0.01 pF each for a 180 nm cell input) plus a
-#                      top-level route of roughly a millimetre (about 0.15 to
-#                      0.25 pF per mm). Rounded up to 0.25.
-#   APB outputs  0.10  prdata / pready go point to point to the APB interconnect:
-#                      one or two input pins and a shorter route.
-# The values are deliberately on the conservative side so that a driver sized for
-# them is not undersized if the real load turns out lighter. Check them against
-# the library: if a port's load exceeds the max_capacitance of the cell that
-# ends up driving it, DC will insert buffers (visible in report_constraint).
+# Output load: 1 pF on every output port, the value suggested by the course
+# instructor. It is deliberately conservative: roughly a hundred 180 nm cell
+# inputs (about 0.01 pF each) or several millimetres of route, much heavier than
+# a realistic SoC-level load (an earlier estimate was 0.10 pF on the APB outputs
+# and 0.25 pF on the shared SRAM bus). A design that meets timing at 1 pF has
+# margin if the real load is lighter. Expect DC to upsize or buffer the output
+# cells, which costs some area, and each output path to slow by roughly a
+# nanosecond at the ss corner. If a port's load exceeds the max_capacitance of
+# the cell that ends up driving it, DC inserts buffers (visible in
+# report_constraint). Never lower this to close timing without a written reason
+# and the user's approval.
 # -----------------------------------------------------------------------------
 set DRIVE_CELL       buffd2  ;# ASSUMPTION, plain buffer standing in for the outside driver
 set DRIVE_PIN        Z       ;# output pin of buffd2 (verified in the ss .lib)
-set DMA_OUT_LOAD     0.25    ;# ASSUMPTION, pF, shared SRAM bus: several pins + about 1 mm of route
-set APB_OUT_LOAD     0.10    ;# ASSUMPTION, pF, point-to-point to the APB interconnect
+set OUT_LOAD         1.0     ;# pF, every output port; the instructor's suggested value
 
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $APB_IN_PORTS]
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $DMA_IN_PORTS]
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $RST_IN_PORTS]
 
-set_load $APB_OUT_LOAD [get_ports $APB_OUT_PORTS]
-set_load $DMA_OUT_LOAD [get_ports $DMA_OUT_PORTS]
+set_load $OUT_LOAD [get_ports $APB_OUT_PORTS]
+set_load $OUT_LOAD [get_ports $DMA_OUT_PORTS]
