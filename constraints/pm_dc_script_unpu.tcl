@@ -75,8 +75,8 @@ link
 
 # CHANGED: the constraints moved out of this script into a pure SDC file,
 # constraints/pm_unpu_top.sdc, so ICC2 and PrimeTime can read the same file.
-# It holds the PM's original constraints (clock, set_drive, set_load, I/O delays),
-# the constraints from constraints/unpu_top.sdc, and the new driving cell and
+# It holds the PM's original constraints (clock, I/O delays; the PM's set_drive 0
+# and set_load 0 are removed), the constraints from constraints/unpu_top.sdc, and the new driving cell and
 # output load. The PM's "is there a clk port, else make vclk" fallback is gone:
 # unpu_top has a real clk port. The path is relative to the repo root.
 read_sdc constraints/pm_unpu_top.sdc

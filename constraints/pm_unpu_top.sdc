@@ -7,8 +7,9 @@
 # The same file can be read by ICC2 and PrimeTime.
 #
 # Contents, in order:
-#   1. The PM's example constraints (clock, drive, load, I/O delays), kept as
-#      given. The clock name is the literal port name `clk`, and the clock is
+#   1. The PM's example constraints (clock, I/O delays), kept as given. The
+#      PM's set_drive 0 and set_load 0 (a perfect driver, an empty output) are
+#      deliberately removed; section 3 replaces them with real ones. The clock name is the literal port name `clk`, and the clock is
 #      created on [get_ports clk]; the PM's "is there a clk port, else make a
 #      virtual clock" fallback is script logic, not a constraint, and is dropped
 #      because unpu_top has a real clk port.
@@ -18,8 +19,7 @@
 #      on the same port and the same -max or -min wins).
 #   3. NEW: boundary non-idealities: a weak input driving cell, a wire load on
 #      the input nets, the output load, and design-wide max transition and max
-#      capacitance. They override the PM's set_drive 0 and set_load 0 on the
-#      named ports.
+#      capacitance.
 #
 # EVERY number below except the 20 ns period (CLAUDE.md) and the 1 pF output
 # load (the course instructor's value) is an ASSUMPTION, pending the SoC team's
@@ -41,8 +41,6 @@ set_units -time ns -capacitance pF
 # -----------------------------------------------------------------------------
 create_clock -name clk -period 20 [get_ports clk]
 
-set_drive 0 [all_inputs]
-set_load  0 [all_outputs]
 set_input_delay  0 [all_inputs]  -clock clk
 set_output_delay 0 [all_outputs] -clock clk
 
@@ -103,10 +101,10 @@ set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports 
 # -----------------------------------------------------------------------------
 # 3. NEW: boundary non-idealities
 #
-# Replaces the PM's idealised boundary (set_drive 0 = an infinitely strong
-# driver, set_load 0 = nothing connected) with a finite one. All of it is an
-# assumption; the SoC team has not given real numbers. The output load is the
-# instructor's value; everything else is mine.
+# Gives the boundary a finite driver and finite loads (the PM's idealised
+# set_drive 0 and set_load 0 were removed). All of it is an assumption; the
+# SoC team has not given real numbers. The output load is the instructor's
+# value; everything else is mine.
 #
 # a) Driving cell: every data input is driven by a buffd1, the weakest of the
 #    library's plain buffers (family buffd1/2/3/4/7/da; buffd2 was inspected:
