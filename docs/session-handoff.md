@@ -552,9 +552,10 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
   the library, so the latch check on the DC netlist matters.
 - The don't-use pattern `slbhb*` matches at least one cell (`slbhb2`);
   `slnhq2` and `slnlb2` do not match their patterns (`slnhn*`, `slnln*`).
-- A driving cell for the SDC would be `buffd2` with output pin `Z`
-  (`set_driving_cell -lib_cell buffd2 -pin Z`). The drive strength is an
-  assumption until the SoC team says what drives the inputs.
+- The SDC now drives the inputs with `buffd1`, pin `Z` (`set_driving_cell
+  -lib_cell buffd1 -pin Z`); DC accepted it on 2026-10-08, so `buffd1` has a
+  `Z` pin. The drive strength is an assumption until the SoC team says what
+  drives the inputs.
 
 ### 18.5 Open items
 
@@ -563,8 +564,39 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
 - Which Calibre deck runs DRC and LVS, and how it is invoked, is untested.
 - Whether the frozen testbenches run unchanged against the gate-level netlist
   with the SCL simulation models is unknown.
-- `constraints/unpu_top.sdc` exists (task 034, `2f271c3`) but has not been read
-  by any Synopsys tool. Its driving cell, output load and interface budget are
-  unset or assumed; see the file header. Only the 20 ns clock period is a fact.
+- `constraints/unpu_top.sdc` (task 034, `2f271c3`, extended 2026-10-08) has been
+  read by DC through `constraints/pm_unpu_top.sdc`, its identical twin (see
+  18.6). It has not been read by ICC2 or PrimeTime. Its interface budget,
+  driver, wire load and limits are deliberately harsh assumptions; only the
+  20 ns clock period and the 1 pF output load (instructor) are facts.
 - How the macro `.lib` is produced, whether pads are needed, and what "clean"
   covers are questions for the PM.
+
+### 18.6 First DC run of the PM script (user's server run, 2026-10-08)
+
+The user ran `constraints/pm_dc_script_unpu.tcl` (reads `constraints/pm_unpu_top.sdc`) in their
+own clone, ss corner. The reports are on the server and in the user's scratch copy
+(`syn/out/pm_flow_server/`, git-ignored); this section keeps the facts.
+
+- The script completes. `set_operating_conditions -library tsl18fs120_scl_ss
+  tsl18fs120_scl_ss` and `set_wire_load_model -name 140000` both resolve (the PM
+  script's SCL branch works), as do `buffd1`/`Z`, `set_max_transition` and
+  `set_max_capacitance`. `write_sdc` shows every constraint applied.
+- Worst setup path (the only one reported): combinational `paddr[2]` to
+  `prdata[4]`, slack +0.02 ns of a 4.5 ns budget (20 - 7 - 7 - 1.5). DC stops
+  once slack is positive, so this is not margin. Register-to-register paths were
+  not reported.
+- Area: total 454,915 um2 (0.455 mm2), cell area 441,671 um2; 2,465 flops
+  (628 in `unpu_seq`, which holds the 512-bit `c_dst`; 267 each in `unpu_wbuf`,
+  `unpu_actbuf`; 768 in the 16 PEs).
+- Power (6.57 mW dynamic, 94% ideal clock network, no switching annotation) is
+  not meaningful yet.
+- Netlist: no don't-use cell appears; 16 `assign` statements and escaped names
+  remain because `change_names` is not run (known script defect, matters for
+  ICC2 and gate-level simulation).
+- The PM's `set_input_delay 0 [all_inputs]` also lands on the `clk` port;
+  harmless in DC, may warn in PrimeTime.
+- Constraint history (all in `constraints/`): PM script split into a pure SDC plus
+  flow script; clock transition, setup/hold uncertainty, driving cell, wire and
+  output loads, max limits added; assumptions then made harsh on request; the
+  PM's `set_drive 0` / `set_load 0` removed; `unpu_top.sdc` kept identical.

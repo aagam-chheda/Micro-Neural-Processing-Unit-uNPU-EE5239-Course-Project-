@@ -1700,3 +1700,28 @@ differences, restored poll bound and the missing top-level checks, remove
 Material: the local branch `review/multitile-dual-fsm-verification` (`85d1354`,
 based on `f18dfb3`) holds the independent testbench and a short note. It is
 unpushed; pushing it is the user's call.
+
+## First DC run of the PM script, harsh constraints (2026-10-08)
+
+The user ran `constraints/pm_dc_script_unpu.tcl` on the server (their own clone,
+ss corner, by hand). Details are in `docs/session-handoff.md` 18.6; short form:
+
+- Constraints: `constraints/pm_unpu_top.sdc` and `constraints/unpu_top.sdc` now
+  carry the same set. Added on request: `set_clock_transition 0.6`, setup/hold
+  uncertainty 1.5/0.5, input driver `buffd1`, 0.2 pF input wire load, 1 pF output
+  load (instructor), max transition 1.0 ns, max capacitance 2.0 pF, and harsh
+  interface budgets (APB 35%, DMA and reset 40% each way; output min delay
+  -0.5 ns). Removed: the PM's `set_drive 0` and `set_load 0`. Every number
+  except the 20 ns period and the 1 pF load is an assumption and must not be
+  changed to close timing without a written reason and the user's approval.
+- Result: the run completes. Worst path `paddr` to `prdata`, slack +0.02 ns of a
+  4.5 ns budget (DC stops at just positive, so it is not margin); area 0.455 mm2;
+  2,465 flops; power not meaningful (ideal clock, no activity annotation).
+- Not yet known: register-to-register slack (only one path was reported), the
+  ff-corner result, whether `unpu_top.sdc` is accepted by ICC2/PrimeTime.
+- Open script defects (unchanged): no `change_names` before `write`, so the
+  netlist has `assign` statements and escaped names; no DC check of
+  `check_design`/`check_timing`.
+- Back-end continues in the user's own clone; Planning answers questions only.
+  Task 035 Part B stays paused.
+
