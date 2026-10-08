@@ -600,3 +600,14 @@ own clone, ss corner. The reports are on the server and in the user's scratch co
   flow script; clock transition, setup/hold uncertainty, driving cell, wire and
   output loads, max limits added; assumptions then made harsh on request; the
   PM's `set_drive 0` / `set_load 0` removed; `unpu_top.sdc` kept identical.
+- Reset: the unpu RTL uses an asynchronous active-low reset in all 28 `always_ff`
+  blocks (chosen by Planning/Execution in tasks 001 to 009; the PM never specified
+  it). The user reports (2026-10-08, second-hand, not yet confirmed in writing)
+  that the top-level SoC team uses synchronous resets. Not a conflict: an
+  async-reset flop can be driven by a reset that the SoC releases synchronously.
+  To confirm with the SoC team: `rst_n` comes straight from a flop (no
+  combinational logic that could glitch and reset the macro asynchronously),
+  and it is released synchronously to `clk`. Changing the macro to a
+  synchronous reset is not needed for compatibility and would reopen the RTL
+  freeze.
+
