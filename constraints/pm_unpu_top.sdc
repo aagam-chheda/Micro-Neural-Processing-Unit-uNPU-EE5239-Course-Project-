@@ -23,7 +23,9 @@
 #
 # EVERY number below except the 20 ns period (CLAUDE.md) and the 1 pF output
 # load (the course instructor's value) is an ASSUMPTION, pending the SoC team's
-# interface timing and loads. None may be changed to close timing without a
+# interface timing and loads. The assumptions are deliberately HARSH (pessimistic):
+# large clock uncertainty and slew, big external delay shares, a long input wire,
+# tight transition and capacitance limits. Timing that closes here has margin. None may be changed to close timing without a
 # written reason and the user's approval.
 #
 # Units: the SCL libraries declare time_unit 1ns and capacitive_load_unit
@@ -50,21 +52,21 @@ set_output_delay 0 [all_outputs] -clock clk
 #    the other)
 # -----------------------------------------------------------------------------
 set CLK_PERIOD        20.0   ;# 50 MHz, from CLAUDE.md; keep equal to the create_clock -period above
-set CLK_UNCERT_SETUP   0.8   ;# ASSUMPTION, pre-CTS setup margin: jitter ~0.3 + skew ~0.5
-set CLK_UNCERT_HOLD    0.2   ;# ASSUMPTION, pre-CTS hold margin: skew only, jitter does not hurt hold
-set CLK_TRANSITION     0.3   ;# ASSUMPTION, slew at the flop clock pins (ideal clock only)
+set CLK_UNCERT_SETUP   1.5   ;# HARSH ASSUMPTION, setup margin: jitter ~0.5 + skew ~1.0 (7.5% of the period)
+set CLK_UNCERT_HOLD    0.5   ;# HARSH ASSUMPTION, hold margin: skew only, jitter does not hurt hold
+set CLK_TRANSITION     0.6   ;# HARSH ASSUMPTION, slew at the flop clock pins (ideal clock only)
 # The APB read path prdata = f(paddr) is combinational (in to out, through the
 # CSR read mux), so its budget is
 #     CLK_PERIOD * (1 - APB_IN_PCT - APB_OUT_PCT) - CLK_UNCERT_SETUP
 # APB_IN_PCT and APB_OUT_PCT MUST therefore leave a positive budget for that
-# path. With the values below it is 8 ns before uncertainty, 7.2 ns after.
-set APB_IN_PCT         0.3   ;# ASSUMPTION, fraction of period used outside, max input delay
-set APB_OUT_PCT        0.3   ;# ASSUMPTION, fraction of period the outside needs after prdata/pready
-set DMA_IN_PCT         0.3   ;# ASSUMPTION, dma_rdata, dma_ready
-set DMA_OUT_PCT        0.3   ;# ASSUMPTION, dma_addr/wdata/wstrb/valid
-set RST_IN_PCT         0.3   ;# ASSUMPTION, rst_n
-set IN_MIN_DELAY       0.0   ;# ASSUMPTION, min input delay for hold
-set OUT_MIN_DELAY      0.0   ;# ASSUMPTION, min output delay for hold
+# path. With the values below it is 6 ns before uncertainty, 4.5 ns after.
+set APB_IN_PCT         0.35  ;# HARSH ASSUMPTION, fraction of period used outside, max input delay
+set APB_OUT_PCT        0.35  ;# HARSH ASSUMPTION, fraction of period the outside needs after prdata/pready
+set DMA_IN_PCT         0.4   ;# HARSH ASSUMPTION, dma_rdata, dma_ready
+set DMA_OUT_PCT        0.4   ;# HARSH ASSUMPTION, dma_addr/wdata/wstrb/valid
+set RST_IN_PCT         0.4   ;# HARSH ASSUMPTION, rst_n
+set IN_MIN_DELAY       0.0   ;# HARSH ASSUMPTION, input may change right at the clock edge (the earliest possible)
+set OUT_MIN_DELAY     -0.5   ;# HARSH ASSUMPTION, the outside needs outputs held 0.5 ns after the edge (min output delay = minus its hold time)
 
 # Port groups, listed explicitly. clk is in no group.
 set APB_IN_PORTS   {paddr[*] pwdata[*] pwrite psel penable}
@@ -116,9 +118,9 @@ set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports 
 #    no set_input_transition on top. clk is excluded (ideal clock, see
 #    set_clock_transition above).
 #
-# b) Input wire load: 0.05 pF on every data input net, roughly 250 um of
-#    180 nm route (about 0.2 fF/um), so the driver sees a wire and not an
-#    empty pin. ASSUMPTION.
+# b) Input wire load: 0.2 pF on every data input net, roughly 1 mm of 180 nm
+#    route (about 0.2 fF/um), so the driver sees a long wire and not an empty
+#    pin. HARSH ASSUMPTION.
 #
 # c) Output load: 1 pF on every output port, the value suggested by the course
 #    instructor. It is deliberately conservative: roughly a hundred 180 nm cell
@@ -129,21 +131,22 @@ set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports 
 #    roughly a nanosecond at the ss corner. Never lower this to close timing
 #    without a written reason and the user's approval.
 #
-# d) Design-wide max transition 2.0 ns and max capacitance 5.0 pF: the numbers
-#    in the PM's own commented-out lines (set_max_transition 2, set_max_capacitance 5),
-#    which came from a different technology and are not checked against the
-#    SCL library. The library's own default_max_transition and each pin's
-#    max_capacitance still apply, and where they are tighter they win, so these
-#    can only tighten the limits, never loosen them. Check the library with
+# d) Design-wide max transition 1.0 ns and max capacitance 2.0 pF: deliberately
+#    tighter than the PM's own commented-out lines (set_max_transition 2,
+#    set_max_capacitance 5, from a different technology). They are not checked
+#    against the SCL library. The library's own default_max_transition and each
+#    pin's max_capacitance still apply, and where they are tighter they win, so
+#    these can only tighten the limits, never loosen them. Check the library with
 #        grep -m3 -E 'default_max_transition|default_max_capacitance' <ss .lib>
-#    and tighten 2.0 if the library default is lower than that.
+#    The 1 pF output load sits under the 2.0 pF cap; keep MAX_CAPACITANCE above
+#    OUT_LOAD or every output is a violation by construction.
 # -----------------------------------------------------------------------------
 set DRIVE_CELL       buffd1  ;# ASSUMPTION, weakest plain buffer standing in for the outside driver
 set DRIVE_PIN        Z       ;# output pin; verified for buffd2 in the ss .lib, assumed for buffd1
-set IN_WIRE_LOAD     0.05    ;# pF, ASSUMPTION, wire on every data input net
+set IN_WIRE_LOAD     0.2     ;# pF, HARSH ASSUMPTION, wire on every data input net
 set OUT_LOAD         1.0     ;# pF, every output port; the instructor's suggested value
-set MAX_TRANSITION   2.0     ;# ns, ASSUMPTION (PM's commented-out number)
-set MAX_CAPACITANCE  5.0     ;# pF, ASSUMPTION (PM's commented-out number)
+set MAX_TRANSITION   1.0     ;# ns, HARSH ASSUMPTION
+set MAX_CAPACITANCE  2.0     ;# pF, HARSH ASSUMPTION
 
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $APB_IN_PORTS]
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $DMA_IN_PORTS]
