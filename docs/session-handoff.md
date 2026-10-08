@@ -576,7 +576,8 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
 
 The user ran `constraints/pm_dc_script_unpu.tcl` (reads `constraints/pm_unpu_top.sdc`) in their
 own clone, ss corner. The reports are on the server and in the user's scratch copy
-(`syn/out/pm_flow_server/`, git-ignored); this section keeps the facts.
+(`syn/out/pm_flow_server/`, git-ignored); this section keeps the facts, and
+`docs/planning/dc-run-2026-10-08.md` holds the same run as quick-reference tables.
 
 - The script completes. `set_operating_conditions -library tsl18fs120_scl_ss
   tsl18fs120_scl_ss` and `set_wire_load_model -name 140000` both resolve (the PM

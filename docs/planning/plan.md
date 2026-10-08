@@ -1704,7 +1704,8 @@ unpushed; pushing it is the user's call.
 ## First DC run of the PM script, harsh constraints (2026-10-08)
 
 The user ran `constraints/pm_dc_script_unpu.tcl` on the server (their own clone,
-ss corner, by hand). Details are in `docs/session-handoff.md` 18.6; short form:
+ss corner, by hand). Details are in `docs/session-handoff.md` 18.6; quick-reference
+tables in `docs/planning/dc-run-2026-10-08.md`; short form:
 
 - Constraints: `constraints/pm_unpu_top.sdc` and `constraints/unpu_top.sdc` now
   carry the same set. Added on request: `set_clock_transition 0.6`, setup/hold
