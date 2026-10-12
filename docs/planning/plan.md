@@ -1726,3 +1726,19 @@ tables in `docs/planning/dc-run-2026-10-08.md`; short form:
 - Back-end continues in the user's own clone; Planning answers questions only.
   Task 035 Part B stays paused.
 
+## Pre-layout GLS passed (2026-10-12)
+
+The user ran `tb/unpu_top_tb.sv` unchanged against the DC netlist (18.6) with the SCL
+cell models in Xcelium: 343,341 checks, all passed, equal to the RTL run. Full
+command, flags, file list and caveats are in `docs/session-handoff.md` 18.7.
+
+- Needed: cell delays ON (do not pass `-nospecify`), timing checks OFF, run from
+  the repo root with `model/vectors/` generated.
+- Parked (not important): with `-nospecify` the same run fails; the sequencer
+  reaches W_FETCH and `dma_valid` never rises. Leading theory is a zero-delay race
+  on the one-cycle `job_start` pulse; unproven. No RTL or testbench change.
+- VCS does not compile `tb/unpu_top_tb.sv` (`ICPD` on `mem` and `bp_rng`); Xcelium
+  does. No action unless someone needs VCS.
+- Still to do in the flow: ICC2, Calibre, PrimeTime, post-layout GLS with an SDF. The
+  user is doing these in their own clone.
+

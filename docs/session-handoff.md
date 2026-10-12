@@ -562,8 +562,10 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
 - ICC2 needs a library built from the SCL LEF and tech file (Milkyway is the
   older format). `icc2_lm_shell` should do it; untested.
 - Which Calibre deck runs DRC and LVS, and how it is invoked, is untested.
-- Whether the frozen testbenches run unchanged against the gate-level netlist
-  with the SCL simulation models is unknown.
+- Pre-layout gate-level simulation: RESOLVED 2026-10-12 for the top-level
+  testbench, see 18.7. Not yet done: post-layout GLS with an SDF, and the unit
+  testbenches (they cannot run on this netlist, which uniquifies `unpu_pe` into
+  `unpu_pe_0` to `unpu_pe_15`).
 - `constraints/unpu_top.sdc` (task 034, `2f271c3`, extended 2026-10-08) has been
   read by DC through `constraints/pm_unpu_top.sdc`, its identical twin (see
   18.6). It has not been read by ICC2 or PrimeTime. Its interface budget,
@@ -611,4 +613,43 @@ own clone, ss corner. The reports are on the server and in the user's scratch co
   and it is released synchronously to `clk`. Changing the macro to a
   synchronous reset is not needed for compatibility and would reopen the RTL
   freeze.
+
+### 18.7 Pre-layout gate-level simulation (user's server run, 2026-10-12)
+
+Result: PASS. `tb/unpu_top_tb.sv` (unchanged) run against the DC netlist of
+18.6 with the SCL cell models: 343,341 checks, "ALL CHECKS PASSED", 0 FAIL / `*E` /
+`*F`, `$finish` at 138,350,796 ns, 1 min 57 s wall time. The check count equals
+the RTL run of the same testbench (`bash scripts/run_xrun.sh top`), which is the
+control and also passed.
+
+- Tool: Xcelium 22.09-s003 (`xrun`), after `source ~/cad_cshrc`. Run from the repo
+  root, because the testbench opens `model/vectors/...` by relative path; the
+  vectors are git-ignored and must be generated first
+  (`gcc -std=c99 -Wall -Wextra -o model/golden model/golden.c && ./model/golden`).
+- Files: `syn/out/pm_flow/unpu_top.dc.v` (the netlist), the single combined model
+  file `.../4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v` (do not also pass the
+  per-cell files, they are the same modules), and `tb/unpu_top_tb.sv`.
+- Flags that passed: `-sv -64bit -access +r -timescale 1ns/1ps -notimingchecks
+  -top unpu_top_tb`. The cell delays from the models' specify blocks were ON; the
+  setup/hold checks were OFF; there is no SDF yet.
+- Benign messages: 24 `CUVWSP` (DC leaves unused output ports unconnected) and one
+  `UDPRDT` (redundant row in a cell model). No unresolved cells.
+- VCS (U-2023.03, licensed) was tried first and does not compile the testbench:
+  `ICPD` errors because `mem` and `bp_rng` are written by an `always_ff` and by
+  other processes (Xcelium accepts it). Not worked around in the repo; the
+  testbench is frozen. A scratch `sed` copy (`always_ff` to `always`) would
+  compile; not needed since Xcelium works.
+- Caveat: this proves function only. It says nothing about setup/hold; that is
+  post-layout PrimeTime and an SDF-annotated run.
+
+Parked, not important: the same run with `-nospecify` (all cells zero delay)
+FAILS ("DONE never observed", `mem C = x`). Waves show the sequencer goes
+IDLE to LATCH_CFG to W_FETCH and stays there, and `dma_valid` never rises. The
+leading, unproven theory is a zero-delay race: `job_start` is a one-cycle
+combinational pulse (`state == W_FETCH && !job_issued`) and the DMA flop may see
+it already dropped when `job_issued` and the DMA flop update in the same time
+step. The netlist and the RTL are not implicated (RTL control passes, and the run
+with cell delays passes). Do not use `-nospecify` for GLS of this design. The
+check that would confirm it: in `u_seq` and `u_dma`, `job_start` high for one
+cycle but `u_dma` `state` staying 0 afterwards.
 
