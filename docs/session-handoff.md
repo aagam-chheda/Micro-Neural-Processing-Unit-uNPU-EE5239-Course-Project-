@@ -704,4 +704,6 @@ Done in the user's own clone after the 18.6 run: the same script, then reports,
   switching annotation). The un-violated count was confirmed from the user's pasted
   `violators.rpt`; reports copied locally to `syn/out/pm_flow_server_r3/` (git-ignored).
   The clean-name hand-off set for ICC2 was regenerated from this run
-  (`unpu_top_cn.*` in the user's `syn/out/pm_flow/`); GLS of that new netlist is pending.
+  (`unpu_top_cn.*` in the user's `syn/out/pm_flow/`). GLS of that netlist (same
+  command as 18.7, log `syn/out/gls/xrun_cn2.log`): 343,341 checks, ALL CHECKS PASSED,
+  finish at 138,350,796 ns, 1 min 52 s. The DC output is ready for ICC2.

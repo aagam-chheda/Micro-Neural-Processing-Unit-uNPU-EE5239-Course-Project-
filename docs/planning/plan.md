@@ -1770,7 +1770,7 @@ With the design-wide `max_transition` at the library's 3.0 ns (option A, `3bb17b
   slack was +1.80 ns in the previous run. Power still not meaningful.
 - Details in `docs/session-handoff.md` 18.8. Raw copies of the reports are in the
   user's git-ignored `syn/out/pm_flow_server_r3/`.
-- Pending: GLS (Xcelium, cell delays on) of the regenerated `unpu_top_cn.dc.v`; the
-  netlist changed with the area, so the earlier 343,341-check pass does not carry
-  over. Then ICC2 library preparation and floorplan (the user, own clone).
+- GLS (Xcelium, cell delays on) of the regenerated `unpu_top_cn.dc.v` passed: 343,341
+  checks, identical finish time. The DC step is done; next is ICC2 library
+  preparation and floorplan (the user, own clone).
 
