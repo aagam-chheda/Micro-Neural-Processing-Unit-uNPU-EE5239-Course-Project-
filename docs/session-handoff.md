@@ -679,12 +679,20 @@ Done in the user's own clone after the 18.6 run: the same script, then reports,
   real and internal: net `n45` in `pe_10` (the enable of 8 `weight_reg` flops,
   1.46 ns against 1.0 ns); ICC2 will buffer it. `max_area` is violated by the PM's
   `set_max_area 0`, which only means "minimise".
-- DECISION (the user, 2026-10-14, option 1): the data inputs get a 3.0 ns limit, the
-  library's own pin value (`max_transition : 3` in the ss `.lib`), and the 1.0 ns
-  limit stays on internal nets. Written reason is comment e) in
-  `constraints/pm_unpu_top.sdc` and `constraints/unpu_top.sdc`. The input driver
-  and wire assumptions are NOT relaxed.
-  Expected after a DC rerun: the violators list shrinks to the internal net `n45`
-  (plus `max_area`). Not yet rerun; whether DC applies the port-specific value over
-  the design-wide one is unverified.
-
+- DECISIONS on the 79 input-port violations (the user, 2026-10-14):
+  1. Option 1 first: a per-port `set_max_transition 3.0` on the data inputs with the
+     design-wide 1.0 ns kept. Tried in a second DC run (`f9b734e`): DC wrote the
+     per-port limits into the SDC, but `report_constraint` still checked those nets
+     against 1.00 ns and still reported 248 VIOLATED lines. A port-level
+     `set_max_transition` does not override a tighter design-wide one; the tighter
+     value wins. The earlier claim in the SDC comment that the port value applies
+     was wrong.
+  2. Option A then chosen: drop the design-wide 1.0 ns (my own harsh guess, no
+     library basis) and use the library's own `max_transition : 3` ns everywhere
+     (`MAX_TRANSITION 3.0`, the per-port lines removed). The input driver (`buffd1`)
+     and wire (0.2 pF) assumptions are NOT relaxed; the output load stays 1 pF; max
+     capacitance stays 2.0 pF. Written reason is comments d) and e) in
+     `constraints/pm_unpu_top.sdc` and `constraints/unpu_top.sdc`.
+  Expected after a DC rerun: no `max_transition` violations (2.43 ns on the inputs and
+  1.46 ns on `n45` are both under 3 ns), leaving only the PM's `max_area` 0 entry.
+  Not yet rerun.

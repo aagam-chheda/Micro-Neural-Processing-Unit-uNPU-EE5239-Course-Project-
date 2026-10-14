@@ -1748,11 +1748,12 @@ Details in `docs/session-handoff.md` 18.8. Short form:
 
 - Clean netlist `unpu_top_cn.dc.v` (no escaped names, no `assign`) passes GLS with the
   same 343,341 checks; register-to-register slack +1.80 ns; `check_timing` clean.
-- User chose option 1 for the 79 input-port `max_transition` violations (a
-  constraint contradiction, not a design problem): 3.0 ns on the data inputs (the
-  library's pin limit), 1.0 ns kept internally; input driver and wire not relaxed.
-  Both SDC files changed together. Awaiting a DC rerun to confirm only `n45` (a
-  real internal net, to be buffered in ICC2) remains.
+- The 79 input-port `max_transition` violations were a constraint contradiction (the
+  assumed `buffd1` plus 0.2 pF gives 2.43 ns, the design-wide limit was 1.0 ns). A
+  per-port 3.0 ns limit (option 1) did not work: DC applies the tighter limit. The user
+  then chose option A: design-wide `max_transition` = 3.0 ns, the library's own pin
+  limit; input driver and wire not relaxed. Both SDC files changed together. Awaiting a
+  DC rerun to confirm the violators list is empty except `max_area`.
 - Next: ICC2 library preparation and floorplan (the user, in their own clone); open
   PM questions: pads, macro `.lib`, what "clean" covers.
 

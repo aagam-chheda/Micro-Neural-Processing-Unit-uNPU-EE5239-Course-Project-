@@ -129,33 +129,34 @@ set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports 
 #    roughly a nanosecond at the ss corner. Never lower this to close timing
 #    without a written reason and the user's approval.
 #
-# d) Design-wide max transition 1.0 ns and max capacitance 2.0 pF: deliberately
-#    tighter than the PM's own commented-out lines (set_max_transition 2,
-#    set_max_capacitance 5, from a different technology). They are not checked
-#    against the SCL library. The library's own default_max_transition and each
-#    pin's max_capacitance still apply, and where they are tighter they win, so
-#    these can only tighten the limits, never loosen them. Check the library with
-#        grep -m3 -E 'default_max_transition|default_max_capacitance' <ss .lib>
-#    The 1 pF output load sits under the 2.0 pF cap; keep MAX_CAPACITANCE above
-#    OUT_LOAD or every output is a violation by construction.
+# d) Design-wide max transition 3.0 ns and max capacitance 2.0 pF.
+#    Max transition 3.0 ns is the library's own pin limit (max_transition : 3 in
+#    the ss .lib, read on the server), so it is the characterised limit and not a
+#    tightened one. It replaces my earlier harsh 1.0 ns (see e). Max capacitance
+#    2.0 pF is a harsh assumption, tighter than the PM's own
+#    commented-out set_max_capacitance 5 (a different technology) and not checked
+#    against the SCL library. The library's pin limits still apply and where they
+#    are tighter they win. The 1 pF output load sits under the 2.0 pF cap; keep
+#    MAX_CAPACITANCE above OUT_LOAD or every output is a violation by construction.
 #
-# e) Data-input transition limit 3.0 ns (decided by the user, 2026-10-14, after the
-#    first DC run). Reason: assumptions a) and b) already fix the slew at every
-#    data input: a buffd1 driving 0.2 pF gives 2.43 ns (DC, ss corner), which
-#    can never meet the design-wide 1.0 ns of d); DC cannot change the driver or
-#    the wire, so 79 input ports were violated by construction (-1.43 ns each),
-#    which says nothing about the design. The data inputs therefore get the
-#    library's own pin limit, max_transition : 3 ns (read from the ss .lib), and
-#    the 1.0 ns of d) stays on every internal net. The input assumptions stay
-#    harsh; only the check on them is aligned with the library. clk is not in
-#    the group. Never raise this to hide a real internal violation.
+# e) Why max transition is 3.0 ns and not 1.0 ns (decided by the user, 2026-10-14,
+#    option A, after the first two DC runs). Assumptions a) and b) already fix the
+#    slew at every data input: a buffd1 driving 0.2 pF gives 2.43 ns (DC, ss
+#    corner), which can never meet 1.0 ns; DC cannot change the driver or the wire,
+#    so 79 input ports were violated by construction (-1.43 ns each), which says
+#    nothing about the design. A port-specific looser limit does not help: DC
+#    applies the tighter of the design-wide and the port limit, so a 3.0 ns
+#    set_max_transition on the ports did not override a design-wide 1.0 ns (tried
+#    in the second DC run). The 1.0 ns, my own harsh guess with no library basis,
+#    is therefore dropped and the library's 3 ns applies everywhere. The input
+#    driver and wire assumptions stay harsh. The one internal net that was over 1.0
+#    ns (n45 in pe_10, 1.46 ns) is legal under 3 ns and no longer reported.
 # -----------------------------------------------------------------------------
 set DRIVE_CELL       buffd1  ;# ASSUMPTION, weakest plain buffer standing in for the outside driver
 set DRIVE_PIN        Z       ;# output pin; verified for buffd2 in the ss .lib, assumed for buffd1
 set IN_WIRE_LOAD     0.2     ;# pF, HARSH ASSUMPTION, wire on every data input net
 set OUT_LOAD         1.0     ;# pF, every output port; the instructor's suggested value
-set MAX_TRANSITION   1.0     ;# ns, HARSH ASSUMPTION, internal nets
-set IN_MAX_TRANSITION 3.0    ;# ns, data inputs only: the library's own pin limit (see e)
+set MAX_TRANSITION   3.0     ;# ns, the library's own pin limit (see e)
 set MAX_CAPACITANCE  2.0     ;# pF, HARSH ASSUMPTION
 
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $APB_IN_PORTS]
@@ -171,9 +172,3 @@ set_load $OUT_LOAD [get_ports $DMA_OUT_PORTS]
 
 set_max_transition  $MAX_TRANSITION  [current_design]
 set_max_capacitance $MAX_CAPACITANCE [current_design]
-
-# Looser limit on the data inputs only (see e). Placed after the design-wide
-# limit so the port-specific value is the one that applies on these ports.
-set_max_transition $IN_MAX_TRANSITION [get_ports $APB_IN_PORTS]
-set_max_transition $IN_MAX_TRANSITION [get_ports $DMA_IN_PORTS]
-set_max_transition $IN_MAX_TRANSITION [get_ports $RST_IN_PORTS]
