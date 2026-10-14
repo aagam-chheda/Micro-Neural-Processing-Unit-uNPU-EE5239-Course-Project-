@@ -693,6 +693,15 @@ Done in the user's own clone after the 18.6 run: the same script, then reports,
      and wire (0.2 pF) assumptions are NOT relaxed; the output load stays 1 pF; max
      capacitance stays 2.0 pF. Written reason is comments d) and e) in
      `constraints/pm_unpu_top.sdc` and `constraints/unpu_top.sdc`.
-  Expected after a DC rerun: no `max_transition` violations (2.43 ns on the inputs and
-  1.46 ns on `n45` are both under 3 ns), leaving only the PM's `max_area` 0 entry.
-  Not yet rerun.
+  Result of the third DC run (`3bb17b5`, 2026-10-14): `report_constraint
+  -all_violators` lists only the PM's `max_area` 0 entry (actual 442,295.8 um2); no
+  `max_transition` violation. Worst setup slack +0.01 ns (the combinational `paddr[3]`
+  to `prdata[14]` path, 4.49 ns of the 4.5 ns budget; DC stops at just-positive).
+  Area 442,296 um2 total (cell area 429,161), down 2.8% from the first run because the
+  unreachable 1.0 ns limit no longer forces extra buffering (buf/inv area 29,398 to
+  19,857); 2,465 flops (noncombinational area 172,266 to 178,149, larger flop variants);
+  dynamic power 6.40 mW and leakage 5.57 uW (still not meaningful: ideal clock, no
+  switching annotation). The un-violated count was confirmed from the user's pasted
+  `violators.rpt`; reports copied locally to `syn/out/pm_flow_server_r3/` (git-ignored).
+  The clean-name hand-off set for ICC2 was regenerated from this run
+  (`unpu_top_cn.*` in the user's `syn/out/pm_flow/`); GLS of that new netlist is pending.

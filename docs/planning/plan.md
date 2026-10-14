@@ -1757,3 +1757,20 @@ Details in `docs/session-handoff.md` 18.8. Short form:
 - Next: ICC2 library preparation and floorplan (the user, in their own clone); open
   PM questions: pads, macro `.lib`, what "clean" covers.
 
+## Third DC run: only max_area left (2026-10-14)
+
+With the design-wide `max_transition` at the library's 3.0 ns (option A, `3bb17b5`):
+
+- `report_constraint -all_violators`: only the PM's `set_max_area 0` entry remains
+  (it means "minimise"; it cannot be met). All 79 input-port violations and the
+  internal net `n45` are gone.
+- Area 442,296 um2 total (was 454,915, -2.8%); cell area 429,161; 2,465 flops;
+  buf/inv area down by a third. Worst setup slack +0.01 ns (the combinational
+  `paddr` to `prdata` path, DC stops at just-positive); register-to-register
+  slack was +1.80 ns in the previous run. Power still not meaningful.
+- Details in `docs/session-handoff.md` 18.8. Raw copies of the reports are in the
+  user's git-ignored `syn/out/pm_flow_server_r3/`.
+- Pending: GLS (Xcelium, cell delays on) of the regenerated `unpu_top_cn.dc.v`; the
+  netlist changed with the area, so the earlier 343,341-check pass does not carry
+  over. Then ICC2 library preparation and floorplan (the user, own clone).
+
