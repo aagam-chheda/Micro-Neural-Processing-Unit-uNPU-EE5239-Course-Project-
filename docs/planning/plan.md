@@ -1774,3 +1774,9 @@ With the design-wide `max_transition` at the library's 3.0 ns (option A, `3bb17b
   checks, identical finish time. The DC step is done; next is ICC2 library
   preparation and floorplan (the user, own clone).
 
+## Pads question answered (2026-10-14)
+
+The user reports the answer to "pads or bare macro" is: bare macro with pins, no pads.
+Recorded in `docs/session-handoff.md` 18.5. Still open for the PM: macro `.lib`
+production and what "clean" covers (the user is asking).
+

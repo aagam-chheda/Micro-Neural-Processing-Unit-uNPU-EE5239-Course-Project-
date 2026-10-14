@@ -571,8 +571,11 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
   18.6). It has not been read by ICC2 or PrimeTime. Its interface budget,
   driver, wire load and limits are deliberately harsh assumptions; only the
   20 ns clock period and the 1 pF output load (instructor) are facts.
-- How the macro `.lib` is produced, whether pads are needed, and what "clean"
-  covers are questions for the PM.
+- Pads: ANSWERED 2026-10-14 (reported by the user, not yet confirmed in writing): the
+  macro is a bare macro with pins, no pads. ICC2 therefore places pins on the macro
+  boundary (no I/O ring, no pad cells, no pad ESD in scope); power pins (VDD/VSS)
+  still have to be brought out. Still open for the PM: how the macro `.lib` is
+  produced, and what "clean" covers.
 
 ### 18.6 First DC run of the PM script (user's server run, 2026-10-08)
 
