@@ -653,3 +653,38 @@ with cell delays passes). Do not use `-nospecify` for GLS of this design. The
 check that would confirm it: in `u_seq` and `u_dma`, `job_start` high for one
 cycle but `u_dma` `state` staying 0 afterwards.
 
+### 18.8 DC cleanup round and the input-transition decision (user's server run, 2026-10-14)
+
+Done in the user's own clone after the 18.6 run: the same script, then reports,
+`change_names -rules verilog -hierarchy`, and a rewrite of the outputs.
+
+- New files (git-ignored, in the user's `syn/out/pm_flow/`): `unpu_top_cn.dc.v`,
+  `unpu_top_cn.sdc`, `unpu_top_cn.ddc`; these are the hand-off to ICC2 (not the
+  un-renamed ones). `change_names` gave one harmless `UCN-4` warning. Escaped-name
+  lines went from 9,142 to 0 and `assign` statements from 16 to 0.
+- GLS on `unpu_top_cn.dc.v`, same command as 18.7: 343,341 checks, ALL CHECKS
+  PASSED, finish at 138,350,796 ns, identical to the original netlist.
+- Register-to-register timing: worst slack +1.80 ns (five reported paths, all the
+  PE multiply-accumulate path, a ripple-carry adder), at the harsh settings and
+  before layout (ideal clock, wire-load model). The single +0.02 ns seen in 18.6
+  is the combinational `paddr` to `prdata` path, a different path.
+- `check_timing`: clean (no loops, unconstrained endpoints, missing input delays or
+  driving cells). `check_design`: no errors; only expected `LINT-28/32/33`
+  (unused `paddr[31:12]`/`[1:0]`, DW adder `CI`/`CO` and constant `B` bits, `psum_in`
+  rows and `error_code_i[2:1]` tied to 0).
+- `report_constraint -all_violators`: 80 `max_transition` violations. 79 were on the
+  data input ports (2.43 ns against the 1.0 ns design-wide limit, -1.43 ns each):
+  the assumed `buffd1` driver into 0.2 pF already gives 2.43 ns, so the limit and
+  the input assumptions contradicted each other and DC could not fix it. The 80th is
+  real and internal: net `n45` in `pe_10` (the enable of 8 `weight_reg` flops,
+  1.46 ns against 1.0 ns); ICC2 will buffer it. `max_area` is violated by the PM's
+  `set_max_area 0`, which only means "minimise".
+- DECISION (the user, 2026-10-14, option 1): the data inputs get a 3.0 ns limit, the
+  library's own pin value (`max_transition : 3` in the ss `.lib`), and the 1.0 ns
+  limit stays on internal nets. Written reason is comment e) in
+  `constraints/pm_unpu_top.sdc` and `constraints/unpu_top.sdc`. The input driver
+  and wire assumptions are NOT relaxed.
+  Expected after a DC rerun: the violators list shrinks to the internal net `n45`
+  (plus `max_area`). Not yet rerun; whether DC applies the port-specific value over
+  the design-wide one is unverified.
+

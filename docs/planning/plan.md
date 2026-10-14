@@ -1742,3 +1742,17 @@ command, flags, file list and caveats are in `docs/session-handoff.md` 18.7.
 - Still to do in the flow: ICC2, Calibre, PrimeTime, post-layout GLS with an SDF. The
   user is doing these in their own clone.
 
+## DC cleanup round, input-transition decision (2026-10-14)
+
+Details in `docs/session-handoff.md` 18.8. Short form:
+
+- Clean netlist `unpu_top_cn.dc.v` (no escaped names, no `assign`) passes GLS with the
+  same 343,341 checks; register-to-register slack +1.80 ns; `check_timing` clean.
+- User chose option 1 for the 79 input-port `max_transition` violations (a
+  constraint contradiction, not a design problem): 3.0 ns on the data inputs (the
+  library's pin limit), 1.0 ns kept internally; input driver and wire not relaxed.
+  Both SDC files changed together. Awaiting a DC rerun to confirm only `n45` (a
+  real internal net, to be buffered in ICC2) remains.
+- Next: ICC2 library preparation and floorplan (the user, in their own clone); open
+  PM questions: pads, macro `.lib`, what "clean" covers.
+

@@ -138,12 +138,24 @@ set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports 
 #        grep -m3 -E 'default_max_transition|default_max_capacitance' <ss .lib>
 #    The 1 pF output load sits under the 2.0 pF cap; keep MAX_CAPACITANCE above
 #    OUT_LOAD or every output is a violation by construction.
+#
+# e) Data-input transition limit 3.0 ns (decided by the user, 2026-10-14, after the
+#    first DC run). Reason: assumptions a) and b) already fix the slew at every
+#    data input: a buffd1 driving 0.2 pF gives 2.43 ns (DC, ss corner), which
+#    can never meet the design-wide 1.0 ns of d); DC cannot change the driver or
+#    the wire, so 79 input ports were violated by construction (-1.43 ns each),
+#    which says nothing about the design. The data inputs therefore get the
+#    library's own pin limit, max_transition : 3 ns (read from the ss .lib), and
+#    the 1.0 ns of d) stays on every internal net. The input assumptions stay
+#    harsh; only the check on them is aligned with the library. clk is not in
+#    the group. Never raise this to hide a real internal violation.
 # -----------------------------------------------------------------------------
 set DRIVE_CELL       buffd1  ;# ASSUMPTION, weakest plain buffer standing in for the outside driver
 set DRIVE_PIN        Z       ;# output pin; verified for buffd2 in the ss .lib, assumed for buffd1
 set IN_WIRE_LOAD     0.2     ;# pF, HARSH ASSUMPTION, wire on every data input net
 set OUT_LOAD         1.0     ;# pF, every output port; the instructor's suggested value
-set MAX_TRANSITION   1.0     ;# ns, HARSH ASSUMPTION
+set MAX_TRANSITION   1.0     ;# ns, HARSH ASSUMPTION, internal nets
+set IN_MAX_TRANSITION 3.0    ;# ns, data inputs only: the library's own pin limit (see e)
 set MAX_CAPACITANCE  2.0     ;# pF, HARSH ASSUMPTION
 
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $APB_IN_PORTS]
@@ -159,3 +171,9 @@ set_load $OUT_LOAD [get_ports $DMA_OUT_PORTS]
 
 set_max_transition  $MAX_TRANSITION  [current_design]
 set_max_capacitance $MAX_CAPACITANCE [current_design]
+
+# Looser limit on the data inputs only (see e). Placed after the design-wide
+# limit so the port-specific value is the one that applies on these ports.
+set_max_transition $IN_MAX_TRANSITION [get_ports $APB_IN_PORTS]
+set_max_transition $IN_MAX_TRANSITION [get_ports $DMA_IN_PORTS]
+set_max_transition $IN_MAX_TRANSITION [get_ports $RST_IN_PORTS]
