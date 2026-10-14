@@ -1780,3 +1780,13 @@ The user reports the answer to "pads or bare macro" is: bare macro with pins, no
 Recorded in `docs/session-handoff.md` 18.5. Still open for the PM: macro `.lib`
 production and what "clean" covers (the user is asking).
 
+## PM and team answers, 2026-10-14
+
+Recorded in `docs/session-handoff.md` 18.5 (reported by the user): final deliverable is a
+GDS, plus a dummy LEF for the top-level team now (a teammate is on it); "clean" means
+DRC, LVS and timing signoff; the macro builds its own clock tree; no pads; the top-level
+team uses a synchronous `rst_n`. Not known yet: real interface timing (the top-level team
+is working on it). To ask the PM: how the macro `.lib` is produced, pin side/order/
+spacing/layers, power pin or ring layout, size/aspect/area limits, clock skew limits.
+The pin and size answers also block the dummy LEF.
+

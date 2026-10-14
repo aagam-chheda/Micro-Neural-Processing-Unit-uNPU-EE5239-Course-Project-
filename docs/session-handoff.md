@@ -571,11 +571,25 @@ Standard-cell rules (`doc/std_cell_guidelines.pdf`):
   18.6). It has not been read by ICC2 or PrimeTime. Its interface budget,
   driver, wire load and limits are deliberately harsh assumptions; only the
   20 ns clock period and the 1 pF output load (instructor) are facts.
-- Pads: ANSWERED 2026-10-14 (reported by the user, not yet confirmed in writing): the
-  macro is a bare macro with pins, no pads. ICC2 therefore places pins on the macro
-  boundary (no I/O ring, no pad cells, no pad ESD in scope); power pins (VDD/VSS)
-  still have to be brought out. Still open for the PM: how the macro `.lib` is
-  produced, and what "clean" covers.
+- Answers received 2026-10-14 (reported by the user, not yet confirmed in writing):
+  - Pads: none. The macro is a bare macro with pins; ICC2 places pins on the macro
+    boundary (no I/O ring, no pad cells, no pad ESD in scope); power pins (VDD/VSS)
+    still have to be brought out.
+  - Deliverable: the final deliverable is a GDS. A DUMMY LEF has to be handed to the
+    top-level team now; a teammate is working on it. (A dummy LEF needs at least the
+    macro size and the pin names, layers and rough positions, so the pin and size
+    questions below block it.)
+  - "Clean" means DRC clean, LVS clean AND timing signoff.
+  - Clock: the macro builds its own clock tree (CTS inside the macro).
+  - Reset: the top-level team uses a synchronous `rst_n` (see the Reset bullet at the end
+    of this part). Whether it comes straight from a flop and whether the macro should
+    include a reset synchronizer are not known.
+  - Interface timing (input/output delays, drivers, loads): not known yet; the top-level
+    team is working on it. The constraints keep their assumed values until then.
+- Still to ask the PM: how the macro `.lib` is produced and by whom; pin side, order,
+  spacing and metal layers; how VDD/VSS come out (pins or ring, which layers); any
+  maximum size, aspect ratio or area budget; clock insertion-delay or skew limits at
+  the macro clock pin.
 
 ### 18.6 First DC run of the PM script (user's server run, 2026-10-08)
 
