@@ -1,0 +1,108 @@
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       SYNOPSYS_ANOMALY
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+Checkout succeeded: PrimeTime/0FFAC497D0E2A54EDC0C
+	License file: 27020@14.139.1.126
+	License Server: 27020@14.139.1.126
+[SCL] 10/15/2026 21:38:25 Checking status for feature PrimeTime
+[SCL] 10/15/2026 21:38:25 PID:18085 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded PrimeTime 2022.03
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys-Release
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 10/15/2026 21:38:25 PID:18085 Client:lalita.iitg.ac.in Authorization failed Synopsys-Release 2022.03
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       PrimeTime-New-Technology
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 10/15/2026 21:38:25 PID:18085 Client:lalita.iitg.ac.in Authorization failed PrimeTime-New-Technology 2022.03
+Error: Library Compiler executable path is not set. (PT-063)
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       PrimeTime-New-Technology8
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 10/15/2026 21:38:25 PID:18085 Client:lalita.iitg.ac.in Authorization failed PrimeTime-New-Technology8 2022.03
+
+                                 PrimeTime (R)
+
+               Version T-2022.03-SP2 for linux64 - Jun 01, 2022 
+
+                    Copyright (c) 1988 - 2022 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       PrimeTime-C-Interface
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 10/15/2026 21:38:26 PID:18085 Client:lalita.iitg.ac.in Authorization failed PrimeTime-C-Interface 2022.03
+# Pre-layout STA, ss corner (setup)
+set KIT /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180
+/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180
+set search_path ". $KIT/stdcell/fs120/4M1IL/liberty/lib_flow_ss"
+. /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss
+set link_path   "* tsl18fs120_scl_ss.db"
+* tsl18fs120_scl_ss.db
+read_verilog syn/out/unpu_top_cn.dc.v
+1
+current_design unpu_top
+Information: current_design won't return any data before link (DES-071)
+link_design
+Loading verilog file '/storage/EE5239G1/Uditya_Work/unpu_flow/syn/out/unpu_top_cn.dc.v'
+Loading db file '/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss/tsl18fs120_scl_ss.db'
+Linking design unpu_top...
+Information: Removing 75 unneeded designs..... (LNK-034)
+Information: 449 (84.08%) library cells are unused in library tsl18fs120_scl_ss..... (LNK-045)
+Information: total 449 library cells are unused (LNK-046)
+Design 'unpu_top' was successfully linked.
+Information: There are 12767 leaf cells, ports, hiers and 21735 nets in the design (LNK-047)
+1
+read_sdc constraints/pm_unpu_top.sdc
+
+Reading SDC version 2.1...
+Warning: Setting input delay on clock port (clk) relative to a clock (clk) defined at the same port. Command is ignored. (UITE-489)
+1
+1
+set_wire_load_model -name 140000 -library tsl18fs120_scl_ss
+1
+set R sta
+sta
+check_timing -verbose                  > $R/check_timing.rpt
+report_clock                           > $R/clocks.rpt
+report_analysis_coverage               > $R/coverage.rpt
+report_global_timing                   > $R/global.rpt
+report_constraint -all_violators       > $R/violators.rpt
+report_timing -delay_type max -max_paths 10 -input_pins -nets > $R/setup.rpt
+report_timing -delay_type min -max_paths 10                   > $R/hold.rpt
+report_qor                             > $R/qor.rpt
+exit
+Information: Defining new variable 'R'. (CMD-041)
+Information: Defining new variable 'KIT'. (CMD-041)
+
+Timing updates: 1 (1 implicit, 0 explicit) (0 incremental, 1 full, 0 logical)
+Noise updates: 0 (0 implicit, 0 explicit) (0 incremental, 0 full)
+Maximum memory usage for this session: 2540.61 MB
+CPU usage for this session: 6 seconds 
+Elapsed time for this session: 7 seconds
+Diagnostics summary: 1 error, 2 warnings, 11 informationals
+
+Thank you for using pt_shell!
+[SCL] 10/15/2026 21:38:28 PID:18085 Client:lalita.iitg.ac.in checkin-incr Feature:PrimeTime Count:1 
+this API scl_mt_init() needs to be used with the threaded version of SCL library.

@@ -1,0 +1,97 @@
+xrun(64): 22.09-s003: (c) Copyright 1995-2022 Cadence Design Systems, Inc.
+TOOL:	xrun(64)	22.09-s003: Started on Oct 15, 2026 at 20:00:06 IST
+xrun
+	-sv
+	-64bit
+	-c
+	-top unpu_top
+	-f scripts/filelist.f
+		rtl/unpu_actbuf.sv
+		rtl/unpu_apb.sv
+		rtl/unpu_csr.sv
+		rtl/unpu_deskew.sv
+		rtl/unpu_dma.sv
+		rtl/unpu_grid.sv
+		rtl/unpu_pe.sv
+		rtl/unpu_seq.sv
+		rtl/unpu_skew.sv
+		rtl/unpu_top.sv
+		rtl/unpu_wbuf.sv
+	-xmlibdirname sim/compile
+	-l logs/compile.log
+file: rtl/unpu_actbuf.sv
+	module worklib.unpu_actbuf:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_apb.sv
+	module worklib.unpu_apb:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_csr.sv
+	module worklib.unpu_csr:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_deskew.sv
+	module worklib.unpu_deskew:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_dma.sv
+	module worklib.unpu_dma:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_grid.sv
+	module worklib.unpu_grid:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_pe.sv
+	module worklib.unpu_pe:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_seq.sv
+	module worklib.unpu_seq:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_skew.sv
+	module worklib.unpu_skew:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_top.sv
+	module worklib.unpu_top:sv
+		errors: 0, warnings: 0
+file: rtl/unpu_wbuf.sv
+	module worklib.unpu_wbuf:sv
+		errors: 0, warnings: 0
+	Elaborating the design hierarchy:
+		Caching library 'worklib' ....... Done
+	Top level design units:
+		unpu_top
+xmelab: *W,DSEMEL: This SystemVerilog design will be simulated as per IEEE 1800-2009 SystemVerilog simulation semantics. Use -disable_sem2009 option for turning off SV 2009 simulation semantics.
+	Building instance overlay tables: .................... Done
+	Generating native compiled code:
+		worklib.unpu_deskew:sv <0x3ea412dc>
+			streams:   0, words:     0
+		worklib.unpu_pe:sv <0x237cf2bf>
+			streams:   5, words:  1576
+		worklib.unpu_skew:sv <0x2bd9dcbe>
+			streams:  12, words:  3300
+		worklib.unpu_dma:sv <0x7523ccb0>
+			streams:  22, words: 10144
+		worklib.unpu_seq:sv <0x3e1eba0b>
+			streams:  22, words:  9698
+		worklib.unpu_csr:sv <0x0f3c8120>
+			streams:  16, words:  4028
+		worklib.unpu_apb:sv <0x2c854045>
+			streams:   3, words:   498
+		worklib.unpu_top:sv <0x0faa9569>
+			streams:  72, words: 15445
+		worklib.unpu_wbuf:sv <0x058c720f>
+			streams:  29, words: 17939
+		worklib.unpu_actbuf:sv <0x1957ca9c>
+			streams:  20, words:  9079
+		worklib.unpu_grid:sv <0x7ff7cf08>
+			streams:  24, words: 10860
+	Building instance specific data structures.
+	Loading native compiled code:     .................... Done
+	Design hierarchy summary:
+		               Instances  Unique
+		Modules:              26      11
+		Registers:           288     198
+		Scalar wires:         68       -
+		Expanded wires:      144       2
+		Vectored wires:      297       -
+		Always blocks:        62      32
+		Cont. assignments:   104      76
+		Pseudo assignments:  135      87
+	Writing initial simulation snapshot: worklib.unpu_top:sv
+TOOL:	xrun(64)	22.09-s003: Exiting on Oct 15, 2026 at 20:00:07 IST  (total: 00:00:01)

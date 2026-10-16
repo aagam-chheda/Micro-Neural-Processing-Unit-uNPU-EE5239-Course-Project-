@@ -1,0 +1,107 @@
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       Synopsys
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       Synopsys
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       Synopsys-Release
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       Synopsys-Release
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       Galaxy-Internal-Debug
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       Galaxy-Internal-Debug
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       ICCompilerII
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       ICCompilerII
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       ICCompilerII-NX
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: Cannot connect to license server system.
+ The license server manager (lmgrd) has not been started yet,
+ the wrong port@host or license file is being used, or the
+ port or hostname in the license file has been changed.
+Feature:       ICCompilerII-NX
+Server name:   14.139.1.126
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"
+license file(s):  27020@14.139.1.126
+[SCL] 10/15/2026 23:21:00 PID:68032 Client:lalita.iitg.ac.in Authorization failed Synopsys 2022.12
+[SCL] 10/15/2026 23:21:20 PID:68032 Client:lalita.iitg.ac.in Authorization failed Synopsys-Release 2022.12
+[SCL] 10/15/2026 23:21:40 PID:68032 Client:lalita.iitg.ac.in Authorization failed Galaxy-Internal-Debug 2022.12
+[icc2-lic Thu Oct 15 23:21:40 2026] Sending authorization request for 'ICCompilerII'
+[SCL] 10/15/2026 23:22:00 PID:68032 Client:lalita.iitg.ac.in Authorization failed ICCompilerII 2022.12
+[icc2-lic Thu Oct 15 23:22:00 2026] Authorization request for 'ICCompilerII' failed (-15)
+[icc2-lic Thu Oct 15 23:22:00 2026] Sending authorization request for 'ICCompilerII-NX'
+[SCL] 10/15/2026 23:22:20 PID:68032 Client:lalita.iitg.ac.in Authorization failed ICCompilerII-NX 2022.12
+[icc2-lic Thu Oct 15 23:22:20 2026] Authorization request for 'ICCompilerII-NX' failed (-15)
+Unable to get shell start-up license keys. Cannot invoke shell. Following license(s) must exist : {ICCompilerII or ICCompilerII-NX}. 
+Maximum memory usage for this session: 94.69 MB
+Maximum memory usage for this session including child processes: 94.69 MB
+CPU usage for this session:      3 seconds (  0.00 hours)
+Elapsed time for this session:    104 seconds (  0.03 hours)
+Thank you for using IC Compiler II.
+[SCL] 10/15/2026 23:22:20 PID:68032 Client:lalita.iitg.ac.in checkin (null) 
+this API scl_mt_init() needs to be used with the threaded version of SCL library.

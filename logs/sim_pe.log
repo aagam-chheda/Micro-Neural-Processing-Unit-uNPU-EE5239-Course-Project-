@@ -1,0 +1,104 @@
+xrun(64): 22.09-s003: (c) Copyright 1995-2022 Cadence Design Systems, Inc.
+TOOL:	xrun(64)	22.09-s003: Started on Oct 15, 2026 at 20:03:04 IST
+xrun
+	-sv
+	-64bit
+	-access +r
+	-timescale 1ns/1ps
+	-top unpu_pe_tb
+	-xmlibdirname sim/pe
+	-l logs/sim_pe.log
+	-f scripts/filelist.f
+		rtl/unpu_actbuf.sv
+		rtl/unpu_apb.sv
+		rtl/unpu_csr.sv
+		rtl/unpu_deskew.sv
+		rtl/unpu_dma.sv
+		rtl/unpu_grid.sv
+		rtl/unpu_pe.sv
+		rtl/unpu_seq.sv
+		rtl/unpu_skew.sv
+		rtl/unpu_top.sv
+		rtl/unpu_wbuf.sv
+	tb/unpu_pe_tb.sv
+	-gui
+xmsim: *W,NOMTDGUI: Multi-Threaded Dumping is disabled for interactive debug mode.
+xmsim: *W,DSEM2009: This SystemVerilog design is simulated as per IEEE 1800-2009 SystemVerilog simulation semantics. Use -disable_sem2009 option for turning off SV 2009 simulation semantics.
+
+-------------------------------------
+Relinquished control to SimVision...
+xcelium> 
+xcelium> source /home/Cadence_tools/XCELIUM2209/tools/xcelium/files/xmsimrc
+xcelium> run
+VECTOR 1 PASS: max positive signed
+VECTOR 2 PASS: max negative signed
+VECTOR 3 PASS: zero weight
+VECTOR 4 PASS: weight-load-while-computing
+VECTOR 5 PASS: 0xFF*0xFF signed
+VECTOR 6 PASS: 0xFF*0xFF unsigned
+VECTOR 7 PASS: array_en freeze holds psum/act
+VECTOR 8 PASS: weight register frozen during array_en=0
+VECTOR 9 PASS: reset clears act_out and psum_out
+VECTOR 10 PASS: weight register cleared by reset
+VECTOR 11 PASS: back-to-back weight loads
+VECTOR 12 PASS: mid-range signed positive*negative
+VECTOR 13 PASS: mid-range signed negative*negative
+VECTOR 14 PASS: psum near 0x7FFFFFFF no narrowing
+VECTOR 15 PASS: large psum_in plus max product
+VECTOR 16 PASS: zero activation
+VECTOR 17 PASS: act_out registered pass-through latency
+VECTOR 18 PASS: weight_load simultaneity, second confirmation
+VECTOR 19 PASS: unsigned mode small values
+VECTOR 20 PASS: signed mode small values
+----------------------------------------
+ALL 20 VECTORS PASSED
+----------------------------------------
+exhaustive signed sweep: 65536 checks, 0 failures (256x256)
+exhaustive unsigned sweep: 65536 checks, 0 failures (256x256)
+PE accumulator-sweep seed = 32'h5eed000d
+PE accumulator sweep: 256 checks, 0 failures
+PE weight-load-timing seed = 32'h5eed000e
+PE randomized weight-load timing: 50 iterations, 255 cycle-checks, 0 failures
+VECTOR 21 PASS: weight_load on the very first cycle after reset
+VECTOR 22 PASS: weight_load simultaneous with array_en=0 latches nothing
+VECTOR 23 PASS: mid-sequence single-cycle reset clears and resumes correctly
+VECTOR 24 PASS: weight_load held >=5 consecutive cycles, distinct weight_in each cycle, updates every cycle
+----------------------------------------
+ALL TASK 019 DIRECTED BOUNDARY CASES PASSED (vectors 21-24)
+----------------------------------------
+PE adversarial long-sequence master seed = 32'h5eed0013
+PE adversarial sequence 0: seed = 32'h230cf3e4
+PE adversarial sequence 1: seed = 32'h137586dc
+PE adversarial sequence 2: seed = 32'hd664b66b
+PE adversarial sequence 3: seed = 32'h559731df
+PE adversarial sequence 4: seed = 32'hc63d8929
+PE adversarial sequence 5: seed = 32'h940ac605
+PE adversarial sequence 6: seed = 32'h558a0c60
+PE adversarial sequence 7: seed = 32'h94c6ca03
+PE adversarial sequence 8: seed = 32'hfd5714c0
+PE adversarial sequence 9: seed = 32'he62c7fc7
+PE adversarial sequence 10: seed = 32'h5341ce8d
+PE adversarial sequence 11: seed = 32'h389b2365
+PE adversarial sequence 12: seed = 32'hc2020ede
+PE adversarial sequence 13: seed = 32'hf8e86972
+PE adversarial sequence 14: seed = 32'h4d0c21b1
+PE adversarial sequence 15: seed = 32'hee76c0ac
+PE adversarial sequence 16: seed = 32'hfa08283d
+PE adversarial sequence 17: seed = 32'h1ef100fa
+PE adversarial sequence 18: seed = 32'he325ae2d
+PE adversarial sequence 19: seed = 32'h8ae48efd
+PE adversarial long-sequence testing: 20 sequences, 11702 total cycle-checks, 35106 individual signal-checks, 0 failures
+----------------------------------------
+ALL TASK 013 + TASK 019 PE CHECKS PASSED (20 directed vectors + exhaustive operand sweep + accumulator sweep + randomized weight-load timing + 4 task-019 directed boundary vectors + adversarial long-sequence testing)
+----------------------------------------
+Simulation complete via $finish(1) at time 1442266 NS + 0
+./tb/unpu_pe_tb.sv:931     $finish;
+xcelium> database -open waves -into waves.shm -default
+Created default SHM database waves
+xcelium> probe -create -shm unpu_pe_tb.clk
+Created probe 1
+xcelium> run 10
+xmsim: *E,RNFNSH: Cannot continue simulation due to a previous $finish.
+xcelium> ^C
+xcelium> exit
+TOOL:	xrun(64)	22.09-s003: Exiting on Oct 15, 2026 at 20:05:51 IST  (total: 00:02:47)

@@ -1,0 +1,60 @@
+ 
+****************************************
+Report : reference
+Design : unpu_top
+Version: T-2022.03-SP5
+Date   : Thu Oct 15 20:42:41 2026
+****************************************
+
+Attributes:
+    b - black box (unknown)
+   bo - allows boundary optimization
+    d - dont_touch
+   mo - map_only
+    h - hierarchical
+    n - noncombinational
+    r - removable
+    s - synthetic operator
+    u - contains unmapped logic
+
+Reference          Library       Unit Area   Count    Total Area   Attributes
+-----------------------------------------------------------------------------
+bufbda             tsl18fs120_scl_ss
+                                 53.310001       1     53.310001  
+buffd1             tsl18fs120_scl_ss
+                                 12.540000       3     37.620000  
+buffd3             tsl18fs120_scl_ss
+                                 15.680000       1     15.680000  
+buffd4             tsl18fs120_scl_ss
+                                 25.090000       1     25.090000  
+buffda             tsl18fs120_scl_ss
+                                 40.770000       4    163.080002  
+inv0d1             tsl18fs120_scl_ss
+                                  9.410000       1      9.410000  
+inv0d2             tsl18fs120_scl_ss
+                                 12.540000      18    225.719999  
+inv0d4             tsl18fs120_scl_ss
+                                 18.820000       1     18.820000  
+inv0da             tsl18fs120_scl_ss
+                                 31.360001       6    188.160004  
+invbd2             tsl18fs120_scl_ss
+                                 15.680000       2     31.360001  
+invbd7             tsl18fs120_scl_ss
+                                 31.360001      17    533.120010  
+invbda             tsl18fs120_scl_ss
+                                 37.630001       1     37.630001  
+invbdk             tsl18fs120_scl_ss
+                                 65.860001       5    329.300003  
+unpu_actbuf                   28728.190017       1  28728.190017  h, n
+unpu_apb                       1031.480000       1   1031.480000  h
+unpu_csr                      11983.100017       1  11983.100017  h, n
+unpu_deskew                   18343.400142       1  18343.400142  h, n
+unpu_dma                      38621.000100       1  38621.000100  h, n
+unpu_grid                     233995.201666
+                                                 1  233995.201666 h, n
+unpu_seq                      61888.730511       1  61888.730511  h, n
+unpu_skew                      4581.930036       1   4581.930036  h, n
+unpu_wbuf                     28319.910036       1  28319.910036  h, n
+-----------------------------------------------------------------------------
+Total 22 references                                 429161.242546
+1

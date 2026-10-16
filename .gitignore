@@ -16,7 +16,10 @@ xmsim.key
 *.shm/
 .simvision/
 *.log
+!logs/
+!logs/**
 
-# Synopsys Design Compiler output (syn/dc_run.tcl writes everything under
-# syn/out/<design>/: logs, reports, netlist, .ddc, WORK/, default.svf).
-syn/out/
+# Synopsys Design Compiler output
+syn/out/**/WORK/
+syn/out/**/*.svf
+

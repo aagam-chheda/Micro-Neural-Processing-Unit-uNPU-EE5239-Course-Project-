@@ -1,0 +1,1 @@
+s1(15Oct2026:21:55:37):  xrun -sv -64bit -access +r -timescale 1ns/1ps -notimingchecks -top unpu_top_tb -xmlibdirname gls/top -l logs/gls_top.log syn/out/unpu_top_cn.dc.v /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v tb/unpu_top_tb.sv 

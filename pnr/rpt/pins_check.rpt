@@ -1,0 +1,24 @@
+Warning: Didn't find any enabled planning block for check_pin_placement. (DPPA-268)
+0 total number of pre-routes loaded
+0 total number of vias loaded
+0 total number of edges loaded
+----------------------- Start Of Missing Pin Check ------------------------
+------------------------ End Of Missing Pin Check -------------------------
+
+-------------------- Start Of Technology Spacing Check --------------------
+--------------------- End Of Technology Spacing Check ---------------------
+
+------------------------ Start Of Pin Short Check -------------------------
+------------------------- End Of Pin Short Check --------------------------
+
+No violation has been found
+***Summary***
+---------------------------------------------------------------------------
+Type of Violation        |                                            Count
+-------------------------+-------------------------------------------------
+Missing Pins             |                                               0
+Pin Short                |                                               0
+Technology Spacing       |                                               0
+-------------------------+-------------------------------------------------
+Total Violations         |                                               0
+---------------------------------------------------------------------------

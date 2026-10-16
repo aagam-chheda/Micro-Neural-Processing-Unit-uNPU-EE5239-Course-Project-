@@ -1,0 +1,167 @@
+ 
+****************************************
+Report : area
+Design : unpu_top
+Version: T-2022.03-SP5
+Date   : Thu Oct 15 20:42:40 2026
+****************************************
+
+Library(s) Used:
+
+    tsl18fs120_scl_ss (File: /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss/tsl18fs120_scl_ss.db)
+
+Number of ports:                         7452
+Number of nets:                         21639
+Number of cells:                        12614
+Number of combinational cells:          10022
+Number of sequential cells:              2465
+Number of macros/black boxes:               0
+Number of buf/inv:                       2005
+Number of references:                      22
+
+Combinational area:             251012.343238
+Buf/Inv area:                    19857.169936
+Noncombinational area:          178148.899307
+Macro/Black Box area:                0.000000
+Net Interconnect area:           13134.606586
+
+Total cell area:                429161.242546
+Total area:                     442295.849131
+
+Hierarchical area distribution
+------------------------------
+
+                                  Global cell area              Local cell area
+                                  --------------------  -------------------------------- 
+Hierarchical cell                 Absolute     Percent  Combi-       Noncombi-    Black-
+                                  Total        Total    national     national     boxes   Design
+--------------------------------  -----------  -------  -----------  -----------  ------  ---------------------------------------
+unpu_top                          429161.2425    100.0    1668.3000       0.0000  0.0000  unpu_top
+u_actbuf                           28728.1900      6.7   11143.5699   17584.6202  0.0000  unpu_actbuf
+u_apb                               1031.4800      0.2    1031.4800       0.0000  0.0000  unpu_apb
+u_csr                              11983.1000      2.8    4870.2200    7112.8801  0.0000  unpu_csr
+u_deskew                           18343.4001      4.3    5698.2800   12645.1201  0.0000  unpu_deskew
+u_dma                              38621.0001      9.0   22924.7400   12315.8201  0.0000  unpu_dma
+u_dma/add_0_root_add_0_root_add_212_2
+                                    1743.5400      0.4    1743.5400       0.0000  0.0000  unpu_dma_DW01_add_4
+u_dma/add_212_3                     1636.9000      0.4    1636.9000       0.0000  0.0000  unpu_dma_DW01_add_3
+u_grid                            233995.2017     54.5      97.2000       0.0000  0.0000  unpu_grid
+u_grid/g_row[0].g_col[0].pe        14789.1302      3.4    1771.9400    3161.2800  0.0000  unpu_pe_15
+u_grid/g_row[0].g_col[0].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_15_DW01_add_0_DW01_add_16
+u_grid/g_row[0].g_col[0].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_15_DW_mult_uns_0_DW_mult_uns_16
+u_grid/g_row[0].g_col[0].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_15_DW_mult_tc_0_DW_mult_tc_15
+u_grid/g_row[0].g_col[1].pe        14585.1001      3.4     514.3100    4214.8799  0.0000  unpu_pe_14
+u_grid/g_row[0].g_col[1].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_14_DW01_add_0_DW01_add_15
+u_grid/g_row[0].g_col[1].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_14_DW_mult_uns_0_DW_mult_uns_12
+u_grid/g_row[0].g_col[1].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_14_DW_mult_tc_0_DW_mult_tc_11
+u_grid/g_row[0].g_col[2].pe        14610.1801      3.4     539.3900    4214.8799  0.0000  unpu_pe_13
+u_grid/g_row[0].g_col[2].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_13_DW01_add_0_DW01_add_14
+u_grid/g_row[0].g_col[2].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_13_DW_mult_uns_0_DW_mult_uns_11
+u_grid/g_row[0].g_col[2].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_13_DW_mult_tc_0_DW_mult_tc_10
+u_grid/g_row[0].g_col[3].pe        14610.1801      3.4     539.3900    4214.8799  0.0000  unpu_pe_12
+u_grid/g_row[0].g_col[3].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_12_DW01_add_0_DW01_add_13
+u_grid/g_row[0].g_col[3].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_12_DW_mult_uns_0_DW_mult_uns_10
+u_grid/g_row[0].g_col[3].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_12_DW_mult_tc_0_DW_mult_tc_9
+u_grid/g_row[1].g_col[0].pe        14597.6401      3.4     526.8500    4214.8799  0.0000  unpu_pe_11
+u_grid/g_row[1].g_col[0].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_11_DW01_add_0_DW01_add_12
+u_grid/g_row[1].g_col[0].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_11_DW_mult_uns_0_DW_mult_uns_15
+u_grid/g_row[1].g_col[0].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_11_DW_mult_tc_0_DW_mult_tc_14
+u_grid/g_row[1].g_col[1].pe        14616.4601      3.4     545.6700    4214.8799  0.0000  unpu_pe_10
+u_grid/g_row[1].g_col[1].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_10_DW01_add_0_DW01_add_11
+u_grid/g_row[1].g_col[1].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_10_DW_mult_uns_0_DW_mult_uns_9
+u_grid/g_row[1].g_col[1].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_10_DW_mult_tc_0_DW_mult_tc_8
+u_grid/g_row[1].g_col[2].pe        14616.4601      3.4     545.6700    4214.8799  0.0000  unpu_pe_9
+u_grid/g_row[1].g_col[2].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_9_DW01_add_0_DW01_add_10
+u_grid/g_row[1].g_col[2].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_9_DW_mult_uns_0_DW_mult_uns_8
+u_grid/g_row[1].g_col[2].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_9_DW_mult_tc_0_DW_mult_tc_7
+u_grid/g_row[1].g_col[3].pe        14597.6401      3.4     526.8500    4214.8799  0.0000  unpu_pe_8
+u_grid/g_row[1].g_col[3].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_8_DW01_add_0_DW01_add_9
+u_grid/g_row[1].g_col[3].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_8_DW_mult_uns_0_DW_mult_uns_7
+u_grid/g_row[1].g_col[3].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_8_DW_mult_tc_0_DW_mult_tc_6
+u_grid/g_row[2].g_col[0].pe        14616.4601      3.4     545.6700    4214.8799  0.0000  unpu_pe_7
+u_grid/g_row[2].g_col[0].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_7_DW01_add_0_DW01_add_8
+u_grid/g_row[2].g_col[0].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_7_DW_mult_uns_0_DW_mult_uns_14
+u_grid/g_row[2].g_col[0].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_7_DW_mult_tc_0_DW_mult_tc_13
+u_grid/g_row[2].g_col[1].pe        14616.4601      3.4     545.6700    4214.8799  0.0000  unpu_pe_6
+u_grid/g_row[2].g_col[1].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_6_DW01_add_0_DW01_add_7
+u_grid/g_row[2].g_col[1].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_6_DW_mult_uns_0_DW_mult_uns_6
+u_grid/g_row[2].g_col[1].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_6_DW_mult_tc_0_DW_mult_tc_5
+u_grid/g_row[2].g_col[2].pe        14597.6401      3.4     526.8500    4214.8799  0.0000  unpu_pe_5
+u_grid/g_row[2].g_col[2].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_5_DW01_add_0_DW01_add_6
+u_grid/g_row[2].g_col[2].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_5_DW_mult_uns_0_DW_mult_uns_5
+u_grid/g_row[2].g_col[2].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_5_DW_mult_tc_0_DW_mult_tc_4
+u_grid/g_row[2].g_col[3].pe        14616.4601      3.4     545.6700    4214.8799  0.0000  unpu_pe_4
+u_grid/g_row[2].g_col[3].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_4_DW01_add_0_DW01_add_5
+u_grid/g_row[2].g_col[3].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_4_DW_mult_uns_0_DW_mult_uns_4
+u_grid/g_row[2].g_col[3].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_4_DW_mult_tc_0_DW_mult_tc_3
+u_grid/g_row[3].g_col[0].pe        14616.4601      3.4     545.6700    4214.8799  0.0000  unpu_pe_3
+u_grid/g_row[3].g_col[0].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_3_DW01_add_0_DW01_add_4
+u_grid/g_row[3].g_col[0].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_3_DW_mult_uns_0_DW_mult_uns_13
+u_grid/g_row[3].g_col[0].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_3_DW_mult_tc_0_DW_mult_tc_12
+u_grid/g_row[3].g_col[1].pe        14603.9101      3.4     533.1200    4214.8799  0.0000  unpu_pe_2
+u_grid/g_row[3].g_col[1].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_2_DW01_add_0_DW01_add_3
+u_grid/g_row[3].g_col[1].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_2_DW_mult_uns_0_DW_mult_uns_3
+u_grid/g_row[3].g_col[1].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_2_DW_mult_tc_0_DW_mult_tc_2
+u_grid/g_row[3].g_col[2].pe        14603.9101      3.4     533.1200    4214.8799  0.0000  unpu_pe_1
+u_grid/g_row[3].g_col[2].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_1_DW01_add_0_DW01_add_2
+u_grid/g_row[3].g_col[2].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_1_DW_mult_uns_0_DW_mult_uns_2
+u_grid/g_row[3].g_col[2].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_1_DW_mult_tc_0_DW_mult_tc_1
+u_grid/g_row[3].g_col[3].pe        14603.9101      3.4     533.1200    4214.8799  0.0000  unpu_pe_0
+u_grid/g_row[3].g_col[3].pe/add_42
+                                    1894.0201      0.4    1894.0201       0.0000  0.0000  unpu_pe_0_DW01_add_0_DW01_add_1
+u_grid/g_row[3].g_col[3].pe/mult_28
+                                    4088.9601      1.0    4088.9601       0.0000  0.0000  unpu_pe_0_DW_mult_uns_0_DW_mult_uns_1
+u_grid/g_row[3].g_col[3].pe/mult_30
+                                    3872.9301      0.9    3872.9301       0.0000  0.0000  unpu_pe_0_DW_mult_tc_0
+u_seq                              61888.7305     14.4   20528.6501   41360.0804  0.0000  unpu_seq
+u_skew                              4581.9300      1.1    1420.6500    3161.2800  0.0000  unpu_skew
+u_wbuf                             28319.9100      6.6   10735.2899   17584.6202  0.0000  unpu_wbuf
+--------------------------------  -----------  -------  -----------  -----------  ------  ---------------------------------------
+Total                                                   251012.3432  178148.8993  0.0000
+
+1

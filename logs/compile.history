@@ -1,0 +1,1 @@
+s1(15Oct2026:20:00:07):  xrun -sv -64bit -c -top unpu_top -f scripts/filelist.f -xmlibdirname sim/compile -l logs/compile.log 
