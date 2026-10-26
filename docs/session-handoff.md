@@ -724,3 +724,42 @@ Done in the user's own clone after the 18.6 run: the same script, then reports,
   (`unpu_top_cn.*` in the user's `syn/out/pm_flow/`). GLS of that netlist (same
   command as 18.7, log `syn/out/gls/xrun_cn2.log`): 343,341 checks, ALL CHECKS PASSED,
   finish at 138,350,796 ns, 1 min 52 s. The DC output is ready for ICC2.
+
+### 18.9 Dummy LEF: kit facts and working proposal (2026-10-26)
+
+A teammate's question list for the dummy LEF was reviewed (Planning's answers one by
+one in chat). Facts read from the SCL tech LEF and std-cell LEF by the user on the server
+(`scl18fs120_tech.lef`, `scl18fs120_std.lef`, paths in 18.3):
+
+| Layer | Direction | Pitch (um) | Min width (um) | Min area (um2) |
+|---|---|---|---|---|
+| M1 | horizontal | 0.56 | 0.23 | 0.202 |
+| M2 | vertical | 0.56 | 0.28 | 0.202 |
+| M3 | horizontal | 0.84 | 0.28 | 0.202 |
+| TOP_M (the 4th metal) | vertical | 1.12 | 0.44 | 0.562 |
+
+Vias are V2, V3, TOP_V. There is no layer called METAL1..METAL4 (the teammate's
+document used those names; the LEF names are M1, M2, M3, TOP_M). Std-cell site
+`CoreSite`: 0.56 x 5.6 um (row height 5.6 um). The cells' power pins are named `VDD`
+(USE POWER) and `VSS` (USE GROUND). Not yet read: track OFFSET values, spacing and
+wide-metal rules, the full layer blocks.
+
+Port counts, from `rtl/unpu_top.sv`: 102 inputs, 102 outputs, 204 pins including `clk`
+and `rst_n`. APB 100 pins (`paddr` 32, `pwdata` 32, `pwrite`, `psel`, `penable`, `prdata`
+32, `pready`), DMA 102 pins (`dma_addr` 32, `dma_wdata` 32, `dma_rdata` 32, `dma_wstrb`
+4, `dma_valid`, `dma_ready`), plus `clk`, `rst_n`. The teammate's 99/103 were off.
+
+Working proposal for the dummy LEF (PROVISIONAL, none of it confirmed by the PM or the
+top-level team; every item is a parameter so a changed answer costs a rerun):
+- Size 817.6 x 817.6 um (a multiple of both 0.56 and 5.6; 429,161 / 668,478 = 64.2%
+  utilisation). A placeholder until place and route gives the real size.
+- Top edge: `clk`, `rst_n`, APB (102 pins) on M2. Right edge: DMA (102 pins) on M3. Left
+  edge: `VDD`, `VSS` on TOP_M. Bottom: no pins. No signal pins on M1 or TOP_M.
+- Common pin pitch 6.72 um (12 M2 tracks = 8 M3 tracks), so 102 pins span ~679 um and
+  fit on both edges; the M3 minimum of 3 tracks would not have fitted at 8.4 um.
+- Pin width = layer minimum width, length about 1 um into the block; OBS on all four
+  metals in the interior; orientation R0 assumed.
+- Still needed from others: top-level floorplan (which side faces the CPU and which the
+  SRAM arbiter), pin order direction, power net names and layout, halo, rotation, grid,
+  clock latency/skew limit at `clk`, and which files (LEF only, or `.lib` too) and when.
+Task 037 (not dispatched) writes the generator and checker.

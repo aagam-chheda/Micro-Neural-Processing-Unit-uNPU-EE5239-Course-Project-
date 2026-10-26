@@ -1790,3 +1790,14 @@ is working on it). To ask the PM: how the macro `.lib` is produced, pin side/ord
 spacing/layers, power pin or ring layout, size/aspect/area limits, clock skew limits.
 The pin and size answers also block the dummy LEF.
 
+
+## Dummy LEF: question list reviewed, kit facts recorded (2026-10-26)
+
+A teammate's list of 16 questions for the dummy LEF was reviewed point by point.
+Recorded in `docs/session-handoff.md` 18.9: the SCL layer names (M1, M2, M3, TOP_M, not
+METAL1..4), directions, pitches, min widths and areas, the site (0.56 x 5.6 um), power
+names `VDD`/`VSS`, the corrected pin counts (APB 100, DMA 102, plus `clk`, `rst_n`), and
+a provisional plan (817.6 x 817.6 um, APB top on M2, DMA right on M3, power left on
+TOP_M, common pitch 6.72 um). Task 037 (generator and checker) is written and NOT
+dispatched. Needed from others: top-level floorplan and pin-order direction, power net
+names and layout, halo/rotation/grid, clock latency/skew limit, which files and when.
