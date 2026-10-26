@@ -1801,3 +1801,12 @@ a provisional plan (817.6 x 817.6 um, APB top on M2, DMA right on M3, power left
 TOP_M, common pitch 6.72 um). Task 037 (generator and checker) is written and NOT
 dispatched. Needed from others: top-level floorplan and pin-order direction, power net
 names and layout, halo/rotation/grid, clock latency/skew limit, which files and when.
+
+## Dummy LEF decisions, 2026-10-26
+
+Answered one by one with the user (details in `docs/session-handoff.md` 18.9): 64%
+utilisation (817.6 um square), square shape, `VDD`/`VSS` on vertical TOP_M stripes, no
+over-macro routing, halo 10 um, R0, site grid, interface-timing assumptions unchanged.
+The teammate owns the LEF and the file/deadline question; task 037 is withdrawn. Open,
+for the top-level team (expected 2026-10-27): floorplan and pin sides, pin order,
+clock latency/skew and `clk` pin position.

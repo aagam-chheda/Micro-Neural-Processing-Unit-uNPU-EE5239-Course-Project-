@@ -763,3 +763,22 @@ top-level team; every item is a parameter so a changed answer costs a rerun):
   SRAM arbiter), pin order direction, power net names and layout, halo, rotation, grid,
   clock latency/skew limit at `clk`, and which files (LEF only, or `.lib` too) and when.
 Task 037 (not dispatched) writes the generator and checker.
+
+Decisions from the question-by-question review (user, 2026-10-26). The teammate owns the
+dummy LEF itself; the user relays these answers. Task 037 is withdrawn (not dispatched).
+- Q1 size: 64% utilisation, so 817.6 x 817.6 um as a placeholder (no area limit known).
+- Q2 shape: square.
+- Q9 power: names `VDD`/`VSS` (user: "works"); layout as recommended, vertical TOP_M
+  stripes in several pairs, no ring; width and count later from a power estimate.
+- Q10: no top-level routing over the macro; OBS on all four metals.
+- Q11 halo: 10 um (the instructor said so).
+- Q12: no rotation or flip, so R0.
+- Q13 grid: the site grid (width a multiple of 0.56 um, height of 5.6 um); the top level
+  has not been asked about a coarser grid, user accepted the recommendation.
+- Q15 interface timing: keep the assumed budgets (APB 35%, DMA and `rst_n` 40%, 1 pF).
+- Q16 files and deadline: the teammate handles it.
+- Q6, Q7, Q8 are settled by the kit (18.9 table), not asked.
+- STILL OPEN (user to ask the top-level team, answer expected 2026-10-27): Q3 floorplan
+  and which side faces the CPU/APB bridge and the SRAM arbiter; Q4 pin sides (follows
+  Q3); Q5 pin order direction; Q14 clock latency/skew limit at `clk` and the `clk` pin
+  position.
