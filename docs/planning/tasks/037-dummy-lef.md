@@ -1,5 +1,7 @@
 # Task 037 — Generate the dummy LEF for `unpu_top` (provisional pin plan)
 
+> **WITHDRAWN 2026-10-26, never dispatched.** The user decided the teammate owns the dummy LEF. Kept for reference only; the decisions that replaced its provisional plan are in `docs/session-handoff.md` 18.9.
+
 ## Goal
 
 The top-level team needs a LEF for the hard macro `unpu_top` before the real one
