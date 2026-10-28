@@ -1055,3 +1055,18 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
 - How: the hold-fixed block was NOT saved; `unpu_top_cts` (saved right after `build_clock`, hold unfixed)
   is reopened, `set_clock_uncertainty -hold 0.2` set in `ff_hold`, and `clock_opt -from route_clock
   -to final_opto` re-run. The placed design remains on disk as `unpu_top`.
+- RESULT at 0.2 ns (`clock_opt -from route_clock -to final_opto` on `unpu_top_cts`): setup NSV 0; hold NHV 0;
+  max transition/capacitance 0; area 428,230.22 um2 (+612 um2 over the CTS state's 427,618.69); instances
+  12,039 (unchanged, fixes were swaps: buffers 214 -> 252, inverters 1,353 -> 1,273); core utilisation
+  65.9%; leakage ss 5.40 uW. Against the 0.5 ns run: area +56,953 vs +612 um2, 2,297 vs 38 added buffers.
+- Independent checks after the run: setup worst `paddr[2]` to `prdata[2]` (in2out) slack +0.01 ns (arrival
+  11.99, required 12.00); hold worst `u_deskew/col0_q1_reg_23_` to `col0_q2_reg_23_` slack 0.00 ns MET with
+  `clock uncertainty 0.20` shown; `check_legality` 0 violations (104 cell types); `check_pg_connectivity`
+  0 floating cells/wires/vias (12,039 cells); clock QoR: 2,465 sinks, 3 levels, 53 repeaters, repeater area
+  1,492.74 um2, max latency 1.22 ns (ss) / 0.49 ns (ff), global skew 0.95 ns (ss) / 0.36 ns (ff), 0 clock
+  DRC. Slacks of 0.00-0.01 ns are after the 1.5 ns setup and 0.2 ns hold uncertainty are subtracted, so
+  physical margin exists; the optimiser stops at zero and routed RC will move them.
+- `FLW-8004` "Incomplete clock_opt / final_opto" appeared in both final_opto runs (0.5 and 0.2 ns), also with
+  every check clean, so it is not tied to leftover violations; `route_clock` ran (53 nets detail-routed
+  = 53 clock repeaters) and `final_opto` printed its QoR. Cause unknown; most likely a reporting quirk of
+  this version. OPEN, record; re-check at the routing stage.

@@ -1875,3 +1875,8 @@ uncertainty KEPT at 0.5 ns by the user's decision (2,219 endpoints to fix; distr
 
 Run at 0.5 ns cost +2,297 cells / +13.3% area / 74.5% utilisation. User then chose 0.2 ns (written reason in
 `docs/session-handoff.md` 18.18). Re-running route_clock + final_opto from `unpu_top_cts`. `FLW-8004` still unexplained.
+
+## ICC2 step 8 done (clock tree + hold fixed at 0.2 ns), 2026-10-28
+
+setup/hold clean, legal, PG connected, area 428,230 um2 (65.9%). `FLW-8004` unexplained. Details:
+`docs/session-handoff.md` 18.18. Next: tie-off check, then routing.
