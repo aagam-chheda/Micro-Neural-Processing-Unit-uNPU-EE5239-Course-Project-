@@ -1031,3 +1031,27 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   endpoints (up to 2,219 at the start), costing area and leakage; utilisation 66% leaves room.
   Setup uncertainty unchanged (1.5 ns).
 - Next: check the hold-fix app options, then `clock_opt -from route_clock -to final_opto`.
+
+### 18.18 ICC2 step 8: hold run at 0.5 ns, then the uncertainty decision CHANGED (user, 2026-10-28)
+
+- Run with hold uncertainty 0.5 ns (the earlier decision, 18.17): `clock_opt -from route_clock -to final_opto`.
+  Result: setup NSV 0; hold 2,219 -> 6 violating endpoints, worst -0.0125 ns (four self-loops in
+  `u_wbuf` bank flops, two neighbouring-PE `act_out` shifts where the launch clock is 0.10 ns later than the
+  capture clock); max transition/capacitance 0; area 427,619 -> 484,572 um2 (+56,953 um2, +13.3%);
+  instances 12,039 -> 14,309; buffers 214 -> 2,511 (+2,297, almost all delay cells); core utilisation
+  66% -> 74.5% (72.5% of the die); leakage ss 5.47 -> 6.68 uW. `check_legality`: 0 violations
+  (115 library cell types in use). Warning `FLW-8004` "Incomplete clock_opt / final_opto": a stage started
+  (FLW-8000) without its end line (FLW-8001); cause not known (`icc2_command.log` holds commands only, not
+  messages). Not saved; discarded in favour of the run below.
+- DECISION (user, 2026-10-28, reverses the 18.17 choice): hold clock uncertainty 0.5 ns -> 0.2 ns in the
+  `ff_hold` scenario, as Planning proposed. Reason (written): the 0.5 ns in `constraints/unpu_top.sdc`
+  was a pre-CTS stand-in for skew; skew is now measured (ff: 0.36 ns) and enters the propagated-clock
+  analysis, so 0.5 counts it twice. 0.2 ns remains as margin for effects not yet modelled (on-chip
+  variation, routed parasitics). Evidence: endpoints still failing at the post-CTS ff corner: 0.5 ns:
+  2,219; 0.4: 1,797; 0.3: 1,065; 0.2: 31; 0.1: 0; the worst path has +0.10 ns slack with no uncertainty.
+  The cost seen at 0.5 ns (+2,297 cells, +13.3% area, 74.5% utilisation) is the reason it is not kept.
+  Setup uncertainty (1.5 ns) unchanged. The change lives in the ICC2 flow, not in the SDC (the SDC states
+  that post-CTS uncertainty is revisited in the tool). To be copied into the `pnr/` script by Execution.
+- How: the hold-fixed block was NOT saved; `unpu_top_cts` (saved right after `build_clock`, hold unfixed)
+  is reopened, `set_clock_uncertainty -hold 0.2` set in `ff_hold`, and `clock_opt -from route_clock
+  -to final_opto` re-run. The placed design remains on disk as `unpu_top`.

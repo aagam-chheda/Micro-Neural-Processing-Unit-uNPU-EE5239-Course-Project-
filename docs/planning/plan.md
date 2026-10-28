@@ -1870,3 +1870,8 @@ uncertainty needed at CTS. Details: `docs/session-handoff.md` 18.16. Next: CTS.
 CTS built: 2,465 sinks, 3 levels, 53 repeaters, skew 0.95 ns (ss) / 0.36 ns (ff), latency 1.21 / 0.49 ns. Hold
 uncertainty KEPT at 0.5 ns by the user's decision (2,219 endpoints to fix; distribution recorded). Details:
 `docs/session-handoff.md` 18.17. Next: route clock + hold fixing (`final_opto`).
+
+## ICC2 step 8, 2026-10-28: hold uncertainty decision changed
+
+Run at 0.5 ns cost +2,297 cells / +13.3% area / 74.5% utilisation. User then chose 0.2 ns (written reason in
+`docs/session-handoff.md` 18.18). Re-running route_clock + final_opto from `unpu_top_cts`. `FLW-8004` still unexplained.
