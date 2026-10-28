@@ -1833,3 +1833,9 @@ library, read netlist and SDC, TLUPlus, floorplan. Open before finishing: filler
 
 Design library `unpu_lib` created over `scl18fs120.ndm`, typical TLUPlus read, library saved
 (details in `docs/session-handoff.md` 18.11). Next: step 2 (read netlist and SDC), then floorplan.
+
+## ICC2 step 2 done, 2026-10-28
+
+Netlist and SDC read and linked in `unpu_lib` (204 ports, 2,465 flops, both match DC; only
+`set_wire_load_model` and `set_max_area` ignored). Details in `docs/session-handoff.md` 18.12.
+Next: modes/corners/scenarios (ss setup, ff hold, `typ` RC), then floorplan.

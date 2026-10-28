@@ -840,3 +840,19 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   via1/2/3 to V2/V3/TOP_V. `save_lib` done (typing `save lib` is ambiguous, `CMD-006`).
 - Not yet confirmed: that `typ` RC is selected for the corners (done with the scenarios and
   `set_parasitic_parameters`). Next, step 2: read `unpu_top_cn.dc.v` and `unpu_top_cn.sdc`.
+
+### 18.12 ICC2 step 2: netlist and SDC read (user's server run, 2026-10-28)
+
+- `open_lib unpu_lib`; `read_verilog -top unpu_top .../syn/out/pm_flow/unpu_top_cn.dc.v`
+  (options of this shell: `-library`, `-design`, `-top`, `-as_block`): 76 modules read, top-level
+  ports 204, total ports in all modules 7,452, nets 21,755, instances 12,562 (summed over module
+  definitions, not a flat count). `link_block`: "Design 'unpu_top' was successfully linked"
+  with libraries `unpu_lib scl18fs120`, no unresolved cells.
+- Counts match DC: `get_ports *` 204; `is_sequential==true` cells 2,465.
+- `read_sdc .../unpu_top_cn.sdc`: loaded as SDC 2.1; only two constraints ignored,
+  `set_wire_load_model` and `set_max_area` ("not supported by icc2", SDC-3/SDC-4). Both were
+  expected: ICC2 takes wire parasitics from TLUPlus after placement, and `max_area 0` is the PM's
+  minimise-only line. Driving cell `buffd1`, loads, I/O delays and limits loaded without warning.
+  `save_block` done (`unpu_lib:unpu_top.design`).
+- Not yet done: corner/scenario setup (ss for setup, ff for hold, RC `typ` per corner), then
+  floorplan. Cell area against DC's 429,161 um2 not compared yet (optional `report_design -netlist`).
