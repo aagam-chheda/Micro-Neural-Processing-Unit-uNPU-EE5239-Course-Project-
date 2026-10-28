@@ -793,3 +793,6 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   right; right edge bit 0 at the bottom, rising upward. (Planning's recommendation; the
   top-level team has no order of their own, user: "go with your recommendation".)
 - Still open: Q14 clock latency and skew limit at `clk`.
+- Power pins stay on the LEFT edge (user asked about moving them to top/right, no reason
+  found, 2026-10-28). Q14 stays open; the clock tree is built for MINIMUM SKEW and the
+  resulting insertion delay is reported; the PM is asked for latency/skew limits later.

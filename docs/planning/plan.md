@@ -1817,3 +1817,7 @@ CPU on the right, SRAM arbiter on top, so APB (plus `clk`, `rst_n`) goes on the 
 on M3 and DMA on the top edge on M2; power left on TOP_M; pin order grouped by bus, bits
 ascending (details in `docs/session-handoff.md` 18.9). Only the clock latency/skew limit
 (Q14) is still open.
+
+Power stays on the left edge. Clock: build for minimum skew, report the insertion delay,
+ask the PM for limits later (2026-10-28). Next: ICC2 library preparation, floorplan,
+placement, then CTS (the user drives).
