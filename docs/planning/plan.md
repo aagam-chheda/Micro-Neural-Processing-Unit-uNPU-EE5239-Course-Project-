@@ -1885,3 +1885,7 @@ setup/hold clean, legal, PG connected, area 428,230 um2 (65.9%). `FLW-8004` unex
 
 Constants checked (129 pins tied to VSS, 0 to VDD). Work saved as `unpu_top_clkopt`; library backed up. Details:
 `docs/session-handoff.md` 18.19. Next: routing.
+
+## First thing next session (user request, 2026-10-28 night)
+
+Before routing: give the user an elaborate recap of everything done in CTS (clock_opt build_clock, the dl* exclusion, skew and latency results, the hold-uncertainty decision 0.5 -> 0.2 ns with the numbers from both runs, the `unpu_top_cts` restart, `FLW-8004`, hurdles and fixes). Then `route_auto`.
