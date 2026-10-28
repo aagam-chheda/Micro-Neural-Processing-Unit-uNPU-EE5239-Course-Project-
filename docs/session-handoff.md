@@ -925,3 +925,46 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   `1'b1`; decide before routing/finishing.
 - Next: `set_dont_use` for the six patterns in ICC2, then the power grid (rails M1, TOP_M stripes at the
   left); widths/pitch from `chip_finishing.pdf`/DRM, not guesses.
+
+### 18.15 ICC2 step 5: don't-use, power grid, signal pins (user's server run, 2026-10-28)
+
+- **Don't-use.** `set_dont_use [get_lib_cells {*/slnht* */skbrb* */slbhb* */slnhn* */slnln* */mx08d*}]`:
+  18 lib cells now `dont_use==true`. `*/mx08d*` matched nothing (`mx08d1/2/4` have no timing view, so
+  `get_lib_cells` does not return them; ICC2 cannot choose them for timing optimisation anyway). The 15
+  matched cells are block-level overrides (`ATTR-12`, saved with the block). The other three are
+  flagged by the library itself: `adiode` (ANTENNA DIODE, so antenna fixing at routing may need it named
+  explicitly or may be refused), `bh01d1` (bus holder), `cload1` (load cell). OPEN for the route step.
+- **`chip_finishing.pdf`** covers chip-level items only: dummy fill by Calibre (SCL `DUMMY.header`,
+  produces `top_with_dummy.gds`), seal ring (connect to VSS or VSSO), silicon number. No power-grid
+  numbers. OPEN question for PM/teammate: does the macro deliverable include dummy fill, or does the
+  top-level team add it?
+- **Power grid.** DC power report: 6.4 mW at 1.62 V (default activity), about 4 mA, so IR drop and
+  electromigration do not limit the grid. M1 rail 0.74 um (LEF, `inv0d0`: `VDD` y 4.86-5.60, `VSS`
+  y 0-0.74; rows alternate, shared rail about 1.48 um). Chosen (no kit number): TOP_M vertical stripes
+  2.24 um wide, VDD/VSS interleaved, pitch 112 um (= 100 TOP_M tracks). Commands:
+  `create_pg_std_cell_conn_pattern std_rail -layers {M1} -rail_width 0.74`;
+  `create_pg_mesh_pattern top_mesh -layers {{{vertical_layer: TOP_M} {width: 2.24} {pitch: 112}
+  {spacing: interleaving}}}`; `set_pg_strategy s_rail -core -pattern {{name: std_rail} {nets: {VDD VSS}}}`;
+  `set_pg_strategy s_mesh -core -pattern {{name: top_mesh} {nets: {VDD VSS}}}`;
+  `compile_pg -strategies {s_rail s_mesh}`. Result: 14 stripes (7 VDD, 7 VSS), 145 rails (73 VDD,
+  72 VSS), 1,015 stacked-via locations (3,045 vias). `check_pg_drc`: no errors.
+  `check_pg_connectivity`: 0 floating wires or vias, but ALL 12,487 std cells floating on both nets,
+  expected because nothing is placed (`compile_pg` saw "Number of Standard Cells: 0"). NOT YET VERIFIED:
+  re-run after placement, the floating-cell count must be 0. Also "Terminals: 0": the macro `VDD`/`VSS`
+  pins are not created yet (plan: left edge, TOP_M).
+- **Signal pins.** `set_block_pin_constraints -self -hard_constraints location`, then per port
+  `set_individual_pin_constraints -ports ... -location {x y} -allowed_layers M3|M2 -width 0.28
+  -length 1.0`, then `place_pins -self`: 204 pins created, `get_terminals` = 204, locations honoured
+  exactly (no snapping), layers confirmed (`get_attribute ... layer`: clk M3, dma_addr[0] M2). Pitch
+  6.72 um, first slot at 56.0.
+  - Right edge (x = 817.6, M3), bottom to top, slots 0-103: `rst_n`, `pwrite`, `psel`, `penable`,
+    `paddr[0..31]`, gap, `clk` (slot 37, y = 304.64), gap, `pwdata[0..31]`, `prdata[0..31]`, `pready`
+    (slot 103, y = 748.16).
+  - Top edge (y = 817.6, M2), left to right, slots 0-101: `dma_addr[0..31]`, `dma_wdata[0..31]`,
+    `dma_wstrb[0..3]`, `dma_valid`, `dma_rdata[0..31]`, `dma_ready` (x = 734.72).
+  - `clk` is at about 38% of the edge height, not the exact centre (centring would push the buses off
+    the edge). The pins sit at computed positions, not necessarily on routing tracks (M3 0.61, M2 0.56);
+    relevant to the M3 pitch question in 18.14.
+- The session commands are typed by hand; to be consolidated into a `pnr/` script later (task for
+  Execution, once the flow works end to end).
+- Next: placement (`check_design`, then `place_opt`), re-run `check_pg_connectivity`, then clock tree.

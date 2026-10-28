@@ -1852,3 +1852,9 @@ Floorplan fixed (die 817.6, core 806.4, 144 rows, 66.00%), PG pins connected (12
 fillers `feedth*`, no tap cells, don't-use list, GDS must be merged with std-cell GDS. Open: M3 pitch 0.61
 (tech) vs 0.84 (LEF) for pin grid; tie-off of constants (no tie cells). Details: `docs/session-handoff.md`
 18.14. Next: `set_dont_use`, then power grid.
+
+## ICC2 step 5 done, 2026-10-28
+
+Don't-use list applied (18 cells; `adiode` is library don't-use), power grid built (DRC clean; cell
+connectivity to verify after placement), all 204 signal pins placed per plan (right M3 / top M2, 6.72 pitch).
+Details: `docs/session-handoff.md` 18.15. Next: placement.
