@@ -1845,3 +1845,10 @@ Next: modes/corners/scenarios (ss setup, ff hold, `typ` RC), then floorplan.
 Scenarios set: `default` (ss, setup only) and `ff_hold` (ff, hold only), `typ` RC on both. Pre-placement
 timing: setup +0.82 ns (cell delay only); hold -0.50 ns on reg2out, expected before CTS (details in
 `docs/session-handoff.md` 18.13). Next: floorplan.
+
+## ICC2 step 4 done, 2026-10-28
+
+Floorplan fixed (die 817.6, core 806.4, 144 rows, 66.00%), PG pins connected (12,487 each), kit FAQ read:
+fillers `feedth*`, no tap cells, don't-use list, GDS must be merged with std-cell GDS. Open: M3 pitch 0.61
+(tech) vs 0.84 (LEF) for pin grid; tie-off of constants (no tie cells). Details: `docs/session-handoff.md`
+18.14. Next: `set_dont_use`, then power grid.

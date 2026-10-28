@@ -890,3 +890,38 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   (Q14) is still worth asking the PM.
 - Licence lines: `ICCompilerII` and `-4` fail ("No such feature"), `-8` and `-NX` check out; normal.
 - Next: floorplan (817.6 um square, rows, pins per 18.9, power stripes on TOP_M at the left).
+
+### 18.14 ICC2 step 4: floorplan, power connections, kit guidelines read (user's server run, 2026-10-28)
+
+- **Floorplan.** First attempt `initialize_floorplan -boundary {{0 0} {817.6 817.6}} -core_offset 5.6`
+  made that boundary the CORE and added the offset outside it: die 828.8 x 828.8, not the 817.6 of the
+  dummy LEF (planning error, caught from `report_design -floorplan`: chip area 686,909.44, 146 rows).
+  Correct form: `initialize_floorplan -boundary {{5.6 5.6} {812.0 812.0}} -core_offset 5.6`.
+  Result: chip 668,469.76 um2, `boundary_bbox` {0 0} {817.6 817.6}, core 650,280.96 um2 (806.4 square),
+  144 rows of site `unit` (0.56 x 5.6), core utilisation 66.00% (DC cell area 429,161 um2). Saved.
+- Routing directions are missing from the technology; ICC2 derived M1 horizontal, M2 vertical, M3
+  horizontal, TOP_M vertical (`DPUI-924`, `ATTR-11` block override). Same as the kit LEF.
+- **M3 pitch.** Tech file `SCL_4LM.tf` pitch: M1 0.56, M2 0.56, M3 0.61, TOP_M 1.12 (the other `pitch`
+  lines belong to via layers: TOP_V 0.71 etc.). Kit LEF: M1 0.56, M2 0.56, M3 0.84, TOP_M 1.12. Only M3
+  differs. ICC2 uses the tech file (0.61; legal, width 0.28 + spacing 0.28 = 0.56). Risk: right-edge pins
+  (APB, on M3) snap to 0.61 tracks, so they will not sit on the 0.84 grid of the dummy LEF / top-level
+  router. Confirm with the teammate who owns the LEF; not blocking.
+- **Power connections.** `create_net -power VDD`, `create_net -ground VSS`, `connect_pg_net
+  -automatic`: 12,487 VDD and 12,487 VSS pins connected = 12,487 leaf cells
+  (`get_cells -hierarchical -filter "is_hierarchical==false"`). Logical only; no metal yet.
+- **Kit `doc/std_cell_guidelines.pdf` (FAQ):** FS120 is a 10-track library (5.6 um); filler cells
+  `feedth`, `feedth3`, `feedth9`, needed to avoid implant spacing DRC (the LEF-only cells found in 18.10);
+  NO tap cells needed (substrate/well contacts inside the cells); don't-use cells `slnht*`, `skbrb*`,
+  `slbhb*`, `slnhn*`, `slnln*`, `mx08d*` (already in `syn/dc_setup.tcl:39`; the netlist uses none:
+  `grep -c` = 0; ICC2 not told yet); `vcs_sim_model` and `tmax_model` folders hold simulation and ATPG
+  models; the P&R tool's GDSII has only abstract layer information and must be merged with the IP
+  (standard-cell) GDSII in Virtuoso: find the std-cell GDS in the kit before Calibre DRC/LVS.
+  Other kit docs: `chip_finishing.pdf` (not read yet), `DRM.pdf`, `DRS.pdf`, `io_guidelines.pdf`,
+  `memory_cuts_scl.pdf`.
+- **Constants in the netlist.** The library has no tie cells; DC used inverters on constants:
+  `inv0d0 U2 (.I(1'b0), .ZN(pready))` (netlist line 20), `U3`/`U9` with `.I(1'b1)` for
+  `error_code[2]` and `[1]`, plus `1'b0` literals on the DW01_add sub-module ports (`.B`, `.CI`). OPEN:
+  how ICC2 should tie these (connect to VSS/VDD directly, or other) and how LVS (`v2lvs`) maps `1'b0` and
+  `1'b1`; decide before routing/finishing.
+- Next: `set_dont_use` for the six patterns in ICC2, then the power grid (rails M1, TOP_M stripes at the
+  left); widths/pitch from `chip_finishing.pdf`/DRM, not guesses.
