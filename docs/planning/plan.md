@@ -1880,3 +1880,8 @@ Run at 0.5 ns cost +2,297 cells / +13.3% area / 74.5% utilisation. User then cho
 
 setup/hold clean, legal, PG connected, area 428,230 um2 (65.9%). `FLW-8004` unexplained. Details:
 `docs/session-handoff.md` 18.18. Next: tie-off check, then routing.
+
+## End of day 2026-10-28
+
+Constants checked (129 pins tied to VSS, 0 to VDD). Work saved as `unpu_top_clkopt`; library backed up. Details:
+`docs/session-handoff.md` 18.19. Next: routing.

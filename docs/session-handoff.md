@@ -1070,3 +1070,34 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   every check clean, so it is not tied to leftover violations; `route_clock` ran (53 nets detail-routed
   = 53 clock repeaters) and `final_opto` printed its QoR. Cause unknown; most likely a reporting quirk of
   this version. OPEN, record; re-check at the routing stage.
+
+### 18.19 ICC2 step 9: constants and tie-offs checked, state at end of day 2026-10-28
+
+- `get_pins -hierarchical -filter "constant_value==0 || constant_value==1"` gives 374 pins; the attribute
+  marks derived constants too (outputs), so it is not the tie-off count. Pins: `U2` (the `inv0d0` holding
+  `pready` high) and, in each of the four row-0 PEs (`u_grid/g_row_0__g_col_{0..3}__pe`), 31 cells of the
+  accumulator adder `add_42` (`U1_1`..`U1_31`) with `A = 0`, `CI = 0`, `CO = 0`. Observation, not an
+  action (RTL frozen): row 0 adds the product to a constant zero, and the shared DesignWare adder was not
+  simplified, so about 124 adder cells compute "B + 0 + 0"; rough guess about 1% of area, not measured.
+  `U3` and `U9` (the `1'b1` inverters for `error_code[2:1]`) are gone from the list; not checked why.
+- Physical tie: `get_nets -of_objects U2/I` is the net `VSS` (type `ground`): ICC2's auto PG
+  connection (`NDM-099`, printed after each flow command) ties the `1'b0` literal to the ground net.
+  `connect_tie_cells` does not exist in this version. Count of non-PG pins on `VSS`: 129 (= 1 + 4 x 32),
+  on `VDD`: 0. `get_flat_nets` returns nothing for a pin tied to a rail (it has no ordinary signal net).
+  Not yet seen: the metal that joins these 129 pins to the M1 rails; routing and the layout checks
+  (`check_routes`, LVS) will show it. RISK: gate inputs tied directly to a rail, no tie cells in the
+  library; legal by design rules, generally avoided for gate-oxide stress; the LVS netlist conversion must
+  map `1'b0` to `VSS` and `1'b1` to `VDD` the same way. Note for the PM discussion.
+- Routing commands in this version: `route_auto` (options include `-max_detail_route_iterations`
+  default 40, `-reuse_existing_global_route`, `-route_nondefault_nets_first`), `route_opt`.
+- State at the end of the day: library `unpu_lib` in `/storage/EE5239G1/aagams_workspace/icc2_work`, blocks
+  `unpu_top` (placed, 19:33), `unpu_top_cts` (listing shows 22:28, may or may not still be the
+  hold-unfixed state on disk), `unpu_top_clkopt` (CTS built, hold fixed at 0.2 ns; continue from here).
+  Backup: `unpu_lib_backup_oct28.tgz` in the same directory. To resume: `open_lib unpu_lib`,
+  `open_block unpu_top_clkopt`, check `report_timing -delay_type min -max_paths 1` in `ff_hold` shows
+  `clock uncertainty 0.20`.
+- Open items: `FLW-8004` unexplained; `DMM-104` (91 notes) not read; M3 pin grid (0.61 tech vs 0.84 LEF)
+  to confirm with the teammate who owns the dummy LEF; `adiode` don't-use for antenna fixing; macro
+  `VDD`/`VSS` pins not created; dummy fill in the deliverable (PM); std-cell GDS location for the
+  merge; clock latency limit at `clk` (PM).
+- Next: `route_auto`, `check_routes`, then `route_opt`.
