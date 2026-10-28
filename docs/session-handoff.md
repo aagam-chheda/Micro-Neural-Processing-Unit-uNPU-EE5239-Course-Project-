@@ -856,3 +856,37 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   `save_block` done (`unpu_lib:unpu_top.design`).
 - Not yet done: corner/scenario setup (ss for setup, ff for hold, RC `typ` per corner), then
   floorplan. Cell area against DC's 429,161 um2 not compared yet (optional `report_design -netlist`).
+
+### 18.13 ICC2 step 3: corners and scenarios (user's server run, 2026-10-28)
+
+- `read_sdc` had created one `default` mode, corner and scenario (setup and hold both on). This
+  shell has no `rename_mode/corner/scenario`, so `default` was kept as the ss scenario. The SDC's own
+  line 9 (`set_operating_conditions tsl18fs120_scl_ss -library tsl18fs120_scl_ss`) already gives it
+  1.62 V / 125 C.
+- Added: `create_corner ff`; `create_scenario -name ff_hold -mode default -corner ff`; the same SDC read
+  into it (`UIC-034` "Redefining clock 'clk'" is harmless: both scenarios share mode `default`); then
+  `set_operating_conditions tsl18fs120_scl_ff -library tsl18fs120_scl_ff` overrides line 9.
+  `report_corners` shows ff at 1.98 V / -40 C (file/line `--` = set by hand) and default at 1.62 V / 125 C.
+- `set_scenario_status default -setup true -hold false`; `set_scenario_status ff_hold -setup false
+  -hold true`. `report_scenarios` confirms. Min-cap/max-cap/max-transition stay active in both.
+- `set_parasitic_parameters -corners default|ff -early_spec typ -late_spec typ`;
+  `report_parasitic_parameters` lists `typ` (`SCL_TLUPLUS_4M1L_TYP.tlup`, map `SCL_TLUPLUS_4M1L.map`)
+  as early and late on both corners. `save_block` done. Only a typical TLUPlus exists in the kit, so
+  both corners use `typ` RC.
+- `check_timing` (default): one warning, `pready` unconstrained, reason `case constant`
+  (`rtl/unpu_apb.sv:87`, `assign pready = 1'b1`). Expected, nothing to time.
+- First timing (no placement, `TIM-101/102` zero interconnect, ideal clock, so cell delay only):
+  - Setup, scenario `default` (ss): worst path `paddr[2]` to `prdata[1]`, slack +0.82 ns (MET).
+    DC's +0.01 ns used its wire-load guess; the real figure comes after placement and routing.
+  - Hold, scenario `ff_hold` (ff): worst path `u_csr/src_b_reg_reg_4_` to `prdata[4]` (reg2out),
+    slack -0.50 ns (VIOLATED). Cause: `OUT_MIN_DELAY` is -0.5 (outside needs outputs held 0.5 ns), so the
+    required arrival is 0.5 uncertainty + 0.5 hold = 1.0 ns after an ideal clock at 0, and the path is
+    clk-to-Q 0.22 + gates = 0.50 ns. Expected before CTS: the check has not seen the clock tree.
+    After CTS the launch flop's clock arrives late by the insertion delay, which adds to the data
+    arrival; the output port is checked against an ideal capture edge.
+- Consequence to watch after CTS: the same insertion delay costs setup on the reg-to-output paths and
+  makes input-to-flop hold tighter (input min delay 0.0 against a late capture clock), so ICC2 will
+  add hold buffers on the inputs. That trade is the reason the clock latency/skew limit at `clk`
+  (Q14) is still worth asking the PM.
+- Licence lines: `ICCompilerII` and `-4` fail ("No such feature"), `-8` and `-NX` check out; normal.
+- Next: floorplan (817.6 um square, rows, pins per 18.9, power stripes on TOP_M at the left).

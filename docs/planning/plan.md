@@ -1839,3 +1839,9 @@ Design library `unpu_lib` created over `scl18fs120.ndm`, typical TLUPlus read, l
 Netlist and SDC read and linked in `unpu_lib` (204 ports, 2,465 flops, both match DC; only
 `set_wire_load_model` and `set_max_area` ignored). Details in `docs/session-handoff.md` 18.12.
 Next: modes/corners/scenarios (ss setup, ff hold, `typ` RC), then floorplan.
+
+## ICC2 step 3 done, 2026-10-28
+
+Scenarios set: `default` (ss, setup only) and `ff_hold` (ff, hold only), `typ` RC on both. Pre-placement
+timing: setup +0.82 ns (cell delay only); hold -0.50 ns on reg2out, expected before CTS (details in
+`docs/session-handoff.md` 18.13). Next: floorplan.
