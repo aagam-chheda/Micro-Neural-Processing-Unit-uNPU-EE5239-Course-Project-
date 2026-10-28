@@ -1810,3 +1810,10 @@ over-macro routing, halo 10 um, R0, site grid, interface-timing assumptions unch
 The teammate owns the LEF and the file/deadline question; task 037 is withdrawn. Open,
 for the top-level team (expected 2026-10-27): floorplan and pin sides, pin order,
 clock latency/skew and `clk` pin position.
+
+## Dummy LEF: pin sides and order decided, 2026-10-28
+
+CPU on the right, SRAM arbiter on top, so APB (plus `clk`, `rst_n`) goes on the right edge
+on M3 and DMA on the top edge on M2; power left on TOP_M; pin order grouped by bus, bits
+ascending (details in `docs/session-handoff.md` 18.9). Only the clock latency/skew limit
+(Q14) is still open.

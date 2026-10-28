@@ -782,3 +782,14 @@ dummy LEF itself; the user relays these answers. Task 037 is withdrawn (not disp
   and which side faces the CPU/APB bridge and the SRAM arbiter; Q4 pin sides (follows
   Q3); Q5 pin order direction; Q14 clock latency/skew limit at `clk` and the `clk` pin
   position.
+
+Top-level answers received 2026-10-28 (user-reported) and the resulting pin plan. This
+SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
+- Q3: the CPU sits on the RIGHT of the macro, the SRAM arbiter on the TOP.
+- Q4: RIGHT edge: APB (100 pins) plus `clk` and `rst_n` (102), on M3 (horizontal).
+  TOP edge: DMA (102 pins), on M2 (vertical). LEFT: `VDD`/`VSS` on TOP_M. BOTTOM: no
+  pins. `clk` near the middle of the right edge, in a gap between buses.
+- Q5: pins grouped by bus, bits ascending; top edge bit 0 at the left, rising to the
+  right; right edge bit 0 at the bottom, rising upward. (Planning's recommendation; the
+  top-level team has no order of their own, user: "go with your recommendation".)
+- Still open: Q14 clock latency and skew limit at `clk`.
