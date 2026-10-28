@@ -1002,3 +1002,32 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   0 floating wires or vias on `VDD` and `VSS`. Resolved. (Terminals still 0: macro PG pins not created.)
 - The log also prints a large table of "Co-efficient Ratio Summary" numbers: internal, ignorable.
 - Next: save, then clock tree synthesis (`clock_opt`).
+
+### 18.17 ICC2 step 7: clock tree built (`clock_opt -to build_clock`, user's server run, 2026-10-28)
+
+- Before: `set_lib_cell_purpose -exclude cts [get_lib_cells {*/dl*}]`. Library buffers: `dl01d1/2/4`,
+  `dl02d1/2/4`, `dl03d1/2/4`, `dl04d1/2/4` (12 delay cells, kept out of the clock tree, left for hold
+  fixing), `buffd1/2/3/4/7/a`, `bufbd1/2/3/4/7/a/f/k`; none is on the don't-use list. `clock_opt` stages:
+  `build_clock`, `route_clock` (detail-routes the clock nets), `final_opto`.
+- Result (`report_clock_qor -type summary`): 2,465 sinks (= flop count), 3 levels, 53 clock repeaters,
+  repeater area 1,517.82 um2, clock wire length 34,405.64 um, 0 transition and 0 capacitance DRC
+  violations. Corner `default` (ss): max latency 1.21 ns, global skew 0.95 ns. Corner `ff`: max latency
+  0.49 ns, global skew 0.36 ns. Both are inside the assumptions in `constraints/unpu_top.sdc` (setup
+  uncertainty 1.5 = 0.5 jitter + 1.0 skew; hold 0.5 = skew only). 0.95 ns is not small for a 3-level tree
+  (about 80% of the latency): the default run makes no special skew effort; worth looking at the
+  largest/smallest sink paths before routing (`report_clock_qor ... -largest/-smallest` with paths).
+- After CTS (propagated clock): setup WNS still 0 in all groups except in2out with 1 endpoint at about
+  -0.00 ns (`paddr[3]` to `prdata[23]`, arrival 12.00 = required 12.00; launch and capture both carry 0.50 ns
+  propagated latency); no setup margin. Hold: worst -0.397 ns, 2,219 endpoints (flop-to-flop 2,179 worst
+  -0.397; in2reg 235 worst -0.329; reg2out 39 worst -0.239). Area 427,618.69 um2, 12,039 instances,
+  214 buffers, 1,353 inverters. `save_block -as unpu_top_cts` made a copy (`DES-028`); `unpu_top` on disk is
+  the placed design.
+- Hold distribution at the ff corner (endpoints still violating if the hold uncertainty were smaller;
+  analysis only, nothing changed): 0.5 ns: 2,219; 0.4: 1,797; 0.3: 1,065; 0.2: 31; 0.1: 0; 0.0: 0. The
+  worst path has about +0.10 ns slack without any uncertainty, skew included.
+- DECISION (user, 2026-10-28): KEEP the hold uncertainty at 0.5 ns for the post-CTS flow. Considered and
+  not taken: 0.2 ns (Planning's proposal; reason: skew now measured and in the propagated analysis so
+  0.5 counts it twice), 0.3 ns, ask the PM first. Consequence accepted: ICC2 must delay thousands of
+  endpoints (up to 2,219 at the start), costing area and leakage; utilisation 66% leaves room.
+  Setup uncertainty unchanged (1.5 ns).
+- Next: check the hold-fix app options, then `clock_opt -from route_clock -to final_opto`.

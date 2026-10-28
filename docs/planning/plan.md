@@ -1864,3 +1864,9 @@ Details: `docs/session-handoff.md` 18.15. Next: placement.
 `place_opt` done: setup met (worst slack 0.00 ns, no margin), legal, PG connectivity 0 floating, area 426,098 um2.
 Hold unfixed as expected (2,304 endpoints, worst -0.28 ns, mostly self-loop paths): decision on the 0.5 ns hold
 uncertainty needed at CTS. Details: `docs/session-handoff.md` 18.16. Next: CTS.
+
+## ICC2 step 7 done (clock tree built), 2026-10-28
+
+CTS built: 2,465 sinks, 3 levels, 53 repeaters, skew 0.95 ns (ss) / 0.36 ns (ff), latency 1.21 / 0.49 ns. Hold
+uncertainty KEPT at 0.5 ns by the user's decision (2,219 endpoints to fix; distribution recorded). Details:
+`docs/session-handoff.md` 18.17. Next: route clock + hold fixing (`final_opto`).
