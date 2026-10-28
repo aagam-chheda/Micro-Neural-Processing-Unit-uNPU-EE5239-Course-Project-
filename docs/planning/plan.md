@@ -1858,3 +1858,9 @@ fillers `feedth*`, no tap cells, don't-use list, GDS must be merged with std-cel
 Don't-use list applied (18 cells; `adiode` is library don't-use), power grid built (DRC clean; cell
 connectivity to verify after placement), all 204 signal pins placed per plan (right M3 / top M2, 6.72 pitch).
 Details: `docs/session-handoff.md` 18.15. Next: placement.
+
+## ICC2 step 6 done (placement), 2026-10-28
+
+`place_opt` done: setup met (worst slack 0.00 ns, no margin), legal, PG connectivity 0 floating, area 426,098 um2.
+Hold unfixed as expected (2,304 endpoints, worst -0.28 ns, mostly self-loop paths): decision on the 0.5 ns hold
+uncertainty needed at CTS. Details: `docs/session-handoff.md` 18.16. Next: CTS.

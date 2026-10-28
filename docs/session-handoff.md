@@ -968,3 +968,37 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
 - The session commands are typed by hand; to be consolidated into a `pnr/` script later (task for
   Execution, once the flow works end to end).
 - Next: placement (`check_design`, then `place_opt`), re-run `check_pg_connectivity`, then clock tree.
+
+### 18.16 ICC2 step 6: placement (`place_opt`, user's server run, 2026-10-28)
+
+- `place_opt -list_only` stages: `initial_place` (coarse placement), `initial_drc` (high-fanout synthesis
+  and initial DRC fixing), `initial_opto` (datapath optimisation before final coarse placement),
+  `final_place` (final coarse placement), `final_opto`. No stage is named legalisation, so legality was
+  checked separately. Run time 133 s, peak memory 0.87 GB, scenarios `default` (setup) and `ff_hold` (hold).
+- Final QoR: setup WNS 0.0000, TNS 0, 0 violating endpoints in every path group (ICC2 prints 0 when
+  nothing is negative); max transition and max capacitance violations 0. Area 426,097.72 um2 (DC:
+  429,161), 11,986 instances (netlist had 12,487 leaf cells), 161 buffers, 1,353 inverters. So
+  `place_opt` removed or merged 501 cells: the netlist to deliver differs from the DC netlist, and the
+  post-layout gate-level simulation is what proves the edits safe.
+- Real worst setup path (`report_timing`, scenario `default`): `paddr[3]` to `prdata[23]` (in2out,
+  combinational APB read path), slack 0.00 ns (MET): arrival 11.50, required 11.50. The optimiser
+  recovers area until slack is just met, so there is NO margin; the path has no flop, so the clock
+  tree does not change it, only routing parasitics will. Earlier pre-placement slack was +0.82 ns (cell
+  delay only, different path).
+- Hold (scenario `ff_hold`): 2,304 violating endpoints, total -383 ns, worst -0.28 ns. By group:
+  flop-to-flop (`clk`) 2,260 endpoints worst -0.283; in2reg 230 worst -0.196; reg2out 44 worst -0.275.
+  Worst path is a SELF-LOOP: `u_actbuf/bank_b_reg_0__3__1_` QN to its own D through `oai22d1`; arrival
+  0.31 ns against required 0.59 (0.06 clock + 0.50 uncertainty + 0.03 hold). Clock skew cannot change
+  a path whose launch and capture flop are the same, so after CTS these paths are fixed only by delay
+  cells or by the hold uncertainty. `place_opt` does not fix hold.
+- DECISION FOR CTS (not taken): `CLK_UNCERT_HOLD` is 0.5 ns, labelled in `constraints/unpu_top.sdc` as
+  "skew only", with the note that after CTS the clock becomes propagated and the uncertainty values are
+  revisited. After CTS the real skew is in the report, so keeping 0.5 double counts it. Options: keep
+  0.5 and accept thousands of hold buffers; reduce to a jitter-only figure; decide with the PM. No
+  change without the user's approval and a written reason.
+- `check_legality`: 0 violations in every category ("succeeded"); `PDC-003` warning about the GC (poly)
+  layer having no routing direction is benign.
+- `check_pg_connectivity` (the check deferred from 18.15): 11,986 standard cells, 0 floating cells,
+  0 floating wires or vias on `VDD` and `VSS`. Resolved. (Terminals still 0: macro PG pins not created.)
+- The log also prints a large table of "Co-efficient Ratio Summary" numbers: internal, ignorable.
+- Next: save, then clock tree synthesis (`clock_opt`).
