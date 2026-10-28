@@ -824,3 +824,19 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   (`std_cell_guidelines`, `chip_finishing`) before the finishing step.
 - Not done yet: TLUPlus is read in `icc2_shell` (typical only); design library creation,
   floorplan, placement, CTS, routing.
+
+### 18.11 ICC2 design library created, step 1 done (user's server run, 2026-10-28)
+
+- In `icc2_shell` (U-2022.12-SP3), in `/storage/EE5239G1/aagams_workspace/icc2_work`:
+  `create_lib -technology .../digital_pnr_kit/snps/non_rh/4M1L/SCL_4LM.tf -ref_libs
+  /storage/EE5239G1/aagams_workspace/icc2_work/scl18fs120.ndm unpu_lib` (same benign `TECH-001`
+  warnings, no version error). `report_ref_libs` lists `scl18fs120` (open, has technology
+  information): the 2022.12 `icc2_shell` reads the NDM built by the 2022.12 library manager.
+- `help <cmd>` prints only a one-line description in these shells; options come from
+  `<cmd> -help`.
+- `read_parasitic_tech -name typ -tlup SCL_TLUPLUS_4M1L_TYP.tlup -layermap SCL_TLUPLUS_4M1L.map`
+  (kit dir `digital_pnr_kit/snps/non_rh/4M1L/`): nine `TLUP-011` warnings, benign. The map uses
+  the tech file's mask names; they resolved as metal1/2/3/4 to M1/M2/M3/TOP_M, poly to GC, CC to CS,
+  via1/2/3 to V2/V3/TOP_V. `save_lib` done (typing `save lib` is ambiguous, `CMD-006`).
+- Not yet confirmed: that `typ` RC is selected for the corners (done with the scenarios and
+  `set_parasitic_parameters`). Next, step 2: read `unpu_top_cn.dc.v` and `unpu_top_cn.sdc`.

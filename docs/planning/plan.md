@@ -1828,3 +1828,8 @@ placement, then CTS (the user drives).
 PATH) in `/storage/EE5239G1/aagams_workspace/icc2_work`; details, benign warnings and the
 540-versus-534 cell check in `docs/session-handoff.md` 18.10. Next: `icc2_shell` design
 library, read netlist and SDC, TLUPlus, floorplan. Open before finishing: filler/tie cell names.
+
+## ICC2 step 1 done, 2026-10-28
+
+Design library `unpu_lib` created over `scl18fs120.ndm`, typical TLUPlus read, library saved
+(details in `docs/session-handoff.md` 18.11). Next: step 2 (read netlist and SDC), then floorplan.
