@@ -796,3 +796,31 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
 - Power pins stay on the LEFT edge (user asked about moving them to top/right, no reason
   found, 2026-10-28). Q14 stays open; the clock tree is built for MINIMUM SKEW and the
   resulting insertion delay is reported; the PM is asked for latency/skew limits later.
+
+### 18.10 ICC2 reference library built (user's server run, 2026-10-28)
+
+- The two library managers differ: `which icc2_lm_shell` found Fusion Compiler V-2023.12-SP4
+  (`/home/Synopsys_tools/fusioncompiler/V-2023.12-SP4/bin/`), `icc2_shell` is U-2022.12-SP3
+  (`/home/Synopsys_tools/icc2/U-2022.12-SP3/bin/`). An NDM from a newer release may not open
+  in an older one, so the library was built with the matching
+  `/home/Synopsys_tools/icc2/U-2022.12-SP3/bin/icc2_lm_shell` (banner: Library Manager
+  U-2022.12-SP3). Use that full path; the bare name picks the wrong one.
+- Work directory outside the repo: `/storage/EE5239G1/aagams_workspace/icc2_work`. Result:
+  `scl18fs120.ndm` there (the workspace is removed after the commit).
+- Steps, all in `lm_shell`: `create_workspace -flow normal -technology .../digital_pnr_kit/snps/non_rh/4M1L/SCL_4LM.tf scl18fs120`;
+  `read_lef .../stdcell/fs120/4M1IL/lef/scl18fs120_std.lef`; `read_db` of the ss and ff `.db`
+  (library names `tsl18fs120_scl_ss`, `tsl18fs120_scl_ff`); `check_workspace` ("Workspace
+  check succeeded!", 534 frames); `commit_workspace`.
+- Messages, all benign: `TECH-001` (CapTable/CapModel sections of the `.tf` ignored; RC
+  comes from TLUPlus later); `LEFR-064` (LEF site `CoreSite` mapped to tech-file tile
+  `unit`, both 0.56 x 5.6 um, checked in `SCL_4LM.tf` line 164); `FRAM-066` (cells with a very
+  large regular routing blockage on M1; watch for pin-access problems at routing).
+- 540 `MACRO`s in the LEF, 534 in the ss `.lib`, no duplicate names. The six LEF-only
+  cells (no timing view): `feedth`, `feedth3`, `feedth9`, `mx08d1`, `mx08d2`, `mx08d4`.
+  The netlist `unpu_top_cn.dc.v` uses none (grep count 0). No library cell is missing from
+  the LEF.
+- Filler/tie cells: no library cell name contains `fill`, `feed`, `tie` or `cap`; only
+  `adiode` matched `diode`. Find the filler and tie cell names in the kit's `doc/`
+  (`std_cell_guidelines`, `chip_finishing`) before the finishing step.
+- Not done yet: TLUPlus is read in `icc2_shell` (typical only); design library creation,
+  floorplan, placement, CTS, routing.

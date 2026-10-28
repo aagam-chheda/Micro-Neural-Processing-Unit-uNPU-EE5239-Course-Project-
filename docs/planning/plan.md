@@ -1821,3 +1821,10 @@ ascending (details in `docs/session-handoff.md` 18.9). Only the clock latency/sk
 Power stays on the left edge. Clock: build for minimum skew, report the insertion delay,
 ask the PM for limits later (2026-10-28). Next: ICC2 library preparation, floorplan,
 placement, then CTS (the user drives).
+
+## ICC2 reference library built, 2026-10-28
+
+`scl18fs120.ndm` built with the U-2022.12-SP3 library manager (not the Fusion Compiler one on the
+PATH) in `/storage/EE5239G1/aagams_workspace/icc2_work`; details, benign warnings and the
+540-versus-534 cell check in `docs/session-handoff.md` 18.10. Next: `icc2_shell` design
+library, read netlist and SDC, TLUPlus, floorplan. Open before finishing: filler/tie cell names.
