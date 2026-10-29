@@ -1889,3 +1889,9 @@ Constants checked (129 pins tied to VSS, 0 to VDD). Work saved as `unpu_top_clko
 ## First thing next session (user request, 2026-10-28 night)
 
 Before routing: give the user an elaborate recap of everything done in CTS (clock_opt build_clock, the dl* exclusion, skew and latency results, the hold-uncertainty decision 0.5 -> 0.2 ns with the numbers from both runs, the `unpu_top_cts` restart, `FLW-8004`, hurdles and fixes). Then `route_auto`.
+
+## ICC2 step 10 done (routing), 2026-10-29
+
+Routed: 0 DRC, 0 opens, 0 shorts, setup/hold met at the chosen margins, legal, PG connected. Not covered by ICC2
+checks: antenna (no rules), tie-to-rail, VDD/VSS pins. Details: `docs/session-handoff.md` 18.20. Next: save,
+macro PG pins, fillers, outputs, Calibre.

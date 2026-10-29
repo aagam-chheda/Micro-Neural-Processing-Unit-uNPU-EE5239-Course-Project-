@@ -1101,3 +1101,42 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   `VDD`/`VSS` pins not created; dummy fill in the deliverable (PM); std-cell GDS location for the
   merge; clock latency limit at `clk` (PM).
 - Next: `route_auto`, `check_routes`, then `route_opt`.
+
+### 18.20 ICC2 step 10: routing (`route_auto`, `route_opt`, user's server run, 2026-10-29)
+
+- Resume: `open_lib unpu_lib`, `open_block unpu_top_clkopt`; scenarios and `clock uncertainty 0.20` survived the
+  reopen (hold report `u_deskew/col0_q1_reg_23_` to `col0_q2_reg_23_`, slack 0.00 MET).
+- `route_auto` (about 1 min): detail-route iteration 0 had 4 violations (2 diff-net spacing, 2 shorts),
+  iteration 1 had 0 ("Finish DR since reached 0 DRC"); 0 open nets of 13,997. Wire length 792,524 um (M1
+  16,927; M2 323,338; M3 368,389; TOP_M 81,399); contacts 103,651 (V2 49,073; V3 49,523; TOP_V 5,055).
+  `save_block -as unpu_top_routed` taken after it.
+- Timing with extracted detailed-route RC: setup worst (in2out `paddr[2]` to `prdata[2]`) slack 0.00 ns MET;
+  hold worst -0.01 ns (`psum_out_reg_21_` row 3 to `u_deskew/col1_q1_reg_21_`, launch 0.27, capture 0.36).
+- `route_opt` (45 s, no `FLW-8004`; the warning is specific to `clock_opt` `final_opto`): setup NSV 0, hold
+  NHV 0 in every path group, max transition/capacitance 0; area 428,230 -> 428,609.66 um2; instances 12,039
+  -> 12,041; leakage ss 5.08 uW.
+- Independent checks after `route_opt`: `check_routes` 0 open nets (13,999 nets), 0 DRC; `check_lvs` 0 shorts,
+  0 opens, 0 floating routes (14,008 nets); `check_legality` 0 violations; `check_pg_connectivity` 12,041
+  cells, 0 floating (VDD 80 wires/1,533 vias; VSS 252 wires/1,748 vias, up from 79/1,512 before routing:
+  the 129 pins tied to VSS got wired to the ground grid; indirect evidence only).
+- Worst paths now: setup is the reg2reg path `u_seq/mode_lat_reg` to `u_grid/g_row_3__g_col_1__pe/
+  psum_out_reg_31_`, slack 0.00 ns MET: launch clock 0.61, capture 0.79 ns, Q delay 1.21 ns, high-fanout
+  buffering about 2.6 ns, then the 32-bit RIPPLE carry chain of the accumulator adder `add_42`
+  (`ad01d0/d1` cells, about 0.43 ns per bit, about 13.5 ns total), setup time 0.35, arrival 18.94 = required
+  18.94. The physical margin is the 1.5 ns setup uncertainty that is subtracted. Hold worst is an input path
+  `pwdata[1]` to `u_csr/src_a_reg_reg_1_`, slack 0.00 MET with `clock uncertainty 0.20`.
+- WHAT THE CHECKS DID NOT DO (not silent failures, recorded):
+  - Antenna: `Turn off antenna since no rule is specified` / `No antenna rules defined (ZRT-309)`: not
+    checked at all; the technology file has no antenna rules for ICC2. The `adiode` cell is library
+    don't-use. Needs the ratios from the DRM, or rely on the Calibre DRC deck.
+  - Tie-to-rail: `not checked` in `check_routes` (the help shows no such option).
+  - `check_lvs` skips `VDD`/`VSS` (`RT-203`, no valid pin shapes: the macro PG pins do not exist yet). The
+    `RT-204` skips are 22 unused `paddr` bits (`[31:12]`, `[1:0]`) and the 32 east-edge `act_out` bits of
+    the column-3 PEs, which have a port and no load.
+  - Every via is single-cut (redundant via conversion 0%, all layers "un-mapped"): no double-via mapping in
+    the setup; a yield/reliability limitation, not a DRC.
+  - Coupling capacitance is lumped to ground (`extract.enable_coupling_cap false`), so no crosstalk.
+  - The ICC2 checks are not a substitute for Calibre DRC/LVS (untested) and PrimeTime signoff (ff not run).
+- Next: `save_block -as unpu_top_ropt`; macro `VDD`/`VSS` pins (left edge, TOP_M); filler cells `feedth`,
+  `feedth3`, `feedth9` (LEF-only: `get_lib_cells` may not list them, check); outputs (netlist, LEF, GDS, SPEF,
+  SDF); antenna decision; Calibre DRC/LVS; PrimeTime signoff; post-layout GLS.
