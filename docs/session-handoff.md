@@ -1140,3 +1140,33 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
 - Next: `save_block -as unpu_top_ropt`; macro `VDD`/`VSS` pins (left edge, TOP_M); filler cells `feedth`,
   `feedth3`, `feedth9` (LEF-only: `get_lib_cells` may not list them, check); outputs (netlist, LEF, GDS, SPEF,
   SDF); antenna decision; Calibre DRC/LVS; PrimeTime signoff; post-layout GLS.
+
+### 18.21 ICC2 step 11: macro VDD/VSS pins (user's server run, 2026-10-29)
+
+- Checkpoint `unpu_top_ropt` saved first (after `route_opt`).
+- Stripe positions (`get_shapes -of_objects [get_nets $n] -filter "layer_name==TOP_M && shape_use==stripe"`):
+  14 vertical TOP_M stripes, 2.24 um wide, y 5.6 to 812.0. VSS at x = 60.48, 172.48, 284.48, 396.48, 508.48,
+  620.48, 732.48; VDD at x = 116.48, 228.48, 340.48, 452.48, 564.48, 676.48, 788.48 (left edge of each stripe).
+- PROBLEM with the left-edge power-pin plan of 18.9: the stripes run parallel to the left edge, the nearest is
+  60 um inside, and the macro interior is to be covered by OBS on all four metals, so a pin there cannot be
+  reached from outside. DECISION (user, 2026-10-29): option A, power pins on the BOTTOM edge (no signal
+  pins there), stripes extended to the die boundary. This replaces "LEFT: VDD/VSS on TOP_M" in 18.9.
+  Rejected: B (M3 straps to the left boundary, needs rip-up and re-route), C (ask the top-level team first).
+  The top-level team must be told: power pins are on the bottom edge, 14 TOP_M pins at 56 um spacing
+  (alternating VSS/VDD from x = 60.48).
+- Commands: `create_shape -shape_type rect -layer TOP_M -boundary {{x1 0} {x2 6.0}} -net <VDD|VSS> -shape_use
+  stripe` (6.0 um tall, 0.4 um overlap with the stripe end at y = 5.6), then `create_terminal -of_objects
+  <shape>` (`-port` cannot be combined with `-of_objects`; the port comes from the shape's net). Tested on one
+  stripe first (VSS x = 60.48: `TM_204`, bbox {60.48 0} {62.72 6.0}, layer TOP_M), then a loop over the stripe
+  list read from the database.
+- MISTAKE (Planning): the loop's skip condition (`lly == 5.6`) selected the original stripes, including the
+  one already extended by hand, so the VSS stripe at x = 60.48 got a second extension and a second terminal
+  (`TM_218` on `RECT_50_3339`; 219 terminals, VSS 8). No DRC or connectivity effect, but a duplicate LEF pin
+  rectangle. Removed with `remove_terminals [get_terminals TM_218]` and `remove_shapes [get_shapes
+  RECT_50_3339]`. Result: 218 terminals (204 signal + 7 VDD + 7 VSS).
+- Checks after: `check_routes` 0 DRC, 0 open nets, no "ports with no pins" warning; `check_lvs` 0 shorts, 0
+  opens, 0 floating routes, and the `RT-203` skips for VDD/VSS are gone (the nets are now checked);
+  `check_pg_connectivity` 0 floating cells/wires/vias/terminals (checked with the duplicate present, VDD 7 and
+  VSS 8 terminals; not re-run after removing it).
+- Still open: antenna (no rules), tie-to-rail not checked, single-cut vias, no crosstalk; fillers; outputs.
+- Next: `save_block -as unpu_top_pins`; filler cells (`feedth`, `feedth3`, `feedth9`), then outputs and Calibre.

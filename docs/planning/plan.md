@@ -1895,3 +1895,8 @@ Before routing: give the user an elaborate recap of everything done in CTS (cloc
 Routed: 0 DRC, 0 opens, 0 shorts, setup/hold met at the chosen margins, legal, PG connected. Not covered by ICC2
 checks: antenna (no rules), tie-to-rail, VDD/VSS pins. Details: `docs/session-handoff.md` 18.20. Next: save,
 macro PG pins, fillers, outputs, Calibre.
+
+## ICC2 step 11 done (macro power pins), 2026-10-29
+
+14 VDD/VSS pins on the BOTTOM edge (decision: stripes parallel to the left edge cannot be reached). 218 terminals.
+Tell the top-level team. Details: `docs/session-handoff.md` 18.21. Next: fillers, outputs, Calibre.
