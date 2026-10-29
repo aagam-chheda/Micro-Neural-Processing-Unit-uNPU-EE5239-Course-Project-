@@ -1905,3 +1905,8 @@ Tell the top-level team. Details: `docs/session-handoff.md` 18.21. Next: fillers
 
 Filler library `scl18fs120_fillf` built (cells typed filler), 22,512 fillers inserted last, DRC/legality clean; 0.6 ps hold residual
 accepted for PrimeTime to judge (user decision). Details: `docs/session-handoff.md` 18.22. Next: output files, Calibre, PrimeTime.
+
+## ICC2 step 13 done (output files), 2026-10-29
+
+netlists (sim, lvs), LEF (206 pins, bottom power pins), SPEF, SDF, SDC, merged GDS written; GDS pin-label layers unverified.
+Details: `docs/session-handoff.md` 18.23. Next: Calibre DRC/LVS, PrimeTime, post-layout simulation.

@@ -1211,3 +1211,43 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   hold violations, cause unknown; `LGL-031` (site `unit` has no X/Y symmetry, legal orientations limited);
   the earlier `FLW-8004`; antenna rules; tie-to-rail check; single-cut vias; no crosstalk.
 - Next: output files (netlist, LEF, GDS, SPEF, SDC, SDF), timing model, then Calibre DRC/LVS and PrimeTime.
+
+### 18.23 ICC2 step 13: output files (user's server run, 2026-10-29)
+
+All from the final block `unpu_top_fill2` (22,512 fillers, 218 terminals), written to
+`/storage/EE5239G1/aagams_workspace/icc2_work/out/`. Not in git (sizes: GDS 15.7 MB, each SPEF 25.7 MB).
+- Netlists (`write_verilog -hierarchy all`): `-include` and `-exclude` cannot be combined (`CMD-001`).
+  `unpu_top_sim.v`: `-exclude {all_physical_cells leaf_module_declarations pg_netlist pg_objects
+  supply_statements}`: 76 modules, no `.VDD`, no `feedth`, no cell stubs (the first try with only
+  `-exclude {all_physical_cells}` had 180 modules = 76 + 104 empty library-cell declarations, and PG pins;
+  it was overwritten). `unpu_top_lvs.v`: `-include {pg_netlist}`: 76 modules, `.VDD`/`.VSS` on instances,
+  no fillers (default leaves them out), top module `module unpu_top`; the header comment says
+  "Block Name: unpu_top_fill2". LVS NOTE: no filler instances in the source netlist; Calibre must accept
+  that the filler cells (no devices) are layout-only.
+- LEF: `write_lef -include cell` first wrote an empty shell (163 bytes, `LEFW-005`: no frame view). Fix:
+  `create_frame -block_all true` (`FRAM-045/046`: all of GC M1 M2 M3 TOP_M WN XP XN blocked except pins),
+  then `write_lef -include cell .../out/unpu_top.lef`: `MACRO unpu_top`, `SIZE 817.6 BY 817.6`, 206 PINs
+  (204 signal + `VDD` + `VSS`), `PIN VDD` USE POWER on TOP_M with 7 rectangles at y 0..6 (x = 116.48 ...
+  788.48), `OBS` over GC and M1 (full box), M2 polygon with notches at the top-edge pins, M3 and TOP_M.
+  Power pin says `DIRECTION INPUT` (usually INOUT; `USE POWER` is what tools use). The macro name needs no
+  rename. The frame view was saved with `save_lib`.
+- SPEF: `write_parasitics -corner default|ff -output ...` writes `unpu_top_ss.spef.typ_125.spef` and
+  `unpu_top_ff.spef.typ_-40.spef` (tool adds the suffix; `.spef_scenario` helper files). Both 25,737,613 bytes:
+  both corners use the same `typ` RC (kit has only a typical TLUPlus).
+- SDF: `write_sdf -corner default|ff`: `unpu_top_ss.sdf` 8.3 MB, `unpu_top_ff.sdf` 8.8 MB.
+- SDC: `write_sdc -scenario default|ff_hold -output ...`: `unpu_top_ss.sdc`, `unpu_top_ff.sdc` (warnings about
+  multiplied derates: none set).
+- GDS: `write_gds -design unpu_top_fill2 -layer_map_format icc_default|icc_extended -layer_map
+  .../digital_pnr_kit/snps/non_rh/4M1L/icc_gds_out_4LM.map -merge_files
+  .../stdcell/fs120/4M1IL/gds/scl18fs120.gds -output_pin all .../out/unpu_top.gds`. The kit map (the only one
+  in the kit) gives `GDS-017 "Wrong layer map file syntax at line 8"` in all three formats (line 8 is the
+  first of four `T` text lines: `T 40 40 7 ;` ...), but the command continues and writes the file (15.7 MB).
+  Checks with `strings`: 96 labels for `paddr`/`prdata`/`dma_addr` (32 each) and 110 for the other signal
+  names, so every signal pin has a text label; the merge worked (unused library cells `adiode` and `mx08d1`
+  appear as structures; `VDD`/`VSS` text 1,083 each, mostly the library cells' own). NOT YET KNOWN: the GDS
+  layer/datatype of the pin labels (the `T` lines were rejected); Calibre LVS decides. Note `strings` needs
+  `-n 3` for 3-character names.
+- NOT written yet: the timing model (`.lib`) for the macro (PM question open), a final copy of the outputs
+  into the repo or handed to the teammate.
+- Next: find Calibre and its decks (DRC, LVS, dummy fill), the standard-cell spice netlist for LVS, run DRC,
+  then LVS; PrimeTime signoff; post-layout simulation with `unpu_top_sim.v` plus `unpu_top_*.sdf`.
