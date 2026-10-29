@@ -1900,3 +1900,8 @@ macro PG pins, fillers, outputs, Calibre.
 
 14 VDD/VSS pins on the BOTTOM edge (decision: stripes parallel to the left edge cannot be reached). 218 terminals.
 Tell the top-level team. Details: `docs/session-handoff.md` 18.21. Next: fillers, outputs, Calibre.
+
+## ICC2 step 12 done (fillers), 2026-10-29
+
+Filler library `scl18fs120_fillf` built (cells typed filler), 22,512 fillers inserted last, DRC/legality clean; 0.6 ps hold residual
+accepted for PrimeTime to judge (user decision). Details: `docs/session-handoff.md` 18.22. Next: output files, Calibre, PrimeTime.

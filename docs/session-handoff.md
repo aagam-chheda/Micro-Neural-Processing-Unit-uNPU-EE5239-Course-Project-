@@ -1170,3 +1170,44 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
   VSS 8 terminals; not re-run after removing it).
 - Still open: antenna (no rules), tie-to-rail not checked, single-cut vias, no crosstalk; fillers; outputs.
 - Next: `save_block -as unpu_top_pins`; filler cells (`feedth`, `feedth3`, `feedth9`), then outputs and Calibre.
+
+### 18.22 ICC2 step 12: filler cells (user's server run, 2026-10-29)
+
+- Kit FAQ: fillers `feedth` (1 site, 0.56 um), `feedth3` (3 sites, 1.68), `feedth9` (9 sites, 5.04), class CORE,
+  VDD/VSS pins, needed to avoid implant-spacing DRC. They were NOT in `scl18fs120.ndm` (534 cells = the 534
+  `.lib` cells; `get_lib_cells */feedth*` found nothing; the six LEF-only cells `feedth*` and `mx08d*` had been
+  dropped at library build).
+- Filler library: `feedth.lef` cut from the kit LEF with awk (header + 3 macros, in `icc2_work`), built in
+  `icc2_lm_shell` with `create_workspace -flow physical_only` into a separate library. First build
+  `scl18fs120_fill.ndm` (cells typed `lib_cell`; `create_stdcell_fillers` warned `CHF-011`, and errored
+  `CHF-010` with `-rules post_route_auto_delete`). `design_type` cannot be set in icc2_shell (`ATTR-25`);
+  set in lm_shell (`foreach_in_collection c [get_lib_cells] {set_attribute $c design_type filler}` before
+  `check_workspace` and `commit_workspace`): second build `scl18fs120_fillf.ndm`. The library file is written
+  to the directory where lm_shell was started (first time that was the home directory; moved to `icc2_work`).
+  Reference list of `unpu_lib`: `scl18fs120` + `scl18fs120_fillf` (`set_ref_libs -library unpu_lib -add <path>`;
+  `-remove` takes the PATH, not the name; `save_lib` with no block open persists it; the setting did not
+  persist the first time because it was not saved before the shell closed).
+- Insertion: `create_stdcell_fillers -lib_cells [get_lib_cells */feedth*] -prefix FILLER -rules
+  post_route_auto_delete` inserts 22,512 fillers (4,159 / 7,451 / 10,902). It is NOT a flow command: the
+  fillers' VDD/VSS pins stay unconnected until `connect_pg_net -automatic` (45,024 pins). Without it
+  the DRC engine reported about 17,766 false M1 shorts (`remove_stdcell_fillers_with_violation -check_only
+  true` lists them in `<block>_fillers_with_violation.rpt`); after it, 1 real violation remained (a
+  `feedth3` filler rail against a signal wire), fixed by `route_eco` (1 net moved: `u_grid/g_row_1__g_col_0__pe/
+  mult_30/n202`). `-rules check_pnet` changed nothing (it concerns pre-routed PG nets).
+- With fillers present `route_opt` cannot add or resize cells (no free site): one hold endpoint stayed 0.6 ps
+  under. With the fillers typed `filler` and `post_route_auto_delete`, `route_opt` DELETES ALL fillers first
+  ("Deleted 22512 filler cells") and does not put them back. So fill is the LAST step; any later
+  `route_opt` removes it.
+- Order that works: ... `route_opt` (no fill) -> `create_stdcell_fillers ... -rules post_route_auto_delete`
+  -> `connect_pg_net -automatic` -> checks. Saved: `unpu_top_ropt2` (clean, no fillers, 0 violations),
+  `unpu_top_fill1` (fillers, 0.6 ps hold residual, before the library fix), `unpu_top_fill2` (final fill).
+- Final state (`unpu_top_fill2`): 22,512 fillers; `check_routes` 0 DRC / 0 open; filler check 0; `check_legality` 0
+  violations; setup worst 0.00 ns MET (in2out `paddr[3]` to `prdata[2]`); hold worst `pwdata[1]` to
+  `u_csr/src_a_reg_reg_1_` -0.0006 ns VIOLATED (fill adds a little capacitance), measured after the 0.2 ns
+  uncertainty. DECISION (user, 2026-10-29): option A, accept and let PrimeTime decide with its own
+  extraction of the filled layout; fix that one path there only if PrimeTime also reports it. Rejected: B (a
+  10 ps hold pad, a constraint change needing approval) and C (ask the PM).
+- Open: `OPT-209` ("unreasonable large hold violation(s)") printed twice by `route_opt` while the QoR shows no
+  hold violations, cause unknown; `LGL-031` (site `unit` has no X/Y symmetry, legal orientations limited);
+  the earlier `FLW-8004`; antenna rules; tie-to-rail check; single-cut vias; no crosstalk.
+- Next: output files (netlist, LEF, GDS, SPEF, SDC, SDF), timing model, then Calibre DRC/LVS and PrimeTime.
