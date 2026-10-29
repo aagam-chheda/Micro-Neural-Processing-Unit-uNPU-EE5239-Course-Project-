@@ -1910,3 +1910,8 @@ accepted for PrimeTime to judge (user decision). Details: `docs/session-handoff.
 
 netlists (sim, lvs), LEF (206 pins, bottom power pins), SPEF, SDF, SDC, merged GDS written; GDS pin-label layers unverified.
 Details: `docs/session-handoff.md` 18.23. Next: Calibre DRC/LVS, PrimeTime, post-layout simulation.
+
+## Calibre DRC first run, 2026-10-29
+
+Calibre found (separate terminal, cleaned Siemens setup); SCL decks found in the kit; DRC (404 rules, BLOCK, 4M1L, 3V assumption) = 0 results
+with all layers populated. Next: antenna, LVS. Details: `docs/session-handoff.md` 18.24.

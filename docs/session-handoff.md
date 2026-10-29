@@ -1251,3 +1251,40 @@ All from the final block `unpu_top_fill2` (22,512 fillers, 218 terminals), writt
   into the repo or handed to the teammate.
 - Next: find Calibre and its decks (DRC, LVS, dummy fill), the standard-cell spice netlist for LVS, run DRC,
   then LVS; PrimeTime signoff; post-layout simulation with `unpu_top_sim.v` plus `unpu_top_*.sdf`.
+
+### 18.24 Calibre setup and first DRC (user's server run, 2026-10-29)
+
+- Calibre 2022.4_37.20 is installed. `/home/Siemens_cshrc` has CRLF line endings (`source` fails with "Command not
+  found" / "Variable name must begin with a letter"); use a cleaned copy in the home directory (`tr -d '\r' <
+  /home/Siemens_cshrc > ~/siemens_cshrc_clean`). It sets `LM_LICENSE_FILE`/`MGLS_LICENSE_FILE` to
+  `1717@14.139.1.126` (Synopsys uses 27020): run Calibre in a SEPARATE terminal from icc2_shell/PrimeTime. The
+  install path `/home/MentorGraphics/Calibre 2022.4_37/...` has a space and does not work in the csh path; use
+  `/home/mentor_tools/calibre/aok_cal_2022.4_37.20` (`setenv MGC_HOME`, `setenv CALIBRE_HOME`,
+  `set path = ( $MGC_HOME/bin $path )`, `rehash`). A path entry in the shared setup files is also malformed (two
+  entries glued: `.../dfII/bin/home/mentor_tools/...`).
+- Decks (kit, read-only): `/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/pdk/cdns/sclpdk_v3/HOTCODE/techs/ts18scl/calibre/
+  t.00_00_01_scr/` (the `ts18scl_4M1L/calibre/default_scr` folder is only a link to it): `DRC_TS18SL_SCL_CALIBRE`
+  (main), `DRC_TS18SLA_CALIBRE`, `DRC_TS18SLAD_CALIBRE` (memory bit-cell variants), `LVS_TS18SL_SCL_CALIBRE`,
+  `ANTENNA_TS18SL_SCL_CALIBRE`, `headers/{DRC,LVS,ANTENNA,DUMMY}.header`, XRC decks. The decks under
+  `/home/iit_PDK` and `/home/PDK` are TSMC 40/65 nm: NOT usable. The antenna deck answers the open "antenna
+  not checked in ICC2" item. Working copy of the kit folder: `/storage/EE5239G1/aagams_workspace/calibre_run/scr`.
+- Control file `calibre_run/drc.ctrl`: `#define 4M1L`, `#define BLOCK`, `#define 3V` (voltage choice is an
+  ASSUMPTION: no high-voltage devices in the design; "MUST select a voltage" per the deck), `LAYOUT PATH
+  .../icc2_work/out/unpu_top.gds`, `LAYOUT PRIMARY "unpu_top"`, results/report names, and an absolute `INCLUDE` of the
+  copied deck. MISTAKE (Planning): the first control file used the header's variables (`DRC_TYPE`,
+  `DRC_VOLTAGE`), whose translation to the deck's switches lives in the header's `#ifdef` blocks that my file did
+  not include: `ERROR USER1 ... PLEASE SELECT VOLTAGE OPTION`. Fix: define the switches directly. Run:
+  `calibre -drc -hier drc.ctrl |& tee drc.log` (about 160 s on 1 CPU; Ctrl-C kills it; the first attempt
+  was interrupted by mistake).
+- GDS precision: `ERROR: Rule file precision 1000 is not consistent with database precision 10000`. The GDS from
+  `write_gds` defaulted to 0.1 nm database units. Rewritten with `write_gds -units 1000 ...`; same file size
+  (fixed-size integers). The `GDS-017` layer-map message (the `T` text lines) is still printed.
+- RESULT: `TOTAL RULECHECKS EXECUTED = 404`, `TOTAL RESULTS GENERATED = 0`; latch-up `LU0` 0. Layer sanity (from
+  `ORIGINAL LAYER STATISTICS`): WN 34,553 (= 12,041 cells + 22,512 fillers), GC 88,680, AA 91,281, CS 383,535, M1
+  238,212, M2 168,921, M3 89,542, V2 53,137, V3 53,609, MTOP 9,413, VTOP 8,104, PRBoundary 34,554 (all shapes
+  flat). `ML.*` and `VL.*` (top metal, top via) rules ran with 0 results on `MTOP`/`VTOP` data.
+- Limits of this DRC: `BLOCK` mode only; no dummy fill in the layout (density/DUMMY runset not run; PM question open);
+  the antenna deck is a separate run; the voltage option is an assumption; GDS text-label layers still unverified
+  (matters for LVS, not DRC).
+- Next: antenna run, then LVS (source netlist = `unpu_top_lvs.v` converted to SPICE with `v2lvs` against the kit
+  CDL `stdcell/fs120/4M1IL/cdl/scl18fs120_supply_pins.cdl`), then PrimeTime and post-layout simulation.
