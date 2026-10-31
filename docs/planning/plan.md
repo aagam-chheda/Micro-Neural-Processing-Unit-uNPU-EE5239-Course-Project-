@@ -1924,3 +1924,12 @@ ICC2 cannot explain (ICC2 sees a short route). Latest blocks `unpu_top_ant2` (un
 legality 0, setup 0.00 MET, hold residual accepted for PrimeTime); latest outputs `icc2_work/out3/`; Calibre DRC 0 on it.
 LEF pitfall: use `write_lef -design <block>`. Details: `docs/session-handoff.md` 18.25, 18.26.
 Next: identify what makes the `n27` polygon, fix it, then LVS, PrimeTime, post-layout simulation.
+
+## Antenna: the failing net is the input port `paddr[4]`, 2026-10-31
+
+The earlier suspect `mult_28/n27` was a misidentification. Calibre run4 (DRC 0): 3 antenna results, `AN.MTL.1.MT` on `paddr[4]`, ratio
+1554.8 (was 1023 on M2 before the net was moved to TOP_M; top metal weighs 0.84, M2 0.54). The pin (y ~110 um) is about 180 um from its
+load (gate 0.1944 um^2) and no diode exists inside the macro; ICC2 skips all 80 port nets. `adiode` is `dont_use`; ICC2 has
+`add_port_protection_diodes`. Latest blocks `unpu_top_ant3` (unfilled), `unpu_top_final3` (filled); latest outputs `icc2_work/out4/`.
+Instructor brief prepared. Next: port protection diodes (usage not yet read), re-fill, `out5/`, Calibre `run5`; then LVS, PrimeTime,
+post-layout simulation. Details: `docs/session-handoff.md` 18.27.

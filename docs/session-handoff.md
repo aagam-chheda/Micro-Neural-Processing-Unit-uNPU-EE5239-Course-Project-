@@ -1375,3 +1375,42 @@ State at stop (user ended the day; nothing running).
   needed). Exit with `close_blocks -force` then `exit`, no save.
 - Still to do: antenna 3 -> 0, LVS (`v2lvs` + kit CDL), PrimeTime, post-layout simulation, commit/push this note
   (§18.25 and §18.26 are uncommitted), `plan.md`.
+
+### 18.27 Antenna: the real failing net is the input port `paddr[4]` (user's server run, 2026-10-31)
+
+State at stop (user took a break; nothing running).
+
+- CORRECTION to 18.26: the net behind the Calibre failure is NOT `mult_28/n27` (misidentified by a
+  `get_shapes -intersect` query inside a C-shaped detour; that query is unreliable). It is the input port net
+  `paddr[4]`: pin on M3 at the right edge, y about 110 um; the load (gate area 0.1944 um^2) at y about 289 um; the
+  route was one M2 wire x 811.3..811.58, y 109.7..289.1 (about 180 um) with two jogs. ICC2 skips all 80 port nets
+  (`ZRT-311`), so it never checked it. Calibre prints `NETNAME=paddr[4]` once the label is right. The "ad01d0 LEF
+  diode/gate area" explanation in 18.26 was about the wrong net and is retracted.
+- Fix attempt 1 (on unfilled `unpu_top_ant2`): `set_routing_rule -min_routing_layer M3 -min_layer_mode
+  allow_pin_connection` on `paddr[4]`, `remove_routes -nets ... -detail_route` (12 shapes), `route_eco` (38 nets
+  changed, 0 open, 0 DRC). The net became M3 pin run + TOP_M vertical x 805.06..805.5, y 109.69..288.86 (179 um) +
+  tiny M2 stub. Saved `unpu_top_ant3` (unfilled; setup +0.0081, hold +0.0005 ns MET, legality 0), filled
+  `unpu_top_final3` (22,512 fillers; DRC 0, opens 0, ICC2 antenna 0, legality 0; setup +0.0049 MET, hold -0.0004
+  VIOLATED = the accepted filler residual). Outputs `icc2_work/out4/` (12 files, LEF one macro).
+- Calibre `run4` (GDS `out4`): DRC 404 rules, 0 results. Antenna 3 results, now rule **`AN.MTL.1.MT`** on
+  `paddr[4]`, VALUE 1554.78 (MT_no_dio perimeter 359.82 um, gate 0.1944 um^2). It got WORSE than run3 (`AN.MTL.1.M2`
+  1023.28): the deck weights top metal 0.84 vs 0.54 for M2. Ratio = perimeter x weight / gate area, limit 400, no
+  diode: with this gate a single layer tolerates about 72 um of wire (M2/M3) or about 46 um (TOP_M). A 180 um run
+  cannot pass on any layer, and the net has no diffusion inside the macro (driver is outside), so ONLY a diode (or
+  a shorter route) fixes it. With a diode the MT limit becomes `ratio - diode_area*8000 > 30000` (LEF `adiode`
+  ANTENNADIFFAREA 0.925), i.e. very lenient.
+- Why ICC2 could not insert diodes earlier: `get_attribute [get_lib_cells */adiode] dont_use` = **true**.
+  ICC2 has `add_port_protection_diodes` and `report_port_protection_diodes`, and app options
+  `route.detail.{port_antenna_mode, default_port_external_antenna_area, default_port_external_gate_size,
+  default_port_external_nwell_size, shift_diode_locations_for_port_protection, use_lower_hierarchy_for_port_diodes}`.
+  Usage NOT yet read.
+- NEXT (not started): in `icc2_shell` on `unpu_top_ant3` (unfilled), print `add_port_protection_diodes -help`,
+  `report_port_protection_diodes -help`, `set_dont_use -help`, and the three option defaults; lift dont_use for
+  `adiode` ONLY; add port protection diodes (at least `paddr[4]`; decide about all 80 input ports); route/ECO, then
+  `check_routes`/legality/timing (setup slack is only +0.005 ns), fill, `out5/`, Calibre `run5` (expect antenna 0).
+  Other options if diodes fail: buffer at the pin (costs setup slack), move the pin (changes macro interface).
+- Blocks in `unpu_lib` now: `unpu_top_ant`, `_ant2`, `_ant3` (unfilled); `_final`, `_final2`, `_final3` (filled);
+  earlier ones as before. Latest outputs `out4/`.
+- ICC2 when stopped: `unpu_top_ant3` open in edit mode, only read-only queries run. Exit with `close_blocks -force`
+  then `exit`, no save.
+- Still to do: antenna 3 -> 0, LVS, PrimeTime, post-layout simulation, commit/push 18.27, `plan.md`.
