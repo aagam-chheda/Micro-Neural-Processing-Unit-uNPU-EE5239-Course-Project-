@@ -1288,3 +1288,90 @@ All from the final block `unpu_top_fill2` (22,512 fillers, 218 terminals), writt
   (matters for LVS, not DRC).
 - Next: antenna run, then LVS (source netlist = `unpu_top_lvs.v` converted to SPICE with `v2lvs` against the kit
   CDL `stdcell/fs120/4M1IL/cdl/scl18fs120_supply_pins.cdl`), then PrimeTime and post-layout simulation.
+
+### 18.25 Antenna check, ICC2 antenna fix, final fill and `out2` (user's server run, 2026-10-29)
+
+State at pause (user took a break; nothing further is running).
+
+- Antenna deck first run on the `out/` GDS: 16 rules, 241 results (`AN.MTL.1.M2` 175, `AN.MTL.1.M3` 66). ICC2 with
+  `define_antenna_rule -mode 4 -diode_mode 1 -metal_ratio 400 -cut_ratio 0` (per session, not persistent) found 137
+  violations and skipped 80 input-port nets (`ZRT-311`, no gate-area data at macro ports).
+- Fix: on unfilled `unpu_top_ropt2`, `route.detail.antenna_fixing_preference use_diodes`,
+  `insert_diodes_during_routing true`, `diode_libcell_names adiode`, then `route_detail -incremental true`. Diodes were
+  NOT inserted (`ZRT-302`: `adiode` not found or not linkable, count 0); the violations were fixed by layer hopping
+  (135 -> 4 -> 0 ports; 225 nets rerouted). `check_routes` DRC 0, opens 0, antenna 0 (ICC2); `check_legality` 0.
+  Saved as `unpu_top_ant` (UNFILLED). Timing: setup +0.01 ns MET, hold 0.00 ns MET.
+- Final fill on the antenna-fixed design: 22,512 fillers, 45,024 PG pins connected, `check_routes` 0/0/0,
+  `check_legality` 0, hold 0.00 ns MET (residual not visible at 2 digits; `-significant_digits 4` not run).
+  Saved as `unpu_top_final`. NOTE: `save_block -as` keeps the in-memory name `unpu_top_ropt2`, and the later
+  `save_lib` probably wrote the filled state over `unpu_top_ropt2` on disk (not verified); the unfilled reference
+  is `unpu_top_ant`.
+- Outputs regenerated into `icc2_work/out2/` (same commands as 18.23, `-units 1000` GDS; `GDS-017` still printed):
+  `unpu_top_sim.v`, `unpu_top_lvs.v`, `unpu_top.lef`, `unpu_top_{ss,ff}.{spef.*,sdf,sdc}`, `unpu_top.gds` (15.69 MB).
+  PITFALL: `create_frame -block_all true` leaves one frame per block; `write_lef -include cell` then wrote TWO
+  `MACRO unpu_top` entries (stale `fill2` frame + new `ropt2` frame). Fixed by `write_lef -design unpu_top_ropt2
+  -include cell`; one macro, 56,524 bytes, byte-identical to the first LEF. Do this every time.
+- Calibre on `out2/unpu_top.gds` (work dir `calibre_run/run2`, copies of the control files with the `out2` path):
+  DRC 404 rules, 0 results. Antenna: 16 rules, **7 results, all `AN.MTL.1.M2`** (down from 241), i.e. 4 distinct
+  nets (Calibre cell/net ids): `ICV_249` net 3743 (ratio 401.0), `ICV_249` net 2309 (402.2, M2 near x=154 um,
+  y=204..266 um), `unpu_top` net 2415 (403.1), `unpu_top` net 1328 (**1023.3**, gate area 0.1944 um^2, M2 perimeter
+  368 um, x~811..813 um, y~109..210 um). Net 1328 = `u_grid/g_row_2__g_col_3__pe/mult_28/n27` (driver `U22/CO`,
+  load `U5/A`, both `ad01d0`), an INTERNAL net, not a port net (an earlier hypothesis that the failing nets are
+  port nets was wrong).
+- Why ICC2 misses it: ICC2 at limit 300 flagged 60 instance ports (ratios 300..396, none above 400); at limit 100
+  it flagged 750 nets but not `n27`. Kit LEF for `ad01d0`: `PIN CO ANTENNADIFFAREA 0.696` (ICC2 `diode_mode 1`
+  treats it as a diode, so exempt) and `PIN A ANTENNAGATEAREA 1.823` (Calibre measures 0.1944 in the layout, about 9x
+  smaller). So ICC2 uses library antenna data that is more optimistic than the layout for this cell; a tighter
+  ICC2 limit cannot catch it. Other cell types affected: unknown.
+- Proposed next step (not started, awaiting user): surgical fix of the 4 nets: remove their routes, give them
+  `set_routing_rule -min_routing_layer M3` (M2 left only for pin access, ZRT-707 stub), `route_detail -incremental`,
+  then re-fill, rewrite outputs (`out3`), re-run both Calibre checks. Needs the names of nets 3743 and 2415 (get the
+  marker coordinates with `grep -n -A14 "NET=3743\|NET=2415" antenna_results.ant` in `run2`, then
+  `get_nets -of_objects [get_shapes -intersect {{x y} {x+0.1 y+0.1}} -filter "layer_name==M2"]`; net 2309 near
+  (154, 230)). Alternative considered: `define_antenna_rule -diode_mode 0` (ignore LEF diode credit); not tried.
+- State of the open ICC2 shell when paused: block `unpu_top_ant` open in EDIT mode with antenna rule at
+  `-metal_ratio 100` (probe only; do NOT save this block). Probe log: `icc2_work/ant_probe100.txt` (750 nets).
+- Still to do after the antenna fix: LVS (`v2lvs` + kit CDL), PrimeTime (ss setup, ff hold), post-layout simulation,
+  commit/push this note, `plan.md` update.
+
+### 18.26 Antenna re-route, final fill 2, `out3`, Calibre `run3` (user's server run, 2026-10-30)
+
+State at stop (user ended the day; nothing running).
+
+- Net names for the 4 Calibre failures (marker coordinates -> `get_nets -of_objects [get_shapes -intersect ...]`):
+  `u_grid/g_row_2__g_col_1__pe/N48` (Calibre 2309, 402.2; ICC2 395.2 at limit 300), `u_grid/g_row_2__g_col_3__pe/N69`
+  (3743, 401.0; ICC2 394.1), `u_seq/n472` (2415, 403.1; ICC2 396.0), `u_grid/g_row_2__g_col_3__pe/mult_28/n27`
+  (1328, 1023.3; not flagged by ICC2 even at limit 100). ICC2 at limit 300 flagged 60 ports (ratios 300..396); at
+  limit 100, 750 nets (log `icc2_work/ant_probe100.txt`). LEF for `ad01d0`: `CO ANTENNADIFFAREA 0.696` (ICC2
+  `diode_mode 1` exempts), `A ANTENNAGATEAREA 1.823` vs Calibre layout gate 0.1944.
+- Fix applied on unfilled `unpu_top_ant`: `set_routing_rule -min_routing_layer M3 -min_layer_mode
+  allow_pin_connection` on the 4 nets, `remove_routes -nets $bad -detail_route` (51 shapes), `route_eco`: 42 nets
+  changed in total, 0 open, 0 DRC; M2 wire 323,108 -> 322,820 um. Timing unchanged (setup +0.01, hold 0.00).
+- Saved blocks: `unpu_top_ant2` (unfilled, re-routed) and `unpu_top_final2` (filled). Fill: 22,512 fillers, 45,024 PG
+  pins; `check_routes` DRC 0 / opens 0 / antenna 0 (ICC2, limit 400, 80 port nets skipped); `check_legality` 0.
+  Timing with fill: setup 0.00 ns MET (`paddr[3]` -> `prdata[2]`), hold -0.00 VIOLATED on `pwdata[1]` ->
+  `u_csr/src_a_reg_reg_1_` (the same filler-capacitance residual accepted as option A; PrimeTime decides).
+  Corners unchanged: scenario `default` = corner `default` (ss, setup), `ff_hold` = corner `ff` (hold).
+  Workflow that avoids overwriting blocks: `save_block -as NEW`, `close_blocks -force`, `open_block NEW`.
+- Outputs `icc2_work/out3/` from `unpu_top_final2` (12 files; LEF has ONE macro using `write_lef -design
+  unpu_top_final2 -include cell`; GDS 15,693,824 bytes, 4,087,279 bytes differ from `out2`; `GDS-017` still printed).
+- Calibre `run3` (`calibre_run/run3`, GDS `out3`): DRC 404 rules, 0 results. Antenna 16 rules, **3 results**, all
+  `AN.MTL.1.M2`, all one net: Calibre net 1329 (was 1328), VALUE 1023.28, M2 perimeter 368.38 um, gate 0.1944 um^2,
+  polygon IDENTICAL to the one in `out2` (so the re-route changed nothing for this net). N48, N69, n472 are fixed.
+- OPEN QUESTION (not resolved): ICC2 says `n27` is a short route: M2 stubs {804.02,147.865}-{804.30,148.48} and
+  {811.30,136.825}-{811.58,137.34}, M3, TOP_M {803.94,137.14}-{804.38,148.56}; cells U22 bbox {800.8,134.4}-
+  {811.44,140.0}, U5 {796.88,145.6}-{807.52,151.2} (about 6 um apart). It has NO long M2 wire. Calibre's polygon for
+  the net is a ~100+ um structure at x 811.3..813.3 um, y 109.7..210.7+ um (visible vertices only: strip
+  x 811.30-811.58 up to y 134.82, wide piece x 811.58-813.26 y 134.82-150.22, strip up to y 203.1, jog to x 812.14
+  y 210.7, continues). ICC2 M2 shapes near: `mult_28/n35` x 810.74-811.02 y 109.6-120.4; `paddr[7]` x 810.74-811.02
+  y 126.4-130.2; `u_csr/n248` x 810.74-811.02 y 143.8-304.8; `paddr[4]` x 811.30-811.58 y 210.4-289.1.
+  `get_shapes -intersect` proved incomplete (it did not list the n27 stub inside its window), so do not trust it
+  for connectivity. Possible causes: Calibre merges touching pieces of other nets into this net (would be a short,
+  LVS will show), or non-signal shapes (pins, cell geometry) are in the polygon. NEXT, before changing anything:
+  `sed -n '6,70p' antenna_results.ant` in `run3` (full 20-vertex outline and the other layers' polygons) and an ICC2
+  all-layer `get_shapes -intersect {{812 138} {812.4 142}}` listing layer, net, shape_use, bbox.
+  Candidate fixes if it is a genuine antenna: route the net on TOP_M, a buffer in the net, or an explicit diode.
+- ICC2 state when stopped: `unpu_top_final2` open in edit mode (frame view created after the last `save_lib`; not
+  needed). Exit with `close_blocks -force` then `exit`, no save.
+- Still to do: antenna 3 -> 0, LVS (`v2lvs` + kit CDL), PrimeTime, post-layout simulation, commit/push this note
+  (§18.25 and §18.26 are uncommitted), `plan.md`.

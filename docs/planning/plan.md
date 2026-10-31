@@ -1915,3 +1915,12 @@ Details: `docs/session-handoff.md` 18.23. Next: Calibre DRC/LVS, PrimeTime, post
 
 Calibre found (separate terminal, cleaned Siemens setup); SCL decks found in the kit; DRC (404 rules, BLOCK, 4M1L, 3V assumption) = 0 results
 with all layers populated. Next: antenna, LVS. Details: `docs/session-handoff.md` 18.24.
+
+## Antenna check and fix, 2026-10-29/30
+
+Calibre antenna deck: 241 results on the first GDS. ICC2 layer-hopping fix (225 nets) -> 7 results (4 nets). Targeted re-route
+of 3 of them (`route_eco`, min layer M3) -> 3 results left, all one net (`mult_28/n27`, ratio 1023), whose Calibre polygon
+ICC2 cannot explain (ICC2 sees a short route). Latest blocks `unpu_top_ant2` (unfilled), `unpu_top_final2` (filled, DRC 0,
+legality 0, setup 0.00 MET, hold residual accepted for PrimeTime); latest outputs `icc2_work/out3/`; Calibre DRC 0 on it.
+LEF pitfall: use `write_lef -design <block>`. Details: `docs/session-handoff.md` 18.25, 18.26.
+Next: identify what makes the `n27` polygon, fix it, then LVS, PrimeTime, post-layout simulation.
