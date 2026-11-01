@@ -1933,3 +1933,16 @@ load (gate 0.1944 um^2) and no diode exists inside the macro; ICC2 skips all 80 
 `add_port_protection_diodes`. Latest blocks `unpu_top_ant3` (unfilled), `unpu_top_final3` (filled); latest outputs `icc2_work/out4/`.
 Instructor brief prepared. Next: port protection diodes (usage not yet read), re-fill, `out5/`, Calibre `run5`; then LVS, PrimeTime,
 post-layout simulation. Details: `docs/session-handoff.md` 18.27.
+
+## Back-end re-run plan drafted, 2026-11-01
+
+`docs/planning/backend-rerun-plan.md` (DRAFT, not approved, nothing dispatched): pins placed after a coarse placement, port protection
+diodes (`adiode`), antenna rule defined before routing, scripted `pnr/` flow, early Calibre/PrimeTime gate. Open decisions D1 to D6 in
+section 3.3. Recommended Step 0: prove the diode on `unpu_top_ant3` first.
+
+## Back-end re-run scripts (tasks 038 to 046), 2026-11-01
+
+Written by Execution, reviewed by Planning (`docs/planning/rerun-review-log.md`), all in `pnr/`, none run on the server yet: shared `params.tcl` / `common.tcl`,
+`ndm_file_gen.tcl` (+ `ndm_check.tcl`), `design_setup.tcl`, `floorplan.tcl`, `power.tcl`, `help_probe*.tcl`, `cts.tcl`, `route.tcl`, `fill.tcl`, `outputs.tcl`.
+Blocked: `pin_place.tcl`, `placement.tcl` (help probe output), Calibre / PrimeTime / post-layout simulation scripts. Next: commit, pull on the server, run the probe and the
+first scripts, paste the logs.
