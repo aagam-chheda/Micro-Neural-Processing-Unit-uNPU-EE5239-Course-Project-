@@ -1,0 +1,63 @@
+ 
+****************************************
+Report : timing
+        -path full
+        -delay max
+        -max_paths 1
+Design : unpu_top
+Version: T-2022.03-SP5
+Date   : Thu Oct  8 18:29:02 2026
+****************************************
+
+ # A fanout number of 1000 was used for high fanout net computations.
+
+Operating Conditions: tsl18fs120_scl_ss   Library: tsl18fs120_scl_ss
+Wire Load Model Mode: top
+
+  Startpoint: paddr[2] (input port clocked by clk)
+  Endpoint: prdata[4] (output port clocked by clk)
+  Path Group: clk
+  Path Type: max
+
+  Des/Clust/Port     Wire Load Model       Library
+  ------------------------------------------------
+  unpu_top           140000                tsl18fs120_scl_ss
+
+  Point                                    Incr       Path
+  -----------------------------------------------------------
+  clock clk (rise edge)                    0.00       0.00
+  clock network delay (ideal)              0.00       0.00
+  input external delay                     7.00       7.00 r
+  paddr[2] (in)                            1.07       8.07 r
+  U32/ZN (inv0d0)                          0.20       8.26 f
+  U20/ZN (inv0d0)                          0.38       8.64 r
+  u_apb/paddr[2] (unpu_apb)                0.00       8.64 r
+  u_apb/U10/Z (buffd3)                     0.37       9.01 r
+  u_apb/csr_sel[0] (unpu_apb)              0.00       9.01 r
+  u_csr/csr_sel[0] (unpu_csr)              0.00       9.01 r
+  u_csr/U23/ZN (inv0d2)                    0.25       9.26 f
+  u_csr/U109/ZN (nr03d2)                   0.50       9.76 r
+  u_csr/U6/Z (an02d1)                      0.29      10.05 r
+  u_csr/U18/Z (bufbd1)                     0.22      10.27 r
+  u_csr/U15/ZN (inv0d2)                    0.12      10.39 f
+  u_csr/U75/ZN (oai221d1)                  0.44      10.83 r
+  u_csr/csr_rdata[4] (unpu_csr)            0.00      10.83 r
+  u_apb/csr_rdata[4] (unpu_apb)            0.00      10.83 r
+  u_apb/U4/Z (bufbdf)                      0.64      11.47 r
+  u_apb/prdata[4] (unpu_apb)               0.00      11.47 r
+  prdata[4] (out)                          0.01      11.48 r
+  data arrival time                                  11.48
+
+  clock clk (rise edge)                   20.00      20.00
+  clock network delay (ideal)              0.00      20.00
+  clock uncertainty                       -1.50      18.50
+  output external delay                   -7.00      11.50
+  data required time                                 11.50
+  -----------------------------------------------------------
+  data required time                                 11.50
+  data arrival time                                 -11.48
+  -----------------------------------------------------------
+  slack (MET)                                         0.02
+
+
+1

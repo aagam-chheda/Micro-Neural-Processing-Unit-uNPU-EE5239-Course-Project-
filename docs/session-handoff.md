@@ -1422,3 +1422,8 @@ State at stop (user took a break; nothing running).
 - Help probes: `icc2_shell` 141 probes, 140 found (`set_dont_use` not a command); `icc2_lm_shell` 24, 23 found (`*filler*` matches no command). `sh_product_version` = U-2022.12-SP3 in both shells; `-file` and `-output_log_file` work in both; Tcl is 8.6.11; no pager.
 - `ndm_file_gen.tcl` mode single: log shows `Read LEF into a new library 'scl18fs120_std' (LEFR-022)`, then `Skipped 6 physical designs (LM-052)` at `check_workspace`, `Workspace check succeeded!`, 534 cells; `ndm_check.tcl`: fillers 0, `single_mode_worked = no`. The library manager skips the six LEF-only cells (no logical view). DECISION (Planning, to be confirmed by the user): NDM mode `two` is the default (main NDM + a physical-only NDM with the three fillers typed `filler`, both written by one run). One NDM literally holding the fillers would need a hand-written Liberty for the three cells read with `read_lib`; not pursued.
 - Task 047 fixed five contradicted items found by running the parsers on real text: `set_dont_use`, `set_clock_uncertainty -scenarios`, NDM mode default, the `report_ref_libs` open-library parser (real rows are `*+  name path path`), the `report_app_options` row layout. 53 VERIFY items confirmed, 32 still unknown (`pnr/VERIFY_STATUS.md`).
+
+### 18.29 Synthesis reports are in the repository (2026-11-02)
+
+The raw Design Compiler reports of round 1 (2026-10-08) and round 3 (2026-10-14, the current one) were copied from the git-ignored `syn/out/` into `docs/planning/synthesis-reports/`
+with a README (which run is current, the headline numbers, what the reports do not cover). Meant for the PM. The netlist is not included.

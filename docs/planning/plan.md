@@ -1946,3 +1946,7 @@ Written by Execution, reviewed by Planning (`docs/planning/rerun-review-log.md`)
 `ndm_file_gen.tcl` (+ `ndm_check.tcl`), `design_setup.tcl`, `floorplan.tcl`, `power.tcl`, `help_probe*.tcl`, `cts.tcl`, `route.tcl`, `fill.tcl`, `outputs.tcl`.
 Blocked: `pin_place.tcl`, `placement.tcl` (help probe output), Calibre / PrimeTime / post-layout simulation scripts. Next: commit, pull on the server, run the probe and the
 first scripts, paste the logs.
+
+## Synthesis reports in the repository, 2026-11-02
+
+`docs/planning/synthesis-reports/` holds the raw DC reports (round 3 current, round 1 superseded) and a README with the headline numbers, for the PM. Handoff 18.29.
