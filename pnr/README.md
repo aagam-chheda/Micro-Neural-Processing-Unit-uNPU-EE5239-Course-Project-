@@ -14,8 +14,8 @@ except `test_common.tcl`. The user runs the stage scripts on the server and read
 | 3 | `design_setup.tcl` | `icc2_shell` | written (task 039) |
 | 4 | `floorplan.tcl` | `icc2_shell` | written (task 040) |
 | 5 | `power.tcl` | `icc2_shell` | written (task 041) |
-| 6 | `pin_place.tcl` | `icc2_shell` | planned |
-| 7 | `placement.tcl` | `icc2_shell` | planned |
+| 6 | `pin_place.tcl` | `icc2_shell` | written (task 048): coarse placement, tool-placed pins (sides and layers fixed per group), geometry checks, `pin_order.txt` for the top level; saves `pins` |
+| 7 | `placement.tcl` | `icc2_shell` | written (task 049): `place_opt`, checks, report of the input-port wires (`placed_port_report.csv`, report only); opens `pins`, saves `placed` |
 | 8 | `cts.tcl` | `icc2_shell` | written (task 043) |
 | 9 | `route.tcl` | `icc2_shell` | written (task 044) |
 | 10 | `fill.tcl` | `icc2_shell` | written (task 045): last ICC2 step; opens `routed`, saves `final` (filled) |
@@ -38,13 +38,14 @@ V-2023.12-SP4 (`docs/session-handoff.md` 18.10). Both scripts check the release 
 | `UNPU_WORK` | `.../icc2_work_v2` (`params.tcl`) | work directory, outside the repo |
 | `UNPU_RUN_TAG` | `run1` | run name: one directory per run under `UNPU_WORK` |
 | `UNPU_NETLIST`, `UNPU_SDC` | `syn/out/pm_flow/unpu_top_cn.dc.v`, `.sdc` in the repo clone | DC outputs (untracked) |
-| `UNPU_NDM_MODE` | `single` | `single` or `two` (see `ndm_file_gen.tcl`); anything else is an error |
+| `UNPU_NDM_MODE` | `two` | `two` (main NDM + a second NDM with the three fillers) or `single`; `single` does NOT work on this kit (`LM-052` skips the 6 LEF-only cells, 0 of 3 fillers, `single_mode_worked = no`); anything else is an error |
 | `UNPU_NDM_OVERWRITE` | unset | `1` allows `ndm_file_gen.tcl` to replace an existing NDM (it warns for each path removed) |
 | `UNPU_LIB_OVERWRITE` | unset | `1` lets `design_setup.tcl` remove an existing design library `$LIB_DIR/$LIB_NAME` (it warns); otherwise an existing library stops the script |
 | `UNPU_BLK_<NAME>` | the default of `BLK_<NAME>` | override of a checkpoint block name; `<NAME>` is IMPORT FP PWR PINS PLACED CTS CLKOPT ROUTE_AUTO ROUTED or FINAL (letters, digits, `_`); a Warning is printed for each. Lets several experiments (for example hold uncertainties: `clkopt`, `clkopt_h02`) live in one library |
 | `UNPU_CTS_STAGE` | `all` | `cts.tcl`: `all` (tree, then hold optimisation), `tree` (stops after saving `cts`), `hold` (opens the saved `cts` block, applies `UNPU_HOLD_UNCERT`, optimises, saves `clkopt`); in the manifest as `CTS_STAGE` |
 | `UNPU_OUTPUTS_OVERWRITE` | `0` | `1` lets `outputs.tcl` delete and rewrite output files that exist (a Warning per file); otherwise an existing target stops the script |
 | `UNPU_GDS_LAYER_MAP` | the kit map | path of a corrected GDS layer map used by `outputs.tcl` instead of the kit map (Warning; in the manifest) |
+| `UNPU_PIN_SIDE_RIGHT`, `UNPU_PIN_SIDE_TOP` | `3`, `2` | side numbers of the pin placer for the right (APB) and top (DMA) pin groups; the defaults are a GUESS (1 left, 2 top, 3 right, 4 bottom clockwise from the left) that `pin_place.tcl` checks and, if wrong, names the numbers to try; positive integers, different |
 | `UNPU_FILL_ECO` | `0` | `1` lets `fill.tcl` run `route_eco` once if fillers with violations remain (then repeats the check; never a second round) |
 | `UNPU_ROUTE_ACCEPT_HOLD` | `0` | `1` lets `route.tcl` save the routed block although hold violations remain (the hold check only, and only if the count is known); records `hold_accepted = 1` and the endpoints in the manifest. Never set it without a written reason |
 | `UNPU_SKIP_VERSION_CHECK` | unset | `1` continues when the tool release cannot be read or differs; prints a Warning. Read the banner first |

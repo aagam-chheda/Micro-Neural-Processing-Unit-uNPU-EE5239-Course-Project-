@@ -14,7 +14,7 @@
 #   mkdir -p $UNPU_WORK/$UNPU_RUN_TAG/logs
 #   /home/Synopsys_tools/icc2/U-2022.12-SP3/bin/icc2_lm_shell -file $UNPU_REPO/pnr/help_probe_lm.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/help_probe_lm.log
-#   (VERIFY -file / -output_log_file in icc2_lm_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Output, in $RPT_DIR/help_lm/: the same files as help_probe.tcl (version.txt, summary.txt, all_commands.txt,
 #   all_wildcards.txt and one file per probe). Never: creates a workspace, reads a LEF or a library, changes any

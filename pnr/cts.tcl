@@ -13,7 +13,7 @@
 #   setenv UNPU_RUN_TAG run1
 #   icc2_shell -file $UNPU_REPO/pnr/cts.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/cts.log
-#   (VERIFY -file / -output_log_file in icc2_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Input: the library $LIB_DIR/$LIB_NAME with the placed block $BLK_PLACED (placement.tcl, not written yet; the
 #   block only has to exist and be legal).
@@ -50,7 +50,7 @@ source [file join $here common.tcl]
 unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
-unpu_require_tool_version $ICC2_VERSION            ;# VERIFY how the version is exposed (see common.tcl)
+unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
@@ -130,9 +130,10 @@ if {$CTS_STAGE eq "tree"} {
 
 # ---- 5. hold uncertainty (18.18) ----------------------------------------------------------------------
 # acts on $SCEN_HOLD (ff, hold). The SDC already carries 0.5; setting it here makes the value explicit and lets an
-# experiment run with another value (UNPU_HOLD_UNCERT). VERIFY: set_clock_uncertainty -hold <v> [get_clocks clk]
+# experiment run with another value (UNPU_HOLD_UNCERT). set_clock_uncertainty -hold -scenarios <s> <v> [get_clocks clk] (usage text, task 047)
 ct_scen $SCEN_HOLD
-unpu_run_logged [list set_clock_uncertainty -hold $HOLD_UNCERT [get_clocks clk]] {}
+# without -modes/-corners/-scenarios the command acts on the current scenario (usage text); the scenario is named explicitly
+unpu_run_logged [list set_clock_uncertainty -hold -scenarios $SCEN_HOLD $HOLD_UNCERT [get_clocks clk]] {}
 # read it back from a hold path report (18.19 used this: report_timing -delay_type min shows "clock uncertainty")
 set rb [ct_report hold_uncertainty_readback "report_timing -delay_type min -max_paths 1 -nosplit"]
 set got [unpu_parse_clock_uncertainty $rb]

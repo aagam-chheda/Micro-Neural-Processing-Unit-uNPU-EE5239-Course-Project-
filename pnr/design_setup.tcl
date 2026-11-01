@@ -14,7 +14,7 @@
 #   mkdir -p $UNPU_WORK/$UNPU_RUN_TAG/logs
 #   icc2_shell -file $UNPU_REPO/pnr/design_setup.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/design_setup.log
-#   (VERIFY -file / -output_log_file in icc2_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Inputs (all must exist): the NDM list $NDM_DIR/ndm_manifest.txt (from ndm_file_gen.tcl), the
 #   technology file, the TLUPlus file and its map, the DC netlist and the DC-written SDC (paths in
@@ -35,7 +35,7 @@ source [file join $here common.tcl]
 unpu_load_params
 
 # ---- 1. checks and stage start ----------------------------------------------
-unpu_require_tool_version $ICC2_VERSION            ;# VERIFY how the version is exposed (see common.tcl)
+unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
 set UNPU_CHECK_CONTINUE 1
 set ndm_manifest $NDM_DIR/ndm_manifest.txt
 foreach {f what} [list $TECH_FILE "technology file" $TLUPLUS_FILE "TLUPlus file" $TLUPLUS_MAP "TLUPlus layer map" \

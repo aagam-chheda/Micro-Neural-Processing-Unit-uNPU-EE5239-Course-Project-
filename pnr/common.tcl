@@ -93,13 +93,12 @@ proc unpu_git_rev {} {
   return $rev
 }
 # Version string of the running Synopsys shell, "" if it cannot be read.
-# VERIFY (server): which of these exists in icc2_shell and in icc2_lm_shell. sh_product_version
-# is the Synopsys shell variable that holds e.g. U-2022.12-SP3 (seen in the other Synopsys
-# shells); the last probe looks for a release string in the path of the running executable.
+# Confirmed by the help probes of both shells (task 047, version.txt): sh_product_version is a Tcl variable AND readable by
+# get_app_var and printvar, value U-2022.12-SP3. The last probe (release string in the path of the executable) is a fallback.
 proc unpu_tool_version {} {
   if {[info exists ::sh_product_version] && $::sh_product_version ne ""} { return $::sh_product_version }
   if {[llength [info commands get_app_var]]} {
-    if {![catch {get_app_var sh_product_version} v] && $v ne ""} { return $v }   ;# VERIFY
+    if {![catch {get_app_var sh_product_version} v] && $v ne ""} { return $v }   ;# confirmed (get_app_var sh_product_version, version.txt)
   }
   if {[regexp {[A-Z]-[0-9]{4}\.[0-9]{2}(-SP[0-9]+)?} [info nameofexecutable] v]} { return $v }
   return ""
@@ -313,12 +312,17 @@ proc unpu_unresolved_lines {text} {
   }
   return $out
 }
-# report_ref_libs text: is the library `name` listed on a line that says it is open (not "not open"/"closed")?
-# \m..\M are word boundaries, and _ is a word character, so scl18fs120 does not match scl18fs120_fillf.
+# report_ref_libs text: is the library `name` listed as open? The real report (server run, task 047) has a flag column:
+#   *+  scl18fs120 <path> <location>        with the legend  "*" = Library currently open, "+" = Library has technology information
+# so a line whose flags (before the name) contain * is open. A line that says "open" in words is also accepted; "not open",
+# "closed", "unopened" and "fail" never are. \m..\M are word boundaries, and _ is a word character, so scl18fs120 does not
+# match scl18fs120_fillf. The name must be the first word after the flags (a path that contains the name does not count).
 proc unpu_reflib_open {text name} {
+  set nre [string map {. \\.} $name]
   foreach l [split $text "\n"] {
-    if {![regexp "\\m[string map {. \\.} $name]\\M" $l]} continue
+    if {![regexp "\\m${nre}\\M" $l]} continue
     if {[regexp -nocase {not\s+open|closed|unopened|fail} $l]} continue
+    if {[regexp "^\\s*(\[*+\]*\\*\[*+\]*)\\s+${nre}\\M" $l]} { return 1 }
     if {[regexp -nocase {\mopen} $l]} { return 1 }
   }
   return 0
@@ -845,11 +849,18 @@ proc unpu_option_state {value} {
 # the value of an application option from the text of report_app_options / get_app_options: the line whose first word is the
 # option name; the value is the boolean word (true false on off yes no 0 1) found after the name. If the line holds boolean
 # words that DISAGREE (for example a Default column and a Value column), the value is ambiguous and "" is returned: the column
-# layout is not known (VERIFY), so no column is guessed. "" also when the option is not listed or has no boolean word.
+# layout is otherwise not known, so no column is guessed. "" also when the option is not listed or has no boolean word.
 proc unpu_app_option_from_report {text name} {
   foreach l [split $text "\n"] {
     set w [regexp -all -inline -- {\S+} $l]
     if {[llength $w] < 2 || [lindex $w 0] ne $name} continue
+    # The real report_app_options row (server run, task 047) is: name type Value User-value User-default System-default scope status
+    # source, with -- for an empty column, e.g.  route.detail.antenna  bool  --  --  --  true  block  normal  --
+    # The effective value is the first column of Value, User-value, User-default, System-default that is not --.
+    if {[llength $w] >= 6 && [lindex $w 1] eq "bool"} {
+      foreach x [lrange $w 2 5] { if {$x ne "--"} { return $x } }
+      return ""
+    }
     set found {}
     foreach x [lrange $w 1 end] { if {[unpu_option_state $x] ne "unknown"} { lappend found $x } }
     if {[llength $found] == 0} { return "" }
@@ -874,6 +885,13 @@ proc unpu_hold_endpoint_lines {lines} {
   set i 0
   foreach l $lines { incr i; lappend out "hold_endpoint_$i = $l" }
   return $out
+}
+# check_workspace output: 1 when it holds the success line "Workspace check succeeded!" (real text, server run of task 047)
+proc unpu_workspace_check_ok {text} { return [expr {[string first "Workspace check succeeded" $text] >= 0}] }
+# number of physical designs the workspace skipped: "Information: Skipped 6 physical designs (LM-052)" -> 6, "" when absent
+proc unpu_workspace_skipped {text} {
+  if {[regexp -- {Skipped\s+([0-9]+)\s+physical designs?\s+\(LM-052\)} $text -> n]} { return $n }
+  return ""
 }
 # ---- fill stage helpers (task 045) -------------------------------------------------------------------------
 # connect_pg_net -automatic summary (extends unpu_parse_connect_pg, which returns only the largest count per net):
@@ -1157,6 +1175,280 @@ proc unpu_new_files {before after prefix} {
   set out {}
   foreach f $after { if {![info exists b($f)] && [string first $prefix $f] == 0} { lappend out $f } }
   return [lsort $out]
+}
+# ---- pin placement helpers (task 048): pure Tcl on pin records -----------------------------------------------------
+# A pin record is {port edge coord width length layer llx lly urx ury}:
+#   edge   right | top | left | bottom (the one die edge the box touches), corner (it touches two), none (it touches none)
+#   coord  centre of the box ALONG the edge (y on the right/left edges, x on the top/bottom edges), um
+#   width  extent ALONG the edge, length extent ACROSS the edge (into the die), um
+# "touches the edge" = the box reaches the die boundary within the tolerance (urx >= die on the right edge, ury >= die on the top,
+# llx <= 0 on the left, lly <= 0 on the bottom); a pin centred on the edge line also touches it. The die is square, 0..die.
+proc unpu_box_edges {box die tol} {
+  lassign $box llx lly urx ury
+  set e {}
+  if {$llx <= $tol} { lappend e left }
+  if {$urx >= $die - $tol} { lappend e right }
+  if {$lly <= $tol} { lappend e bottom }
+  if {$ury >= $die - $tol} { lappend e top }
+  return $e
+}
+proc unpu_pin_record {port box layer die tol} {
+  lassign $box llx lly urx ury
+  set es [unpu_box_edges $box $die $tol]
+  set edge [expr {[llength $es] == 0 ? "none" : [llength $es] > 1 ? "corner" : [lindex $es 0]}]
+  if {$edge eq "left" || $edge eq "right"} {
+    set coord [expr {($lly + $ury) / 2.0}]; set w [expr {$ury - $lly}]; set l [expr {$urx - $llx}]
+  } else {
+    set coord [expr {($llx + $urx) / 2.0}]; set w [expr {$urx - $llx}]; set l [expr {$ury - $lly}]
+  }
+  return [list $port $edge [unpu_round4 $coord] [unpu_round4 $w] [unpu_round4 $l] $layer $llx $lly $urx $ury]
+}
+# the records whose port is in `ports`
+proc unpu_pins_of {records ports} {
+  array set want {}
+  foreach p $ports { set want($p) 1 }
+  set out {}
+  foreach r $records { if {[info exists want([lindex $r 0])]} { lappend out $r } }
+  return $out
+}
+# ports (names) matching one of the patterns; a pattern is a name, or a name with [*] for a bus bit: paddr[*] -> paddr[<digits>]
+proc unpu_port_matches {name patterns} {
+  foreach p $patterns {
+    if {[string first {[*]} $p] >= 0} {
+      set re "^[string map {. \\.} [string map [list {[*]} @@BIT@@] $p]]\$"
+      set re [string map [list @@BIT@@ {\[[0-9]+\]}] $re]
+      if {[regexp -- $re $name]} { return 1 }
+    } elseif {$p eq $name} { return 1 }
+  }
+  return 0
+}
+proc unpu_split_ports {names patterns} {
+  set in {}; set out {}
+  foreach n $names { if {[unpu_port_matches $n $patterns]} { lappend in $n } else { lappend out $n } }
+  return [list $in $out]
+}
+# {edge count ...} for the records, edges in the order right top left bottom corner none (only those with a count)
+proc unpu_pin_edge_counts {records} {
+  array set c {}
+  foreach r $records { set e [lindex $r 1]; if {![info exists c($e)]} { set c($e) 0 }; incr c($e) }
+  set out {}
+  foreach e {right top left bottom corner none} { if {[info exists c($e)]} { lappend out $e $c($e) } }
+  return $out
+}
+# the edge most pins of a group landed on ("" for an empty group)
+proc unpu_pin_dominant_edge {records} {
+  set best ""; set bn 0
+  foreach {e n} [unpu_pin_edge_counts $records] { if {$n > $bn} { set best $e; set bn $n } }
+  return $best
+}
+# records of a group that are NOT on `edge`
+proc unpu_pins_off_edge {records edge} {
+  set out {}
+  foreach r $records { if {[lindex $r 1] ne $edge} { lappend out $r } }
+  return $out
+}
+# gaps between neighbouring pins (centre to centre) on one edge: {n min max} or {n "" ""} with fewer than two pins
+proc unpu_pin_gaps {records edge} {
+  set cs {}
+  foreach r $records { if {[lindex $r 1] eq $edge} { lappend cs [lindex $r 2] } }
+  set cs [lsort -real $cs]
+  if {[llength $cs] < 2} { return [list [llength $cs] "" ""] }
+  set mn ""; set mx ""
+  for {set i 1} {$i < [llength $cs]} {incr i} {
+    set g [expr {[lindex $cs $i] - [lindex $cs $i-1]}]
+    if {$mn eq "" || $g < $mn} { set mn $g }
+    if {$mx eq "" || $g > $mx} { set mx $g }
+  }
+  return [list [llength $cs] $mn $mx]
+}
+# pairs of ports on the same edge whose centre distance is below `pitch - tol`: {{portA portB gap} ...}
+proc unpu_pin_close_pairs {records pitch tol} {
+  set out {}
+  foreach edge {right top left bottom} {
+    set rs {}
+    foreach r $records { if {[lindex $r 1] eq $edge} { lappend rs $r } }
+    set rs [lsort -real -index 2 $rs]
+    for {set i 1} {$i < [llength $rs]} {incr i} {
+      set a [lindex $rs $i-1]; set b [lindex $rs $i]
+      set g [expr {[lindex $b 2] - [lindex $a 2]}]
+      if {$g < $pitch - $tol} { lappend out [list [lindex $a 0] [lindex $b 0] $g] }
+    }
+  }
+  return $out
+}
+# do two boxes {llx lly urx ury} overlap by more than tol in both directions?
+proc unpu_boxes_overlap {a b tol} {
+  lassign $a ax0 ay0 ax1 ay1
+  lassign $b bx0 by0 bx1 by1
+  return [expr {min($ax1,$bx1) - max($ax0,$bx0) > $tol && min($ay1,$by1) - max($ay0,$by0) > $tol}]
+}
+# pins that overlap each other (any edge): {{portA portB} ...}
+proc unpu_pin_overlaps {records tol} {
+  set out {}
+  set n [llength $records]
+  for {set i 0} {$i < $n} {incr i} {
+    set a [lindex $records $i]
+    for {set j [expr {$i+1}]} {$j < $n} {incr j} {
+      set b [lindex $records $j]
+      if {[unpu_boxes_overlap [lrange $a 6 9] [lrange $b 6 9] $tol]} { lappend out [list [lindex $a 0] [lindex $b 0]] }
+    }
+  }
+  return $out
+}
+# signal pins that overlap a power terminal box: {{port net} ...}; powerboxes = {{net llx lly urx ury} ...}
+proc unpu_pin_power_overlaps {records powerboxes tol} {
+  set out {}
+  foreach r $records {
+    foreach pb $powerboxes {
+      if {[unpu_boxes_overlap [lrange $r 6 9] [lrange $pb 1 4] $tol]} { lappend out [list [lindex $r 0] [lindex $pb 0]]; break }
+    }
+  }
+  return $out
+}
+# pins within `keepout` of a corner along their edge (the extent of the box counts): {port ...}
+proc unpu_pin_corner_pins {records die keepout} {
+  set out {}
+  foreach r $records {
+    set e [lindex $r 1]
+    if {$e eq "corner"} { lappend out [lindex $r 0]; continue }
+    if {$e eq "none"} continue
+    set c [lindex $r 2]; set hw [expr {[lindex $r 3] / 2.0}]
+    if {$c - $hw < $keepout || $c + $hw > $die - $keepout} { lappend out [lindex $r 0] }
+  }
+  return $out
+}
+# pins whose width or length differs from the wanted ones: {{port width length} ...}
+proc unpu_pin_bad_size {records width length tol} {
+  set out {}
+  foreach r $records {
+    if {abs([lindex $r 3] - $width) > $tol || abs([lindex $r 4] - $length) > $tol} { lappend out [list [lindex $r 0] [lindex $r 3] [lindex $r 4]] }
+  }
+  return $out
+}
+# ports that have more than one record
+proc unpu_pin_duplicates {records} {
+  array set c {}
+  foreach r $records { set p [lindex $r 0]; if {![info exists c($p)]} { set c($p) 0 }; incr c($p) }
+  set out {}
+  foreach p [lsort [array names c]] { if {$c($p) > 1} { lappend out $p } }
+  return $out
+}
+# the text of the "wrong edge" diagnosis. rside/tside = the side numbers used for the right and the top group; redge/tedge = the edge
+# most pins of each group landed on. The mapping learned from this run (a side number -> the edge it gave) is printed, and the
+# numbers to try are suggested. Returns "" when both groups are where they should be.
+proc unpu_pin_side_diagnosis {rside tside redge tedge} {
+  if {$redge eq "right" && $tedge eq "top"} { return "" }
+  set txt "the right (APB) group, side number $rside, landed on the $redge edge (expected right); the top (DMA) group, side number $tside, landed on the $tedge edge (expected top)."
+  if {$redge eq "top" && $tedge eq "right"} {
+    append txt " The groups are swapped: set UNPU_PIN_SIDE_RIGHT=$tside and UNPU_PIN_SIDE_TOP=$rside and run again."
+  } else {
+    append txt " What this run showed: side $rside = $redge edge, side $tside = $tedge edge. The side number of the right edge and of the top edge is unknown: try the numbers 1 to 4 that are not yet explained (UNPU_PIN_SIDE_RIGHT, UNPU_PIN_SIDE_TOP) and run again; the guess was clockwise from the left edge: 1 left, 2 top, 3 right, 4 bottom."
+  }
+  return $txt
+}
+# the order report: one line per pin "port edge coordinate layer", sorted by edge (right, top, left, bottom) and coordinate
+proc unpu_pin_order_lines {records} {
+  set out {}
+  foreach e {right top left bottom corner none} {
+    set rs {}
+    foreach r $records { if {[lindex $r 1] eq $e} { lappend rs $r } }
+    foreach r [lsort -real -index 2 $rs] { lappend out [format "%-22s %-7s %10.3f  %s" [lindex $r 0] [lindex $r 1] [lindex $r 2] [lindex $r 5]] }
+  }
+  return $out
+}
+# per-bus summary: for each bus (name[<bit>]) the bit numbers in coordinate order on each edge; scalars are listed with their position
+proc unpu_pin_bus_summary {records} {
+  array set bus {}
+  set scalars {}
+  foreach e {right top left bottom} {
+    set rs {}
+    foreach r $records { if {[lindex $r 1] eq $e} { lappend rs $r } }
+    foreach r [lsort -real -index 2 $rs] {
+      if {[regexp -- {^(.+)\[([0-9]+)\]$} [lindex $r 0] -> b bit]} { lappend bus($b,$e) $bit } else { lappend scalars "[lindex $r 0] [lindex $r 1] [format %.3f [lindex $r 2]]" }
+    }
+  }
+  set out {}
+  foreach k [lsort [array names bus]] { lassign [split $k ,] b e; lappend out "$b ($e): [join $bus($k) { }]" }
+  foreach s $scalars { lappend out "scalar $s" }
+  return $out
+}
+# ---- placement stage helpers (task 049) ---------------------------------------------------------------------------
+# Power terminals of the block (shared by pin_place.tcl and placement.tcl): {names boxes}; a box is {net llx lly urx ury}.
+# VERIFY (as power.tcl): get_terminals -of_objects <net>, get_attribute <terminal> bbox
+proc unpu_power_terminals {} {
+  global PG_NET_POWER PG_NET_GROUND
+  set names {}; set boxes {}
+  foreach n [list $PG_NET_POWER $PG_NET_GROUND] {
+    foreach_in_collection t [get_terminals -quiet -of_objects [get_nets $n]] {
+      lappend names [get_object_name $t]
+      set e [unpu_box_entry $n [get_attribute $t bbox]]
+      if {$e ne ""} { lappend boxes $e }
+    }
+  }
+  return [list $names $boxes]
+}
+# place_opt -list_only text: {found missing} of the expected stage names; found = the expected names that appear as whole words,
+# in the order of `expected`. The usage text of the tool lists them as "[ initial_place initial_drc initial_opto final_place final_opto ]".
+proc unpu_stages_in_text {text expected} {
+  set found {}; set missing {}
+  foreach s $expected { if {[regexp "\\m$s\\M" $text]} { lappend found $s } else { lappend missing $s } }
+  return [list $found $missing]
+}
+# half-perimeter of a list of points {x y ...} pairs given as boxes {llx lly urx ury}: the boxes' centres are the points.
+# Returns the HPWL in um, or "unavailable" for an empty list.
+proc unpu_hpwl_of_boxes {boxes} {
+  if {[llength $boxes] == 0} { return unavailable }
+  set xs {}; set ys {}
+  foreach b $boxes { lassign $b x0 y0 x1 y1; lappend xs [expr {($x0+$x1)/2.0}]; lappend ys [expr {($y0+$y1)/2.0}] }
+  set xs [lsort -real $xs]; set ys [lsort -real $ys]
+  return [expr {([lindex $xs end] - [lindex $xs 0]) + ([lindex $ys end] - [lindex $ys 0])}]
+}
+# HPWL from a net bbox attribute text ("{llx lly} {urx ury}"): width + height, or "unavailable"
+proc unpu_hpwl_of_bbox {text} {
+  set b [unpu_parse_bbox $text]
+  if {[llength $b] != 4} { return unavailable }
+  return [expr {([lindex $b 2] - [lindex $b 0]) + ([lindex $b 3] - [lindex $b 1])}]
+}
+# Estimated antenna ratio of a single-layer run: 2 * HPWL * detour * weight / gate_area (the Calibre deck rule AN.MTL.1.MT is
+# perimeter * 0.84 / gate area, handoff 18.27; the perimeter of a wire of length L is about 2L). "unavailable" without a positive
+# gate area or a numeric HPWL.
+proc unpu_antenna_estimate {hpwl detour weight gate_area} {
+  if {![string is double -strict $hpwl] || ![string is double -strict $gate_area] || $gate_area <= 0} { return unavailable }
+  return [expr {2.0 * $hpwl * $detour * $weight / $gate_area}]
+}
+# 1 when the estimate is a number above the limit, 0 when it is not, "unknown" when it is unavailable
+proc unpu_antenna_flag {estimate limit} {
+  if {![string is double -strict $estimate]} { return unknown }
+  return [expr {$estimate > $limit ? 1 : 0}]
+}
+# port report rows {port net loads hpwl gate_area gate_source ratio flag method}: sorted by ratio, worst first, unavailable last
+proc unpu_port_report_sort {rows} {
+  set num {}; set na {}
+  foreach r $rows { if {[string is double -strict [lindex $r 6]]} { lappend num $r } else { lappend na $r } }
+  return [concat [lsort -real -decreasing -index 6 $num] [lsort -index 0 $na]]
+}
+# the CSV text of the rows (header + one line per row); fields are written as they are, ratios and lengths with 3 decimals
+proc unpu_port_report_csv {rows} {
+  set out [list "port,net,loads,hpwl_um,gate_area_um2,gate_area_source,estimated_ratio,flag,hpwl_method"]
+  foreach r [unpu_port_report_sort $rows] {
+    lassign $r port net loads hpwl gate src ratio flag method
+    foreach v {hpwl gate ratio} { if {[string is double -strict [set $v]]} { set $v [format %.3f [set $v]] } }
+    set fl [expr {$flag eq "1" ? "FLAG" : $flag eq "0" ? "ok" : "unknown"}]
+    lappend out [join [list [string map {, _} $port] [string map {, _} $net] $loads $hpwl $gate $src $ratio $fl $method] ,]
+  }
+  return $out
+}
+# summary of the rows: {flagged longest_hpwl longest_port long_count unknown_count}; long = hpwl above `long_um`
+proc unpu_port_report_summary {rows long_um} {
+  set flagged 0; set lh -1; set lp ""; set long 0; set unk 0
+  foreach r $rows {
+    lassign $r port net loads hpwl gate src ratio flag method
+    if {$flag eq "1"} { incr flagged }
+    if {![string is double -strict $hpwl]} { incr unk; continue }
+    if {$hpwl > $lh} { set lh $hpwl; set lp $port }
+    if {$hpwl > $long_um} { incr long }
+  }
+  return [list $flagged [expr {$lh < 0 ? "n/a" : $lh}] $lp $long $unk]
 }
 # cts.tcl stage rule: the guards of each mode as a list of "must_not_exist" blocks and "must_exist" blocks, and the block opened
 proc unpu_cts_stage_plan {stage placed cts clkopt} {

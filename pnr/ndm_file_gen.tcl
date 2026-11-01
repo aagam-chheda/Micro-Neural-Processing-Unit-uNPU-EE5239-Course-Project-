@@ -13,12 +13,12 @@
 #   source ~/synopsys_cshrc
 #   setenv UNPU_REPO <your clone of the repo>
 #   setenv UNPU_WORK <work directory>      # the default is printed by params.tcl (UNPU_WORK)
-#   setenv UNPU_NDM_MODE single            # or: two
+#   setenv UNPU_NDM_MODE two               # the default; single does not work on this kit (see Mode below)
 #   mkdir -p $UNPU_WORK/ndm
 #   /home/Synopsys_tools/icc2/U-2022.12-SP3/bin/icc2_lm_shell \
 #       -file $UNPU_REPO/pnr/ndm_file_gen.tcl \
 #       -output_log_file $UNPU_WORK/ndm/ndm_file_gen.log
-#   (VERIFY: -file / -output_log_file exist in icc2_lm_shell; if not, use -f and "|& tee")
+#   (-file / -output_log_file in icc2_lm_shell: confirmed on the server, VERIFY_STATUS.md)
 #
 # Where the outputs go: $NDM_DIR (params.tcl: $UNPU_WORK/ndm), because commit_workspace writes
 # the NDM into the directory where the library manager is running; this script cd's there and
@@ -32,18 +32,14 @@
 # UNPU_NDM_OVERWRITE=1 (then it prints a Warning for every path it removes).
 # Nothing is ever written under SCL_KIT_ROOT.
 #
-# Mode (UNPU_NDM_MODE, never decided silently at run time):
-#   single  one NDM with the 534 timing cells and the three fillers typed `filler`.
-#           The goal. In the first run the six LEF-only cells (feedth, feedth3, feedth9,
-#           mx08d1, mx08d2, mx08d4) were NOT in the NDM (534 cells = the 534 .lib cells) and
-#           the log does not say why. HYPOTHESIS (not tested): the -flow normal build drops
-#           cells that have no timing view. If so, mode single ends with 0 fillers in the
-#           workspace; this script then prints a Warning with the count, still commits, and
-#           ndm_check.tcl reports it. Then: setenv UNPU_NDM_MODE two and rerun with
-#           UNPU_NDM_OVERWRITE 1. In this mode the fillers can only come from the kit LEF read
-#           (a second read of known MACROs is not attempted); feedth.lef is still written.
-#   two     the main NDM exactly as in 18.10, then a second workspace (-flow physical_only)
-#           from feedth.lef, cells typed `filler`, giving scl18fs120_fillf.ndm (18.22).
+# Mode (UNPU_NDM_MODE, default two, never decided silently at run time):
+#   two     the main NDM exactly as in 18.10 (534 timing cells), then a second workspace (-flow physical_only) from
+#           feedth.lef, cells typed `filler`, giving scl18fs120_fillf.ndm (537 cells in total, 18.22). THE WAY THAT WORKS.
+#   single  one NDM with the 534 timing cells and the three fillers. DOES NOT WORK ON THIS KIT: the server run of task 047
+#           (ndm_file_gen.log) read the LEF into 'scl18fs120_std' (LEFR-022); at check_workspace "Skipped 6 physical designs
+#           (LM-052)" (the six LEF-only cells feedth, feedth3, feedth9, mx08d1, mx08d2, mx08d4 have no logical view and the
+#           workspace skips them) and still "Workspace check succeeded!"; get_lib_cells listed 0 of the 3 fillers;
+#           ndm_check.tcl: 534 cells, 0 fillers, single_mode_worked = no. The mode is kept only to reproduce that result.
 # =============================================================================
 
 set here [file dirname [file normalize [info script]]]
@@ -51,7 +47,7 @@ source [file join $here common.tcl]
 unpu_load_params
 
 # ---- 1. checks before doing anything ----------------------------------------
-unpu_require_tool_version $ICC2_VERSION            ;# VERIFY how the version is exposed (see common.tcl)
+unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
 unpu_need_file $TECH_FILE "technology file"
 unpu_need_file $LEF_STD   "standard-cell LEF"
 unpu_need_file $LIB_DB_SS "ss .db"
@@ -94,7 +90,8 @@ unpu_check_pass ndm_file_gen feedth_lef [expr {$nfill_lef == [llength $FILLER_CE
     "$nfill_lef MACROs written to $feedth_lef ($FILLER_CELLS)"
 
 # ---- helper: type the filler cells `filler` ----------------------------------
-# VERIFY (server, lm_shell): get_lib_cells, foreach_in_collection, get_object_name, set_attribute
+# get_lib_cells, foreach_in_collection, get_object_name, set_attribute exist in icc2_lm_shell (help_lm usage files); the server run of
+# mode single ran this loop without error (0 cells found: LM-052)
 # design_type (18.22 shows foreach_in_collection c [get_lib_cells] {set_attribute $c design_type
 # filler} in a workspace that holds only the three fillers). Here the loop is restricted to the
 # filler names because in mode single the workspace holds the timing cells too.
@@ -116,7 +113,7 @@ proc ndm_type_fillers {} {
 }
 
 # ---- helper: check_workspace must report success (the first run printed "Workspace check succeeded!") ----
-# VERIFY: `redirect -variable` captures the messages of check_workspace. If nothing at all was
+# `redirect -variable` captures the messages of check_workspace (confirmed: the success text is captured, VERIFY_STATUS.md). If nothing at all was
 # captured the script cannot tell and says so loudly (Warning); if something was captured but the
 # success text is absent, it stops and prints what was captured.
 proc ndm_check_workspace {ws} {
@@ -125,11 +122,14 @@ proc ndm_check_workspace {ws} {
     unpu_warn "check_workspace $ws: output capture unavailable; CANNOT VERIFY that it printed 'Workspace check succeeded!' (read the log)"
   } elseif {[string trim $text] eq ""} {
     unpu_warn "check_workspace $ws: nothing was captured; CANNOT VERIFY that it printed 'Workspace check succeeded!' (read the log)"
-  } elseif {[string first "Workspace check succeeded" $text] < 0} {
+  } elseif {![unpu_workspace_check_ok $text]} {
     unpu_die "check_workspace $ws did not report 'Workspace check succeeded!'. Captured output:\n$text"
   } else {
     unpu_info "check_workspace $ws: reported success"
   }
+  # LM-052 "Skipped N physical designs": the LEF-only cells that have no logical view (6 in the main workspace on this kit, task 047)
+  set skipped [unpu_workspace_skipped $text]
+  unpu_result ndm_file_gen lm052_skipped_physical_designs_$ws [expr {$skipped eq "" ? "none reported" : $skipped}]
 }
 
 # ---- 4. main workspace (handoff 18.10) ---------------------------------------
@@ -147,10 +147,11 @@ if {$NDM_MODE eq "single"} {
   # MACROs, and a second read of known MACROs may be an error. feedth.lef is NOT read in this mode
   # (it is written for mode two). Every message that mentions a filler was echoed above as
   # MSG-MENTIONING-<name>.
-  # VERIFY: get_lib_cells may not list physical-only cells that are present in the workspace.
+  # Server run of task 047: get_lib_cells lists 0 of the 3 fillers here (LM-052 skipped the physical-only cells).
+  unpu_warn "UNPU_NDM_MODE=single DOES NOT WORK on this kit: the server run showed 'Skipped 6 physical designs (LM-052)', 0 of 3 fillers in the workspace and single_mode_worked = no in ndm_check. Use the default, UNPU_NDM_MODE two."
   set fillers_in_ws [ndm_type_fillers]
   if {$fillers_in_ws != [llength $FILLER_CELLS]} {
-    unpu_warn "mode single: get_lib_cells lists only $fillers_in_ws of [llength $FILLER_CELLS] filler cells in the workspace. This is a hint, not proof (get_lib_cells may not list physical-only cells that are present). The verdict is ndm_check.tcl: its single_mode_worked line. Committing anyway; if ndm_check says no, setenv UNPU_NDM_MODE two, setenv UNPU_NDM_OVERWRITE 1 and rerun."
+    unpu_warn "mode single: get_lib_cells lists only $fillers_in_ws of [llength $FILLER_CELLS] filler cells in the workspace (as in the server run: LM-052). Committing anyway so the result can be reproduced; ndm_check.tcl will say single_mode_worked = no. Fix: setenv UNPU_NDM_MODE two, setenv UNPU_NDM_OVERWRITE 1 and rerun."
   }
 }
 unpu_result ndm_file_gen fillers_in_main_workspace $fillers_in_ws
@@ -161,8 +162,8 @@ set committed 1
 
 # ---- 5. mode two: second workspace for the fillers (handoff 18.22) -----------
 if {$NDM_MODE eq "two"} {
-  # VERIFY: -technology is accepted/needed with -flow physical_only (18.22 does not record the
-  # exact command used for the first filler build).
+  # -technology with -flow physical_only: accepted (create_workspace usage in help_lm; the server run of mode single used -flow normal only,
+  # so this form is not yet exercised: VERIFY_STATUS.md).
   unpu_info "create_workspace -flow physical_only $NDM_WS_FILL"
   unpu_run_logged [list create_workspace -flow physical_only -technology $TECH_FILE $NDM_WS_FILL] $FILLER_CELLS
   unpu_run_logged [list read_lef $feedth_lef] $FILLER_CELLS

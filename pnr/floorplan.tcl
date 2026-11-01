@@ -13,7 +13,7 @@
 #   setenv UNPU_RUN_TAG run1                 # the run that design_setup.tcl was run in
 #   icc2_shell -file $UNPU_REPO/pnr/floorplan.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/floorplan.log
-#   (VERIFY -file / -output_log_file in icc2_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Input: the design library $LIB_DIR/$LIB_NAME with the block $BLK_IMPORT saved by design_setup.tcl
 #   (it must have no floorplan yet).
@@ -35,7 +35,7 @@ source [file join $here common.tcl]
 unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
-unpu_require_tool_version $ICC2_VERSION            ;# VERIFY how the version is exposed (see common.tcl)
+unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
@@ -152,12 +152,14 @@ foreach pat $DONT_USE_PATTERNS {
     }
   } else {
     unpu_info "don't-use pattern $pat matched $n library cell(s)"
-    set_dont_use $coll
+    # set_dont_use is NOT a command in icc2_shell U-2022.12-SP3 (help probe: "No commands matched", CMD-040). The attribute is set
+    # on the library cells (set_attribute usage: -objects -name -value); this prints ATTR-12 "block-level overrides" (18.15).
+    unpu_run_logged [list set_attribute -objects $coll -name dont_use -value true] {ATTR-}
   }
 }
 unpu_check_pass floorplan dont_use_matched [expr {$matched_total == $EXPECT_DONT_USE_MATCHED}] \
     "$matched_total cells matched by the patterns, expected $EXPECT_DONT_USE_MATCHED (18.15)"
-# VERIFY: the -filter form is the one ndm_check.tcl uses
+# the -filter form is the one ndm_check.tcl uses (confirmed by the server run of ndm_check, VERIFY_STATUS.md)
 set dnu [get_lib_cells -quiet -filter "dont_use==true" */*]
 set dnu_names {}
 foreach_in_collection c $dnu { lappend dnu_names [lindex [split [get_object_name $c] /] end] }

@@ -14,7 +14,7 @@
 #   setenv UNPU_RUN_TAG run1
 #   icc2_shell -file $UNPU_REPO/pnr/outputs.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/outputs.log
-#   (VERIFY -file / -output_log_file in icc2_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Input: the library $LIB_DIR/$LIB_NAME with the FILLED block $BLK_FINAL (fill.tcl). Every file comes from that block only.
 # Output, in $OUT_DIR, with the prefix OUT_PREFIX (unpu_top):
@@ -38,7 +38,7 @@ source [file join $here common.tcl]
 unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
-unpu_require_tool_version $ICC2_VERSION            ;# VERIFY how the version is exposed (see common.tcl)
+unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
@@ -73,11 +73,12 @@ if {[llength $existing] > 0} {
 set ports {}
 foreach_in_collection p [get_ports] { lappend ports [get_object_name $p] }
 unpu_check_pass outputs ports_read [expr {[llength $ports] == $EXPECT_PORTS}] "[llength $ports] top-level ports read from the block, $EXPECT_PORTS expected (EXPECT_PORTS)"
-# TOP_M stripes per power net, the same query as power.tcl (the LEF pins must have as many rectangles). VERIFY (18.21 shows this query)
+# Power terminals per net: power.tcl made one terminal per TOP_M stripe, and the LEF power pin has one rectangle per terminal. (A count of
+# stripe SHAPES would be wrong here: power.tcl creates its extension rectangles with shape_use stripe too, so that query counts both.)
 foreach n [list $PG_NET_POWER $PG_NET_GROUND] {
-  if {[catch {sizeof_collection [get_shapes -quiet -of_objects [get_nets $n] -filter "layer_name==$PG_STRIPE_LAYER && shape_use==$PG_STRIPE_SHAPE_USE"]} c]} { set c unavailable }
+  if {[catch {sizeof_collection [get_terminals -quiet -of_objects [get_nets $n]]} c]} { set c unavailable }
   set nstripe($n) $c
-  unpu_result outputs stripes_$n $c
+  unpu_result outputs power_terminals_$n $c
 }
 proc oc_ls {} { global OUT_DIR; return [glob -nocomplain -tails -directory $OUT_DIR *] }
 
@@ -186,7 +187,7 @@ if {$have(lef)} {
     foreach r $rects { lappend ys [lindex $r 1] }
     set miny [expr {[llength $ys] > 0 ? [lindex [lsort -real $ys] 0] : "none"}]
     unpu_result outputs lef_${n}_rects [llength $rects]
-    unpu_check_pass outputs lef_${n}_rects [expr {$nstripe($n) ne "unavailable" && [llength $rects] == $nstripe($n)}] "PIN $n has [llength $rects] rectangle(s) on $PG_STRIPE_LAYER, the block has $nstripe($n) stripe(s) of $n"
+    unpu_check_pass outputs lef_${n}_rects [expr {$nstripe($n) ne "unavailable" && [llength $rects] == $nstripe($n)}] "PIN $n has [llength $rects] rectangle(s) on $PG_STRIPE_LAYER, the block has $nstripe($n) power terminal(s) of $n"
     unpu_check_pass outputs lef_${n}_from_bottom [expr {$miny ne "none" && abs($miny) < 1e-3}] "lowest y of the $PG_STRIPE_LAYER rectangles of PIN $n: $miny (0 expected: the pins start at the bottom edge)"
   }
 }

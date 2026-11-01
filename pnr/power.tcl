@@ -15,7 +15,7 @@
 #   setenv UNPU_RUN_TAG run1                 # the run that floorplan.tcl was run in
 #   icc2_shell -file $UNPU_REPO/pnr/power.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/power.log
-#   (VERIFY -file / -output_log_file in icc2_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Input: the design library $LIB_DIR/$LIB_NAME with the block $BLK_FP saved by floorplan.tcl (no power yet).
 # Output: block $BLK_PWR in the same library ($BLK_FP on disk is never touched); $LOG_DIR/manifest_power.txt.
@@ -38,7 +38,7 @@ source [file join $here common.tcl]
 unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
-unpu_require_tool_version $ICC2_VERSION            ;# VERIFY how the version is exposed (see common.tcl)
+unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {

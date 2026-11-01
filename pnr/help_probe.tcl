@@ -16,7 +16,7 @@
 #   mkdir -p $UNPU_WORK/$UNPU_RUN_TAG/logs
 #   icc2_shell -file $UNPU_REPO/pnr/help_probe.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/help_probe.log
-#   (VERIFY -file / -output_log_file in icc2_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Output, in $RPT_DIR/help/: version.txt, summary.txt (one line per probe: STATUS kind name file-or-message, then
 #   the totals), all_commands.txt (every command's text, banner "===== <cmd> =====" before each),

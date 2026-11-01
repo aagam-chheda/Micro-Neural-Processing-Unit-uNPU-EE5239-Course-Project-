@@ -240,3 +240,85 @@ the stripe count, the real layout of the written files.
 Written and statically checked: params, common, ndm_file_gen, ndm_check, design_setup, floorplan, power, help_probe (x2), cts, route, fill, outputs
 (14 `.tcl` files, 338 local tests). None has run on a real tool. Not written: pin_place, placement (need the help probe), Calibre scripts (need the
 server's control files), PrimeTime, post-layout simulation wrapper.
+
+## First server results (2026-11-01 evening), read by Planning from ~/server_pull
+
+- Both help probes ran (icc2: 141 probes, 140 found; lm: 24, 23 found). Release string, `-file`, `-output_log_file` all work.
+- `set_dont_use` is not a command in this version. The handoff's 18.15 text names it; the first run most likely used `set_attribute` on the
+  library cells (the `ATTR-12` "block-level override" messages). `floorplan.tcl` would have failed. Planning's handoff text was wrong.
+- `ndm_file_gen.tcl` (mode single) ran clean and `ndm_check.tcl` reports `single_mode_worked = no`: `Skipped 6 physical designs (LM-052)`,
+  0 of 3 fillers in the library, 534 cells. The library manager skips cells without a logical view. Mode `two` is the way (decision pending the
+  user's OK: default mode becomes `two`; one NDM literally containing the fillers would need a hand-written Liberty for the three cells read
+  with `read_lib`, an experiment not worth blocking on).
+- `report_timing -slack_lesser_than`, `-scenarios`, `get_site_rows -quiet`, `get_blocks -quiet`, `current_scenario <name>`,
+  `create_stdcell_fillers -lib_cells -prefix -rules post_route_auto_delete`, `define_antenna_rule`, `place_pins` and the pin-constraint
+  commands all exist with the options the scripts use. `set_clock_uncertainty` acts on the current scenario unless `-scenarios` is given.
+- The user now copies server files to `~/server_pull/` with scp, so Planning and Execution read them directly.
+
+## Task 047: VERIFY close-out
+
+Scope: table of every VERIFY item against the usage files and logs; fix the contradicted ones (`set_dont_use` -> `set_attribute`,
+`set_clock_uncertainty -scenarios`), default NDM mode `two`, real-text tests for the parsers that have real text.
+
+### Task 047, round 1 (2026-11-01): accepted
+
+Independently verified: `tclsh pnr/test_common.tcl` 355 passed, 0 failed; all 14 `.tcl` files complete; only `pnr/` (and the planning docs) changed; no
+`set_dont_use` command left in code (only comments, the probe list and a fixture of the real help text); no `server_pull` or `/home` path in a script or
+test. Read `pnr/VERIFY_STATUS.md` header and the contradicted table. Value: running the parsers on real text found two parsers that would have made
+`design_setup.tcl` fail its first real run (`report_ref_libs` rows carry `*`, not the word "open") and mis-read the antenna switch. Planning corrected
+18.15 of the handoff (`set_dont_use`) and recorded the server results as 18.28.
+
+Execution's notes: `get_app_option_value` and `report_constraint` were not probed (still unknown); `connect_pg_net` has `-report_connection_summary` (try it if the
+summary is not parsed). Planning: add both commands to the probe list in the next probe run.
+
+### Task 048, round 1 (2026-11-02): accepted
+
+Independently verified: `tclsh pnr/test_common.tcl` 397 passed, 0 failed; all 15 `.tcl` files complete; only `pnr/` changed. Read the command lines of `pin_place.tcl`
+(`create_placement -floorplan`, `set_block_pin_constraints -self ... -sides {R T}`, one `set_individual_pin_constraints` per group with `-sides` and `-allowed_layers`, `place_pins -self`;
+no `-location`, no `-hard_constraints`). Checks: 204 terminals, right group on the right edge M3, top group on the top edge M2, none left or bottom, size, centre pitch,
+overlap, corner keep-out, no overlap with power terminals, with a diagnosis that names the edge each group landed on when the guessed side numbers are wrong. The pin-order report is
+written for the top-level team; `clk` and `rst_n` positions are RESULT lines (the clock position goes to the PM, Q14).
+
+Execution found and fixed a bug of its own in `outputs.tcl` (task 046): the LEF check compared VDD/VSS PIN rectangles with a count of TOP_M stripe SHAPES, but `power.tcl`'s extension
+rectangles are also `shape_use stripe`, so the count would have doubled and the check failed on the server. Now it counts the power TERMINALS. Same reason `pin_place.tcl` does not compare
+terminals with a stripe count. Accepted. Added by Execution: block-level `-sides {R T}` in `set_block_pin_constraints` (keeps the tool off the left and bottom): accepted, the check covers it.
+
+Open (server only): meaning of the side integers (guess 3 right, 2 top), terminal attributes (`bbox`, `layer`, `port`), `physical_status==unplaced`, whether `place_pins` honours the spacing option.
+
+## Task 049: placement.tcl
+
+Scope: `place_opt -list_only` (five stages), `place_opt`, setup / transition / capacitance / legality / PG connectivity as checks, hold a Warning (place_opt does not fix hold), RESULT lines
+with the first run's numbers, and the input-port wire report (HPWL, load gate area or assumed 0.108 um2, estimated antenna ratio with the top-metal weight 0.84, flag above 300), report only.
+
+### Task 049, round 1 (2026-11-02): accepted
+
+Independently verified: `tclsh pnr/test_common.tcl` 415 passed, 0 failed; all 16 `.tcl` files complete; only `pnr/` changed; `placement.tcl` has no `insert_buffer`, `create_cell`,
+`add_port_protection_diodes` or `reset_placement`. Read the flow as reported: `place_opt -list_only` checked against the five stages, `place_opt` with no option, setup violations 0 /
+transition / capacitance / legality / PG connectivity as checks, hold a Warning only, the input-port report (net, loads, HPWL with the method named per port, gate area or the assumed
+0.108, estimate with weight 0.84, flag above 300) as a CSV; every read in a catch; unreadable HPWL does not stop the run.
+
+Minor: `HPWL_DETOUR` is now defined twice in `params.tcl` (Execution did not see the first one from task 038); same value, harmless; removed in task 050. The scenario-status precondition is a
+Warning when unreadable (deviation from "CHECK each") and a CHECK when read and wrong: accepted.
+
+Open (server only): attributes `direction`, `bbox` on nets/pins/ports, the gate-area attribute names (guesses), `physical_status`, the texts of `report_utilization` / `report_qor`.
+
+## State after task 049
+
+All ICC2 stages are written: `ndm_file_gen`, `ndm_check`, `design_setup`, `floorplan`, `power`, `pin_place`, `placement`, `cts`, `route`, `fill`, `outputs` (+ the two probes), 415 local tests,
+`pnr/VERIFY_STATUS.md`. Not written: Calibre scripts (need the server's control files), PrimeTime, post-layout simulation wrapper. Not run on the server: everything except the probes,
+`ndm_file_gen` (single mode) and `ndm_check`.
+
+## Task 050: RUNBOOK.md
+
+Scope: one document with every script's csh command, block in/out, good result, predicted failures, rerun rule, copy-back commands, plus removal of the duplicate `HPWL_DETOUR`.
+
+### Task 050, round 1 (2026-11-02): accepted
+
+Independently verified: `tclsh pnr/test_common.tcl` 417 passed, 0 failed; the duplicate `HPWL_DETOUR` is gone (one definition left) and a test now fails on any duplicate top-level `set` in
+`params.tcl`; `pnr/RUNBOOK.md` has a section for every script (0 to 11), the hold-uncertainty experiment, the `scp` copy-back (laptop terminal, a new local folder per pull so earlier pulls are not
+overwritten, big files listed), and the list of what is not scripted yet. No password text. Every script named in the RUNBOOK exists.
+
+## Status at the end of the first loop (2026-11-02)
+
+Tasks 038 to 050 done and reviewed: 13 tasks, 16 `.tcl` files, `RUNBOOK.md`, `VERIFY_STATUS.md`, `README.md`, 417 local tests, about 6,000 lines. Nothing past `ndm_check.tcl` has run on a real tool.
+Next steps need the user: commit, pull, run per the RUNBOOK, copy logs back. Then: Calibre scripts (need `drc.ctrl`, `ant.ctrl`, the deck headers), PrimeTime, post-layout simulation, antenna fix loop.

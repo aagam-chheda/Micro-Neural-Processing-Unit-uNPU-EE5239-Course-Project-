@@ -17,7 +17,7 @@
 #   setenv UNPU_RUN_TAG run1
 #   icc2_shell -file $UNPU_REPO/pnr/fill.tcl \
 #       -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/fill.log
-#   (VERIFY -file / -output_log_file in icc2_shell)
+#   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Input: the library $LIB_DIR/$LIB_NAME with the routed, UNFILLED block $BLK_ROUTED (route.tcl); start from another one with
 #   UNPU_BLK_ROUTED. The filler cells come from the library that ndm_file_gen.tcl built (task 038): their presence and type
@@ -43,7 +43,7 @@ source [file join $here common.tcl]
 unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
-unpu_require_tool_version $ICC2_VERSION            ;# VERIFY how the version is exposed (see common.tcl)
+unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {

@@ -928,7 +928,7 @@ SUPERSEDES the sides in the provisional plan above (APB top / DMA right):
 
 ### 18.15 ICC2 step 5: don't-use, power grid, signal pins (user's server run, 2026-10-28)
 
-- **Don't-use.** `set_dont_use [get_lib_cells {*/slnht* */skbrb* */slbhb* */slnhn* */slnln* */mx08d*}]`:
+- **Don't-use.** (CORRECTED 2026-11-01: `set_dont_use` is NOT a command in this icc2_shell U-2022.12-SP3, `help set_dont_use` gives `CMD-040`; the first run's `ATTR-12` block-level override messages are what `set_attribute <cells> dont_use true` prints, so that was the command; scripts use `set_attribute -objects <cells> -name dont_use -value true`.) The collection was `[get_lib_cells {*/slnht* */skbrb* */slbhb* */slnhn* */slnln* */mx08d*}]`:
   18 lib cells now `dont_use==true`. `*/mx08d*` matched nothing (`mx08d1/2/4` have no timing view, so
   `get_lib_cells` does not return them; ICC2 cannot choose them for timing optimisation anyway). The 15
   matched cells are block-level overrides (`ATTR-12`, saved with the block). The other three are
@@ -1414,3 +1414,11 @@ State at stop (user took a break; nothing running).
 - ICC2 when stopped: `unpu_top_ant3` open in edit mode, only read-only queries run. Exit with `close_blocks -force`
   then `exit`, no save.
 - Still to do: antenna 3 -> 0, LVS, PrimeTime, post-layout simulation, commit/push 18.27, `plan.md`.
+
+
+### 18.28 Scripted re-run: first server results (user's server run + scp, 2026-11-01)
+
+- Commit `5c38008` holds `pnr/` (tasks 038 to 046). The user copies server files to `~/server_pull/` with `scp` so the sessions read them directly (the password is typed by the user only).
+- Help probes: `icc2_shell` 141 probes, 140 found (`set_dont_use` not a command); `icc2_lm_shell` 24, 23 found (`*filler*` matches no command). `sh_product_version` = U-2022.12-SP3 in both shells; `-file` and `-output_log_file` work in both; Tcl is 8.6.11; no pager.
+- `ndm_file_gen.tcl` mode single: log shows `Read LEF into a new library 'scl18fs120_std' (LEFR-022)`, then `Skipped 6 physical designs (LM-052)` at `check_workspace`, `Workspace check succeeded!`, 534 cells; `ndm_check.tcl`: fillers 0, `single_mode_worked = no`. The library manager skips the six LEF-only cells (no logical view). DECISION (Planning, to be confirmed by the user): NDM mode `two` is the default (main NDM + a physical-only NDM with the three fillers typed `filler`, both written by one run). One NDM literally holding the fillers would need a hand-written Liberty for the three cells read with `read_lib`; not pursued.
+- Task 047 fixed five contradicted items found by running the parsers on real text: `set_dont_use`, `set_clock_uncertainty -scenarios`, NDM mode default, the `report_ref_libs` open-library parser (real rows are `*+  name path path`), the `report_app_options` row layout. 53 VERIFY items confirmed, 32 still unknown (`pnr/VERIFY_STATUS.md`).

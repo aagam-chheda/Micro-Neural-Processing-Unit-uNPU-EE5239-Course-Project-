@@ -63,7 +63,7 @@ t_check "default die/site 1550" [expr {$FP_SITES_ACROSS == 1550}] "got $FP_SITES
 t_check "default core area = side^2" [expr {abs($CORE_AREA - 734106.24) < 1e-6}] "got $CORE_AREA"
 t_check "boundary is {{5.6 5.6} {862.4 862.4}}" [expr {$FP_BOUNDARY eq "{5.6 5.6} {862.4 862.4}"}] "got $FP_BOUNDARY"
 t_check "REPO_ROOT is the parent of pnr/" [expr {$REPO_ROOT eq [file dirname $here]}] $REPO_ROOT
-t_check "NDM_MODE default single" [expr {$NDM_MODE eq "single"}]
+t_check "NDM_MODE default two (single does not work on this kit, task 047)" [expr {$NDM_MODE eq "two"}]
 t_check "directory layout derived" [expr {$LOG_DIR eq "$UNPU_WORK/$UNPU_RUN_TAG/logs" && $NDM_DIR eq "$UNPU_WORK/ndm"}]
 t_check "kit path uses 4M1IL for stdcell and 4M1L for pnr kit" \
     [expr {[string match */stdcell/fs120/4M1IL/lef/scl18fs120_std.lef $LEF_STD] && [string match */snps/non_rh/4M1L/SCL_4LM.tf $TECH_FILE]}]
@@ -577,6 +577,177 @@ lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file
 t_check "UNPU_GDS_LAYER_MAP replaces the kit map with a Warning" [expr {$c == 0 && [t_has $o "MAP=$mapf"] && [t_has $o "Warning: \[unpu\]*layer map overridden"]}] "exit $c: $o"
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs NOT_REACHED" [list UNPU_GDS_LAYER_MAP [file join $tmp nosuch.map]]] c o
 t_check "UNPU_GDS_LAYER_MAP to a missing file is rejected" [expr {$c == 1 && [t_has $o "does not exist"]}] "exit $c: $o"
+# ---- parsers on REAL text (task 047): fixtures copied from the server logs of the first scripted run, paths shortened ----
+# report_ref_libs of icc2_shell U-2022.12-SP3 (ndm_check.log): open libraries carry * in the flag column; no word "open" on the row
+set real_rrl "****************************************\nReport : Reference Library Report\nLibrary: ndm_check_lib_20261101_155957\nVersion: U-2022.12-SP3\n****************************************\n\n    Name       Path                                   Location\n    --------------------------------------------------------------------------------------\n*+  scl18fs120 /w/ndm/scl18fs120.ndm /w/ndm/scl18fs120.ndm\n    \"*\" = Library currently open\n    \"+\" = Library has technology information\n"
+t_check "REAL report_ref_libs: scl18fs120 (flag *+) is open" [unpu_reflib_open $real_rrl scl18fs120]
+t_check "REAL report_ref_libs: a library that is not listed is not open" [expr {![unpu_reflib_open $real_rrl scl18fs120_fillf]}]
+set real_rrl2 "*+  scl18fs120 /w/ndm/scl18fs120.ndm /w/ndm/scl18fs120.ndm\n*   scl18fs120_fillf /w/ndm/scl18fs120_fillf.ndm /w/ndm/scl18fs120_fillf.ndm"
+t_check "REAL layout, two libraries: both open, names not confused" [expr {[unpu_reflib_open $real_rrl2 scl18fs120] && [unpu_reflib_open $real_rrl2 scl18fs120_fillf]}]
+t_check "REAL layout: a library without the * flag is not open" [expr {![unpu_reflib_open "    scl18fs120 /w/ndm/scl18fs120.ndm /w/ndm/scl18fs120.ndm" scl18fs120]}]
+t_check "REAL layout: the name inside a path does not count" [expr {![unpu_reflib_open "*+  other /w/ndm/scl18fs120.ndm" scl18fs120]}]
+# library manager (ndm_file_gen.log): the skipped LEF-only cells and the success line
+set real_ws "Information: Skipped 6 physical designs (LM-052)\n... other lines ...\nWorkspace check succeeded!\n"
+t_check "REAL check_workspace: success line found" [unpu_workspace_check_ok $real_ws]
+t_check "REAL check_workspace: LM-052 skipped 6 physical designs" [expr {[unpu_workspace_skipped $real_ws] eq "6"}] [unpu_workspace_skipped $real_ws]
+t_check "REAL check_workspace: no success line, no LM-052" [expr {![unpu_workspace_check_ok "Error: CHK-001 3 problems"] && [unpu_workspace_skipped "Workspace check succeeded!"] eq ""}]
+t_check "REAL message id LM-052 is counted by the id counter" [expr {[unpu_count_ids $real_ws LM] eq "LM-052 1"}] [unpu_count_ids $real_ws LM]
+# help probe: set_dont_use is not a command (summary.txt of the probe)
+set real_help "Information: No commands matched 'set_dont_use'. (CMD-040)"
+t_check "REAL help text of a missing command is NOT_FOUND" [expr {[lindex [unpu_classify_help $real_help] 0] eq "NOT_FOUND"}] [unpu_classify_help $real_help]
+# version probe (version.txt): sh_product_version by puts / get_app_var / printvar all give the release
+lassign [t_child "source [list [file join $here common.tcl]]\nset ::sh_product_version U-2022.12-SP3\nputs \[unpu_tool_version\]" {}] c o
+t_check "REAL version probe: sh_product_version U-2022.12-SP3 is read" [expr {$c == 0 && [t_has $o "U-2022.12-SP3"]}] $o
+# report_app_options (appopt_XantennaX.txt): the value sits in System-default when Value is --
+set real_ao "Name                                                             Type           Value      User-value   User-default System-default Scope      Status     Source\n---------------------------------------------------------------- -------------- ---------- ------------ ------------ -------------- ---------- ---------- ----------\nroute.detail.antenna                                             bool           --         --           --           true           block      normal     --\nroute.detail.antenna_fixing_preference                           enum           --         --           --           hop_layers     block      normal     --\nroute.detail.check_antenna_on_diode_pins                         bool           --         --           --           false          block      normal     --"
+t_check "REAL report_app_options: route.detail.antenna is true (System-default column)" [expr {[unpu_app_option_from_report $real_ao route.detail.antenna] eq "true"}] [unpu_app_option_from_report $real_ao route.detail.antenna]
+t_check "REAL report_app_options: an enum option is not read as a boolean" [expr {[unpu_app_option_from_report $real_ao route.detail.antenna_fixing_preference] eq ""}]
+t_check "REAL report_app_options: another bool option is false" [expr {[unpu_app_option_from_report $real_ao route.detail.check_antenna_on_diode_pins] eq "false"}]
+t_check "REAL layout with a User-value false: the user value wins over the system default" [expr {[unpu_app_option_from_report "route.detail.antenna bool false -- -- true block normal --" route.detail.antenna] eq "false"}]
+lassign [unpu_antenna_switch_message route.detail.antenna [unpu_app_option_from_report "route.detail.antenna bool -- -- false true block normal --" route.detail.antenna]] st msg
+t_check "REAL layout: User-default false gives the loud OFF text" [expr {$st eq "off" && [string first "!!!" $msg] >= 0}] $msg
+# NDM mode two checks: the manifest order and the cell counts (pure rule used by ndm_check.tcl through its inline expressions)
+t_check "mode two parameters: main NDM 534 cells + 3 fillers = 537, workspace names" [expr {$EXPECT_TIMING_CELLS == 534 && [llength $FILLER_CELLS] == 3 && $NDM_WS_MAIN eq "scl18fs120" && $NDM_WS_FILL eq "scl18fs120_fillf"}]
+# ---- pin placement geometry (task 048) -----------------------------------------------------------------------
+set pn_ports_r {}; foreach b {paddr pwdata prdata} { for {set i 0} {$i < 32} {incr i} { lappend pn_ports_r "$b\[$i\]" } }; lappend pn_ports_r pwrite psel penable pready clk rst_n
+set pn_ports_t {}; foreach b {dma_addr dma_wdata dma_rdata} { for {set i 0} {$i < 32} {incr i} { lappend pn_ports_t "$b\[$i\]" } }; for {set i 0} {$i < 4} {incr i} { lappend pn_ports_t "dma_wstrb\[$i\]" }; lappend pn_ports_t dma_valid dma_ready
+t_check "port groups: 102 right ports, 102 top ports" [expr {[llength $pn_ports_r] == 102 && [llength $pn_ports_t] == 102}]
+lassign [unpu_split_ports [concat $pn_ports_r $pn_ports_t] $PIN_PORTS_RIGHT] gr gother
+t_check "split by PIN_PORTS_RIGHT patterns: 102 / 102, bus bits and scalars" [expr {[llength $gr] == 102 && [llength $gother] == 102 && [lsearch -exact $gr "paddr\[31\]"] >= 0 && [lsearch -exact $gr clk] >= 0 && [lsearch -exact $gother dma_valid] >= 0}] "[llength $gr] [llength $gother]"
+lassign [unpu_split_ports [concat $pn_ports_r $pn_ports_t] $PIN_PORTS_TOP] gt gother2
+t_check "split by PIN_PORTS_TOP patterns: 102 / 102, disjoint from the right group" [expr {[llength $gt] == 102 && [llength [lsearch -all -inline -exact $gt clk]] == 0 && [unpu_port_matches "dma_wstrb\[3\]" $PIN_PORTS_TOP] && ![unpu_port_matches "dma_wstrb3" $PIN_PORTS_TOP] && ![unpu_port_matches "paddr" $PIN_PORTS_RIGHT]}]
+proc pn_layout {pitch {swap 0} {die 868.0}} {
+  global pn_ports_r pn_ports_t
+  set recs {}
+  set i 0
+  foreach p $pn_ports_r {
+    set c [expr {20.0 + $i * $pitch}]
+    if {$swap} { lappend recs [unpu_pin_record $p [list [expr {$c - 0.14}] [expr {$die - 1.0}] [expr {$c + 0.14}] $die] M2 $die 0.005] } else { lappend recs [unpu_pin_record $p [list [expr {$die - 1.0}] [expr {$c - 0.14}] $die [expr {$c + 0.14}]] M3 $die 0.005] }
+    incr i
+  }
+  set i 0
+  foreach p $pn_ports_t {
+    set c [expr {20.0 + $i * $pitch}]
+    if {$swap} { lappend recs [unpu_pin_record $p [list [expr {$die - 1.0}] [expr {$c - 0.14}] $die [expr {$c + 0.14}]] M3 $die 0.005] } else { lappend recs [unpu_pin_record $p [list [expr {$c - 0.14}] [expr {$die - 1.0}] [expr {$c + 0.14}] $die] M2 $die 0.005] }
+    incr i
+  }
+  return $recs
+}
+set pw_boxes {}; for {set k 0} {$k < 7} {incr k} { lappend pw_boxes [list VDD [expr {60.0+$k*100}] 0.0 [expr {62.24+$k*100}] 6.0] [list VSS [expr {110.0+$k*100}] 0.0 [expr {112.24+$k*100}] 6.0] }
+foreach pitch {7.0 6.72} {
+  set recs [pn_layout $pitch]
+  set rr [unpu_pins_of $recs $pn_ports_r]; set tt [unpu_pins_of $recs $pn_ports_t]
+  t_check "pins at pitch $pitch: right group on the right edge, top group on the top edge" [expr {[unpu_pin_edge_counts $rr] eq "right 102" && [unpu_pin_edge_counts $tt] eq "top 102"}] "[unpu_pin_edge_counts $rr] [unpu_pin_edge_counts $tt]"
+  lassign [unpu_pin_gaps $recs right] n mn mx
+  t_check "pins at pitch $pitch: 102 pins, smallest and largest gap = $pitch" [expr {$n == 102 && abs($mn - $pitch) < 1e-6 && abs($mx - $pitch) < 1e-6}] "$n $mn $mx"
+  t_check "pins at pitch $pitch: no close pair at pitch 6.72, no overlap, no corner pin, right size, no duplicate, no power overlap" [expr {[unpu_pin_close_pairs $recs 6.72 0.005] eq "" && [unpu_pin_overlaps $recs 0.005] eq "" && [unpu_pin_corner_pins $recs 868.0 13.44] eq "" && [unpu_pin_bad_size $recs 0.28 1.0 0.005] eq "" && [unpu_pin_duplicates $recs] eq "" && [unpu_pin_power_overlaps $recs $pw_boxes 0.005] eq ""}]
+  t_check "pins at pitch $pitch: no side diagnosis needed" [expr {[unpu_pin_side_diagnosis 3 2 [unpu_pin_dominant_edge $rr] [unpu_pin_dominant_edge $tt]] eq ""}]
+}
+t_check "pin record: width along the edge and length across it, both edges" [expr {[unpu_pin_record p {867.0 100.0 868.0 100.28} M3 868.0 0.005] eq "p right 100.14 0.28 1.0 M3 867.0 100.0 868.0 100.28" && [unpu_pin_record q {50.0 867.0 50.28 868.0} M2 868.0 0.005] eq "q top 50.14 0.28 1.0 M2 50.0 867.0 50.28 868.0"}] [unpu_pin_record p {867.0 100.0 868.0 100.28} M3 868.0 0.005]
+t_check "a pin centred on the edge line still touches it; one away from every edge touches none" [expr {[unpu_box_edges {867.5 100 868.5 100.28} 868.0 0.005] eq "right" && [unpu_box_edges {400 400 401 400.28} 868.0 0.005] eq ""}]
+# failure layouts
+set recs [pn_layout 7.0 1]
+set rr [unpu_pins_of $recs $pn_ports_r]; set tt [unpu_pins_of $recs $pn_ports_t]
+set diag [unpu_pin_side_diagnosis 3 2 [unpu_pin_dominant_edge $rr] [unpu_pin_dominant_edge $tt]]
+t_check "swapped groups: the diagnosis names both edges and suggests the swap" [expr {[string first "landed on the top edge" $diag] >= 0 && [string first "landed on the right edge" $diag] >= 0 && [string first "UNPU_PIN_SIDE_RIGHT=2 and UNPU_PIN_SIDE_TOP=3" $diag] >= 0}] $diag
+set diag [unpu_pin_side_diagnosis 3 2 left top]
+t_check "right group on the left: the diagnosis says which side numbers are explained and what to try" [expr {[string first "side 3 = left edge" $diag] >= 0 && [string first "try the numbers" $diag] >= 0}] $diag
+set recs [pn_layout 7.0]
+set recs [lreplace $recs 5 5 [unpu_pin_record "paddr\[5\]" {0.0 100.0 1.0 100.28} M3 868.0 0.005]]
+t_check "a right-group pin on the left edge is found" [expr {[unpu_pin_edge_counts [unpu_pins_of $recs $pn_ports_r]] eq "right 101 left 1" && [llength [unpu_pins_off_edge [unpu_pins_of $recs $pn_ports_r] right]] == 1}] [unpu_pin_edge_counts [unpu_pins_of $recs $pn_ports_r]]
+set recs [pn_layout 7.0]
+set recs [lreplace $recs 1 1 [unpu_pin_record "paddr\[1\]" [list 867.0 [expr {20.0 + 3.0 - 0.14}] 868.0 [expr {20.0 + 3.0 + 0.14}]] M3 868.0 0.005]]
+set cp [unpu_pin_close_pairs $recs 6.72 0.005]
+t_check "two pins 3 um apart are a close pair (the gap is printed)" [expr {[llength $cp] >= 1 && abs([lindex [lindex $cp 0] 2] - 3.0) < 1e-6}] $cp
+lassign [unpu_pin_gaps $recs right] n mn mx
+t_check "smallest gap on the right edge reads 3.0 after that" [expr {abs($mn - 3.0) < 1e-6}] "$mn"
+set recs [pn_layout 5.0]
+t_check "pitch 5 um: every right and top neighbour is a close pair (101 + 101)" [expr {[llength [unpu_pin_close_pairs $recs 6.72 0.005]] == 202}] [llength [unpu_pin_close_pairs $recs 6.72 0.005]]
+set recs [pn_layout 7.0]
+set recs [lreplace $recs 0 0 [unpu_pin_record "paddr\[0\]" {867.0 1.0 868.0 1.28} M3 868.0 0.005]]
+t_check "a pin 1 um from the corner is a corner pin (keep-out 13.44)" [expr {[unpu_pin_corner_pins $recs 868.0 13.44] eq [list "paddr\[0\]"]}] [unpu_pin_corner_pins $recs 868.0 13.44]
+set recs [lreplace $recs 0 0 [unpu_pin_record "paddr\[0\]" {867.0 0.0 868.0 0.28} M3 868.0 0.005]]
+t_check "a pin that touches two edges is on the corner" [expr {[lindex [lindex $recs 0] 1] eq "corner" && [unpu_pin_corner_pins $recs 868.0 13.44] eq [list "paddr\[0\]"]}]
+set recs [pn_layout 7.0]
+set recs [lreplace $recs 0 0 [unpu_pin_record "paddr\[0\]" {61.0 0.0 61.28 1.0} M2 868.0 0.005]]
+t_check "a signal pin on the bottom edge over a power terminal overlaps it (VDD)" [expr {[unpu_pin_power_overlaps $recs $pw_boxes 0.005] eq [list [list "paddr\[0\]" VDD]] && [lindex [lindex $recs 0] 1] eq "bottom"}] [unpu_pin_power_overlaps $recs $pw_boxes 0.005]
+set recs [pn_layout 7.0]
+set recs [lreplace $recs 0 0 [unpu_pin_record "paddr\[0\]" {75.0 0.0 75.28 1.0} M2 868.0 0.005]]
+t_check "a bottom pin between the power terminals does not overlap them (but is on the bottom edge)" [expr {[unpu_pin_power_overlaps $recs $pw_boxes 0.005] eq "" && [lindex [lindex $recs 0] 1] eq "bottom"}]
+t_check "a touching box is not an overlap" [expr {![unpu_boxes_overlap {0 0 1 1} {1 0 2 1} 0.005] && [unpu_boxes_overlap {0 0 1 1} {0.5 0.5 2 2} 0.005]}]
+set recs [pn_layout 7.0]
+set recs [lreplace $recs 3 3 [lindex $recs 2]]
+t_check "a port with two records is a duplicate; 101 distinct ports remain on the right" [expr {[unpu_pin_duplicates $recs] eq [list "paddr\[2\]"]}] [unpu_pin_duplicates $recs]
+set recs [pn_layout 7.0]
+set recs [lreplace $recs 7 7 [unpu_pin_record "paddr\[7\]" [list 867.0 [expr {20.0+49.0-0.25}] 868.0 [expr {20.0+49.0+0.25}]] M3 868.0 0.005]]
+t_check "width 0.5 instead of 0.28 is found (port, width, length)" [expr {[unpu_pin_bad_size $recs 0.28 1.0 0.005] eq [list [list "paddr\[7\]" 0.5 1.0]]}] [unpu_pin_bad_size $recs 0.28 1.0 0.005]
+# the order report
+set small [list [unpu_pin_record "paddr\[1\]" {867.0 30.0 868.0 30.28} M3 868.0 0.005] [unpu_pin_record clk {867.0 10.0 868.0 10.28} M3 868.0 0.005] [unpu_pin_record "paddr\[0\]" {867.0 20.0 868.0 20.28} M3 868.0 0.005] [unpu_pin_record dma_valid {40.0 867.0 40.28 868.0} M2 868.0 0.005]]
+set lines [unpu_pin_order_lines $small]
+t_check "order report: right edge first, by coordinate (clk, paddr\[0\], paddr\[1\]), then the top" [expr {[llength $lines] == 4 && [string match "clk*right*10.140*M3" [lindex $lines 0]] && [string first "paddr\[0\]" [lindex $lines 1]] == 0 && [string match "*right*20.140*M3" [lindex $lines 1]] && [string match "dma_valid*top*40.140*M2" [lindex $lines 3]]}] [join $lines |]
+set bs [unpu_pin_bus_summary $small]
+t_check "bus summary: bits of paddr in position order, scalars with their position" [expr {[lindex $bs 0] eq "paddr (right): 0 1" && [lsearch -glob $bs "scalar clk right 10.140"] >= 0 && [lsearch -glob $bs "scalar dma_valid top 40.140"] >= 0}] $bs
+# parameters of the pin stage
+t_check "pin parameters: sides 3/2 default, keep-out 2 x pitch, tolerance 0.005" [expr {$PIN_SIDE_RIGHT == 3 && $PIN_SIDE_TOP == 2 && abs($PIN_CORNER_KEEPOUT_UM - 13.44) < 1e-9 && $PIN_TOLERANCE_UM == 0.005}]
+lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs R=\$PIN_SIDE_RIGHT,T=\$PIN_SIDE_TOP" {UNPU_PIN_SIDE_RIGHT 1 UNPU_PIN_SIDE_TOP 4}] c o
+t_check "UNPU_PIN_SIDE_RIGHT=1 UNPU_PIN_SIDE_TOP=4 accepted with a Warning" [expr {$c == 0 && [t_has $o "R=1,T=4"] && [t_has $o "Warning: \[unpu\]*pin side numbers overridden"]}] "exit $c: $o"
+lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs NOT_REACHED" {UNPU_PIN_SIDE_RIGHT 2}] c o
+t_check "both groups on side 2 is rejected" [expr {$c == 1 && [t_has $o "need different sides"]}] "exit $c: $o"
+lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs NOT_REACHED" {UNPU_PIN_SIDE_TOP abc}] c o
+t_check "a side number that is not an integer is rejected" [expr {$c == 1 && [t_has $o "positive integer"]}] "exit $c: $o"
+lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs NOT_REACHED" {UNPU_PIN_SIDE_RIGHT 0}] c o
+t_check "side number 0 is rejected" [expr {$c == 1}] "exit $c: $o"
+foreach c {get_app_option_value report_constraint report_pin_placement check_pin_placement report_pin_constraints report_individual_pin_constraints report_block_pin_constraints remove_individual_pin_constraints report_placement} {
+  t_check "probe list holds $c" [expr {[lsearch -exact $PROBE_COMMANDS_ICC2 $c] >= 0}]
+}
+# ---- placement stage (task 049) ------------------------------------------------------------------------------
+set lo5 "Information: place_opt sub-steps: initial_place initial_drc initial_opto final_place final_opto"
+lassign [unpu_stages_in_text $lo5 $PLACE_OPT_STAGES] f m
+t_check "place_opt -list_only: the five stages are found" [expr {[llength $f] == 5 && $m eq ""}] "$f / $m"
+lassign [unpu_stages_in_text "\[ initial_place initial_drc final_place final_opto \]" $PLACE_OPT_STAGES] f m
+t_check "place_opt -list_only: a missing stage (initial_opto) is named" [expr {$m eq "initial_opto" && [llength $f] == 4}] "$f / $m"
+lassign [unpu_stages_in_text "initial_placement final_place_x" $PLACE_OPT_STAGES] f m
+t_check "place_opt -list_only: names must match as whole words" [expr {[llength $f] == 0 && [llength $m] == 5}] "$f / $m"
+lassign [unpu_stages_in_text "" $PLACE_OPT_STAGES] f m
+t_check "place_opt -list_only: an empty text finds nothing" [expr {[llength $m] == 5}]
+t_check "placement parameters: stages, MIN_GATE_AREA, ANT_WEIGHT_TOP, HPWL_DETOUR, long net" [expr {$PLACE_OPT_STAGES eq "initial_place initial_drc initial_opto final_place final_opto" && $MIN_GATE_AREA == 0.108 && $ANT_WEIGHT_TOP == 0.84 && $HPWL_DETOUR == 1.2 && $PORT_REPORT_LONG_UM == 50 && $ANT_RATIO == 300}]
+set e [unpu_antenna_estimate 180 1.2 0.84 0.1944]
+t_check "antenna estimate for the first run's paddr\[4\] (180 um, 1.2, 0.84, gate 0.1944) = 1866.7, flagged" [expr {abs($e - 1866.6667) < 0.01 && [unpu_antenna_flag $e 300] == 1}] $e
+set e [unpu_antenna_estimate 10 1.2 0.84 0.108]
+t_check "antenna estimate for a 10 um net with the assumed gate 0.108 = 186.7, not flagged" [expr {abs($e - 186.6667) < 0.01 && [unpu_antenna_flag $e 300] == 0}] $e
+t_check "antenna estimate: exactly the limit is not flagged, just above is" [expr {[unpu_antenna_flag 300 300] == 0 && [unpu_antenna_flag 300.01 300] == 1}]
+t_check "antenna estimate: unavailable without a numeric HPWL or a positive gate area; the flag is unknown" [expr {[unpu_antenna_estimate unavailable 1.2 0.84 0.1] eq "unavailable" && [unpu_antenna_estimate 10 1.2 0.84 0] eq "unavailable" && [unpu_antenna_estimate 10 1.2 0.84 ""] eq "unavailable" && [unpu_antenna_flag unavailable 300] eq "unknown"}]
+t_check "HPWL of boxes: centres, width + height" [expr {abs([unpu_hpwl_of_boxes {{0 0 2 2} {10 5 12 7}}] - 15.0) < 1e-9 && [unpu_hpwl_of_boxes {}] eq "unavailable" && [unpu_hpwl_of_boxes {{1 1 2 2}}] == 0.0}]
+t_check "HPWL of a net bbox attribute text" [expr {abs([unpu_hpwl_of_bbox "{805.06 109.69} {811.58 289.1}"] - (6.52 + 179.41)) < 1e-6 && [unpu_hpwl_of_bbox "garbage"] eq "unavailable"}]
+set pr_rows [list \
+  [list psel n_psel 2 10.0 0.108 "assumed MIN_GATE_AREA" [unpu_antenna_estimate 10.0 1.2 0.84 0.108] 0 net_bbox] \
+  [list "paddr\[4\]" n_pa4 1 180.0 0.1944 "library (1 load pin(s))" [unpu_antenna_estimate 180.0 1.2 0.84 0.1944] 1 net_bbox] \
+  [list weird n_w 1 unavailable 0.108 "assumed MIN_GATE_AREA" unavailable unknown none] \
+  [list "pwdata\[1\]" n_pw1 3 60.0 0.2 "library (3 load pin(s))" [unpu_antenna_estimate 60.0 1.2 0.84 0.2] 0 pin_boxes]]
+set sr [unpu_port_report_sort $pr_rows]
+t_check "port report order: worst ratio first, unavailable last" [expr {[lindex [lindex $sr 0] 0] eq "paddr\[4\]" && [lindex [lindex $sr 1] 0] eq "pwdata\[1\]" && [lindex [lindex $sr 2] 0] eq "psel" && [lindex [lindex $sr 3] 0] eq "weird"}]
+set csv [unpu_port_report_csv $pr_rows]
+t_check "port report CSV: header with the eight columns plus the method" [expr {[lindex $csv 0] eq "port,net,loads,hpwl_um,gate_area_um2,gate_area_source,estimated_ratio,flag,hpwl_method" && [llength $csv] == 5}] [lindex $csv 0]
+t_check "port report CSV: the paddr\[4\] line (180.000 um, ratio 1866.667, FLAG, the source with a comma-free text)" [expr {[lindex $csv 1] eq "paddr\[4\],n_pa4,1,180.000,0.194,library (1 load pin(s)),1866.667,FLAG,net_bbox"}] [lindex $csv 1]
+t_check "port report CSV: an unavailable HPWL says so and the flag is unknown" [expr {[lindex $csv 4] eq "weird,n_w,1,unavailable,0.108,assumed MIN_GATE_AREA,unavailable,unknown,none"}] [lindex $csv 4]
+t_check "port report CSV: a comma in a name cannot break the columns" [expr {[llength [split [lindex [unpu_port_report_csv [list [list "a,b" "n,x" 1 5.0 0.1 s 10.0 0 net_bbox]]] 1] ,]] == 9}]
+lassign [unpu_port_report_summary $pr_rows 50] nf lh lp nl nu
+t_check "port report summary: 1 flagged, longest 180 um on paddr\[4\], 2 above 50 um, 1 unavailable" [expr {$nf == 1 && $lh == 180.0 && $lp eq "paddr\[4\]" && $nl == 2 && $nu == 1}] "$nf $lh $lp $nl $nu"
+lassign [unpu_port_report_summary {} 50] nf lh lp nl nu
+t_check "port report summary of nothing: 0 flagged, longest n/a" [expr {$nf == 0 && $lh eq "n/a" && $nl == 0}]
+# params.tcl: no parameter is defined twice at the top level (a second "set NAME" would silently replace the first)
+proc t_top_level_dups {text} {
+  array set c {}
+  foreach {all nm} [regexp -all -inline -line -- {^set\s+(\S+)\s} $text] { if {![info exists c($nm)]} { set c($nm) 0 }; incr c($nm) }
+  set d {}
+  foreach nm [lsort [array names c]] { if {$c($nm) > 1} { lappend d "$nm x$c($nm)" } }
+  return [list [array size c] $d]
+}
+set pfh [open [file join $here params.tcl] r]; set ptxt [read $pfh]; close $pfh
+lassign [t_top_level_dups $ptxt] pn pdup
+t_check "params.tcl: no parameter is set twice at the top level ($pn names)" [expr {[llength $pdup] == 0 && $pn > 100}] "duplicates: $pdup"
+lassign [t_top_level_dups "set A 1\nset B 2\nset A 3\n  set C 4\nset C 5"] pn2 pdup2
+t_check "the duplicate check catches a repeated name (and ignores indented sets)" [expr {$pdup2 eq "{A x2}" && $pn2 == 3}] "$pn2 $pdup2"
 # UNPU_FILL_ECO: 0|1 only, a Warning for 1
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs ECO=\$FILL_ECO" {UNPU_FILL_ECO 1}] c o
 t_check "UNPU_FILL_ECO=1 is accepted with a Warning" [expr {$c == 0 && [t_has $o "ECO=1"] && [t_has $o "Warning: \[unpu\]*UNPU_FILL_ECO=1"]}] "exit $c: $o"

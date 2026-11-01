@@ -13,11 +13,12 @@
 #   UNPU_RUN_TAG       run name; one directory per run under UNPU_WORK
 #   UNPU_NETLIST       DC netlist (default: the untracked DC output in the repo clone)
 #   UNPU_SDC           DC-written SDC (same)
-#   UNPU_NDM_MODE      single | two      (see ndm_file_gen.tcl)
+#   UNPU_NDM_MODE      two (default) | single      (see ndm_file_gen.tcl; single does not work on this kit)
 #   UNPU_BLK_<NAME>    override of a checkpoint block name BLK_<NAME> (IMPORT FP PWR PINS PLACED CTS CLKOPT ROUTE_AUTO ROUTED FINAL)
 #   UNPU_CTS_STAGE     all | tree | hold   (cts.tcl)
 #   UNPU_OUTPUTS_OVERWRITE  1 lets outputs.tcl delete and rewrite existing output files (default 0)
 #   UNPU_GDS_LAYER_MAP  path of a corrected GDS layer map used instead of the kit map (outputs.tcl)
+#   UNPU_PIN_SIDE_RIGHT / UNPU_PIN_SIDE_TOP  side numbers of the pin placer for the right (APB) and top (DMA) groups (defaults 3 / 2, a guess)
 #   UNPU_FILL_ECO      1 lets fill.tcl run route_eco once if fillers with violations remain (default 0)
 #   UNPU_ROUTE_ACCEPT_HOLD  1 lets route.tcl save with a hold residual (default 0; never set it without a written reason)
 #   UNPU_ICC2_ROOT     install directory of the ICC2 release that matches icc2_shell
@@ -199,11 +200,11 @@ set DONT_USE_PATTERNS {slnht* skbrb* slbhb* slnhn* slnln* mx08d*}
 # cannot be used: user decision 2026-11-01, the flag cannot be overridden), bh01d1 (bus
 # holder), cload1 (load cell).
 set LIB_DONT_USE_CELLS {adiode bh01d1 cload1}
-# After set_dont_use with the patterns above the first run counted 18 cells with dont_use==true (18.15):
+# After the dont_use attribute is set (set_attribute; set_dont_use is not a command here) on the patterns above the first run counted 18 cells with dont_use==true (18.15):
 # 15 matched by our patterns (3 each for slnht*, skbrb*, slbhb*, slnhn*, slnln*) + adiode, bh01d1, cload1
 # flagged by the library itself.
 set EXPECT_DONT_USE_MATCHED 15   ;# cells matched by DONT_USE_PATTERNS (18.15)
-set EXPECT_DONT_USE_COUNT   18   ;# all cells with dont_use==true after set_dont_use (18.15)
+set EXPECT_DONT_USE_COUNT   18   ;# all cells with dont_use==true after the attribute is set (18.15)
 # patterns that may legitimately match nothing: mx08d1/2/4 have no timing view and are not in the NDM (18.15)
 set DONT_USE_EXPECT_EMPTY {mx08d*}
 set SITE_NAME unit               ;# the site of the rows, 0.56 x 5.6 um (18.14)
@@ -235,6 +236,29 @@ set PIN_LAYER_RIGHT  M3
 set PIN_LAYER_TOP    M2
 set PIN_PORTS_RIGHT  {paddr[*] pwdata[*] prdata[*] pwrite psel penable pready clk rst_n}
 set PIN_PORTS_TOP    {dma_addr[*] dma_wdata[*] dma_rdata[*] dma_wstrb[*] dma_valid dma_ready}
+# Side numbers of set_individual_pin_constraints -sides. The usage text (set_individual_pin_constraints.txt) does not say which integer
+# is which edge. THE DEFAULTS ARE A GUESS: clockwise from the left edge, 1 left, 2 top, 3 right, 4 bottom. pin_place.tcl measures where the
+# pins really land and, if a group is on the wrong edge, names the edge and the numbers to try. Override: UNPU_PIN_SIDE_RIGHT / UNPU_PIN_SIDE_TOP.
+set PIN_SIDE_RIGHT [_p_env UNPU_PIN_SIDE_RIGHT 3]
+set PIN_SIDE_TOP   [_p_env UNPU_PIN_SIDE_TOP 2]
+foreach {_v _n} [list $PIN_SIDE_RIGHT UNPU_PIN_SIDE_RIGHT $PIN_SIDE_TOP UNPU_PIN_SIDE_TOP] {
+  if {![string is integer -strict $_v] || $_v < 1} { _p_die "$_n='$_v' must be a positive integer (a side number of the pin placer)" }
+}
+if {$PIN_SIDE_RIGHT == $PIN_SIDE_TOP} { _p_die "UNPU_PIN_SIDE_RIGHT and UNPU_PIN_SIDE_TOP are both $PIN_SIDE_RIGHT; the two groups need different sides" }
+if {$PIN_SIDE_RIGHT != 3 || $PIN_SIDE_TOP != 2} { puts "Warning: \[unpu\] pin side numbers overridden: right group side $PIN_SIDE_RIGHT, top group side $PIN_SIDE_TOP (defaults 3 and 2 are a guess)" }
+# a plain safety margin, not a rule of the kit: no signal pin within two pitches of a corner (the pin placer keeps its own keep-out too)
+set PIN_CORNER_KEEPOUT_UM [expr {2 * $PIN_PITCH}]
+set PIN_TOLERANCE_UM 0.005   ;# um, tolerance of the pin geometry checks (a few database units at 1000 per um)
+
+# ---- placement (task 049) ------------------------------------------------------------------
+set PLACE_OPT_STAGES {initial_place initial_drc initial_opto final_place final_opto}   ;# place_opt -list_only (usage text, 18.16)
+# the smallest gate area ICC2 itself printed in the first run's antenna listing (18.25/18.26); used when a load's gate area cannot be read
+set MIN_GATE_AREA 0.108   ;# um2
+# weight of the top metal in the Calibre antenna deck, rule AN.MTL.1.MT: perimeter * 0.84 / gate area (handoff 18.27); the worst case
+set ANT_WEIGHT_TOP 0.84
+set PORT_REPORT_LONG_UM 50   ;# input-port nets with an HPWL above this are counted as long (the first run's worst, paddr[4], was 180 um)
+# attribute names tried, in this order, for the gate area of a load pin (GUESSES: the usage texts do not list attributes; VERIFY on the server)
+set GATE_AREA_ATTRS {antenna_gate_area gate_area}
 
 # ---- clock tree --------------------------------------------------------------
 set CTS_EXCLUDE_PATTERN */dl*   ;# the 12 delay cells, kept for hold fixing (plan C1)
@@ -341,6 +365,8 @@ set PARA_TECH_NAME typ    ;# read_parasitic_tech -name; only a typical TLUPlus e
 # ---- command-usage probe (task 042): what pnr/help_probe*.tcl asks the tools -----------------
 # Every tool command that carries a VERIFY comment in pnr/*.tcl is in these lists, plus the commands the
 # next scripts (pin placement, placement, CTS, routing, fill, outputs) will need.
+# (set_dont_use is in the list below and came back NOT_FOUND: it is not a command in this release; task 047. get_app_option_value and
+# report_constraint were not in the first list: add them to the next probe.)
 set PROBE_COMMANDS_ICC2 {
   create_lib open_lib close_lib save_lib open_block save_block close_blocks get_blocks current_block
   current_lib report_ref_libs read_parasitic_tech read_verilog link_block read_sdc create_corner create_scenario
@@ -356,6 +382,8 @@ set PROBE_COMMANDS_ICC2 {
   remove_stdcell_fillers_with_violation create_frame write_lef write_verilog write_parasitics write_sdf write_sdc
   write_gds add_port_protection_diodes report_port_protection_diodes insert_buffer create_cell index_collection
   redirect foreach_in_collection sizeof_collection
+  get_app_option_value report_constraint report_pin_placement check_pin_placement report_pin_constraints
+  report_individual_pin_constraints report_block_pin_constraints remove_individual_pin_constraints report_placement
   get_libs get_object_name get_nets get_pins get_ports get_cells get_scenarios set_app_var get_app_var printvar report_units
 }
 # commands whose names are not known: help <pattern> lists the commands that match (help *protection_diode* worked in the first run)
@@ -378,7 +406,7 @@ set PROBE_WILDCARDS_LM {*workspace* *lef* *db* *lib* *attribute* *filler*}
 # ---- NDM generation mode -----------------------------------------------------
 # single: filler cells are put into the same NDM as the 534 timing cells (the goal).
 # two:    the main NDM as in the first run plus a second, physical-only NDM for the fillers.
-set NDM_MODE [_p_env UNPU_NDM_MODE single]
+set NDM_MODE [_p_env UNPU_NDM_MODE two]   ;# two: the fillers in a second NDM. single does NOT work on this kit (LM-052, 0 of 3 fillers: task 047)
 if {[lsearch -exact {single two} $NDM_MODE] < 0} {
   _p_die "UNPU_NDM_MODE='$NDM_MODE' is not allowed; it must be single or two"
 }
