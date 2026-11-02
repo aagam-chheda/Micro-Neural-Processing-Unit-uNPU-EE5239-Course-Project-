@@ -51,21 +51,50 @@ proc ndm_find_fillers {ws} {
   return [list "" [join $report "; "]]
 }
 
-# Type the cells listed by `form` as design_type filler and read the value back. Returns {n bad}.
+# Type the objects listed by `form` as design_type filler and read the value back (task 058).
+# The objects get_lib_cells returns in the library manager are the VIEWS: <lib>/<cell>/design (real run: feedth/feedth/design, ...). The
+# usage text does not say whether design_type belongs on the view or on the lib_cell <lib>/<cell> (VERIFY), so: set it on the object that was
+# returned and read it back from the SAME object; if the set raised an error or the read-back is not `filler`, set it on the lib_cell
+# <lib>/<cell> (get_lib_cells -quiet <lib>/<cell>) and read that back. Which object worked is printed (Info), and a fallback is a Warning.
+# Returns {n bad}: n objects handled, bad = list of "<name>=<what went wrong>" (empty = every object ended up typed filler).
 proc ndm_type_by_form {form} {
   set n 0
   set bad {}
   set readable 1
   foreach_in_collection c [uplevel #0 $form] {
     set nm [get_object_name $c]
-    set_attribute $c design_type filler
     incr n
-    if {[catch {get_attribute $c design_type} v]} {
-      if {$readable} { unpu_warn "get_attribute design_type could not be read back ($v): the typing is NOT verified (VERIFY)" }
-      set readable 0
-    } elseif {$v ne "filler"} {
-      lappend bad "$nm=$v"
+    set how ""
+    set err [catch {set_attribute $c design_type filler} msg]
+    if {!$err} {
+      if {[catch {get_attribute $c design_type} v]} {
+        if {$readable} { unpu_warn "get_attribute design_type could not be read back from $nm ($v): the typing is NOT verified (VERIFY)" }
+        set readable 0
+        set how "unverified"
+      } elseif {$v eq "filler"} {
+        set how "returned object"
+      } else {
+        set why "read-back '$v' on the returned object"
+      }
+    } else {
+      set why "set_attribute failed on the returned object: $msg"
     }
+    if {$how eq ""} {
+      # fallback: the lib_cell <lib>/<cell>
+      if {[catch {unpu_libcell_path $nm} lc]} { lappend bad "$nm=$why; no lib_cell path ($lc)"; continue }
+      unpu_warn "$nm: $why; trying the lib_cell $lc"
+      if {[catch {
+        set lco [get_lib_cells -quiet $lc]
+        if {[sizeof_collection $lco] != 1} { error "get_lib_cells $lc listed [sizeof_collection $lco] objects" }
+        foreach_in_collection o $lco { set_attribute $o design_type filler; set rb [get_attribute $o design_type] }
+        if {$rb ne "filler"} { error "read-back '$rb' on the lib_cell" }
+      } msg2]} {
+        lappend bad "$nm=$why; lib_cell $lc: $msg2"
+        continue
+      }
+      set how "lib_cell $lc (fallback)"
+    }
+    unpu_info "design_type filler on $nm: $how"
   }
   return [list $n $bad]
 }

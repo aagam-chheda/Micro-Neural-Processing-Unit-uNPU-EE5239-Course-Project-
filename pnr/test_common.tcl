@@ -1046,6 +1046,27 @@ t_check "056 UNPU_NDM_FILL_VARIANTS restricts and orders the list" [expr {$c == 
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs NOT_REACHED" {UNPU_NDM_FILL_VARIANTS "bogus"}] c o
 t_check "056 UNPU_NDM_FILL_VARIANTS with an unknown name stops" [expr {$c == 1 && [t_has $o "unknown filler-workspace variant 'bogus'"]}] "exit $c: $o"
 
+# ---- task 058: object names are <lib>/<cell>/<view> in the library manager (real run: feedth/feedth/design) --------------
+t_check "058 libcell_name: lib/cell/view -> cell (real names)" [expr {[unpu_libcell_name feedth/feedth/design] eq "feedth" && [unpu_libcell_name feedth/feedth3/design] eq "feedth3" && [unpu_libcell_name feedth/feedth9/design] eq "feedth9"}]
+t_check "058 libcell_name: lib/cell -> cell (icc2_shell form)" [expr {[unpu_libcell_name scl18fs120_fillf/feedth] eq "feedth" && [unpu_libcell_name scl18fs120/aor211d1] eq "aor211d1"}]
+t_check "058 libcell_name: a bare name is the cell" [expr {[unpu_libcell_name feedth] eq "feedth"}]
+t_check "058 libcell_name: the LAST element is NOT taken (the first run's bug)" [expr {[unpu_libcell_name feedth/feedth/design] ne "design"}]
+t_check "058 libcell_name: empty, 4 elements and empty parts are errors" [expr {[catch {unpu_libcell_name ""}] && [catch {unpu_libcell_name a/b/c/d}] && [catch {unpu_libcell_name a//c}] && [catch {unpu_libcell_name /b}]}]
+t_check "058 libcell_lib / libcell_path" [expr {[unpu_libcell_lib feedth/feedth3/design] eq "feedth" && [unpu_libcell_lib feedth] eq "" && [unpu_libcell_path feedth/feedth3/design] eq "feedth/feedth3" && [unpu_libcell_path a/b] eq "a/b" && [catch {unpu_libcell_path feedth}]}]
+set real {feedth/feedth/design feedth/feedth3/design feedth/feedth9/design}
+t_check "058 match: the three REAL object names of the library manager" [lindex [unpu_fill_match $real {feedth feedth3 feedth9}] 0] [unpu_fill_match $real {feedth feedth3 feedth9}]
+t_check "058 match: the same in another order" [lindex [unpu_fill_match [lreverse $real] {feedth feedth3 feedth9}] 0]
+t_check "058 match: icc2_shell names scl18fs120_fillf/feedth..." [lindex [unpu_fill_match {scl18fs120_fillf/feedth scl18fs120_fillf/feedth3 scl18fs120_fillf/feedth9} {feedth feedth3 feedth9}] 0]
+t_check "058 match: two views of each cell are accepted (6 objects)" [lindex [unpu_fill_match [concat $real {feedth/feedth/frame feedth/feedth3/frame feedth/feedth9/frame}] {feedth feedth3 feedth9}] 0]
+t_check "058 match: only two of the three real names is no match" [expr {![lindex [unpu_fill_match {feedth/feedth/design feedth/feedth3/design} {feedth feedth3 feedth9}] 0]}]
+t_check "058 match: a timing cell next to the three is no match" [expr {![lindex [unpu_fill_match [concat $real {scl18fs120/bufbd1/design}] {feedth feedth3 feedth9}] 0]}]
+t_check "058 match: 'feedth/design' (2 elements, cell = design) is no match" [expr {![lindex [unpu_fill_match {feedth/design feedth/design feedth/design} {feedth feedth3 feedth9}] 0]}]
+t_check "058 match: an unparsable name is no match, with the reason" [expr {![lindex [unpu_fill_match {a/b/c/d x y} {feedth feedth3 feedth9}] 0] && [string first "is not a" [lindex [unpu_fill_match {a/b/c/d x y} {feedth feedth3 feedth9}] 1]] >= 0}]
+foreach f {ndm_check.tcl ndm_file_gen.tcl ndm_fill_common.tcl ndm_fill_probe.tcl} {
+  set fh [open [file join $here $f] r]; set d [read $fh]; close $fh
+  t_check "058 $f: no cell name is taken as the last path element of a library-cell name" [expr {![regexp {lindex \[split \[get_object_name[^\n]*/\] end\]|lindex \[split \$full /\] end} $d]}]
+}
+
 # ---- result --------------------------------------------------------------------
 file delete -force $tmp
 puts "----------------------------------------"

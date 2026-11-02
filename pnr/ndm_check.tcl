@@ -103,7 +103,7 @@ if {$NDM_MODE eq "two"} {
 # ---- fillers -----------------------------------------------------------------
 set fcells [get_lib_cells -quiet */feedth*]
 set fnames {}
-foreach_in_collection c $fcells { lappend fnames [lindex [split [get_object_name $c] /] end] }
+foreach_in_collection c $fcells { lappend fnames [unpu_libcell_name [get_object_name $c]] }   ;# <lib>/<cell> here; <lib>/<cell>/<view> in the library manager (task 058)
 set fnames [lsort $fnames]
 unpu_check_pass ndm_check fillers_exact [expr {$fnames eq [lsort $FILLER_CELLS]}] \
     "*/feedth* returns {$fnames}, expected {[lsort $FILLER_CELLS]}"

@@ -101,7 +101,7 @@ proc dump_state {tag ws} {
   pr "$tag current_lib" {current_lib}
   pr "$tag get_libs" {foreach_in_collection l [get_libs *] { puts [get_object_name $l] }}
   set results {}
-  foreach form [concat [unpu_fill_find_forms $NDM_FILL_FIND_FORMS $ws] {{get_lib_cells -quiet *feedth*} {get_lib_cells -regexp {feedth}} {get_lib_cells -quiet feedth/*} {get_lib_cells -quiet feedth/feedth*}}] {
+  foreach form [concat [unpu_fill_find_forms $NDM_FILL_FIND_FORMS $ws] {{get_lib_cells -quiet *feedth*} {get_lib_cells -regexp {feedth}} {get_lib_cells -quiet feedth/*} {get_lib_cells -quiet feedth/feedth*} {get_lib_cells -quiet feedth/feedth} {get_lib_cells -quiet feedth/feedth/*}}] {
     lappend results [pr_form $form]
   }
   pr "$tag report_lib_cells" {report_lib_cells}

@@ -102,7 +102,7 @@ proc ndm_type_fillers {} {
   set seen {}
   foreach_in_collection c [get_lib_cells] {
     set full [get_object_name $c]
-    set nm [lindex [split $full /] end]
+    if {[catch {unpu_libcell_name $full} nm]} { continue }   ;# <lib>/<cell>/<view> in the library manager (task 058)
     if {[lsearch -exact $FILLER_CELLS $nm] >= 0} {
       set_attribute $c design_type filler
       incr n

@@ -2272,15 +2272,43 @@ proc unpu_fill_find_forms {forms ws} {
   foreach f $forms { lappend out [string map [list %WS% $ws] $f] }
   return $out
 }
-# Does the list of full cell names found by one form hold the expected cells and ONLY them? Every leaf name (text after the last /) must be an
-# expected name and every expected name must be present. The same leaf name more than once (the same cell seen through two libraries) is
-# accepted and counted in the detail: all of those objects are typed. Anything else (another cell, a missing cell, nothing) is no match.
-# Returns {1 detail} or {0 reason}.
+# Object names of library cells, as the tools print them (task 058, real run of ndm_file_gen.tcl):
+#   icc2_shell:           <lib>/<cell>               e.g. scl18fs120_fillf/feedth
+#   library manager:      <lib>/<cell>/<view>        e.g. feedth/feedth/design, feedth/feedth3/design, feedth/feedth9/design
+# (the view of a workspace cell is `design`; the first run took the LAST element, `design`, for the cell name and found 0 fillers).
+# unpu_libcell_name returns the CELL name: element 1 of a 2- or 3-element name, the name itself if it has no slash. More than 3 elements,
+# or an empty element, is an error (it is not a name this flow knows). unpu_libcell_lib returns the library (element 0, "" if no slash).
+proc unpu_libcell_name {full} {
+  set parts [split $full /]
+  set n [llength $parts]
+  if {$n == 1 && $full ne ""} { return $full }
+  if {($n == 2 || $n == 3) && [lindex $parts 1] ne "" && [lindex $parts 0] ne ""} { return [lindex $parts 1] }
+  return -code error "'$full' is not a <lib>/<cell> or <lib>/<cell>/<view> name"
+}
+proc unpu_libcell_lib {full} {
+  set parts [split $full /]
+  if {[llength $parts] < 2} { return "" }
+  return [lindex $parts 0]
+}
+# <lib>/<cell> of a 3-element name (the lib_cell the view belongs to); a 2-element name is returned unchanged.
+proc unpu_libcell_path {full} {
+  unpu_libcell_name $full
+  set parts [split $full /]
+  if {[llength $parts] < 2} { return -code error "'$full' has no library part" }
+  return "[lindex $parts 0]/[lindex $parts 1]"
+}
+# Does the list of full object names found by one form hold the expected cells and ONLY them? The CELL name of every object (unpu_libcell_name:
+# element 1 of lib/cell or lib/cell/view) must be an expected name and every expected name must be present. The same cell more than once
+# (several views, or the same cell through two libraries) is accepted and counted in the detail: all of those objects are typed. Anything else
+# (another cell, a missing cell, nothing, an unparsable name) is no match. Returns {1 detail} or {0 reason}.
 proc unpu_fill_match {names expected} {
   if {[llength $names] == 0} { return [list 0 "0 objects, expected [llength $expected]"] }
-  set leaves {}
-  foreach n $names { lappend leaves [lindex [split $n /] end] }
-  set uniq [lsort -unique $leaves]
-  if {$uniq ne [lsort $expected]} { return [list 0 "leaf names $uniq are not exactly $expected ([llength $names] objects: $names)"] }
+  set cells {}
+  foreach n $names {
+    if {[catch {unpu_libcell_name $n} c]} { return [list 0 $c] }
+    lappend cells $c
+  }
+  set uniq [lsort -unique $cells]
+  if {$uniq ne [lsort $expected]} { return [list 0 "cell names $uniq are not exactly $expected ([llength $names] objects: $names)"] }
   return [list 1 "[llength $names] object(s) for [llength $expected] cells: [join $names { }]"]
 }
