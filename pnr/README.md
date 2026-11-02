@@ -11,6 +11,7 @@ except `test_common.tcl`. The user runs the stage scripts on the server and read
 | 0 | `params.tcl`, `common.tcl` | sourced by every script (plain `tclsh` can source them) | written (task 038) |
 | 1 | `ndm_file_gen.tcl` | `icc2_lm_shell` of U-2022.12-SP3 (full path, see below) | written (task 038) |
 | 2 | `ndm_check.tcl` | `icc2_shell` | written (task 038) |
+| 1a | `ndm_fill_probe.tcl` (+ `ndm_fill_common.tcl`, shared with `ndm_file_gen.tcl`) | `icc2_lm_shell` | written (task 056): exploratory, builds the second (filler) workspace in variants in a scratch directory and prints what answers why `get_lib_cells` found 0 fillers; `ndm_file_gen.tcl` mode `two` tries the variants and finder forms in order (`NDM_FILL_VARIANTS`) |
 | 3 | `design_setup.tcl` | `icc2_shell` | written (task 039) |
 | 4 | `floorplan.tcl` | `icc2_shell` | written (task 040) |
 | 5 | `power.tcl` | `icc2_shell` | written (task 041) |
@@ -40,6 +41,8 @@ V-2023.12-SP4 (`docs/session-handoff.md` 18.10). Both scripts check the release 
 | `UNPU_SYN_PROFILE` | none (REQUIRED by `design_setup`, `power`, `placement`, `outputs`) | `syn20`, `syn18` or `syn16`: the synthesis profile whose netlist the layout flow uses (`syn/RUNBOOK.md` step 5); the netlist is `syn/out/$UNPU_SYN_PROFILE/unpu_top_cn.dc.v` in the repo clone |
 | `UNPU_NETLIST` | derived from `UNPU_SYN_PROFILE` | explicit netlist path (a Warning is printed). `UNPU_SDC` and `UNPU_HOLD_UNCERT` no longer exist: setting either stops the script (the SDC is the stage-selectable `constraints/unpu_top.sdc`; the hold uncertainty is part of the profile) |
 | `UNPU_NDM_MODE` | `two` | `two` (main NDM + a second NDM with the three fillers) or `single`; `single` does NOT work on this kit (`LM-052` skips the 6 LEF-only cells, 0 of 3 fillers, `single_mode_worked = no`); anything else is an error |
+| `UNPU_NDM_FILL_VARIANTS` | `lefLib lefInto noTech noTechInto` | the order (or a subset) of the second-workspace variants `ndm_file_gen.tcl` tries in mode `two` (task 056); an unknown, repeated or empty list is an error |
+| `UNPU_PROBE_DIR` | unset | REQUIRED by `ndm_fill_probe.tcl`: a NEW directory for its scratch workspaces (never the real `ndm/` directory) |
 | `UNPU_NDM_OVERWRITE` | unset | `1` allows `ndm_file_gen.tcl` to replace an existing NDM (it warns for each path removed) |
 | `UNPU_LIB_OVERWRITE` | unset | `1` lets `design_setup.tcl` remove an existing design library `$LIB_DIR/$LIB_NAME` (it warns); otherwise an existing library stops the script |
 | `UNPU_BLK_<NAME>` | the default of `BLK_<NAME>` | override of a checkpoint block name; `<NAME>` is IMPORT FP PWR PINS PLACED CTS CLKOPT ROUTE_AUTO ROUTED or FINAL (letters, digits, `_`); a Warning is printed for each. Lets several experiments (for example hold uncertainties: `clkopt`, `clkopt_h02`) live in one library |

@@ -281,7 +281,7 @@ set sdc_names {}
 regexp {set UNPU_STAGE_TABLE \{(.*?)\n\}} [slurp [lindex $files 0]] -> tbl
 foreach l [split $tbl "\n"] { if {[regexp {^\s*\{(\w+)\s} $l -> n]} { lappend sdc_names $n } }
 check "the SDC table names are the 7 expected names, in order" [expr {$sdc_names eq $tnames}] $sdc_names
-check "the DC script requires UNPU_STAGE and writes to syn/out/\$UNPU_STAGE" [expr {[string first {set rpt_dir syn/out/$UNPU_STAGE} $dc] >= 0 && [string first {pm_flow} $dc] < 0}]
+check "the DC script requires UNPU_STAGE and writes to syn/out/\$UNPU_STAGE" [expr {[string first {set rpt_dir $repo_root/syn/out/$UNPU_STAGE} $dc] >= 0 && [string first {pm_flow} $dc] < 0}]
 
 # ---- the printed table ------------------------------------------------------------------------------------------------
 puts ""

@@ -20,3 +20,11 @@ xmsim.key
 # Synopsys Design Compiler output (syn/dc_run.tcl writes everything under
 # syn/out/<design>/: logs, reports, netlist, .ddc, WORK/, default.svf).
 syn/out/
+
+# Synopsys DC scratch files. constraints/pm_dc_script_unpu.tcl cd's into syn/out/work/<profile>/ (already ignored
+# above), so these should no longer appear in the repo root; the patterns cover the leftovers of runs made before task 055.
+UNPU_*.mr
+unpu_*-verilog.pvl
+unpu_*-verilog.syn
+default.svf
+alib-*/

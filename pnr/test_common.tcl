@@ -1006,6 +1006,46 @@ set fh [open [file join $tmp mvs manifest_vs2.txt] r]; set mt [read $fh]; close 
 t_check "manifest records the version that was found when the check is skipped" [expr {[string first "version_check_skipped = 1" $mt] >= 0 && [string first "version_found = V-2023.12-SP4" $mt] >= 0}] $mt
 t_check "manifest of a normal run says version_check_skipped = 0" [expr {[string first "version_check_skipped = 0" [read [open $mf r]]] >= 0}]
 
+# ---- task 056: the second NDM workspace (fillers): variants, finder forms, strict match ----------------------------------
+set tf /kit/SCL_4LM.tf; set lf /w/feedth.lef; set wsn scl18fs120_fillf
+t_check "056 variants: the four names" [expr {[unpu_fill_variant_names] eq {lefLib lefInto noTech noTechInto}}]
+t_check "056 lefLib = the form that ran in pnr_run2 (-technology, plain read_lef)" [expr {[unpu_fill_variant_cmds lefLib $wsn $tf $lf] eq [list [list create_workspace -flow physical_only -technology $tf $wsn] [list read_lef $lf]]}]
+t_check "056 lefInto: read_lef -library WS" [expr {[unpu_fill_variant_cmds lefInto $wsn $tf $lf] eq [list [list create_workspace -flow physical_only -technology $tf $wsn] [list read_lef -library $wsn $lf]]}]
+t_check "056 noTech: no -technology" [expr {[unpu_fill_variant_cmds noTech $wsn $tf $lf] eq [list [list create_workspace -flow physical_only $wsn] [list read_lef $lf]]}]
+t_check "056 noTechInto: no -technology and -library" [expr {[unpu_fill_variant_cmds noTechInto $wsn $tf $lf] eq [list [list create_workspace -flow physical_only $wsn] [list read_lef -library $wsn $lf]]}]
+t_check "056 every variant uses -flow physical_only and only options of the usage text" [expr {![catch {foreach v [unpu_fill_variant_names] { foreach c [unpu_fill_variant_cmds $v $wsn $tf $lf] { foreach w $c { if {[string match -* $w] && [lsearch -exact {-flow -technology -library} $w] < 0} { error "option $w" } } } }}]}]
+t_check "056 unknown variant is an error" [catch {unpu_fill_variant_cmds nosuch $wsn $tf $lf}]
+t_check "056 check_variants accepts the default list" [expr {![catch {unpu_fill_check_variants $NDM_FILL_VARIANTS}]}]
+t_check "056 check_variants: empty, unknown, duplicate are errors" [expr {[catch {unpu_fill_check_variants {}}] && [catch {unpu_fill_check_variants {noTech x}}] && [catch {unpu_fill_check_variants {noTech noTech}}]}]
+t_check "056 default variants: all four, form of pnr_run2 first" [expr {$NDM_FILL_VARIANTS eq {lefLib lefInto noTech noTechInto}}] $NDM_FILL_VARIANTS
+t_check "056 find forms: %WS% replaced, others untouched" [expr {[lindex [unpu_fill_find_forms {{get_lib_cells -of_objects [get_libs %WS%]} {get_lib_cells}} $wsn] 0] eq "get_lib_cells -of_objects \[get_libs $wsn\]" && [lindex [unpu_fill_find_forms {{get_lib_cells}} $wsn] 0] eq "get_lib_cells"}]
+t_check "056 find forms parameter: no empty form, first is the bare get_lib_cells of 18.22" [expr {[lindex $NDM_FILL_FIND_FORMS 0] eq "get_lib_cells" && [llength $NDM_FILL_FIND_FORMS] >= 4}]
+set fc {feedth feedth3 feedth9}
+t_check "056 match: exactly the three" [lindex [unpu_fill_match {feedth/feedth feedth/feedth3 feedth/feedth9} $fc] 0]
+t_check "056 match: order does not matter" [lindex [unpu_fill_match {a/feedth9 a/feedth a/feedth3} $fc] 0]
+t_check "056 match: same cell through two libraries is accepted" [lindex [unpu_fill_match {a/feedth a/feedth3 a/feedth9 b/feedth b/feedth3 b/feedth9} $fc] 0]
+t_check "056 match: nothing found is no match" [expr {![lindex [unpu_fill_match {} $fc] 0]}]
+t_check "056 match: a missing filler is no match" [expr {![lindex [unpu_fill_match {a/feedth a/feedth3} $fc] 0]}]
+t_check "056 match: an extra cell (timing cell) is no match" [expr {![lindex [unpu_fill_match {a/feedth a/feedth3 a/feedth9 a/bufbd1} $fc] 0]}]
+t_check "056 match: the whole 534-cell library is no match" [expr {![lindex [unpu_fill_match [lrepeat 534 lib/bufbd1] $fc] 0]}]
+t_check "056 match: names that only contain the filler name are no match" [expr {![lindex [unpu_fill_match {a/feedth_x a/feedth3 a/feedth9} $fc] 0]}]
+foreach f {ndm_fill_common.tcl ndm_fill_probe.tcl ndm_file_gen.tcl} {
+  set fh [open [file join $here $f] r]; set d [read $fh]; close $fh
+  t_check "056 $f is complete Tcl" [info complete $d]
+}
+set fh [open [file join $here ndm_fill_probe.tcl] r]; set pd [read $fh]; close $fh
+t_check "056 probe: refuses an unset UNPU_PROBE_DIR, the real NDM_DIR, a non-empty directory" [expr {[string first "UNPU_PROBE_DIR is not set" $pd] >= 0 && [string first "is the real NDM directory" $pd] >= 0 && [string first "is not empty" $pd] >= 0}]
+t_check "056 probe: no write into NDM_DIR (no cd/commit before the probe directory exists; cd only into variant directories)" [expr {[regexp -all {cd \$} $pd] == 1 && [string first {cd $vdir} $pd] >= 0}]
+t_check "056 probe: runs the four variants of the table plus useTechLib" [expr {[string first "unpu_fill_variant_names" $pd] >= 0 && [string first "useTechLib" $pd] >= 0}]
+set fh [open [file join $here ndm_file_gen.tcl] r]; set gd [read $fh]; close $fh
+t_check "056 ndm_file_gen: mode two loops over NDM_FILL_VARIANTS and no longer calls ndm_type_fillers there" [expr {[string first {foreach variant $NDM_FILL_VARIANTS} $gd] >= 0 && [regexp {set nfill \[ndm_type_fillers\]} $gd] == 0}]
+set miss {}; foreach c {get_libs current_lib current_workspace get_workspaces report_lib_cells report_workspace remove_workspace} { if {[lsearch -exact $PROBE_COMMANDS_LM $c] < 0} { lappend miss $c } }
+t_check "056 lm probe list holds the commands of the filler probe" [expr {[llength $miss] == 0}] "missing: $miss"
+lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs \$NDM_FILL_VARIANTS" {UNPU_NDM_FILL_VARIANTS "noTech lefInto"}] c o
+t_check "056 UNPU_NDM_FILL_VARIANTS restricts and orders the list" [expr {$c == 0 && [string trim $o] eq "noTech lefInto"}] "exit $c: $o"
+lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs NOT_REACHED" {UNPU_NDM_FILL_VARIANTS "bogus"}] c o
+t_check "056 UNPU_NDM_FILL_VARIANTS with an unknown name stops" [expr {$c == 1 && [t_has $o "unknown filler-workspace variant 'bogus'"]}] "exit $c: $o"
+
 # ---- result --------------------------------------------------------------------
 file delete -force $tmp
 puts "----------------------------------------"

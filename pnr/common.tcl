@@ -2236,3 +2236,51 @@ proc unpu_constraint_count {prefix kind opt} {
   set fh [open $f r]; set rtxt [read $fh]; close $fh
   return [unpu_parse_violations $rtxt]
 }
+
+
+# ---- second NDM workspace (the fillers): variants and finder forms (task 056) -------------------------------------
+# Server run pnr_run2: create_workspace -flow physical_only -technology <tf> + read_lef feedth.lef built the workspace
+# ("Read LEF into a new library 'feedth'", LEFR-022) but `get_lib_cells` matched 0 of the 3 fillers. The cause is unknown; the variants
+# below are the candidates (ndm_fill_probe.tcl runs all of them in one server run, ndm_file_gen.tcl tries them in order).
+#   lefLib      create_workspace -flow physical_only -technology TF WS ; read_lef LEF            (the form that ran in pnr_run2)
+#   lefInto     create_workspace -flow physical_only -technology TF WS ; read_lef -library WS LEF  (usage: -library = "Library to populate")
+#   noTech      create_workspace -flow physical_only WS ; read_lef LEF                           (18.22 names no -technology)
+#   noTechInto  create_workspace -flow physical_only WS ; read_lef -library WS LEF
+# Returns a list of commands, each a list of words. Pure Tcl.
+proc unpu_fill_variant_names {} { return {lefLib lefInto noTech noTechInto} }
+proc unpu_fill_variant_cmds {variant ws tf lef} {
+  switch -- $variant {
+    lefLib     { return [list [list create_workspace -flow physical_only -technology $tf $ws] [list read_lef $lef]] }
+    lefInto    { return [list [list create_workspace -flow physical_only -technology $tf $ws] [list read_lef -library $ws $lef]] }
+    noTech     { return [list [list create_workspace -flow physical_only $ws] [list read_lef $lef]] }
+    noTechInto { return [list [list create_workspace -flow physical_only $ws] [list read_lef -library $ws $lef]] }
+    default    { return -code error "unknown filler-workspace variant '$variant'; valid: [unpu_fill_variant_names]" }
+  }
+}
+# A list of variant names (from the environment or the default) checked against the valid names; empty list or unknown name is an error.
+proc unpu_fill_check_variants {variants} {
+  if {[llength $variants] == 0} { return -code error "the list of filler-workspace variants is empty" }
+  foreach v $variants {
+    if {[lsearch -exact [unpu_fill_variant_names] $v] < 0} { return -code error "unknown filler-workspace variant '$v'; valid: [unpu_fill_variant_names]" }
+  }
+  if {[llength $variants] != [llength [lsort -unique $variants]]} { return -code error "filler-workspace variants listed twice: $variants" }
+  return $variants
+}
+# The forms (Tcl scripts evaluated in the library manager) that may list the workspace's lib cells; %WS% is replaced by the workspace name.
+proc unpu_fill_find_forms {forms ws} {
+  set out {}
+  foreach f $forms { lappend out [string map [list %WS% $ws] $f] }
+  return $out
+}
+# Does the list of full cell names found by one form hold the expected cells and ONLY them? Every leaf name (text after the last /) must be an
+# expected name and every expected name must be present. The same leaf name more than once (the same cell seen through two libraries) is
+# accepted and counted in the detail: all of those objects are typed. Anything else (another cell, a missing cell, nothing) is no match.
+# Returns {1 detail} or {0 reason}.
+proc unpu_fill_match {names expected} {
+  if {[llength $names] == 0} { return [list 0 "0 objects, expected [llength $expected]"] }
+  set leaves {}
+  foreach n $names { lappend leaves [lindex [split $n /] end] }
+  set uniq [lsort -unique $leaves]
+  if {$uniq ne [lsort $expected]} { return [list 0 "leaf names $uniq are not exactly $expected ([llength $names] objects: $names)"] }
+  return [list 1 "[llength $names] object(s) for [llength $expected] cells: [join $names { }]"]
+}

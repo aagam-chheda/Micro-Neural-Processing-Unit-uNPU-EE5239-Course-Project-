@@ -175,6 +175,21 @@ set NDM_WS_MAIN  scl18fs120                      ;# NDM workspace of the standar
 set NDM_WS_FILL  scl18fs120_fillf                ;# NDM workspace of the filler cells, mode two (18.22)
 # filler cells: feedth 1 site, feedth3 3 sites, feedth9 9 sites, class CORE (18.22)
 set FILLER_CELLS {feedth feedth3 feedth9}
+# The second NDM workspace (task 056). Variants are defined in common.tcl (unpu_fill_variant_cmds); ndm_file_gen.tcl tries them in this order
+# and takes the first whose lib cells are found by one of NDM_FILL_FIND_FORMS (exactly the 3 fillers). UNPU_NDM_FILL_VARIANTS (a list, e.g. "noTech")
+# restricts the list for an experiment. The default order puts the form that ran in pnr_run2 first (it may only have failed at the finder).
+set NDM_FILL_VARIANTS [_p_env UNPU_NDM_FILL_VARIANTS {lefLib lefInto noTech noTechInto}]
+if {[llength [info commands unpu_fill_check_variants]] && [catch {unpu_fill_check_variants $NDM_FILL_VARIANTS} _p_msg]} { _p_die "UNPU_NDM_FILL_VARIANTS: $_p_msg" }
+# Forms that may list the workspace's lib cells, tried in this order (%WS% = NDM_WS_FILL). get_lib_cells has no -all form in its usage
+# (help_lm/get_lib_cells.txt); patterns and -of_objects are in the usage; get_libs has no usage text yet (VERIFY, in the probe list).
+set NDM_FILL_FIND_FORMS {
+  {get_lib_cells}
+  {get_lib_cells *}
+  {get_lib_cells */*}
+  {get_lib_cells -of_objects [get_libs *]}
+  {get_lib_cells -of_objects [get_libs feedth]}
+  {get_lib_cells -of_objects [get_libs %WS%]}
+}
 # one checkpoint block name per stage (a stage starts from the previous one and saves a new one)
 set BLK_IMPORT     [_p_blk IMPORT unpu_top]
 set BLK_FP         [_p_blk FP fp]
@@ -450,6 +465,7 @@ set PROBE_APPOPT_PATTERNS_ICC2 {
 set PROBE_COMMANDS_LM {
   create_workspace read_lef read_db read_lib check_workspace commit_workspace set_attribute get_lib_cells get_cells
   report_workspace remove_workspace get_object_name foreach_in_collection sizeof_collection redirect set_app_var get_app_var printvar
+  get_libs current_lib current_workspace get_workspaces report_lib_cells report_lib get_attribute
 }
 set PROBE_WILDCARDS_LM {*workspace* *lef* *db* *lib* *attribute* *filler*}
 

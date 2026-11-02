@@ -25,7 +25,7 @@
 # prints the directory. Files written:
 #   feedth.lef            the three filler MACROs cut from the kit LEF (header + 3 MACROs)
 #   scl18fs120.ndm        timing cells (+ fillers in mode single)
-#   scl18fs120_fillf.ndm  fillers only (mode two)
+#   scl18fs120_fillf.ndm  fillers only (mode two; built by the first of NDM_FILL_VARIANTS that works, task 056)
 #   ndm_manifest.txt      absolute NDM paths, one per line, in reference-library order
 #   manifest_ndm_file_gen.txt   tool version, parameters, checksums
 # An existing target NDM is never overwritten silently: the script stops unless
@@ -44,6 +44,7 @@
 
 set here [file dirname [file normalize [info script]]]
 source [file join $here common.tcl]
+source [file join $here ndm_fill_common.tcl]
 unpu_load_params
 
 # ---- 1. checks before doing anything ----------------------------------------
@@ -162,18 +163,30 @@ set committed 1
 
 # ---- 5. mode two: second workspace for the fillers (handoff 18.22) -----------
 if {$NDM_MODE eq "two"} {
-  # -technology with -flow physical_only: accepted (create_workspace usage in help_lm; the server run of mode single used -flow normal only,
-  # so this form is not yet exercised: VERIFY_STATUS.md).
-  unpu_info "create_workspace -flow physical_only $NDM_WS_FILL"
-  unpu_run_logged [list create_workspace -flow physical_only -technology $TECH_FILE $NDM_WS_FILL] $FILLER_CELLS
-  unpu_run_logged [list read_lef $feedth_lef] $FILLER_CELLS
-  incr lef_read
-  # must be done in the library manager BEFORE check_workspace and commit_workspace; it cannot be
-  # set in icc2_shell (ATTR-25); cells left typed lib_cell gave CHF-011/CHF-010 (18.22)
-  set nfill [ndm_type_fillers]
-  unpu_check_pass ndm_file_gen fillers_typed [expr {$nfill == [llength $FILLER_CELLS]}] \
-      "$nfill of [llength $FILLER_CELLS] filler cells typed filler in $NDM_WS_FILL"
-  ndm_check_workspace $NDM_WS_FILL
+  # Task 056. pnr_run2 (real server run): create_workspace -flow physical_only -technology <tf> + read_lef feedth.lef worked
+  # ("Read LEF into a new library 'feedth'", LEFR-022) but get_lib_cells matched 0 of the 3 fillers, so nothing was typed and the
+  # script stopped. The cause is not known (ndm_fill_probe.tcl answers it in one server run). Until then the script tries the VARIANTS of
+  # NDM_FILL_VARIANTS (common.tcl unpu_fill_variant_cmds) in order, and for each tries the FORMS of NDM_FILL_FIND_FORMS to list the lib
+  # cells. A variant is accepted only if one form lists EXACTLY the 3 fillers, they are typed `filler` (read back), and check_workspace
+  # prints "Workspace check succeeded!". A failed variant is printed and its workspace removed (remove_workspace). If no variant works the
+  # CHECK fillers_typed fails and the script stops with every reason printed. Nothing is accepted on a guess.
+  # design_type must be set in the library manager BEFORE check_workspace and commit_workspace; it cannot be set in icc2_shell (ATTR-25);
+  # cells left typed lib_cell gave CHF-011/CHF-010 (18.22).
+  set fill_ok 0
+  set fill_variant none
+  set fill_msgs {}
+  foreach variant $NDM_FILL_VARIANTS {
+    unpu_info "second workspace $NDM_WS_FILL: trying variant $variant"
+    lassign [ndm_try_fill_variant $variant $NDM_WS_FILL $TECH_FILE $feedth_lef] ok msg
+    if {$ok} { incr lef_read; set fill_ok 1; set fill_variant $variant; lappend fill_msgs "$variant: OK ($msg)"; break }
+    lappend fill_msgs "$variant: FAILED ($msg)"
+    unpu_warn "variant $variant failed: $msg"
+    if {![ndm_discard_ws]} { lappend fill_msgs "(remove_workspace failed after $variant: later variants may be contaminated)" }
+  }
+  foreach m $fill_msgs { unpu_info "filler workspace summary: $m" }
+  unpu_result ndm_file_gen fill_workspace_variant $fill_variant
+  unpu_check_pass ndm_file_gen fillers_typed $fill_ok \
+      "[llength $FILLER_CELLS] filler cells typed filler in $NDM_WS_FILL (variant $fill_variant); tried: [join $fill_msgs {; }]"
   unpu_run_logged [list commit_workspace] $FILLER_CELLS
   incr committed
 }

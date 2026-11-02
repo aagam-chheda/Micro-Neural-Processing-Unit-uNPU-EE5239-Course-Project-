@@ -115,7 +115,7 @@ Option names and argument forms in the scripts match the usage files. The output
 | K21 | `common.tcl` 1262 | `save_lib` with the new block open persists the library and reference list | the log of `design_setup.tcl` / `floorplan.tcl` |
 | K22 | `common.tcl` 1230–1252 | `current_block` name format after `open_block` / checkpoint | the log of `design_setup.tcl` |
 | K23 | `ndm_check.tcl` 51 | `create_lib -ref_libs` with a LIST of two paths | `ndm_check.tcl` in mode two |
-| K24 | `ndm_file_gen.tcl` | the second workspace form (`-flow physical_only -technology`) runs | `ndm_file_gen.tcl` in mode two |
+| K24 | `ndm_file_gen.tcl` | the second workspace form (`-flow physical_only -technology`) runs | RAN in `pnr_run2` (task 056): `create_workspace` and `read_lef feedth.lef` succeed (LEFR-022, LEFR-064), but `get_lib_cells` listed 0 fillers; see K49-K53 |
 | K25 | `route.tcl` 66 | whether a block already has routed nets (no command known) | stays a Warning; a `route_auto` summary would show |
 | K26 | `route.tcl` | wording and count of `OPT-209`, `ZRT-309` after `define_antenna_rule` | the log of `route.tcl` |
 | K27 | `cts.tcl` 210, `route/fill.tcl` | `report_utilization` / `report_qor` texts (area, instances, utilisation, wire length) | the logs of `cts.tcl` / `route.tcl` |
@@ -155,3 +155,8 @@ Option names and argument forms in the scripts match the usage files. The output
 | K46 | `common.tcl unpu_growth_row` | `get_cells -hierarchical -quiet -filter "ref_name=~<pattern>"` (the filter operator and the attribute, as K28) and the cell attribute `area`; the cells added by a stage cannot be told from the earlier ones, so the classes are by name pattern | the log of `placement.tcl` |
 | K47 | `params.tcl GROWTH_CLASSES` | the class patterns come from the library listing in the NDM build log: buffers `buf*` (bufbd, buffd, buftd), inverters `inv*` (inv0d, invbd, invtd), delay cells `dl0*` (12 cells); `clk2d2` is not counted; the listing shows no tie or spare cell names, so those are "not counted" | the library listing of a later probe (`get_lib_cells`) |
 | K48 | `floorplan.tcl` | that `initialize_floorplan -boundary` with the derived core accepts any number of rows (not only the 153 of the old die) | the log of `floorplan.tcl` |
+| K49 | `ndm_file_gen.tcl`, `ndm_fill_probe.tcl` | WHY `get_lib_cells` lists 0 of the 3 fillers after `read_lef feedth.lef` in the physical_only workspace (hypotheses: `read_lef` made its own library `feedth` outside the workspace library; `-technology` changes the current library; the cells are listed only by another form) | the log and `summary.txt` of `ndm_fill_probe.tcl` |
+| K50 | `common.tcl unpu_fill_variant_cmds` | `read_lef -library <ws>` populates the workspace library (usage: "Library to populate"); `create_workspace -flow physical_only` without `-technology` is accepted and gives usable cells | the probe, variants `lefInto`, `noTech`, `noTechInto` |
+| K51 | `ndm_fill_probe.tcl` | `create_workspace -use_technology_lib <name>` with the name of the main workspace (a guess; probe only) | the probe, variant `useTechLib` |
+| K52 | `ndm_fill_common.tcl` | `get_libs`, `get_attribute <lib_cell> design_type`, `remove_workspace` (no argument) after a failed variant, and that a second `create_workspace` with the same name works after it | `ndm_file_gen.tcl` / the probe (usage texts of get_libs and get_attribute are not in help_lm) |
+| K53 | `params.tcl NDM_FILL_FIND_FORMS` | which of the `get_lib_cells` forms lists the fillers; `get_lib_cells` has no `-all` in its usage | the probe |

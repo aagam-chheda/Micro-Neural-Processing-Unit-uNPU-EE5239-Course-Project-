@@ -90,7 +90,16 @@ setenv UNPU_NDM_OVERWRITE 1
 
 Good result: `Workspace check succeeded!` twice; `Skipped 6 physical designs (LM-052)` in the MAIN workspace (expected: the six LEF-only cells); `CHECK ndm_file_gen fillers_typed`: 3 of 3 typed filler;
 `RESULT ndm_file_gen workspaces_committed = 2`; `ndm_manifest.txt` lists `scl18fs120.ndm` then `scl18fs120_fillf.ndm`. Run time: about 9 seconds in the first (single) run (`Elapsed time` at the end of `ndm_file_gen.log`).
-Predicted failures: the second workspace form (`create_workspace -flow physical_only -technology ...`) has not run yet (VERIFY_STATUS K24); a wrong `icc2_lm_shell` (release check stops).
+Predicted failures: a wrong `icc2_lm_shell` (release check stops). **Task 056:** the first real run of mode `two` (`pnr_run2`) built the second workspace but `get_lib_cells` listed 0 of the 3 fillers, so `scl18fs120_fillf.ndm` was never written. The script now tries the variants of `NDM_FILL_VARIANTS` in order (`lefLib` = the form of that run, `lefInto` = `read_lef -library <ws>`, `noTech`, `noTechInto`), and for each a list of `get_lib_cells` forms; a variant is taken only when one form lists exactly the 3 fillers, they are typed `filler` (read back) and `check_workspace` prints `Workspace check succeeded!`. A failed variant is printed and its workspace removed; the log ends with `filler workspace summary:` lines and `RESULT ndm_file_gen fill_workspace_variant = <name>`. If no variant works the script stops with `CHECK ndm_file_gen fillers_typed FAIL` and every reason: send the log to Planning. Because the main NDM exists after the first run, rerun with `UNPU_NDM_OVERWRITE 1` (the default `UNPU_NDM_FILL_VARIANTS` tries all four).
+
+### 1a. `ndm_fill_probe.tcl` — exploratory, answers WHY the fillers were not found (icc2_lm_shell, task 056)
+
+Builds the second workspace in 5 variants (the four above plus `useTechLib`, a guess) in a NEW scratch directory, prints `report_workspace` (plain, `-details`, `-panes`, `-changes`, `-lib_group`), `get_workspaces`, `current_workspace`, `get_libs`, `current_lib`, every `get_lib_cells` form with the objects and their `design_type`, the `check_workspace` output, the `commit_workspace` result and the `.ndm` file names, then a SUMMARY table (also `$UNPU_PROBE_DIR/summary.txt`). It never writes the real `ndm/` directory (it refuses `UNPU_PROBE_DIR` equal to, inside or containing it, and a non-empty directory). Run time: seconds. Send the log and `summary.txt` to Planning.
+
+```
+setenv UNPU_PROBE_DIR $UNPU_WORK/ndm_probe1
+/home/Synopsys_tools/icc2/U-2022.12-SP3/bin/icc2_lm_shell -file $UNPU_REPO/pnr/ndm_fill_probe.tcl -output_log_file $UNPU_WORK/ndm_fill_probe.log
+```
 Rerun: as above; with `UNPU_NDM_OVERWRITE 1`.
 
 ## 2. `ndm_check.tcl` — check the NDMs (icc2_shell)
