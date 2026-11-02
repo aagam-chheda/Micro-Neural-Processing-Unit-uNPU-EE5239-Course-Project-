@@ -32,6 +32,15 @@
 // task since 006.
 `timescale 1ns/1ps
 
+// Clock period selector (task 057). GLS_CLK_HALF_NS is the clock HALF period in ns; the default 5 is the 10 ns clock every RTL run uses and
+// changes nothing. The synthesised netlist is built for 16/18/20 ns, so a gate-level run with cell delays needs the real 20 ns clock:
+//   xrun ... -define GLS_CLK_HALF_NS=10 ...
+// Every absolute delay of this testbench is derived from it (there are exactly two: the clock toggle and the 1 ns offset after the edge
+// at which step() lets the stimulus change). Every other wait is a number of CLOCK CYCLES (bounded for loops), which needs no scaling.
+`ifndef GLS_CLK_HALF_NS
+  `define GLS_CLK_HALF_NS 5
+`endif
+
 module unpu_top_tb;
 
   logic clk, rst_n;
@@ -62,11 +71,13 @@ module unpu_top_tb;
   );
 
   initial clk = 0;
-  always #5 clk = ~clk;
+  localparam int CLK_HALF_NS = `GLS_CLK_HALF_NS;           // 5 -> 10 ns clock (default); 10 -> 20 ns clock (gate level)
+  localparam int STEP_OFFSET_NS = (CLK_HALF_NS + 4) / 5;   // the 1 ns after the edge at 5, 2 ns at 10 (same 10 percent of the period)
+  always #(CLK_HALF_NS) clk = ~clk;
 
   task automatic step;
     @(posedge clk);
-    #1;
+    #(STEP_OFFSET_NS);
   endtask
 
   // ---- Behavioral SRAM model on the dma_* port, same design as tasks
