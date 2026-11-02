@@ -835,6 +835,16 @@ if {$okf} {
   set fh [open [file join $tmp rpt060 leaf_hist_netlist.txt] r]; set nt [read $fh]; close $fh
   t_check "060 netlist histogram file: 3 cells, inv0d1 1, nd02d1 2" [expr {[string first "3 cells in 2 reference names" $nt] >= 0 && [string first "nd02d1 2" $nt] >= 0}] $nt
 }
+# ---- task 061: attribute values that are collection handles -----------------------------------------------------------
+t_check "061 is_handle: _sel22 yes; TOP_M, M1, _selx, empty, a name containing _sel no" [expr {[unpu_is_handle _sel22] && ![unpu_is_handle TOP_M] && ![unpu_is_handle M1] && ![unpu_is_handle _selx] && ![unpu_is_handle ""] && ![unpu_is_handle my_sel22] && ![unpu_is_handle "_sel22 x"]}]
+set child "source [list [file join $here common.tcl]]\nproc get_attribute {o a} { return \$::ATTRVAL }\nproc get_object_name {o} { if {\$o eq {_sel22}} { return TOP_M }; if {\$o eq {_sel23}} { return {} }; return \$o }\nset ::ATTRVAL _sel22\nputs \[unpu_attr_name T layer\]\nset ::ATTRVAL TOP_M\nputs \[unpu_attr_name T layer\]\nset ::ATTRVAL _sel23\nputs \[catch {unpu_attr_name T layer} m\]\nputs \[unpu_attr_name_safe T layer\]"
+lassign [t_child $child {}] c o
+t_check "061 attr_name: _sel22 -> TOP_M via get_object_name; plain TOP_M unchanged; an unreadable handle is an error / unavailable" [expr {$c == 0 && [split [string trim $o] "\n"] eq {TOP_M TOP_M 1 unavailable}}] "exit $c: $o"
+t_check "061 core utilization message (real text of initialize_floorplan)" [expr {[unpu_parse_core_util_message "Information: Core utilization ratio = 59.56%.\n"] eq "59.56" && [unpu_parse_core_util_message "nothing"] eq ""}]
+foreach f {power.tcl pin_place.tcl floorplan.tcl} {
+  set fh [open [file join $here $f] r]; set d [read $fh]; close $fh
+  t_check "061 $f: no raw get_attribute ... layer / site_name / ref_name read (they go through unpu_attr_name)" [expr {![regexp {get_attribute \$\w+ (layer|site_name|ref_name)\]} $d]}]
+}
 t_check "netlist counts: a missing top module is an error" [expr {[catch {unpu_netlist_counts $nl nosuchtop} m] && [string first "not defined" $m] >= 0}]
 t_check "netlist counts: a module that instantiates itself is an error" [expr {[catch {unpu_netlist_counts "module unpu_top (a);\n  unpu_top u ( .a(a) );\nendmodule\n" unpu_top} m] && [string first "itself" $m] >= 0}]
 t_check "netlist counts: the first run's reference numbers are kept for the comparison only" [expr {$PREV_LEAF_CELLS == 12487 && $PREV_NETLIST_MODULES == 76 && ![info exists EXPECT_LEAF_CELLS] && ![info exists EXPECT_NETLIST_MODULES]}]

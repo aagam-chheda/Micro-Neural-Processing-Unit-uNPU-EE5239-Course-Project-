@@ -1583,12 +1583,32 @@ proc unpu_hist_text {title h} {
   foreach n [lsort [dict keys $h]] { append out "\n$n [dict get $h $n]" }
   return "$out\n"
 }
+# ---- object-or-string attribute values (task 061) ---------------------------------------------------------------------
+# Real run (power.tcl): `get_attribute <terminal> layer` returned a COLLECTION HANDLE (`_sel22`), not the layer name `TOP_M`. A comparison with
+# the name then fails although the geometry is right. unpu_is_handle recognises the handle text of a collection (`_sel<digits>`);
+# unpu_attr_name wraps a tool read: an attribute value that is a handle is turned into the object's NAME with get_object_name, anything else is
+# returned unchanged. Pure part: unpu_name_if_handle (the decision), tool part: unpu_attr_name. VERIFY K61: the handle form is `_sel<N>`.
+proc unpu_is_handle {v} { return [regexp -- {^_sel[0-9]+$} $v] }
+# value -> {is_handle}; the caller resolves a handle with get_object_name
+proc unpu_attr_name {obj attr} {
+  set v [get_attribute $obj $attr]
+  if {[unpu_is_handle $v]} {
+    if {[catch {get_object_name $v} nm] || $nm eq ""} { return -code error "attribute $attr of [get_object_name $obj] is the object '$v' and its name could not be read: $nm" }
+    return $nm
+  }
+  return $v
+}
+# the same, never raising: the value or `unavailable`
+proc unpu_attr_name_safe {obj attr} {
+  if {[catch {unpu_attr_name $obj $attr} v]} { return unavailable }
+  return $v
+}
 # TOOL PROCEDURE (task 060). Histogram of the linked design's leaf cells by reference name: dict name -> count. VERIFY: the cell attribute
 # `ref_name` (it is used as a filter in K28/K46; read back here with get_attribute).
 proc unpu_linked_histogram {} {
   set h [dict create]
   foreach_in_collection c [get_cells -hierarchical -filter "is_hierarchical==false"] {
-    dict incr h [get_attribute $c ref_name]
+    dict incr h [unpu_attr_name $c ref_name]
   }
   return $h
 }
@@ -2437,4 +2457,10 @@ proc unpu_fill_match {names expected} {
   set uniq [lsort -unique $cells]
   if {$uniq ne [lsort $expected]} { return [list 0 "cell names $uniq are not exactly $expected ([llength $names] objects: $names)"] }
   return [list 1 "[llength $names] object(s) for [llength $expected] cells: [join $names { }]"]
+}
+
+# "Core utilization ratio = 59.56%" (message of initialize_floorplan, real run of floorplan.tcl, task 061) -> 59.56 (percent), "" if absent.
+proc unpu_parse_core_util_message {text} {
+  if {[regexp -nocase -- {core\s+utili[sz]ation\s+ratio\s*=\s*([0-9]+\.?[0-9]*)\s*%} $text -> v]} { return $v }
+  return ""
 }

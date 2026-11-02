@@ -164,7 +164,7 @@ set first [lindex $stripes 0]
 lassign [pw_make_pin $first] fn fshp ftrm
 if {$ftrm eq ""} { unpu_die "create_terminal returned nothing for the first extension shape '$fshp'; nothing else was created" }
 set fbox [unpu_box_entry $fn [get_attribute $ftrm bbox]]
-set flayer [get_attribute $ftrm layer]                          ;# VERIFY: attribute layer on a terminal (18.15 reads it on pins)
+set flayer [unpu_attr_name $ftrm layer]                         ;# the real tool returns an object (`_sel22`) for `layer`: its NAME is compared (task 061, K61)
 unpu_info "first extension: net $fn stripe x [lindex $first 1]..[lindex $first 3], terminal bbox {$fbox} layer $flayer"
 if {$fbox eq "" || abs([lindex $fbox 1] - [lindex $first 1]) > $PG_TOLERANCE || abs([lindex $fbox 3] - [lindex $first 3]) > $PG_TOLERANCE \
     || abs([lindex $fbox 2] - $PG_PIN_BOTTOM_Y) > $PG_TOLERANCE || $flayer ne $PG_STRIPE_LAYER} {
@@ -183,7 +183,7 @@ foreach n [list $PG_NET_POWER $PG_NET_GROUND] {
     set e [unpu_box_entry $n [get_attribute $t bbox]]
     if {$e eq ""} { unpu_die "cannot read the bbox of terminal [get_object_name $t]" }
     lappend terms $e
-    lappend term_layers [get_attribute $t layer]
+    lappend term_layers [unpu_attr_name $t layer]
   }
 }
 set bad_layer {}

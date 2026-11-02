@@ -152,7 +152,7 @@ foreach_in_collection t [get_terminals -quiet] {
   set tn [get_object_name $t]
   if {[info exists is_power($tn)]} continue
   set box [unpu_parse_bbox [get_attribute $t bbox]]
-  set layer [get_attribute $t layer]
+  set layer [unpu_attr_name_safe $t layer]   ;# the layer attribute may be an object handle (`_sel22` in power.tcl, task 061): its name
   # the port of the terminal. VERIFY: attribute port; otherwise the terminal name is taken as the port name
   if {[catch {get_attribute $t port} pobj] || $pobj eq ""} { set port $tn } elseif {[catch {get_object_name $pobj} port]} { set port $pobj }
   if {[llength $box] != 4} { lappend unreadable $tn; continue }

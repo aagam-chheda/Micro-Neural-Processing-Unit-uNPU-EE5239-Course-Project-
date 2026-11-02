@@ -95,7 +95,7 @@ proc fp_report {name cmd} {
 # 686,909.44, 146 rows. So -boundary is the CORE rectangle and the die is boundary + core_offset on every side.
 # FP_BOUNDARY in params.tcl is built that way: core corners at CORE_OFFSET and at DIE_SIZE - CORE_OFFSET.
 unpu_info "initialize_floorplan -boundary $FP_BOUNDARY -core_offset $CORE_OFFSET (core is the boundary; die = boundary + offset)"
-unpu_run_logged [list initialize_floorplan -boundary $FP_BOUNDARY -core_offset $CORE_OFFSET] {}
+set fptext [unpu_run_logged [list initialize_floorplan -boundary $FP_BOUNDARY -core_offset $CORE_OFFSET] {}]
 
 # ---- 3. checks -----------------------------------------------------------------
 # die: boundary_bbox attribute of the block (18.14), VERIFY the value format "{llx lly} {urx ury}"
@@ -118,7 +118,7 @@ unpu_check_pass floorplan rows [expr {$nrows == $FP_ROWS}] "$nrows site rows, ex
 set site_info "unreadable"
 if {[catch {
       set row0 [index_collection [get_site_rows] 0]                  ;# VERIFY
-      set sname [get_attribute $row0 site_name]                      ;# VERIFY
+      set sname [unpu_attr_name $row0 site_name]                     ;# VERIFY (name, even if the tool returns an object, task 061)
       set sdef [get_site_defs $sname]                                ;# VERIFY
       set sw [get_attribute $sdef width]                             ;# VERIFY
       set sh [get_attribute $sdef height]                            ;# VERIFY
@@ -137,16 +137,24 @@ if {[lindex $pa 0] eq "ok"} {
   lassign $pa st chip core util detail
   unpu_check_pass floorplan chip_area [expr {abs($chip - $expect_chip) <= 0.01}] "chip area $chip um2, expected DIE_SIZE^2 = $expect_chip"
   unpu_check_pass floorplan core_area [expr {abs($core - $CORE_AREA) <= 0.01}] "core area $core um2, expected $CORE_AREA"
+  # the utilisation (task 061): report_design -floorplan prints none; the message of initialize_floorplan does ("Core utilization ratio = 59.56%").
+  # Sources: the report text, the initialize_floorplan message, and the computation cell area / core area from the DC area (SYN_CELL_AREA).
+  if {$util eq ""} { set util [unpu_parse_core_util_message $fptext] }
+  set util_calc [expr {100.0 * $SYN_CELL_AREA / $CORE_AREA}]
   if {$util eq ""} {
-    unpu_warn "no core utilization found in the report text (informational only)"
-    set util unavailable
+    unpu_warn "no core utilization in the report_design text or in the initialize_floorplan message; using cell area / core area"
+    set util [format %.2f $util_calc]
+  }
+  unpu_result floorplan core_utilization_computed_percent [format %.2f $util_calc]
+  if {abs($util - $util_calc) > $UTIL_CROSSCHECK_PP} {
+    unpu_warn "core utilization: the tool says $util percent, cell area / core area gives [format %.2f $util_calc] percent (more than $UTIL_CROSSCHECK_PP percentage points apart)"
   }
 } else {
   set chip unavailable; set core unavailable; set util unavailable
   unpu_check_pass floorplan chip_area 0 "[lindex $pa 1]"
   unpu_check_pass floorplan core_area 0 "report text did not parse (see floorplan_design.rpt)"
 }
-# utilisation: informational (DC cell area 429,161 um2 -> about 58.5% at the plan's die), not asserted
+# utilisation: a RESULT (the tool's own number, cross-checked with cell area / core area), not asserted
 unpu_result floorplan core_utilization_percent $util
 
 # ---- 4. don't-use cells (handoff 18.15) ----------------------------------------
