@@ -1,5 +1,5 @@
 # =============================================================================
-# cts.tcl -- script 5 of the back-end re-run: clock tree, then hold optimisation at the chosen uncertainty
+# cts.tcl -- script 5 of the back-end re-run: clock tree, then hold optimisation, under the stage profile `cts`
 #
 # Runs in icc2_shell (U-2022.12-SP3). Plan: docs/planning/backend-rerun-plan.md stage C; commands that worked in the
 # first run: docs/session-handoff.md 18.17 (clock tree), 18.18 (hold run, FLW-8004), 18.20 (style of checks).
@@ -17,24 +17,29 @@
 #
 # Input: the library $LIB_DIR/$LIB_NAME with the placed block $BLK_PLACED (placement.tcl, not written yet; the
 #   block only has to exist and be legal).
-# Output: block $BLK_CTS (clock tree built, hold NOT fixed: kept so that another hold uncertainty can be tried from
-#   it) and block $BLK_CLKOPT (hold optimised at HOLD_UNCERT); reports in $RPT_DIR (cts_*.rpt);
-#   $LOG_DIR/manifest_cts.txt.
-# Never: places or routes signal nets, changes the SDC, changes the setup uncertainty, touches the first-run library.
+# Output: block $BLK_CTS (clock tree built, hold NOT fixed) and block $BLK_CLKOPT (hold optimised); reports in $RPT_DIR
+#   (cts_*.rpt); $LOG_DIR/manifest_cts.txt.
+# The constraints: the stage profile PROFILE_CTS (`cts`: 18 ns, setup uncertainty 0.6 ns, hold uncertainty 0.05 ns,
+#   post-CTS) of constraints/unpu_top.sdc is applied FIRST by unpu_apply_profile (common.tcl): read_sdc in both scenarios (a re-read redefines
+#   the clock clk: UIC-034 is expected), operating condition ss / ff, the clock made propagated when the tree exists, and a read-back CHECK
+#   of period, uncertainty and propagation. There is no HOLD_UNCERT any more: the hold uncertainty is part of the profile.
+# Never: places or routes signal nets, touches the first-run library.
 #
 # Scenarios: no command here relies on the scenario that happens to be current. Each step selects the one it needs
 # ($SCEN_SETUP = ss, setup; $SCEN_HOLD = ff, hold) and the comments say which one a command acts on.
 #
-# Remaining hold endpoints after the optimisation are a Warning with the worst list, NOT a check: plan C2 says the
-# user decides what to do if hold does not close at 0.5 ns. FLW-8004 is counted and reported, not an error.
+# Limits (params.tcl, instructor's WNS table): setup WNS >= WNS_SETUP_CTS (-0.4 ns) is a CHECK (the violating-endpoint count is a RESULT).
+# Remaining hold endpoints after the optimisation are a Warning with the worst list, NOT a check: route_opt fixes them (instructor:
+# "small violations OK after CTS"). FLW-8004 is counted and reported, not an error.
 #
 # Stage (UNPU_CTS_STAGE, default all; a Warning in the log says which mode ran and cts_stage is in the manifest):
 #   all   the tree, then the hold optimisation (opens $BLK_PLACED; $BLK_CTS and $BLK_CLKOPT must not exist)
 #   tree  build the tree, save $BLK_CTS, stop (opens $BLK_PLACED; $BLK_CTS must not exist)
-#   hold  does NOT touch the tree: opens $BLK_CTS, applies HOLD_UNCERT, optimises, saves $BLK_CLKOPT ($BLK_CTS must
-#         exist and $BLK_CLKOPT must not). Several hold-uncertainty experiments in one library:
-#           setenv UNPU_CTS_STAGE hold ; setenv UNPU_HOLD_UNCERT 0.2 ; setenv UNPU_BLK_CLKOPT clkopt_h02
-#         and the later stages start from any of them with the same UNPU_BLK_CLKOPT.
+#   hold  does NOT touch the tree: opens $BLK_CTS, applies the profile (re-read, propagated again, read back), optimises, saves
+#         $BLK_CLKOPT ($BLK_CTS must exist and $BLK_CLKOPT must not). A second optimisation from the same tree under another block name:
+#           setenv UNPU_CTS_STAGE hold ; setenv UNPU_BLK_CLKOPT clkopt_b
+#         and the later stages start from any of them with the same UNPU_BLK_CLKOPT. (The hold uncertainty is not an experiment variable
+#         any more: it is 0.05 ns in the profile.)
 #
 # If a CHECK fails the script prints every verdict, then stops BEFORE saving $BLK_CLKOPT. $BLK_CTS is saved earlier
 # (right after the tree, if its own checks pass).
@@ -51,12 +56,15 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
   unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
 }
 unpu_stage_begin cts run [list $lib_path]
+unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
 # which blocks must (not) exist and which one is opened depends on UNPU_CTS_STAGE (params.tcl CTS_STAGE)
 lassign [unpu_cts_stage_plan $CTS_STAGE $BLK_PLACED $BLK_CTS $BLK_CLKOPT] must_not must_have open_blk
 unpu_warn "UNPU_CTS_STAGE = $CTS_STAGE: [expr {$CTS_STAGE eq {all} ? {tree and hold optimisation} : ($CTS_STAGE eq {tree} ? {tree only, stops after saving the cts block} : {hold optimisation only, starting from the saved cts block})}]"
@@ -83,6 +91,10 @@ proc ct_scen {name} { unpu_scenario $name }
 proc ct_report {name cmd} { return [unpu_report cts $name $cmd] }
 
 set corners [list $CORNER_SETUP $CORNER_HOLD]
+# ---- 0. the stage profile (task 053) -----------------------------------------------------------------------
+# stages all/tree: the tree does not exist yet (clock_opt makes the clock propagated); stage hold: it does.
+unpu_apply_profile $PROFILE_CTS {} {} [expr {$CTS_STAGE eq "hold" ? 1 : 0}]
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the stage profile $PROFILE_CTS is not in force (see the CHECK lines above); nothing is built or optimised" }
 # stages all and tree: legality of the placed block, the tree, its checks and the first checkpoint. Stage hold skips this
 # (it opens the saved $BLK_CTS and does not touch the tree).
 if {$CTS_STAGE ne "hold"} {
@@ -118,7 +130,11 @@ if {$CTS_STAGE ne "hold"} {
   } else {
     unpu_check_pass cts clock_sinks 0 "[lindex $pq1 1]"
   }
+  # clock_opt made the clock propagated: the profile read back again, now with the tree in place (period, uncertainty, propagation)
+  foreach s [list $SCEN_SETUP $SCEN_HOLD] { unpu_profile_readback $PROFILE_CTS $s 1 }
   if {$UNPU_CHECK_FAILED > 0} { unpu_die "the clock tree failed its checks; no checkpoint saved (see the CHECK lines above)" }
+  unpu_check_congestion cts tree 0          ;# RESULT only (the instructor gives the congestion limit for placement)
+  unpu_growth_row cts cts
   unpu_checkpoint $BLK_CTS
   unpu_result cts block_saved_cts $BLK_CTS
 }
@@ -128,19 +144,10 @@ if {$CTS_STAGE eq "tree"} {
   exit 0
 }
 
-# ---- 5. hold uncertainty (18.18) ----------------------------------------------------------------------
-# acts on $SCEN_HOLD (ff, hold). The SDC already carries 0.5; setting it here makes the value explicit and lets an
-# experiment run with another value (UNPU_HOLD_UNCERT). set_clock_uncertainty -hold -scenarios <s> <v> [get_clocks clk] (usage text, task 047)
-ct_scen $SCEN_HOLD
-# without -modes/-corners/-scenarios the command acts on the current scenario (usage text); the scenario is named explicitly
-unpu_run_logged [list set_clock_uncertainty -hold -scenarios $SCEN_HOLD $HOLD_UNCERT [get_clocks clk]] {}
-# read it back from a hold path report (18.19 used this: report_timing -delay_type min shows "clock uncertainty")
-set rb [ct_report hold_uncertainty_readback "report_timing -delay_type min -max_paths 1 -nosplit"]
-set got [unpu_parse_clock_uncertainty $rb]
-unpu_check_pass cts hold_uncertainty [expr {$got ne "" && abs($got - $HOLD_UNCERT) < 1e-6}] \
-    "hold clock uncertainty read back from report_timing in $SCEN_HOLD: '$got', expected $HOLD_UNCERT"
-# optimising at the wrong uncertainty would waste the long clock_opt run and prove nothing: stop here ($BLK_CTS is saved)
-if {$UNPU_CHECK_FAILED > 0} { unpu_die "the hold uncertainty is not in force; clock_opt -from $CTS_OPT_FROM is not run. Block $BLK_CTS is saved." }
+# ---- 5. the profile is in force (task 053) -------------------------------------------------------------
+# The hold uncertainty is part of the profile `cts` (0.05 ns), applied above and read back after the tree. Optimising at the wrong
+# uncertainty would waste the long clock_opt run: stop here if any profile check failed ($BLK_CTS is saved in stages all/tree).
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the stage profile is not in force; clock_opt -from $CTS_OPT_FROM is not run. Block $BLK_CTS is saved." }
 
 # ---- 6. hold optimisation (18.18) -------------------------------------------------------------------------
 # clock_opt acts on all scenarios (setup in $SCEN_SETUP, hold in $SCEN_HOLD)
@@ -158,8 +165,10 @@ if {$n8004 != 0} {
 # setup (acts on $SCEN_SETUP)
 lassign [unpu_timing_summary cts $SCEN_SETUP max setup] ws sv sg spaths
 unpu_result cts worst_setup_slack_ns $ws
-unpu_check_pass cts setup_violations [expr {$sv ne "unavailable" && $sv == 0}] \
-    "$sv setup-violating endpoint(s) in $SCEN_SETUP (0 expected; 'unavailable' = the count could not be obtained); worst slack $ws ns; by group {$sg}"
+unpu_result cts setup_violating_endpoints $sv
+unpu_result cts setup_wns_margin_ns [unpu_wns_margin $ws $WNS_SETUP_CTS]
+unpu_check_pass cts setup_wns [unpu_wns_ok $ws $WNS_SETUP_CTS] \
+    "worst setup slack $ws ns in $SCEN_SETUP, limit $WNS_SETUP_CTS ns (margin [unpu_wns_margin $ws $WNS_SETUP_CTS] ns; 'unavailable' fails); $sv setup-violating endpoint(s); by group {$sg}"
 # hold (acts on $SCEN_HOLD): RESULT and a Warning, NOT a check
 lassign [unpu_timing_summary cts $SCEN_HOLD min hold] wh hv hg hpaths
 unpu_result cts worst_hold_slack_ns $wh
@@ -169,7 +178,7 @@ if {$hv eq "unavailable"} {
   unpu_warn "the number of hold-violating endpoints could not be obtained (see the report_timing warnings above); worst hold slack $wh ns"
 } elseif {$hv != 0} {
   set worst [unpu_worst_endpoints $hpaths $HOLD_ENDPOINTS_LISTED]
-  unpu_warn "$hv hold-violating endpoint(s) remain in $SCEN_HOLD at hold uncertainty $HOLD_UNCERT (worst slack $wh ns). This is NOT a failure of the script: plan C2 says route_opt may clear the last ones and the user decides what to do if hold does not close. Worst [llength $worst]: [join $worst { ; }]"
+  unpu_warn "$hv hold-violating endpoint(s) remain in $SCEN_HOLD at hold uncertainty $UNPU_PROFILE_HOLD (worst slack $wh ns). This is NOT a failure of the script: the instructor allows small hold violations after CTS and route_opt fixes them. Worst [llength $worst]: [join $worst { ; }]"
   foreach l $worst { unpu_info "hold endpoint: $l" }
 }
 # max transition and max capacitance (VERIFY: report_constraint -all_violators -max_transition / -max_capacitance)
@@ -194,6 +203,9 @@ foreach {k what} {cells "floating standard cells" wires "floating wires" vias "f
   set v [expr {[info exists fl($k)] ? $fl($k) : "not parsed"}]
   unpu_check_pass cts pg_conn_$k [expr {$v ne "not parsed" && $v == 0}] "$what: $v (0 expected once the cells are placed)"
 }
+# utilisation after the hold optimisation (instructor POST 2: post-CTS <= 80-85 percent -> 80) and the growth row of this stage (task 054)
+unpu_check_utilization cts $UTIL_MAX_CTS hold_opt
+unpu_growth_row cts clkopt
 # clock QoR after the optimisation: RESULT lines (latency and skew should not change much)
 set cq2 [ct_report clock_qor_final "report_clock_qor -type summary"]
 set pq2 [unpu_parse_clock_qor $cq2 $corners]
@@ -220,7 +232,7 @@ foreach k {area instances buffers utilization} {
 # ---- 8. verdict, then the second checkpoint --------------------------------------------------------
 unpu_checks_finish cts               ;# stops here if any check failed: $BLK_CLKOPT is not saved
 unpu_checkpoint $BLK_CLKOPT
-unpu_result cts hold_uncertainty_ns $HOLD_UNCERT
+unpu_result cts hold_uncertainty_ns $UNPU_PROFILE_HOLD
 unpu_result cts block_saved_clkopt $BLK_CLKOPT
 unpu_info "done: blocks $BLK_CTS and $BLK_CLKOPT saved in $lib_path"
 exit 0

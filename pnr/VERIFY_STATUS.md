@@ -11,7 +11,7 @@ has so far run only on the stub interpreter. So:
 - **CONTRADICTED** = the real files show the script is wrong; fixed in task 047 (see the fix column).
 - **UNKNOWN** = no real text exists yet; "settled by" says which output would decide it.
 
-Totals: **CONTRADICTED 5** (all fixed), **CONFIRMED 53** (12 by run, 41 by usage), **UNKNOWN 32**.
+Totals: **CONTRADICTED 5** (all fixed), **CONFIRMED 53** (12 by run, 41 by usage), **UNKNOWN 32** (+ 9 added by task 053 and 6 by task 054 at the end of this file).
 
 ## Contradicted (fixed)
 
@@ -130,3 +130,28 @@ Option names and argument forms in the scripts match the usage files. The output
 - 18.15 says the 18 dont_use cells came from `set_dont_use`; that command does not exist in this release. The attribute was set with `set_attribute` on library cells.
 - Mode `single` of the NDM build cannot work on this kit (C3). The two-NDM layout (`scl18fs120` + `scl18fs120_fillf`, 537 cells) is the default now.
 - The icc2 Tcl is 8.6.11 (`info patchlevel`, `version.txt`); the scripts do not rely on 8.5-only behaviour.
+
+## Added by task 053 (stage profiles in the layout flow): all UNKNOWN until the probe and the first run
+
+| # | Where | Item | Settled by |
+|---|---|---|---|
+| K34 | `common.tcl unpu_clock_facts` | `get_attribute <clock> period` and `is_propagated` (or `propagated_clock`) on the clock `clk` | the probe of `get_clocks` / the first `design_setup` log |
+| K35 | `common.tcl unpu_parse_report_clocks` | the layout of `report_clocks` (a table `Clock Period Waveform Attrs Sources`, attribute `p` = propagated) — the fallback when the attributes fail | the probe output of `report_clocks` |
+| K36 | `common.tcl unpu_apply_profile` | `set_propagated_clock [get_clocks clk]` (command unprobed) | the probe of `set_propagated_clock` |
+| K37 | `common.tcl unpu_apply_profile`, `cts.tcl` mode `hold` | whether a `read_sdc` in a block that already has a clock tree keeps the tree and the propagation, or redefines `clk` destructively; the read-back CHECKS (period, uncertainty, propagation) make a failure loud, no fallback that skips `create_clock` is written | the log of `cts.tcl` (mode hold) and `route.tcl` |
+| K38 | `common.tcl unpu_profile_readback` | the `clock uncertainty` line of `report_timing` as the read-back of the setup (max) and hold (min) uncertainty | the log of `design_setup.tcl` |
+| K39 | `common.tcl unpu_profile_numbers` | `interp create` inside icc2_shell (Tcl 8.6): the expected profile numbers are computed by running the SDC's table section in a slave interpreter | the log of `design_setup.tcl` |
+| K40 | `design_setup.tcl` | that the profile SDC (no wire load model, no `set_max_area`) prints no `SDC-` ids (the DC-written SDC printed SDC-3 and SDC-4); `EXPECT_SDC_IGNORED` is empty | the log of `design_setup.tcl` |
+| K41 | `common.tcl unpu_apply_profile` | `puts`, `error`, `foreach`, `expr` and `info exists ::env(...)` inside `read_sdc` of icc2_shell (as for dc_shell, task 051) | the log of `design_setup.tcl` |
+| K42 | `common.tcl unpu_netlist_counts` | that the flattened leaf-cell count from the netlist text equals ICC2's `is_hierarchical==false` count (instance lines `<type> <name> (`); a mismatch is the `leaf_cells` CHECK of `design_setup.tcl` | the log of `design_setup.tcl` |
+
+## Added by task 054 (die, utilisation, congestion, growth): all UNKNOWN until the first run
+
+| # | Where | Item | Settled by |
+|---|---|---|---|
+| K43 | `common.tcl unpu_parse_utilization`, `unpu_check_utilization` | which number `report_utilization` / `report_qor` calls "utilization" (assumed: standard-cell area / core area, with or without %); the script cross-checks it with the parsed cell area / the derived core area and warns above 0.5 percentage points | the log of `placement.tcl` |
+| K44 | `common.tcl unpu_parse_syn_area` | the real layout of `unpu_top.area` is the round-3 one ("Total cell area:   429161.242546"); the new report is written by the same DC `report_area` | the first `syn20` run |
+| K45 | `common.tcl unpu_check_congestion` | `report_congestion` and its options (called bare), whether it needs a global-route congestion map first (`route_global -congestion_map_only` or `-rerun_global_router`), and the layout "Both Dirs: Overflow = N Max = M GRCs = K (x.xx%)" that `unpu_parse_congestion` assumes | the probe of `report_congestion` and the log of `placement.tcl` |
+| K46 | `common.tcl unpu_growth_row` | `get_cells -hierarchical -quiet -filter "ref_name=~<pattern>"` (the filter operator and the attribute, as K28) and the cell attribute `area`; the cells added by a stage cannot be told from the earlier ones, so the classes are by name pattern | the log of `placement.tcl` |
+| K47 | `params.tcl GROWTH_CLASSES` | the class patterns come from the library listing in the NDM build log: buffers `buf*` (bufbd, buffd, buftd), inverters `inv*` (inv0d, invbd, invtd), delay cells `dl0*` (12 cells); `clk2d2` is not counted; the listing shows no tie or spare cell names, so those are "not counted" | the library listing of a later probe (`get_lib_cells`) |
+| K48 | `floorplan.tcl` | that `initialize_floorplan -boundary` with the derived core accepts any number of rows (not only the 153 of the old die) | the log of `floorplan.tcl` |

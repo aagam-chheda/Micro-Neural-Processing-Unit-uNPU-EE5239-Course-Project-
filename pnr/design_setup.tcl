@@ -17,14 +17,16 @@
 #   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Inputs (all must exist): the NDM list $NDM_DIR/ndm_manifest.txt (from ndm_file_gen.tcl), the
-#   technology file, the TLUPlus file and its map, the DC netlist and the DC-written SDC (paths in
-#   pnr/params.tcl, overridable by UNPU_NETLIST / UNPU_SDC).
+#   technology file, the TLUPlus file and its map, the netlist of the chosen synthesis profile
+#   (syn/out/$UNPU_SYN_PROFILE/unpu_top_cn.dc.v; UNPU_SYN_PROFILE is REQUIRED, no default; overridable by UNPU_NETLIST) and the
+#   stage-selectable SDC constraints/unpu_top.sdc (read with the profile PROFILE_DESIGN_SETUP = place; params.tcl).
 # Outputs: design library $LIB_DIR/$LIB_NAME holding the block $BLK_IMPORT (= $TOP_NAME) with the
-#   netlist linked, the SDC read into two scenarios, the corners and the parasitic setup;
+#   netlist linked, the `place` profile of the SDC read into two scenarios (period, uncertainty, operating
+#   condition of each read back and CHECKED), the corners and the parasitic setup;
 #   reports $RPT_DIR/design_setup_*.rpt; $LOG_DIR/manifest_design_setup.txt.
 # Never: touches the libraries of the first run, writes into the kit, reuses an existing library
-#   (UNPU_LIB_OVERWRITE=1 removes it, with a Warning), changes the hold uncertainty (the SDC value stays
-#   in force; cts.tcl, a later task, applies HOLD_UNCERT explicitly), places or floorplans anything.
+#   (UNPU_LIB_OVERWRITE=1 removes it, with a Warning), places or floorplans anything. The SDC that DC wrote
+#   (unpu_top_cn.sdc) is NOT an input any more: the layout flow reads the profile SDC (task 053).
 #
 # If any CHECK fails the script still runs every remaining check and prints every verdict, then stops
 # BEFORE saving the block (no checkpoint is written from a setup that failed its checks).
@@ -36,13 +38,17 @@ unpu_load_params
 
 # ---- 1. checks and stage start ----------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set ndm_manifest $NDM_DIR/ndm_manifest.txt
 foreach {f what} [list $TECH_FILE "technology file" $TLUPLUS_FILE "TLUPlus file" $TLUPLUS_MAP "TLUPlus layer map" \
-                       $NETLIST "DC netlist" $SDC_FILE "DC-written SDC" $ndm_manifest "NDM manifest (run ndm_file_gen.tcl first)"] {
+                       $NETLIST "netlist of the synthesis profile $SYN_PROFILE" $PROFILE_SDC "profile SDC (constraints/unpu_top.sdc)" $ndm_manifest "NDM manifest (run ndm_file_gen.tcl first)"] {
   unpu_need_file $f $what
 }
-unpu_stage_begin design_setup run [list $TECH_FILE $TLUPLUS_FILE $TLUPLUS_MAP $NETLIST $SDC_FILE $ndm_manifest]
+unpu_stage_begin design_setup run [list $TECH_FILE $TLUPLUS_FILE $TLUPLUS_MAP $NETLIST $PROFILE_SDC $ndm_manifest]
+unpu_info "synthesis profile $SYN_PROFILE: netlist $NETLIST"
+unpu_result design_setup syn_profile $SYN_PROFILE
+unpu_netlist_expect          ;# NETLIST_MODULES, NETLIST_LEAF_CELLS computed from the netlist file
 set ndm_list [unpu_read_ndm_manifest $ndm_manifest]
 unpu_info "reference NDMs, in order: $ndm_list"
 if {$TOP_NAME ne $BLK_IMPORT} {
@@ -135,57 +141,50 @@ set nseq   [sizeof_collection [get_cells -hierarchical -filter "is_sequential==t
 set nleaf  [sizeof_collection [get_cells -hierarchical -filter "is_hierarchical==false"]]
 unpu_check_pass design_setup ports [expr {$nports == $EXPECT_PORTS}] "$nports top-level ports, expected $EXPECT_PORTS (18.12)"
 unpu_check_pass design_setup seq_cells [expr {$nseq == $EXPECT_SEQ_CELLS}] "$nseq sequential cells, expected $EXPECT_SEQ_CELLS (18.12)"
-unpu_check_pass design_setup leaf_cells [expr {$nleaf == $EXPECT_LEAF_CELLS}] "$nleaf leaf cells, expected $EXPECT_LEAF_CELLS (18.14)"
+unpu_check_pass design_setup leaf_cells [expr {$nleaf == $NETLIST_LEAF_CELLS}] "$nleaf leaf cells in the linked design, $NETLIST_LEAF_CELLS counted in the netlist file (the first run's netlist had $PREV_LEAF_CELLS)"
 
-# ---- 6. SDC into the first scenario (18.12, 18.13) ---------------------------
-# read_sdc creates the mode, corner and scenario named default (the shell has no rename command).
+# ---- 6. the profile SDC into the first scenario (18.12, 18.13; task 053) ----------------------------------------
+# read_sdc creates the mode, corner and scenario named default (the shell has no rename command). The SDC read is the stage profile
+# PROFILE_DESIGN_SETUP of constraints/unpu_top.sdc; the second scenario is handled by unpu_apply_profile in step 7.
 proc ds_read_sdc {label {check_missing 0}} {
-  global SDC_FILE EXPECT_SDC_IGNORED
-  set text [unpu_run_logged [list read_sdc $SDC_FILE] {}]
+  global PROFILE_SDC EXPECT_SDC_IGNORED PROFILE_DESIGN_SETUP
+  set ::env(UNPU_STAGE) $PROFILE_DESIGN_SETUP
+  set text [unpu_run_logged [list read_sdc $PROFILE_SDC] {SDC- UIC-}]
   set sdclines [unpu_lines_matching $text {SDC-[0-9]+}]
   set ids [unpu_message_ids $text SDC]
   foreach l $sdclines { unpu_info "$label SDC message: $l" }
   set bad [unpu_ids_unexpected $ids $EXPECT_SDC_IGNORED]
   if {[llength $bad] > 0} {
-    unpu_warn "$label: unexpected SDC message id(s) {$bad}; the handoff expected only {$EXPECT_SDC_IGNORED} (set_wire_load_model, set_max_area). Read the lines above."
-  }
-  # first read only: an EXPECTED id that does not appear is also reported (the first run saw both)
-  if {$check_missing && $::UNPU_CAP_OK && [string trim $text] ne ""} {
-    set absent [unpu_ids_unexpected $EXPECT_SDC_IGNORED $ids]
-    if {[llength $absent] > 0} {
-      unpu_warn "$label: expected SDC message id(s) {$absent} did not appear (the first run saw {$EXPECT_SDC_IGNORED}); a constraint that used to be ignored may now be accepted, or the message text changed. Read the SDC lines above."
-    }
+    unpu_warn "$label: unexpected SDC message id(s) {$bad}; the profile SDC is expected to print none ({$EXPECT_SDC_IGNORED} allowed). Read the lines above."
   }
   if {!$::UNPU_CAP_OK || [string trim $text] eq ""} {
-    unpu_warn "$label: read_sdc output was not captured; the SDC message ids could NOT be compared (read the log)"
+    unpu_warn "$label: read_sdc output was not captured; the SDC message ids and the profile line could NOT be compared (read the log)"
   }
   unpu_result design_setup sdc_ignored_ids_$label [join $ids " "]
-  return $ids
+  return $text
 }
-set sdc_ids [ds_read_sdc $SCEN_SETUP 1]
+set sdc_text [ds_read_sdc $SCEN_SETUP 1]
+lassign [unpu_profile_numbers $PROFILE_DESIGN_SETUP] _pn _pT _pU _pH _pB _pk
+set _got [unpu_parse_profile_line $sdc_text]
+unpu_check_pass design_setup profile_${PROFILE_DESIGN_SETUP}_${SCEN_SETUP}_sdc_line [expr {[llength $_got] == 5 && [lindex $_got 0] eq $PROFILE_DESIGN_SETUP && abs([lindex $_got 1] - $_pT) < 1e-6 && abs([lindex $_got 2] - $_pU) < 1e-6 && abs([lindex $_got 3] - $_pH) < 1e-6}] \
+    "the SDC read in scenario $SCEN_SETUP printed the profile line {$_got}, expected $PROFILE_DESIGN_SETUP / $_pT / $_pU / $_pH"
 
 # ---- 7. corners and scenarios (18.13) ----------------------------------------
-# Hold uncertainty: NOT changed here. The SDC value (0.5 ns) stays in force; cts.tcl applies HOLD_UNCERT.
 unpu_run_logged [list create_corner $CORNER_HOLD] {}
 unpu_run_logged [list create_scenario -name $SCEN_HOLD -mode $MODE_NAME -corner $CORNER_HOLD] {}
-# VERIFY (not in the handoff): current_scenario <name> makes a scenario current
-unpu_run_logged [list current_scenario $SCEN_HOLD] {}
-ds_read_sdc $SCEN_HOLD    ;# UIC-034 "Redefining clock" is benign: both scenarios share mode default
-# override the ss operating condition that the SDC sets (SDC line 9)
-unpu_run_logged [list set_operating_conditions $LIB_FF_NAME -library $LIB_FF_NAME] {}
 unpu_run_logged [list set_scenario_status $SCEN_SETUP -setup true -hold false] {}
 unpu_run_logged [list set_scenario_status $SCEN_HOLD -setup false -hold true] {}
-# VERIFY: the name of the first corner is $CORNER_SETUP (read_corners / report_corners shows it)
+# The profile SDC carries NO operating condition (the DC-written SDC carried the ss one), so BOTH scenarios get theirs explicitly here.
+# unpu_apply_profile: hold scenario = read the SDC (UIC-034 "Redefining clock" is benign: both scenarios share the mode default); both
+# scenarios = operating condition (ss / ff), read-back and CHECK of period, uncertainty, propagation; the setup scenario's SDC was read in step 6.
+unpu_apply_profile $PROFILE_DESIGN_SETUP {} [list $SCEN_SETUP]
+# VERIFY: the name of the first corner is $CORNER_SETUP (report_corners shows it)
 foreach c [list $CORNER_SETUP $CORNER_HOLD] {
   unpu_run_logged [list set_parasitic_parameters -corners $c -early_spec $PARA_TECH_NAME -late_spec $PARA_TECH_NAME] {}
 }
 
 # ---- 8. reports and checks ---------------------------------------------------
-set rcorn [ds_report corners report_corners]
-lassign [unpu_corner_has_point $rcorn $CORNER_SETUP [list $CORNER_HOLD] $EXPECT_SS_VOLT $EXPECT_SS_TEMP] ok1 d1
-unpu_check_pass design_setup corner_$CORNER_SETUP [expr {$ok1 eq "ok"}] "$d1 (expected $EXPECT_SS_VOLT V / $EXPECT_SS_TEMP C, ss)"
-lassign [unpu_corner_has_point $rcorn $CORNER_HOLD [list $CORNER_SETUP] $EXPECT_FF_VOLT $EXPECT_FF_TEMP] ok2 d2
-unpu_check_pass design_setup corner_$CORNER_HOLD [expr {$ok2 eq "ok"}] "$d2 (expected $EXPECT_FF_VOLT V / $EXPECT_FF_TEMP C, ff)"
+# the corners (voltage, temperature) were checked by unpu_apply_profile in step 7 (unpu_check_corners)
 ds_report scenarios report_scenarios
 ds_report parasitic_parameters report_parasitic_parameters
 # scenario status: ask the scenarios themselves; VERIFY attribute names (setup / hold)
@@ -238,7 +237,7 @@ unpu_result design_setup reference_libraries $nref
 unpu_result design_setup ports $nports
 unpu_result design_setup sequential_cells $nseq
 unpu_result design_setup leaf_cells $nleaf
-unpu_result design_setup sdc_ignored_ids [join $sdc_ids " "]
+unpu_result design_setup sdc_ignored_ids [join [unpu_message_ids $sdc_text SDC] " "]
 unpu_result design_setup scenarios "$SCEN_SETUP (setup) $SCEN_HOLD (hold)"
 unpu_result design_setup worst_setup_slack_ns $ws
 unpu_result design_setup worst_hold_slack_ns $wh

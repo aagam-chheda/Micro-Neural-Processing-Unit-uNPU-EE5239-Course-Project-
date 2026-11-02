@@ -1,10 +1,31 @@
 # =============================================================================
-# pm_unpu_top.sdc -- timing constraints for unpu_top (SCL 180 nm, 50 MHz)
+# pm_unpu_top.sdc -- timing constraints for unpu_top (SCL 180 nm), STAGE-SELECTABLE twin
 #
 # Pure SDC: constraints only, no library setup, no don't-use cells, no
 # operating condition or wire-load model, no compile options. Those stay in
 # constraints/pm_dc_script_unpu.tcl, which reads this file with read_sdc.
 # The same file can be read by ICC2 and PrimeTime.
+#
+# THE TWIN RULE. This file must have the same EFFECT as constraints/unpu_top.sdc under every
+# profile (constraints/test_stages.tcl compares the final value of every constraint, and the
+# profile table section byte for byte). It differs in two visible ways only:
+#   a) it starts with the PM's own lines (create_clock -period 20, zero input and output delays on
+#      all_inputs / all_outputs), kept as given; the lines of section 2 REDEFINE the clock with the
+#      profile's period and override those delays on every named port. The redefinition of the clock
+#      is expected (DC may print a warning that clk is redefined: that is this, not a mistake;
+#      VERIFY on the first dc_shell run). The one thing the PM's lines leave over is a 0 input
+#      delay on the clk port itself, which carries no data path.
+#   b) the profile table section is a copy (see unpu_top.sdc for the whole explanation).
+#
+# THE STAGE PROFILE. UNPU_STAGE (environment variable, NO DEFAULT) selects the profile:
+# syn20 syn18 syn16 place cts route signoff. csh:   setenv UNPU_STAGE syn16
+# Unset or unknown stops the read with a message that lists the valid names. The periods,
+# uncertainties and percentages of every profile are in the table section below and in the
+# header of unpu_top.sdc. Source: the instructor's guidance of 27 Oct 2026
+# (docs/planning/instructor-guidance-2026-10-27.md), rule: the MOST PESSIMISTIC end of every range
+# (user decision 2026-11-02, docs/planning/constraints-update-2026-11-02.md).
+# These values must NEVER be changed to close timing; a change needs a written reason and the
+# user's approval.
 #
 # Contents, in order:
 #   1. The PM's example constraints (clock, I/O delays), kept as given. The
@@ -13,31 +34,28 @@
 #      created on [get_ports clk]; the PM's "is there a clk port, else make a
 #      virtual clock" fallback is script logic, not a constraint, and is dropped
 #      because unpu_top has a real clk port.
-#   2. The constraints from constraints/unpu_top.sdc: clock uncertainty and
-#      transition, and the I/O delays with named port groups. They override the
-#      PM's 0 delays on the named ports (a later set_input_delay / set_output_delay
-#      on the same port and the same -max or -min wins).
-#   3. NEW: boundary non-idealities: a weak input driving cell, a wire load on
+#   2. The stage profile and the constraints from constraints/unpu_top.sdc: clock period,
+#      uncertainty and transition, and the I/O delays with named port groups. They override the
+#      PM's lines (a later create_clock on the same name redefines it; a later set_input_delay /
+#      set_output_delay on the same port and the same -max or -min wins).
+#   3. Boundary non-idealities: a weak input driving cell, a wire load on
 #      the input nets, the output load, and design-wide max transition and max
-#      capacitance.
-#
-# EVERY number below except the 20 ns period (CLAUDE.md) and the 1 pF output
-# load (the course instructor's value) is an ASSUMPTION, pending the SoC team's
-# interface timing and loads. The assumptions are deliberately HARSH (pessimistic):
-# large clock uncertainty and slew, big external delay shares, a long input wire,
-# tight transition and capacitance limits. Timing that closes here has margin. None may be changed to close timing without a
-# written reason and the user's approval.
+#      capacitance. Our own assumptions, not in the instructor's guidance (1 pF
+#      output load: the instructor's earlier value; 3.0 ns max transition: the library's limit).
 #
 # Units: the SCL libraries declare time_unit 1ns and capacitive_load_unit
 # (1, pf) (read from the ss .lib header; the ff library's time unit matches, its
 # capacitance unit was not read). All times are ns and all loads are pF.
+#
+# Stage change log: before 2026-11-02 this file held period 20, setup/hold uncertainty 1.5/0.5,
+# delays 35/35 (APB), 40/40 (DMA), 40 (rst_n), min delays 0.0 / -0.5; see unpu_top.sdc.
 # =============================================================================
 
 set_units -time ns -capacitance pF
 
 
 # -----------------------------------------------------------------------------
-# 1. The PM's constraints, as given
+# 1. The PM's constraints, as given (overridden by section 2 where it names the same thing)
 # -----------------------------------------------------------------------------
 create_clock -name clk -period 20 [get_ports clk]
 
@@ -46,56 +64,166 @@ set_output_delay 0 [all_outputs] -clock clk
 
 
 # -----------------------------------------------------------------------------
-# 2. From constraints/unpu_top.sdc (copied by hand: if one file changes, update
-#    the other)
+# 2. Stage profile and the constraints of constraints/unpu_top.sdc (copied by hand: if one
+#    file changes, update the other; the self-test compares them)
 # -----------------------------------------------------------------------------
-set CLK_PERIOD        20.0   ;# 50 MHz, from CLAUDE.md; keep equal to the create_clock -period above
-set CLK_UNCERT_SETUP   1.5   ;# HARSH ASSUMPTION, setup margin: jitter ~0.5 + skew ~1.0 (7.5% of the period)
-set CLK_UNCERT_HOLD    0.5   ;# HARSH ASSUMPTION, hold margin: skew only, jitter does not hurt hold
-set CLK_TRANSITION     0.6   ;# HARSH ASSUMPTION, slew at the flop clock pins (ideal clock only)
-# The APB read path prdata = f(paddr) is combinational (in to out, through the
-# CSR read mux), so its budget is
-#     CLK_PERIOD * (1 - APB_IN_PCT - APB_OUT_PCT) - CLK_UNCERT_SETUP
-# APB_IN_PCT and APB_OUT_PCT MUST therefore leave a positive budget for that
-# path. With the values below it is 6 ns before uncertainty, 4.5 ns after.
-set APB_IN_PCT         0.35  ;# HARSH ASSUMPTION, fraction of period used outside, max input delay
-set APB_OUT_PCT        0.35  ;# HARSH ASSUMPTION, fraction of period the outside needs after prdata/pready
-set DMA_IN_PCT         0.4   ;# HARSH ASSUMPTION, dma_rdata, dma_ready
-set DMA_OUT_PCT        0.4   ;# HARSH ASSUMPTION, dma_addr/wdata/wstrb/valid
-set RST_IN_PCT         0.4   ;# HARSH ASSUMPTION, rst_n
-set IN_MIN_DELAY       0.0   ;# HARSH ASSUMPTION, input may change right at the clock edge (the earliest possible)
-set OUT_MIN_DELAY     -0.5   ;# HARSH ASSUMPTION, the outside needs outputs held 0.5 ns after the edge (min output delay = minus its hold time)
+# ==== BEGIN STAGE PROFILE TABLE =============================================
+# Plain Tcl (set, expr, if, foreach), NO tool command, so that tclsh can run
+# this section under a stub (constraints/test_stages.tcl). constraints/pm_unpu_top.sdc carries
+# a byte-identical copy of this section (the self-test compares them): change both or neither.
+# Everything numeric about the stage constraints is typed HERE and nowhere else.
 
-# Port groups, listed explicitly. clk is in no group.
-set APB_IN_PORTS   {paddr[*] pwdata[*] pwrite psel penable}
+# Clock uncertainty building blocks (ns). Instructor, 27 Oct: setup uncertainty pre-CTS =
+# jitter + skew + margin, post-CTS = jitter + margin; hold 50 ps. Most pessimistic end.
+set JITTER_NS            0.20   ;# instructor: 150 ps, or 200 ps if conservative -> 200 ps
+set SKEW_ALLOW_PRE_CTS_NS 0.60  ;# instructor: skew allowance before CTS 600 ps
+set MARGIN_NS            0.40   ;# instructor: margin 400 ps
+set UNCERT_HOLD_NS       0.05   ;# instructor: 50 ps at every stage (user decision Q1, 2026-11-02)
+# Derived, never typed (rounded to 1e-6 ns so that no floating-point noise reaches the written SDC):
+set UNCERT_SETUP_PRE_CTS  [expr {round(($JITTER_NS + $SKEW_ALLOW_PRE_CTS_NS + $MARGIN_NS) * 1000000.0) / 1000000.0}]   ;# 1.2
+set UNCERT_SETUP_POST_CTS [expr {round(($JITTER_NS + $MARGIN_NS) * 1000000.0) / 1000000.0}]                           ;# 0.6
+
+# Interface delays as FRACTIONS of the stage's period (instructor, "thumb rule for input and output delays").
+# - Feedthrough row (input to output with no flop, ~30-35% each): paddr in, prdata and pready out. The read path
+#   prdata = f(paddr) is combinational through the CSR read mux (rtl/unpu_csr.sv). paddr ALSO reaches flops through the
+#   write decode; one input delay applies to both kinds of path, and the feedthrough row was chosen on purpose
+#   (user decision Q3: 35% for paddr, no virtual clock).
+# - Every other port: the neighbour is unknown, so the "logic at the port" row, 60-70% -> 70% (most pessimistic).
+# - rst_n: asynchronous in nature, but TIMED like any input (no false path) so that recovery/removal checks exist (Q2).
+set FT_IN_PCT   0.35   ;# paddr[*]
+set FT_OUT_PCT  0.35   ;# prdata[*] pready
+set APB_IN_PCT  0.70   ;# pwdata[*] pwrite psel penable
+set DMA_IN_PCT  0.70   ;# dma_rdata[*] dma_ready
+set DMA_OUT_PCT 0.70   ;# dma_addr[*] dma_wdata[*] dma_wstrb[*] dma_valid
+set RST_IN_PCT  0.70   ;# rst_n
+set IN_MIN_PCT  0.05   ;# input min delay: 5-10% of T -> 5% (the earliest)
+set OUT_MIN_PCT 0.0    ;# output min delay: 0-5% of T -> 0
+
+# The profiles: name, period (ns), kind (pre = before CTS, post = after CTS). Instructor: synthesis 10-20% tighter
+# (16-18 ns), placement/CTS 5-10% tighter (18-19 ns), route and signoff the real 20 ns; the tighter end is used.
+set UNPU_STAGE_TABLE {
+  {syn20   20.0 pre}
+  {syn18   18.0 pre}
+  {syn16   16.0 pre}
+  {place   18.0 pre}
+  {cts     18.0 post}
+  {route   20.0 post}
+  {signoff 20.0 post}
+}
+set UNPU_STAGE_NAMES {}
+foreach UNPU_ROW $UNPU_STAGE_TABLE { lappend UNPU_STAGE_NAMES [lindex $UNPU_ROW 0] }
+
+# Self-check of EVERY profile: the feedthrough input and output fractions must sum to less than 1 and the budget
+#     T * (1 - FT_IN_PCT - FT_OUT_PCT) - setup uncertainty
+# must be positive, or the constraint is impossible (the 70% + 70% reading of the guidance would be).
+foreach UNPU_ROW $UNPU_STAGE_TABLE {
+  set UNPU_T    [lindex $UNPU_ROW 1]
+  set UNPU_KIND [lindex $UNPU_ROW 2]
+  if {$UNPU_KIND eq "pre"} { set UNPU_U $UNCERT_SETUP_PRE_CTS } elseif {$UNPU_KIND eq "post"} { set UNPU_U $UNCERT_SETUP_POST_CTS } else {
+    error "unpu SDC: profile [lindex $UNPU_ROW 0] has kind '$UNPU_KIND', expected pre or post"
+  }
+  if {$FT_IN_PCT + $FT_OUT_PCT >= 1.0} { error "unpu SDC: feedthrough input + output fractions ($FT_IN_PCT + $FT_OUT_PCT) are not below 1.0" }
+  if {$UNPU_T * (1.0 - $FT_IN_PCT - $FT_OUT_PCT) - $UNPU_U <= 0.0} {
+    error "unpu SDC: profile [lindex $UNPU_ROW 0] has no feedthrough budget left (T $UNPU_T, in $FT_IN_PCT, out $FT_OUT_PCT, setup uncertainty $UNPU_U)"
+  }
+}
+
+# The profile is read from the environment. NO DEFAULT.
+if {![info exists ::env(UNPU_STAGE)] || $::env(UNPU_STAGE) eq ""} {
+  error "unpu SDC: the environment variable UNPU_STAGE is not set. It has no default. Valid profiles: $UNPU_STAGE_NAMES. csh: setenv UNPU_STAGE <profile>"
+}
+set UNPU_STAGE_SEL $::env(UNPU_STAGE)
+set UNPU_FOUND 0
+foreach UNPU_ROW $UNPU_STAGE_TABLE {
+  if {[lindex $UNPU_ROW 0] eq $UNPU_STAGE_SEL} {
+    set CLK_PERIOD [lindex $UNPU_ROW 1]
+    set UNPU_STAGE_KIND [lindex $UNPU_ROW 2]
+    set UNPU_FOUND 1
+  }
+}
+if {!$UNPU_FOUND} {
+  error "unpu SDC: UNPU_STAGE='$UNPU_STAGE_SEL' is not a profile. Valid profiles: $UNPU_STAGE_NAMES"
+}
+if {$UNPU_STAGE_KIND eq "pre"} { set CLK_UNCERT_SETUP $UNCERT_SETUP_PRE_CTS } else { set CLK_UNCERT_SETUP $UNCERT_SETUP_POST_CTS }
+set CLK_UNCERT_HOLD $UNCERT_HOLD_NS
+
+# The delays of the selected profile in ns (period * fraction, rounded to 1e-6 ns like the uncertainties above).
+set FT_IN_MAX    [expr {round($CLK_PERIOD * $FT_IN_PCT   * 1000000.0) / 1000000.0}]
+set FT_OUT_MAX   [expr {round($CLK_PERIOD * $FT_OUT_PCT  * 1000000.0) / 1000000.0}]
+set APB_IN_MAX   [expr {round($CLK_PERIOD * $APB_IN_PCT  * 1000000.0) / 1000000.0}]
+set DMA_IN_MAX   [expr {round($CLK_PERIOD * $DMA_IN_PCT  * 1000000.0) / 1000000.0}]
+set DMA_OUT_MAX  [expr {round($CLK_PERIOD * $DMA_OUT_PCT * 1000000.0) / 1000000.0}]
+set RST_IN_MAX   [expr {round($CLK_PERIOD * $RST_IN_PCT  * 1000000.0) / 1000000.0}]
+set IN_MIN_DELAY  [expr {round($CLK_PERIOD * $IN_MIN_PCT  * 1000000.0) / 1000000.0}]
+set OUT_MIN_DELAY [expr {round($CLK_PERIOD * $OUT_MIN_PCT * 1000000.0) / 1000000.0}]
+set FT_BUDGET_NS [expr {round(($CLK_PERIOD * (1.0 - $FT_IN_PCT - $FT_OUT_PCT) - $CLK_UNCERT_SETUP) * 1000000.0) / 1000000.0}]
+
+# VERIFY: puts, "info exists ::env(...)", error, foreach and expr are accepted inside read_sdc by dc_shell, icc2_shell and pt_shell.
+puts "Info: \[unpu\] SDC profile $UNPU_STAGE_SEL: period $CLK_PERIOD ns, setup uncertainty $CLK_UNCERT_SETUP ns, hold uncertainty $CLK_UNCERT_HOLD ns, feedthrough budget $FT_BUDGET_NS ns"
+# ==== END STAGE PROFILE TABLE ===================================================
+
+# -----------------------------------------------------------------------------
+# Port groups, listed explicitly. all_inputs / all_outputs are NOT used, so a
+# port added to unpu_top later shows up as unconstrained in check_timing
+# instead of being covered silently. clk is in no group: it gets no input
+# delay.
+# -----------------------------------------------------------------------------
+set CLK_TRANSITION     0.6   ;# HARSH ASSUMPTION (ours, not the guidance's), slew at the flop clock pins (ideal clock only)
+set APB_FT_IN_PORTS {paddr[*]}
+set APB_IN_PORTS   {pwdata[*] pwrite psel penable}
 set APB_OUT_PORTS  {prdata[*] pready}
 set DMA_IN_PORTS   {dma_rdata[*] dma_ready}
 set DMA_OUT_PORTS  {dma_addr[*] dma_wdata[*] dma_wstrb[*] dma_valid}
 set RST_IN_PORTS   {rst_n}
 
+
+# -----------------------------------------------------------------------------
+# Clock: one clock, ideal (pre-CTS), no latency. The period and the
+# uncertainties come from the stage profile above.
+# -----------------------------------------------------------------------------
+create_clock -name clk -period $CLK_PERIOD [get_ports clk]
 set_clock_uncertainty -setup $CLK_UNCERT_SETUP [get_clocks clk]
 set_clock_uncertainty -hold  $CLK_UNCERT_HOLD  [get_clocks clk]
-set_clock_transition  $CLK_TRANSITION [get_clocks clk]
 
+# Clock slew. Without this an ideal clock has a perfectly square edge at every
+# flop clock pin, so the tool reads setup/hold/clk-Q from the most optimistic
+# entries in the library tables. This forces a finite transition instead. It
+# applies ONLY while the clock is ideal: after set_propagated_clock in ICC2 the
+# real computed transitions are used and this is ignored.
+# The value has no measured basis yet. Check the library's own limit with
+#   grep -m2 -E 'default_max_transition|max_transition' <ss .lib>
+# and keep this well under it; a clock tree is normally built far tighter than
+# the data-net limit.
+set_clock_transition $CLK_TRANSITION [get_clocks clk]
+
+
+# -----------------------------------------------------------------------------
 # Input delays. -max is the setup side, -min the hold side.
-set_input_delay -clock clk -max [expr {$CLK_PERIOD * $APB_IN_PCT}] [get_ports $APB_IN_PORTS]
-set_input_delay -clock clk -min $IN_MIN_DELAY                      [get_ports $APB_IN_PORTS]
+# -----------------------------------------------------------------------------
+set_input_delay -clock clk -max $FT_IN_MAX  [get_ports $APB_FT_IN_PORTS]
+set_input_delay -clock clk -min $IN_MIN_DELAY [get_ports $APB_FT_IN_PORTS]
 
-set_input_delay -clock clk -max [expr {$CLK_PERIOD * $DMA_IN_PCT}] [get_ports $DMA_IN_PORTS]
-set_input_delay -clock clk -min $IN_MIN_DELAY                      [get_ports $DMA_IN_PORTS]
+set_input_delay -clock clk -max $APB_IN_MAX [get_ports $APB_IN_PORTS]
+set_input_delay -clock clk -min $IN_MIN_DELAY [get_ports $APB_IN_PORTS]
+
+set_input_delay -clock clk -max $DMA_IN_MAX [get_ports $DMA_IN_PORTS]
+set_input_delay -clock clk -min $IN_MIN_DELAY [get_ports $DMA_IN_PORTS]
 
 # rst_n: an ordinary input delay, deliberately with NO set_false_path. Its
 # assertion is asynchronous, but the recovery/removal checks on its release
-# must stay in the analysis, so it is timed like any other input.
-set_input_delay -clock clk -max [expr {$CLK_PERIOD * $RST_IN_PCT}] [get_ports $RST_IN_PORTS]
-set_input_delay -clock clk -min $IN_MIN_DELAY                      [get_ports $RST_IN_PORTS]
+# must stay in the analysis, so it is timed like any other input (user decision Q2).
+set_input_delay -clock clk -max $RST_IN_MAX [get_ports $RST_IN_PORTS]
+set_input_delay -clock clk -min $IN_MIN_DELAY [get_ports $RST_IN_PORTS]
 
+
+# -----------------------------------------------------------------------------
 # Output delays. -max is the setup side, -min the hold side.
-set_output_delay -clock clk -max [expr {$CLK_PERIOD * $APB_OUT_PCT}] [get_ports $APB_OUT_PORTS]
-set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports $APB_OUT_PORTS]
+# -----------------------------------------------------------------------------
+set_output_delay -clock clk -max $FT_OUT_MAX [get_ports $APB_OUT_PORTS]
+set_output_delay -clock clk -min $OUT_MIN_DELAY [get_ports $APB_OUT_PORTS]
 
-set_output_delay -clock clk -max [expr {$CLK_PERIOD * $DMA_OUT_PCT}] [get_ports $DMA_OUT_PORTS]
-set_output_delay -clock clk -min $OUT_MIN_DELAY                      [get_ports $DMA_OUT_PORTS]
+set_output_delay -clock clk -max $DMA_OUT_MAX [get_ports $DMA_OUT_PORTS]
+set_output_delay -clock clk -min $OUT_MIN_DELAY [get_ports $DMA_OUT_PORTS]
 
 
 # -----------------------------------------------------------------------------
@@ -159,10 +287,12 @@ set OUT_LOAD         1.0     ;# pF, every output port; the instructor's suggeste
 set MAX_TRANSITION   3.0     ;# ns, the library's own pin limit (see e)
 set MAX_CAPACITANCE  2.0     ;# pF, HARSH ASSUMPTION
 
+set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $APB_FT_IN_PORTS]
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $APB_IN_PORTS]
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $DMA_IN_PORTS]
 set_driving_cell -lib_cell $DRIVE_CELL -pin $DRIVE_PIN [get_ports $RST_IN_PORTS]
 
+set_load $IN_WIRE_LOAD [get_ports $APB_FT_IN_PORTS]
 set_load $IN_WIRE_LOAD [get_ports $APB_IN_PORTS]
 set_load $IN_WIRE_LOAD [get_ports $DMA_IN_PORTS]
 set_load $IN_WIRE_LOAD [get_ports $RST_IN_PORTS]

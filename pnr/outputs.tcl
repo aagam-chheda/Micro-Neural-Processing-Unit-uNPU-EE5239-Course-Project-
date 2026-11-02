@@ -39,6 +39,7 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
@@ -46,7 +47,13 @@ if {![file exists $lib_path]} {
 }
 # the layer map and the standard-cell GDS are inputs of write_gds: their SHA-256 goes into the manifest (and a missing one stops here)
 unpu_stage_begin outputs run [list $lib_path $GDS_LAYER_MAP $STD_GDS]
+unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
 unpu_open_stage $lib_path $LIB_NAME $BLK_FINAL
+unpu_result outputs syn_profile $SYN_PROFILE
+unpu_netlist_expect          ;# NETLIST_MODULES, NETLIST_LEAF_CELLS computed from the netlist file the layout started from
+# the stage profile of the block we opened must be PROFILE_OUTPUTS (`route`): read back and CHECKED, not re-read (task 053)
+unpu_check_profile_state $PROFILE_OUTPUTS
 
 set P $OUT_PREFIX
 array set F [list sim $OUT_DIR/${P}_sim.v lvs $OUT_DIR/${P}_lvs.v lef $OUT_DIR/${P}.lef gds $OUT_DIR/${P}.gds \
@@ -147,7 +154,7 @@ set pgconn {\.(VDD|VSS)\s*\(}
 if {$have(sim)} {
   set txt [unpu_read_text $F(sim)]
   set mods [unpu_verilog_modules $txt]
-  unpu_check_pass outputs sim_modules [expr {[llength $mods] == $EXPECT_NETLIST_MODULES}] "[llength $mods] module definitions in [file tail $F(sim)], $EXPECT_NETLIST_MODULES expected"
+  unpu_check_pass outputs sim_modules [expr {[llength $mods] == $NETLIST_MODULES}] "[llength $mods] module definitions in [file tail $F(sim)], $NETLIST_MODULES expected"
   unpu_check_pass outputs sim_top [expr {[lsearch -exact $mods $TOP_NAME] >= 0}] "module $TOP_NAME defined in [file tail $F(sim)]"
   unpu_check_pass outputs sim_no_pg [expr {![regexp -- $pgconn $txt]}] "no .VDD( / .VSS( connection in [file tail $F(sim)]"
   unpu_check_pass outputs sim_no_filler [expr {[string first feedth $txt] < 0}] "no 'feedth' in [file tail $F(sim)]"
@@ -157,7 +164,7 @@ set lvs_cells {}
 if {$have(lvs)} {
   set txt [unpu_read_text $F(lvs)]
   set mods [unpu_verilog_modules $txt]
-  unpu_check_pass outputs lvs_modules [expr {[llength $mods] == $EXPECT_NETLIST_MODULES}] "[llength $mods] module definitions in [file tail $F(lvs)], $EXPECT_NETLIST_MODULES expected"
+  unpu_check_pass outputs lvs_modules [expr {[llength $mods] == $NETLIST_MODULES}] "[llength $mods] module definitions in [file tail $F(lvs)], $NETLIST_MODULES expected"
   unpu_check_pass outputs lvs_top [expr {[lsearch -exact $mods $TOP_NAME] >= 0}] "module $TOP_NAME defined in [file tail $F(lvs)]"
   unpu_check_pass outputs lvs_pg [expr {[regexp -- "\\.$PG_NET_POWER\\s*\\(" $txt] && [regexp -- "\\.$PG_NET_GROUND\\s*\\(" $txt]}] ".${PG_NET_POWER}( and .${PG_NET_GROUND}( connections present in [file tail $F(lvs)]"
   unpu_check_pass outputs lvs_no_filler [expr {[string first feedth $txt] < 0}] "no 'feedth' in [file tail $F(lvs)] (the fillers are layout-only; Calibre must accept that, 18.23)"
@@ -212,7 +219,7 @@ foreach c {ss ff} {
     unpu_check_pass outputs sdc_clock_$c [expr {$sd(clocks) >= 1}] "[file tail $F(sdc_$c)]: $sd(clocks) create_clock line(s) (at least 1 expected)"
     unpu_check_pass outputs sdc_uncertainty_$c [expr {$sd(setup) ne "" || $sd(hold) ne ""}] "[file tail $F(sdc_$c)]: set_clock_uncertainty setup '$sd(setup)', hold '$sd(hold)' (one of them expected)"
     if {$c eq "ff"} {
-      unpu_check_pass outputs sdc_hold_uncertainty [expr {$sd(hold) ne "" && abs($sd(hold) - $HOLD_UNCERT) < 1e-9}] "hold uncertainty in [file tail $F(sdc_ff)]: '$sd(hold)' ns, HOLD_UNCERT $HOLD_UNCERT ns"
+      unpu_check_pass outputs sdc_hold_uncertainty [expr {$sd(hold) ne "" && abs($sd(hold) - $UNPU_PROFILE_HOLD) < 1e-9}] "hold uncertainty in [file tail $F(sdc_ff)]: '$sd(hold)' ns, profile hold uncertainty $UNPU_PROFILE_HOLD ns"
     }
   }
 }

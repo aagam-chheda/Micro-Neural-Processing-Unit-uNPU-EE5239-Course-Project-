@@ -39,12 +39,17 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
   unpu_die "design library not found: $lib_path. design_setup.tcl and floorplan.tcl run first (same UNPU_WORK and UNPU_RUN_TAG)"
 }
 unpu_stage_begin power run [list $lib_path]
+unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
+unpu_result power syn_profile $SYN_PROFILE
+unpu_netlist_expect          ;# NETLIST_MODULES, NETLIST_LEAF_CELLS computed from the netlist file the layout started from (one power pin per leaf cell)
 # the checkpoint block must not exist yet. VERIFY (server): get_blocks -quiet <name>
 if {![catch {get_blocks -quiet $BLK_PWR} existing]} {
   if {[sizeof_collection $existing] > 0} {
@@ -90,8 +95,8 @@ if {$parsed eq "not parsed"} {
   }
 }
 foreach {n cnt} $parsed {
-  unpu_check_pass power connected_$n [expr {$cnt ne "unavailable" && $cnt == $EXPECT_LEAF_CELLS}] \
-      "$cnt pins connected to $n, expected $EXPECT_LEAF_CELLS (one per leaf cell, 18.14)"
+  unpu_check_pass power connected_$n [expr {$cnt ne "unavailable" && $cnt == $NETLIST_LEAF_CELLS}] \
+      "$cnt pins connected to $n, expected $NETLIST_LEAF_CELLS (one per leaf cell of the netlist file)"
   unpu_result power connected_pins_$n $cnt
 }
 
@@ -204,8 +209,8 @@ foreach {k what} {wires "floating wires" vias "floating vias" terminals "floatin
 # floating standard cells are EXPECTED now (nothing is placed): RESULT and a Warning if it is not the leaf count
 if {[info exists fl(cells)]} {
   unpu_result power floating_std_cells $fl(cells)
-  if {$fl(cells) != $EXPECT_LEAF_CELLS} {
-    unpu_warn "floating standard cells = $fl(cells), the first run saw all $EXPECT_LEAF_CELLS before placement (18.15); not a check here"
+  if {$fl(cells) != $NETLIST_LEAF_CELLS} {
+    unpu_warn "floating standard cells = $fl(cells), the first run saw all $NETLIST_LEAF_CELLS before placement (18.15); not a check here"
   }
 } else {
   unpu_warn "floating standard cells could not be read from the check_pg_connectivity text (read the log); not a check here"

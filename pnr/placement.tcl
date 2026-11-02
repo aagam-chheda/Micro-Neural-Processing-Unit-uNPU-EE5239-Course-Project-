@@ -19,6 +19,9 @@
 #
 # Input: the library $LIB_DIR/$LIB_NAME with the block $BLK_PINS. Output: block $BLK_PLACED; reports in $RPT_DIR (placement_*.rpt,
 # placed_port_report.csv); $LOG_DIR/manifest_placement.txt.
+# The constraints: the stage profile PROFILE_PLACEMENT (`place`: 18 ns, setup uncertainty 1.2 ns, hold uncertainty 0.05 ns, ideal clock) of
+# constraints/unpu_top.sdc is applied by unpu_apply_profile before place_opt (read_sdc in both scenarios, operating conditions, read-back CHECKS).
+# Limit: setup WNS >= WNS_SETUP_PLACE (-1.0 ns, instructor); the violating-endpoint count is a RESULT.
 # Hold is a Warning only: place_opt does not fix hold (the first run had 2,304 violating endpoints); cts.tcl does.
 # If a CHECK fails the script prints every verdict and stops BEFORE saving $BLK_PLACED.
 # Rerun: nothing is saved after the last checkpoint of a failed run, so a failed run can be run again as it is. A checkpoint name that
@@ -31,12 +34,15 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
   unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
 }
 unpu_stage_begin placement run [list $lib_path]
+unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
 if {![catch {get_blocks -quiet $BLK_PLACED} existing]} {
   if {[sizeof_collection $existing] > 0} {
     unpu_die "block $BLK_PLACED already exists in $lib_path; see the Rerun note in the header of placement.tcl (a new name in UNPU_BLK_PLACED)"
@@ -45,6 +51,9 @@ if {![catch {get_blocks -quiet $BLK_PLACED} existing]} {
   unpu_warn "could not list the blocks of the library ($existing); cannot tell whether block $BLK_PLACED exists already"
 }
 unpu_open_stage $lib_path $LIB_NAME $BLK_PINS
+unpu_info "synthesis profile $SYN_PROFILE: netlist $NETLIST"
+unpu_result placement syn_profile $SYN_PROFILE
+unpu_netlist_expect          ;# NETLIST_MODULES, NETLIST_LEAF_CELLS computed from the netlist file
 
 # preconditions: the 204 signal terminals of pin_place.tcl besides the power ones; the scenario status of design_setup.tcl
 lassign [unpu_power_terminals] power_names power_boxes
@@ -62,6 +71,10 @@ foreach {s su hd} [list $SCEN_SETUP true false $SCEN_HOLD false true] {
   }
 }
 if {$UNPU_CHECK_FAILED > 0} { unpu_die "a precondition failed; nothing is placed (see the CHECK lines above)" }
+
+# the stage profile (task 053): period, uncertainty, operating conditions of both scenarios, read back and CHECKED, before place_opt
+unpu_apply_profile $PROFILE_PLACEMENT
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the stage profile $PROFILE_PLACEMENT is not in force (see the CHECK lines above); place_opt is not run" }
 
 # ---- 2. the stages of place_opt ----------------------------------------------------------
 set lo [unpu_run_logged [list place_opt -list_only] {}]
@@ -88,7 +101,9 @@ foreach prefix {FLW OPT PLACE LGL ZRT} {
 lassign [unpu_timing_summary placement $SCEN_SETUP max setup] ws sv sg spaths
 unpu_result placement worst_setup_slack_ns $ws
 if {[llength $spaths] > 0} { unpu_result placement worst_setup_path [lindex [unpu_worst_endpoints $spaths 1] 0] }
-unpu_check_pass placement setup_violations [expr {$sv ne "unavailable" && $sv == 0}] "$sv setup-violating endpoint(s) in $SCEN_SETUP (0 expected; 'unavailable' = could not be read); worst slack $ws ns; by group {$sg}"
+unpu_result placement setup_violating_endpoints $sv
+unpu_result placement setup_wns_margin_ns [unpu_wns_margin $ws $WNS_SETUP_PLACE]
+unpu_check_pass placement setup_wns [unpu_wns_ok $ws $WNS_SETUP_PLACE] "worst setup slack $ws ns in $SCEN_SETUP, limit $WNS_SETUP_PLACE ns (margin [unpu_wns_margin $ws $WNS_SETUP_PLACE] ns; 'unavailable' fails); $sv setup-violating endpoint(s); by group {$sg}"
 # hold (acts on $SCEN_HOLD): RESULT and a Warning, NOT a check
 lassign [unpu_timing_summary placement $SCEN_HOLD min hold] wh hv hg hpaths
 unpu_result placement worst_hold_slack_ns $wh
@@ -115,6 +130,11 @@ foreach {k what} {cells "floating standard cells" wires "floating wires" vias "f
   unpu_check_pass placement pg_conn_$k [expr {$v ne "not parsed" && $v == 0}] "$what: $v (0 expected)"
 }
 
+# utilisation (instructor POST 2: post-placement <= 75 percent) and congestion (overflow <= 1 percent): CHECKS (task 054); the growth row of this stage
+unpu_check_utilization placement $UTIL_MAX_PLACE place_opt
+unpu_check_congestion placement place_opt 1
+unpu_growth_row placement place
+
 # ---- 5. RESULT lines (first run: area 426,097.72 um2, 11,986 instances, 161 buffers, 1,353 inverters) ----------------
 # VERIFY: report_utilization / report_qor texts; not readable = Warning, not a check
 set ru [unpu_report placement utilization "report_utilization"]
@@ -126,9 +146,9 @@ foreach k {area instances buffers inverters utilization wire_length} {
 }
 # place_opt merges and removes cells: the netlist's leaf count and the placed count differ (501 in the first run)
 set nleaf [sizeof_collection [get_cells -hierarchical -filter "is_hierarchical==false"]]
-unpu_result placement leaf_cells_netlist $EXPECT_LEAF_CELLS
+unpu_result placement leaf_cells_netlist $NETLIST_LEAF_CELLS
 unpu_result placement leaf_cells_placed $nleaf
-unpu_result placement leaf_cells_difference [expr {$EXPECT_LEAF_CELLS - $nleaf}]
+unpu_result placement leaf_cells_difference [expr {$NETLIST_LEAF_CELLS - $nleaf}]
 
 # ---- 6. the report of the input-port wires (plan B6): REPORT ONLY -------------------------------------------
 # For every input port except clk: its net, the load pins, the HPWL of the net, the gate area of the loads, and the estimated antenna ratio

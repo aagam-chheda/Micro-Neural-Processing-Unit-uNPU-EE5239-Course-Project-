@@ -52,12 +52,15 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
   unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
 }
 unpu_stage_begin pin_place run [list $lib_path]
+unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
 if {![catch {get_blocks -quiet $BLK_PINS} existing]} {
   if {[sizeof_collection $existing] > 0} {
     unpu_die "block $BLK_PINS already exists in $lib_path; see the Rerun note in the header of pin_place.tcl (a new name in UNPU_BLK_PINS)"

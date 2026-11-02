@@ -1950,3 +1950,8 @@ first scripts, paste the logs.
 ## Synthesis reports in the repository, 2026-11-02
 
 `docs/planning/synthesis-reports/` holds the raw DC reports (round 3 current, round 1 superseded) and a README with the headline numbers, for the PM. Handoff 18.29.
+
+## Constraints update from the instructor's guidance, 2026-11-02
+
+Decisions in `docs/planning/constraints-update-2026-11-02.md` section 9; handoff 18.30. Plan: tasks 051 (stage-parameterised SDC), 052 (DC runs at 20/18/16 ns, runbook, comparison script),
+then 053 (pnr stage profiles, per-stage WNS thresholds, utilisation and die from the new area) after the synthesis results exist.

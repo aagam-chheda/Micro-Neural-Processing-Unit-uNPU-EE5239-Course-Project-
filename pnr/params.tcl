@@ -11,8 +11,8 @@
 #   SCL_KIT_ROOT       SCL kit root (read-only; nothing is ever written into it)
 #   UNPU_WORK          work directory of the whole re-run (outside the repo)
 #   UNPU_RUN_TAG       run name; one directory per run under UNPU_WORK
-#   UNPU_NETLIST       DC netlist (default: the untracked DC output in the repo clone)
-#   UNPU_SDC           DC-written SDC (same)
+#   UNPU_SYN_PROFILE   REQUIRED where a netlist is read: syn20 | syn18 | syn16, the synthesis profile whose netlist is used (no default)
+#   UNPU_NETLIST       override of the netlist (default: syn/out/$UNPU_SYN_PROFILE/unpu_top_cn.dc.v in the repo clone; a Warning is printed)
 #   UNPU_NDM_MODE      two (default) | single      (see ndm_file_gen.tcl; single does not work on this kit)
 #   UNPU_BLK_<NAME>    override of a checkpoint block name BLK_<NAME> (IMPORT FP PWR PINS PLACED CTS CLKOPT ROUTE_AUTO ROUTED FINAL)
 #   UNPU_CTS_STAGE     all | tree | hold   (cts.tcl)
@@ -22,10 +22,7 @@
 #   UNPU_FILL_ECO      1 lets fill.tcl run route_eco once if fillers with violations remain (default 0)
 #   UNPU_ROUTE_ACCEPT_HOLD  1 lets route.tcl save with a hold residual (default 0; never set it without a written reason)
 #   UNPU_ICC2_ROOT     install directory of the ICC2 release that matches icc2_shell
-#   UNPU_DIE_SIZE      die side in um   (plan 2.2 default below; the old run was 817.6)
-#   UNPU_HOLD_UNCERT   hold uncertainty in ns (default below; the old run applied 0.2)
-# The last two are experiment knobs (plan A2 regression with the OLD parameters,
-# plan X1); the defaults are the plan's values and are not changed here.
+#   UNPU_DIE_SIZE      EXPERIMENT KNOB: die side in um that replaces the die derived from the synthesis area (a Warning prints both)
 #
 # Every parameter has its source in a comment: a handoff section
 # (docs/session-handoff.md), a kit file, or "plan" (docs/planning/backend-rerun-plan.md).
@@ -140,8 +137,37 @@ set CDL_NOSUPPLY $KIT_STDCELL/cdl/scl18fs120_scl_no_supply_pins.cdl
 
 # ---- design inputs (untracked DC outputs; they exist in the user's server clone) ----
 set TOP_NAME     unpu_top
-set NETLIST      [_p_env UNPU_NETLIST $REPO_ROOT/syn/out/pm_flow/unpu_top_cn.dc.v]
-set SDC_FILE     [_p_env UNPU_SDC     $REPO_ROOT/syn/out/pm_flow/unpu_top_cn.sdc]
+# Variables of the old flow that no longer exist: refuse them loudly instead of ignoring them (nothing fails silently).
+foreach {_old _why} {UNPU_HOLD_UNCERT "the hold uncertainty is part of the stage profile (0.05 ns in every profile, constraints/unpu_top.sdc)"
+                     UNPU_SDC "the SDC is constraints/unpu_top.sdc read with a stage profile; the DC-written SDC is not an input any more"} {
+  if {[info exists ::env($_old)] && $::env($_old) ne ""} { _p_die "$_old is no longer supported: $_why. Unset it (csh: unsetenv $_old)" }
+}
+# The synthesis profile whose netlist the layout flow uses (task 053; syn/RUNBOOK.md step 5 chooses it). NO DEFAULT: unset is allowed here
+# (the probes and the NDM scripts need no netlist) but every script that reads the netlist calls unpu_require_syn_profile and stops.
+set SYN_PROFILES_VALID {syn20 syn18 syn16}
+set SYN_PROFILE  [_p_env UNPU_SYN_PROFILE ""]
+if {$SYN_PROFILE ne "" && [lsearch -exact $SYN_PROFILES_VALID $SYN_PROFILE] < 0} {
+  _p_die "UNPU_SYN_PROFILE='$SYN_PROFILE' is not a synthesis profile; valid: $SYN_PROFILES_VALID"
+}
+if {$SYN_PROFILE ne ""} {
+  set NETLIST [_p_env UNPU_NETLIST $REPO_ROOT/syn/out/$SYN_PROFILE/unpu_top_cn.dc.v]
+} else {
+  set NETLIST [_p_env UNPU_NETLIST ""]
+}
+if {[info exists ::env(UNPU_NETLIST)] && $::env(UNPU_NETLIST) ne ""} {
+  puts "Warning: \[unpu\] NETLIST overridden by UNPU_NETLIST: $NETLIST (the default is syn/out/<UNPU_SYN_PROFILE>/unpu_top_cn.dc.v)"
+}
+# The constraints: ONE stage-selectable SDC (task 051), read with the profile in the environment variable UNPU_STAGE (the SDC stops if it
+# is unset). The SDC that DC wrote (unpu_top_cn.sdc) is no longer an input; there is deliberately no override variable: a hand-chosen SDC
+# would bypass the profile mechanism and its read-back checks (edit PROFILE_SDC here if it ever has to change).
+set PROFILE_SDC  $REPO_ROOT/constraints/unpu_top.sdc
+# stage -> profile of constraints/unpu_top.sdc (floorplan, power and pin_place do no timing)
+set PROFILE_DESIGN_SETUP place
+set PROFILE_PLACEMENT    place
+set PROFILE_CTS          cts
+set PROFILE_ROUTE        route
+set PROFILE_FILL         route
+set PROFILE_OUTPUTS      route
 
 # ---- names -------------------------------------------------------------------
 set LIB_NAME     unpu2_lib                       ;# design library (plan 2.2)
@@ -161,38 +187,57 @@ set BLK_ROUTE_AUTO [_p_blk ROUTE_AUTO routeauto]   ;# saved right after route_au
 set BLK_ROUTED     [_p_blk ROUTED routed]
 set BLK_FINAL      [_p_blk FINAL final]
 
-# ---- floorplan (plan 2.2) ----------------------------------------------------
-set PLAN_DIE_SIZE 868.0                          ;# um, the plan's die (plan 2.2); the default of DIE_SIZE
-set DIE_SIZE     [_p_env UNPU_DIE_SIZE $PLAN_DIE_SIZE]   ;# um, square die
+# ---- floorplan (task 054: the die is DERIVED from the synthesis area, never typed) -------------------------
+# core area = cell area / FP_START_UTIL; the core is square; its side is the smallest MULTIPLE OF THE ROW HEIGHT that is >= sqrt(core area);
+# die side = core side + 2 x CORE_OFFSET. The cell area is the "Total cell area" of the DC area report of the chosen synthesis profile
+# (SYN_AREA_FILE). The derivation (unpu_derive_die, common.tcl) runs when a script needs the die, after UNPU_SYN_PROFILE is known; scripts
+# that need no die (probes, NDM scripts, ndm_check, design_setup) run without it. Derived: DIE_SIZE CORE_SIDE FP_ROWS FP_SITES_ACROSS
+# CORE_AREA FP_BOUNDARY EXPECT_ROWS SYN_CELL_AREA (set in the global scope by unpu_derive_die, written to the manifest of the stage).
+# FP_START_UTIL: instructor, 27 Oct, POST 2: floorplan start utilisation 60-70 percent -> 0.60, the end with the most room. Changing it
+# NEEDS A WRITTEN REASON and the user's approval (it is the knob to pull if a utilisation or congestion check fails; never a silent change).
+set FP_START_UTIL 0.60
 set CORE_OFFSET  5.6                             ;# um, die edge to core edge (18.14)
 set ROW_HEIGHT   5.6                             ;# um, site 'unit' 0.56 x 5.6 (18.14)
 set SITE_WIDTH   0.56                            ;# um
-set FP_TOLERANCE 1e-6                            ;# tolerance of the integer tests below
-foreach {CORE_SIDE FP_ROWS FP_SITES_ACROSS CORE_AREA} \
-    [unpu_floorplan_check $DIE_SIZE $CORE_OFFSET $ROW_HEIGHT $SITE_WIDTH $FP_TOLERANCE] {}
-# boundary for initialize_floorplan: the CORE rectangle; -core_offset then adds the margin
-# (18.14: giving the die as the boundary made a bigger die)
-set _p_hi [unpu_round4 [expr {$DIE_SIZE - $CORE_OFFSET}]]
-set FP_BOUNDARY [list [list [unpu_round4 $CORE_OFFSET] [unpu_round4 $CORE_OFFSET]] [list $_p_hi $_p_hi]]
-puts [format "Info: \[unpu\] floorplan: die %s um, core side %.1f um, %d rows, %d sites across the die, core area %.2f um2, boundary %s" \
-        $DIE_SIZE $CORE_SIDE $FP_ROWS $FP_SITES_ACROSS $CORE_AREA $FP_BOUNDARY]
+set FP_TOLERANCE 1e-6                            ;# tolerance of the integer tests
+# the DC area report of the chosen profile (task 051 writes it to syn/out/<profile>/unpu_top.area)
+set SYN_AREA_FILE [expr {$SYN_PROFILE ne "" ? "$REPO_ROOT/syn/out/$SYN_PROFILE/unpu_top.area" : ""}]
+# EXPERIMENT KNOB: UNPU_DIE_SIZE replaces the derived die side (um); unpu_derive_die prints both with a Warning
+set DIE_OVERRIDE [_p_env UNPU_DIE_SIZE ""]
+if {$DIE_OVERRIDE ne "" && (![string is double -strict $DIE_OVERRIDE] || $DIE_OVERRIDE <= 0)} {
+  _p_die "UNPU_DIE_SIZE='$DIE_OVERRIDE' must be a positive number (um)"
+}
+# Utilisation limits per stage = standard-cell area / core area (instructor POST 2: placement <= 75 percent, post-CTS / post-route <= 80-85
+# percent; the user's rule takes the pessimistic end, so 0.80). The final fill is not checked (fillers bring it to 100 percent).
+set UTIL_MAX_PLACE 0.75
+set UTIL_MAX_CTS   0.80
+set UTIL_MAX_ROUTE 0.80
+set UTIL_CROSSCHECK_PP 0.5   ;# percentage points: a Warning if the tool's utilisation and area / core area differ by more
+# Congestion overflow after placement, percent (instructor: "above about 1-2 percent: lower the utilisation or spread the cells" -> 1.0)
+set CONGESTION_MAX_PCT 1.0
+
+# ---- netlist growth report (task 054) ---------------------------------------------------------------------
+# Classes of cells counted by REFERENCE NAME (the cells added by a stage cannot be told apart from the earlier ones by the tool, so the
+# classes are by name pattern). The names are the cell names of the library listing in the NDM build log (ndm_file_gen.log): buffers buf?d*
+# (bufbd, buffd, buftd), inverters inv?d* (inv0d, invbd, invtd), delay cells dl0?d* (dl01..dl04 x d1/d2/d4: the 12 hold-fix cells; they are
+# also CTS_EXCLUDE_PATTERN). The listing shows no tie or spare cell names, so those are printed as 'not counted'. clk2d2 (a clock cell of
+# unknown function) is not counted.
+set GROWTH_CLASSES {buffers {buf*} inverters {inv*} delay_cells {dl0*}}
+# the instructor's typical budgets, percent of the synthesis area (POST 2): a Warning when exceeded, not a check
+set GROWTH_BUDGET_PLACE {3 8}
+set GROWTH_BUDGET_CTS   {2 5}
+set GROWTH_BUDGET_HOLD  {2 5}
+set GROWTH_BUDGET_TOTAL {10 20}
 
 # ---- timing ------------------------------------------------------------------
-# Hold uncertainty applied in scenario ff_hold from CTS on. Plan: back to the value of
-# constraints/unpu_top.sdc. The SDC labels it an assumption; the user chose it on 2026-11-01.
-# The first run applied 0.2 (18.18). No setup parameter: it stays 1.5 in the SDC.
-set PLAN_HOLD_UNCERT 0.5                         ;# ns, the plan's value; the default of HOLD_UNCERT
-set HOLD_UNCERT  [_p_env UNPU_HOLD_UNCERT $PLAN_HOLD_UNCERT]   ;# ns
-if {![string is double -strict $HOLD_UNCERT] || $HOLD_UNCERT < 0} {
-  _p_die "HOLD_UNCERT='$HOLD_UNCERT' must be a number >= 0 (ns)"
-}
-# an experiment run must be visible in the log
-if {abs($DIE_SIZE - $PLAN_DIE_SIZE) > 1e-9} {
-  puts "Warning: \[unpu\] DIE_SIZE = $DIE_SIZE differs from the plan default $PLAN_DIE_SIZE (UNPU_DIE_SIZE is set): this is an experiment run"
-}
-if {abs($HOLD_UNCERT - $PLAN_HOLD_UNCERT) > 1e-9} {
-  puts "Warning: \[unpu\] HOLD_UNCERT = $HOLD_UNCERT differs from the plan default $PLAN_HOLD_UNCERT (UNPU_HOLD_UNCERT is set): this is an experiment run"
-}
+# The clock uncertainty (setup and hold) belongs to the stage profile of constraints/unpu_top.sdc (task 051): the hold uncertainty is
+# 0.05 ns in every profile (instructor), so there is no HOLD_UNCERT any more. Pass limits per stage (instructor, 27 Oct: WNS targets by
+# stage), in ns; the most pessimistic end of every range. The option "-0.2 ns if a PrimeTime ECO follows" is NOT used.
+set WNS_SETUP_PLACE -1.0   ;# post-placement (ideal clocks): setup WNS >= -1.0 ns; hold not checked
+set WNS_SETUP_CTS   -0.4   ;# post-CTS: setup WNS >= -400 to -600 ps -> the pessimistic end, -0.4 ns; hold violations are reported (Warning), route_opt fixes them
+set WNS_SETUP_ROUTE  0.0   ;# post-route (ICC2): setup WNS >= 0
+set WNS_SETUP_FILL   0.0   ;# after the fill: setup WNS >= 0 (the routed limit)
+set WNS_HOLD_ROUTE   0.0   ;# post-route: hold WNS >= 0 (the fill hold residual rule of 2026-10-29 stays as it is)
 
 # ---- don't-use (ONE line, exact form: same list as syn/dc_setup.tcl:39) ------
 set DONT_USE_PATTERNS {slnht* skbrb* slbhb* slnhn* slnln* mx08d*}
@@ -328,7 +373,9 @@ set GDS_UNITS_REL_TOL 1e-6   ;# relative tolerance of the UNITS check (GDSII rea
 set OUT_PREFIX     unpu_top  ;# file prefix of every output (18.23: unpu_top_sim.v ...); the top module and the macro are TOP_NAME
 # modules in the netlists written by write_verilog -hierarchy all: 76 in the first run (18.23); place_opt did not change the
 # module count there. A different hierarchy (RTL change) changes it: then this is a plan change, not a script fix.
-set EXPECT_NETLIST_MODULES 76
+# (task 053) no longer a constant: the module count is computed from the chosen netlist (unpu_netlist_expect in common.tcl); 76 was the
+# first run's netlist, kept as PREV_NETLIST_MODULES for the comparison printed as an Info.
+set PREV_NETLIST_MODULES 76
 # 1 lets outputs.tcl replace output files that exist (a Warning per file; they are deleted first so that a stale file can never pass the checks)
 set OUTPUTS_OVERWRITE [_p_env UNPU_OUTPUTS_OVERWRITE 0]
 if {[lsearch -exact {0 1} $OUTPUTS_OVERWRITE] < 0} { _p_die "UNPU_OUTPUTS_OVERWRITE='$OUTPUTS_OVERWRITE' must be 0 or 1" }
@@ -343,9 +390,11 @@ set EXPECT_TIMING_CELLS 534   ;# cells of the ss/ff .lib = cells of the first ND
 set EXPECT_LEF_MACROS   540   ;# MACROs in scl18fs120_std.lef (18.10)
 set EXPECT_PORTS        204   ;# top-level ports of unpu_top (18.12)
 set EXPECT_SEQ_CELLS    2465  ;# sequential cells of the DC netlist (18.12)
-set EXPECT_ROWS         $FP_ROWS   ;# derived above (153 at the default die)
-set EXPECT_LEAF_CELLS   12487 ;# leaf cells (is_hierarchical==false) of the DC netlist (18.14)
-set EXPECT_SDC_IGNORED  {SDC-3 SDC-4}   ;# set_wire_load_model and set_max_area, "not supported by icc2" (18.12)
+# (task 053) the leaf-cell count is computed from the chosen netlist; 12,487 was the first run's netlist (18.14), kept for the comparison
+set PREV_LEAF_CELLS     12487
+# SDC message ids expected when the SDC is read. The DC-written SDC had set_wire_load_model and set_max_area (SDC-3, SDC-4: "not supported
+# by icc2", 18.12); the profile SDC (constraints/unpu_top.sdc) has neither, so nothing is expected.
+set EXPECT_SDC_IGNORED  {}
 set EXPECT_CHECK_TIMING_WARNINGS 1      ;# check_timing: only pready, unconstrained constant (18.13, rtl/unpu_apb.sv:87)
 set EXPECT_SS_VOLT      1.62  ;# V, ss library tsl18fs120_scl_ss (18.2)
 set EXPECT_SS_TEMP      125   ;# C
@@ -384,6 +433,7 @@ set PROBE_COMMANDS_ICC2 {
   redirect foreach_in_collection sizeof_collection
   get_app_option_value report_constraint report_pin_placement check_pin_placement report_pin_constraints
   report_individual_pin_constraints report_block_pin_constraints remove_individual_pin_constraints report_placement
+  report_clocks set_propagated_clock report_congestion report_clock_tree get_clocks all_clocks
   get_libs get_object_name get_nets get_pins get_ports get_cells get_scenarios set_app_var get_app_var printvar report_units
 }
 # commands whose names are not known: help <pattern> lists the commands that match (help *protection_diode* worked in the first run)
@@ -422,5 +472,4 @@ if {[info exists _p_before]} {
   }
   unset _p_before
   catch {unset _p_v}
-  catch {unset _p_hi}
 }

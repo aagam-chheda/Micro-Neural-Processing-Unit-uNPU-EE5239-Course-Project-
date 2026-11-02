@@ -57,27 +57,63 @@ foreach v {UNPU_DIE_SIZE UNPU_NDM_MODE UNPU_RUN_TAG UNPU_HOLD_UNCERT UNPU_NETLIS
 source [file join $here common.tcl]
 set code [catch {source [file join $here params.tcl]} msg]
 t_check "params.tcl sources under plain tclsh" [expr {$code == 0}] $msg
-t_check "default core side 856.8" [expr {abs($CORE_SIDE - 856.8) < 1e-9}] "got $CORE_SIDE"
-t_check "default rows 153" [expr {$FP_ROWS == 153}] "got $FP_ROWS"
-t_check "default die/site 1550" [expr {$FP_SITES_ACROSS == 1550}] "got $FP_SITES_ACROSS"
-t_check "default core area = side^2" [expr {abs($CORE_AREA - 734106.24) < 1e-6}] "got $CORE_AREA"
-t_check "boundary is {{5.6 5.6} {862.4 862.4}}" [expr {$FP_BOUNDARY eq "{5.6 5.6} {862.4 862.4}"}] "got $FP_BOUNDARY"
+t_check "no die is typed or derived at source time (probes and NDM scripts need none)" [expr {![info exists DIE_SIZE] && ![info exists FP_ROWS] && ![info exists CORE_SIDE] && ![info exists PLAN_DIE_SIZE] && [info exists FP_START_UTIL] && $FP_START_UTIL == 0.60}]
 t_check "REPO_ROOT is the parent of pnr/" [expr {$REPO_ROOT eq [file dirname $here]}] $REPO_ROOT
 t_check "NDM_MODE default two (single does not work on this kit, task 047)" [expr {$NDM_MODE eq "two"}]
 t_check "directory layout derived" [expr {$LOG_DIR eq "$UNPU_WORK/$UNPU_RUN_TAG/logs" && $NDM_DIR eq "$UNPU_WORK/ndm"}]
 t_check "kit path uses 4M1IL for stdcell and 4M1L for pnr kit" \
     [expr {[string match */stdcell/fs120/4M1IL/lef/scl18fs120_std.lef $LEF_STD] && [string match */snps/non_rh/4M1L/SCL_4LM.tf $TECH_FILE]}]
 t_check "UNPU_PARAM_NAMES is computed and holds the parameters" \
-    [expr {[lsearch -exact $UNPU_PARAM_NAMES DIE_SIZE] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES ANT_RATIO] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES _p_before] < 0}]
+    [expr {[lsearch -exact $UNPU_PARAM_NAMES FP_START_UTIL] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES ANT_RATIO] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES _p_before] < 0}]
 t_check "DONT_USE_PATTERNS is the dc_setup.tcl list" [expr {$DONT_USE_PATTERNS eq "slnht* skbrb* slbhb* slnhn* slnln* mx08d*"}]
 
-# ---- 2. other die sizes: old run accepted, 868.3 rejected, bad mode rejected -----
-lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs \"DIE=\$DIE_SIZE ROWS=\$FP_ROWS\"" {UNPU_DIE_SIZE 817.6}] c o
-t_check "die 817.6 (the first run) passes: 144 rows" [expr {$c == 0 && [t_has $o "ROWS=144"]}] "exit $c: $o"
-lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]" {UNPU_DIE_SIZE 868.3}] c o
-t_check "die 868.3 is rejected with a message" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*not an integer"]}] "exit $c: $o"
+# ---- 2. the die is derived from the synthesis area (task 054) -----------------------------------
+set area_fix [file join $tmp_base unpu_pnr_area_[pid].area]
+file copy -force [file join [file dirname $here] docs planning synthesis-reports round3-2026-10-14 unpu_top.area] $area_fix
+t_check "the real round-3 area report parses strictly: Total cell area 429161.242546" [expr {[unpu_parse_syn_area [unpu_read_text $area_fix] $area_fix] == 429161.242546}] [unpu_parse_syn_area [unpu_read_text $area_fix] $area_fix]
+set derive_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nproc unpu_manifest_append {args} {}\nset UNPU_STAGE t\nset ::RUN_DIR [list $tmp_base]\nset SYN_AREA_FILE [list $area_fix]\nunpu_derive_die record\nputs \"DIE=\$DIE_SIZE ROWS=\$FP_ROWS CORE=\$CORE_SIDE CA=\$CORE_AREA B=\$FP_BOUNDARY EXP=\$EXPECT_ROWS S=\$SYN_CELL_AREA\""
+lassign [t_child $derive_child {UNPU_SYN_PROFILE syn20}] c o
+t_check "derived die for the old round-3 area at 0.60: 152 rows, core 851.2, die 862.4, boundary {5.6 5.6} {856.8 856.8}" [expr {$c == 0 && [t_has $o "DIE=862.4 ROWS=152 CORE=851.2 CA=724541.44*B={5.6 5.6} {856.8 856.8} EXP=152 S=429161.242546"]}] "exit $c: $o"
+lassign [t_child $derive_child {UNPU_SYN_PROFILE syn20 UNPU_DIE_SIZE 817.6}] c o
+t_check "UNPU_DIE_SIZE=817.6 replaces the derived die with a Warning that prints the derived one (144 rows)" [expr {$c == 0 && [t_has $o "Warning: \[unpu\] UNPU_DIE_SIZE = 817.6 replaces the derived die 862.4 um*DIE=817.6 ROWS=144"]}] "exit $c: $o"
+lassign [t_child $derive_child {UNPU_SYN_PROFILE syn20 UNPU_DIE_SIZE 868.3}] c o
+t_check "an override die that is off the grid (868.3) is rejected" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*not an integer"]}] "exit $c: $o"
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]" {UNPU_DIE_SIZE abc}] c o
-t_check "die 'abc' is rejected" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*DIE_SIZE"]}] "exit $c: $o"
+t_check "UNPU_DIE_SIZE=abc is rejected" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*UNPU_DIE_SIZE"]}] "exit $c: $o"
+lassign [t_child $derive_child {}] c o
+t_check "unpu_derive_die without UNPU_SYN_PROFILE stops, naming the valid profiles" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*UNPU_SYN_PROFILE is not set*syn20 syn18 syn16"]}] "exit $c: $o"
+lassign [t_child $derive_child {UNPU_SYN_PROFILE syn17}] c o
+t_check "UNPU_SYN_PROFILE=syn17 stops (params)" [expr {$c == 1 && [t_has $o "syn17*valid"]}] "exit $c: $o"
+set bad_area [file join $tmp_base unpu_pnr_bad_[pid].area]
+set fh [open $bad_area w]; puts $fh "Total cell area:   100.0\nTotal cell area:   200.0"; close $fh
+lassign [t_child [string map [list $area_fix $bad_area] $derive_child] {UNPU_SYN_PROFILE syn20}] c o
+t_check "two 'Total cell area' lines (ambiguous) stop the derivation, naming the file" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*exactly once, found 2"]}] "exit $c: $o"
+set fh [open $bad_area w]; puts $fh "Total cell area:   n/a"; close $fh
+lassign [t_child [string map [list $area_fix $bad_area] $derive_child] {UNPU_SYN_PROFILE syn20}] c o
+t_check "a non-numeric 'Total cell area' stops the derivation" [expr {$c == 1 && [t_has $o "not a positive number"]}] "exit $c: $o"
+lassign [t_child [string map [list $area_fix [file join $tmp_base nosuch.area]] $derive_child] {UNPU_SYN_PROFILE syn20}] c o
+t_check "a missing area file stops the derivation" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*synthesis area report of profile syn20"]}] "exit $c: $o"
+file delete -force $bad_area
+# the pure derivation, with numbers recomputed independently here
+set A 429161.242546
+set core_area [expr {$A / 0.6}]; set rows_exact [expr {sqrt($core_area) / 5.6}]
+set rows_ind [expr {int($rows_exact) + (($rows_exact - int($rows_exact)) > 1e-6 ? 1 : 0)}]
+t_check "independent hand computation: 715,268.7 um2, side 845.7, 151.0x rows -> 152, die 862.4" [expr {abs($core_area - 715268.7) < 0.1 && abs(sqrt($core_area) - 845.7) < 0.1 && $rows_ind == 152 && abs(152 * 5.6 + 11.2 - 862.4) < 1e-9}]
+t_check "unpu_die_from_area agrees (rows 152, side 851.2, die 862.4)" [expr {[lrange [unpu_die_from_area $A 0.60 5.6 5.6] 1 end] eq "152 851.2 862.4"}] [unpu_die_from_area $A 0.60 5.6 5.6]
+t_check "an exact multiple of the row height adds NO row (core area 3136 = 56 x 56 -> 10 rows)" [expr {[lrange [unpu_die_from_area [expr {0.6 * 3136.0}] 0.60 5.6 5.6] 1 end] eq "10 56.0 67.2"}] [unpu_die_from_area [expr {0.6 * 3136.0}] 0.60 5.6 5.6]
+t_check "just above an exact multiple adds one row" [expr {[lindex [unpu_die_from_area [expr {0.6 * 3140.0}] 0.60 5.6 5.6] 1] == 11}]
+t_check "a tiny area gives one row, never zero" [expr {[lindex [unpu_die_from_area 0.001 0.60 5.6 5.6] 1] == 1}]
+t_check "a non-positive area stops (error)" [expr {[catch {unpu_die_from_area 0 0.6 5.6 5.6} m] && [string first "not a positive number" $m] >= 0 && [catch {unpu_die_from_area -5 0.6 5.6 5.6}] && [catch {unpu_die_from_area abc 0.6 5.6 5.6}]}]
+t_check "a start utilisation outside 0.3 to 0.9 stops (error)" [expr {[catch {unpu_die_from_area 1000 0.29 5.6 5.6}] && [catch {unpu_die_from_area 1000 0.91 5.6 5.6}] && ![catch {unpu_die_from_area 1000 0.3 5.6 5.6}] && ![catch {unpu_die_from_area 1000 0.9 5.6 5.6}]}]
+puts ""
+puts "Derived die per cell area (start utilisation 0.60, row 5.6, offset 5.6):"
+puts [format "%12s %14s %6s %9s %9s %12s %7s" area_um2 core_area_um2 rows core_um die_um sites_across die_site_ok]
+foreach a {386245 400000 429161.24 472077 500000} {
+  lassign [unpu_die_from_area $a 0.60 5.6 5.6] ca rows side die
+  puts [format "%12.2f %14.2f %6d %9.1f %9.1f %12d %7s" $a $ca $rows $side $die [expr {int(round($die / 0.56))}] [expr {abs($die/0.56 - round($die/0.56)) < 1e-6 ? "yes" : "NO"}]]
+  t_check "derived die for $a um2 is on the site and row grid: rows [expr {int(round($side/5.6))}], sites [expr {int(round($die/0.56))}]" [expr {abs($die/0.56 - round($die/0.56)) < 1e-6 && abs($side/5.6 - round($side/5.6)) < 1e-6}]
+}
+puts ""
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]" {UNPU_NDM_MODE three}] c o
 t_check "UNPU_NDM_MODE=three is rejected" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*UNPU_NDM_MODE*single or two"]}] "exit $c: $o"
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs MODE=\$NDM_MODE" {UNPU_NDM_MODE two}] c o
@@ -88,24 +124,19 @@ t_check "UNPU_RUN_TAG with a slash is rejected" [expr {$c == 1}] "exit $c: $o"
 
 # ---- 2b. item 5: hold uncertainty, core offset on the grid, boundary rounding, experiment warnings ----
 set pre "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\n"
-lassign [t_child "${pre}puts \"H=\$HOLD_UNCERT\"" {UNPU_HOLD_UNCERT -0.1}] c o
-t_check "UNPU_HOLD_UNCERT=-0.1 is rejected" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*HOLD_UNCERT*>= 0"]}] "exit $c: $o"
-lassign [t_child "$pre" {UNPU_HOLD_UNCERT abc}] c o
-t_check "UNPU_HOLD_UNCERT=abc is rejected" [expr {$c == 1 && [t_has $o "HOLD_UNCERT='abc'"]}] "exit $c: $o"
-lassign [t_child "${pre}puts \"H=\$HOLD_UNCERT\"" {UNPU_HOLD_UNCERT 0.2}] c o
-t_check "UNPU_HOLD_UNCERT=0.2 is accepted and a Warning marks the experiment" [expr {$c == 0 && [t_has $o "H=0.2"] && [t_has $o "Warning: \[unpu\] HOLD_UNCERT = 0.2 differs from the plan default 0.5"]}] "exit $c: $o"
-lassign [t_child "$pre" {UNPU_DIE_SIZE 817.6}] c o
-t_check "UNPU_DIE_SIZE=817.6 prints the experiment Warning" [expr {$c == 0 && [t_has $o "Warning: \[unpu\] DIE_SIZE = 817.6 differs from the plan default 868.0"]}] "exit $c: $o"
-lassign [t_child "$pre" {}] c o
-t_check "no experiment Warning with the defaults" [expr {$c == 0 && [string first "differs from the plan default" $o] < 0}] "exit $c: $o"
+lassign [t_child "${pre}puts \"X\"" {UNPU_HOLD_UNCERT 0.2}] c o
+t_check "UNPU_HOLD_UNCERT is refused (the hold uncertainty is part of the stage profile now)" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*UNPU_HOLD_UNCERT is no longer supported"]}] "exit $c: $o"
+lassign [t_child "${pre}puts \"X\"" {UNPU_SDC /tmp/x.sdc}] c o
+t_check "UNPU_SDC is refused (the SDC is the stage-selectable constraints/unpu_top.sdc)" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*UNPU_SDC is no longer supported"]}] "exit $c: $o"
+t_check "HOLD_UNCERT and SDC_FILE no longer exist as parameters" [expr {![info exists HOLD_UNCERT] && ![info exists SDC_FILE] && [info exists PROFILE_SDC]}]
 lassign [t_child "${pre}puts \[unpu_floorplan_check 868.0 2.8 5.6 0.56 1e-6\]" {}] c o
 t_check "core offset that is not a whole number of rows is rejected" [expr {$c == 1 && [t_has $o "CORE_OFFSET / ROW_HEIGHT"]}] "exit $c: $o"
 lassign [t_child "${pre}puts \[unpu_floorplan_check 105.0 5.0 5.0 0.6 1e-6\]" {}] c o
 t_check "core offset that is not a whole number of sites is rejected" [expr {$c == 1 && [t_has $o "CORE_OFFSET / SITE_WIDTH"]}] "exit $c: $o"
 t_check "unpu_floorplan_check accepts the plan numbers" [expr {[unpu_floorplan_check 868.0 5.6 5.6 0.56 1e-6] eq "856.8 153 1550 734106.24"}] [unpu_floorplan_check 868.0 5.6 5.6 0.56 1e-6]
 t_check "unpu_round4 removes a floating-point tail" [expr {[unpu_round4 0.30000000000000004] eq "0.3" && [unpu_round4 [expr {817.6 - 5.6}]] eq "812.0"}] "[unpu_round4 0.30000000000000004] [unpu_round4 [expr {817.6 - 5.6}]]"
-lassign [t_child "${pre}puts \"B=\$FP_BOUNDARY\"" {UNPU_DIE_SIZE 817.6}] c o
-t_check "boundary for die 817.6 carries no floating-point tail" [expr {$c == 0 && [t_has $o "B={5.6 5.6} {812.0 812.0}"]}] "exit $c: $o"
+lassign [t_child $derive_child {UNPU_SYN_PROFILE syn20 UNPU_DIE_SIZE 817.6}] c o
+t_check "boundary for the override die 817.6 carries no floating-point tail" [expr {$c == 0 && [t_has $o "B={5.6 5.6} {812.0 812.0}"]}] "exit $c: $o"
 
 # ---- item 6: exact block-name matching ----------------------------------------
 t_check "block match: lib:name.design" [unpu_block_name_matches unpu2_lib:placed.design placed]
@@ -126,8 +157,8 @@ lassign [t_child "source [list [file join $here common.tcl]]\nproc fake_cmd {} {
 t_check "no capture flag and a Warning when redirect is unavailable" [expr {$c == 0 && [t_has $o "OK=0"] && [t_has $o "Warning: \[unpu\] redirect is not available"]}] "exit $c: $o"
 
 # ---- task 039: shared helpers and new parameters ---------------------------------
-t_check "new parameters present with the handoff values" [expr {$EXPECT_LEAF_CELLS == 12487 && $SCEN_SETUP eq "default" && $SCEN_HOLD eq "ff_hold" && $CORNER_SETUP eq "default" && $CORNER_HOLD eq "ff" && $MODE_NAME eq "default" && $PARA_TECH_NAME eq "typ" && $EXPECT_SDC_IGNORED eq "SDC-3 SDC-4" && $EXPECT_CHECK_TIMING_WARNINGS == 1 && $EXPECT_SS_VOLT == 1.62 && $EXPECT_SS_TEMP == 125 && $EXPECT_FF_VOLT == 1.98 && $EXPECT_FF_TEMP == -40}]
-t_check "new parameters are in the computed manifest list" [expr {[lsearch -exact $UNPU_PARAM_NAMES EXPECT_LEAF_CELLS] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES SCEN_HOLD] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES EXPECT_FF_TEMP] >= 0}]
+t_check "new parameters present with the handoff values" [expr {$PREV_LEAF_CELLS == 12487 && $SCEN_SETUP eq "default" && $SCEN_HOLD eq "ff_hold" && $CORNER_SETUP eq "default" && $CORNER_HOLD eq "ff" && $MODE_NAME eq "default" && $PARA_TECH_NAME eq "typ" && $EXPECT_SDC_IGNORED eq "" && $EXPECT_CHECK_TIMING_WARNINGS == 1 && $EXPECT_SS_VOLT == 1.62 && $EXPECT_SS_TEMP == 125 && $EXPECT_FF_VOLT == 1.98 && $EXPECT_FF_TEMP == -40}]
+t_check "new parameters are in the computed manifest list" [expr {[lsearch -exact $UNPU_PARAM_NAMES PREV_LEAF_CELLS] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES SCEN_HOLD] >= 0 && [lsearch -exact $UNPU_PARAM_NAMES EXPECT_FF_TEMP] >= 0}]
 
 # unpu_read_ndm_manifest
 set n1 [file join $tmp ndm_a.ndm]; set n2 [file join $tmp ndm_b.ndm]; file mkdir $n1 $n2
@@ -454,7 +485,7 @@ set cov [unpu_filler_coverage "feedth9 4159 feedth7 10 feedth 10902" {feedth 1 f
 t_check "coverage: a cell with no known width is listed and not ok" [expr {[lindex $cov 0] == 0 && [lindex $cov 4] eq "feedth7"}] $cov
 set cov [unpu_filler_coverage "feedth9 4159 feedth 10902" {feedth 1 feedth3 3 feedth9 9} 70686 2]
 t_check "coverage: a missing cell type (no feedth3) leaves the sites uncovered" [expr {[lindex $cov 0] == 0 && [lindex $cov 3] == -22353}] $cov
-t_check "geometry of the default die: 153 rows, 1,530 sites per row" [expr {$FP_ROWS == 153 && int(round($CORE_SIDE / $SITE_WIDTH)) == 1530}] "$FP_ROWS $CORE_SIDE $SITE_WIDTH"
+t_check "geometry of the derived die (old area): 152 rows of 1,520 sites" [expr {[lindex [unpu_die_from_area 429161.242546 0.60 5.6 5.6] 1] == 152 && int(round(851.2 / $SITE_WIDTH)) == 1520}]
 t_check "FILLER_SITES covers exactly FILLER_CELLS" [expr {[lsort [dict keys $FILLER_SITES]] eq [lsort $FILLER_CELLS]}]
 # fillers with violations (remove_stdcell_fillers_with_violation -check_only true)
 t_check "filler violations: 'no filler cell with violation' is 0" [expr {[unpu_parse_filler_violations "Info: no filler cell with violation was found"] == 0}]
@@ -567,7 +598,7 @@ set fh [open $gtmp w]; fconfigure $fh -translation binary; puts -nonewline $fh $
 t_check "file reader: the binary file reads back byte for byte, the head reader cuts it" [expr {[unpu_read_text $gtmp] eq $gd && [string length [unpu_read_head $gtmp 10]] == 10}]
 t_check "file reader: a missing file is an error" [expr {[catch {unpu_read_text [file join $tmp nosuch]}]}]
 # parameters of the outputs stage
-t_check "outputs parameters: prefix, module count, min sizes, overwrite default" [expr {$OUT_PREFIX eq "unpu_top" && $EXPECT_NETLIST_MODULES == 76 && $OUTPUTS_OVERWRITE eq "0" && [dict get $OUT_MIN_BYTES lef] > 163 && $GDS_LAYER_MAP eq $GDS_LAYER_MAP_KIT}]
+t_check "outputs parameters: prefix, module count, min sizes, overwrite default" [expr {$OUT_PREFIX eq "unpu_top" && $PREV_NETLIST_MODULES == 76 && $OUTPUTS_OVERWRITE eq "0" && [dict get $OUT_MIN_BYTES lef] > 163 && $GDS_LAYER_MAP eq $GDS_LAYER_MAP_KIT}]
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs OW=\$OUTPUTS_OVERWRITE" {UNPU_OUTPUTS_OVERWRITE 1}] c o
 t_check "UNPU_OUTPUTS_OVERWRITE=1 is accepted with a Warning" [expr {$c == 0 && [t_has $o "OW=1"] && [t_has $o "Warning: \[unpu\]*UNPU_OUTPUTS_OVERWRITE=1"]}] "exit $c: $o"
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs NOT_REACHED" {UNPU_OUTPUTS_OVERWRITE 2}] c o
@@ -748,6 +779,96 @@ lassign [t_top_level_dups $ptxt] pn pdup
 t_check "params.tcl: no parameter is set twice at the top level ($pn names)" [expr {[llength $pdup] == 0 && $pn > 100}] "duplicates: $pdup"
 lassign [t_top_level_dups "set A 1\nset B 2\nset A 3\n  set C 4\nset C 5"] pn2 pdup2
 t_check "the duplicate check catches a repeated name (and ignores indented sets)" [expr {$pdup2 eq "{A x2}" && $pn2 == 3}] "$pn2 $pdup2"
+# ---- stage profiles in the layout flow (task 053) ------------------------------------------------------------
+# the numbers of every profile come from the SDC itself (its table section run under a stub); expected values typed independently here
+foreach {name T kind U} {syn20 20.0 pre 1.2 syn18 18.0 pre 1.2 syn16 16.0 pre 1.2 place 18.0 pre 1.2 cts 18.0 post 0.6 route 20.0 post 0.6 signoff 20.0 post 0.6} {
+  lassign [unpu_profile_numbers $name] pn pT pU pH pB pk
+  t_check "profile $name from the SDC: period $T, setup uncertainty $U, hold 0.05, kind $kind, budget [expr {0.3*$T-$U}]" [expr {$pn eq $name && abs($pT-$T)<1e-9 && abs($pU-$U)<1e-9 && abs($pH-0.05)<1e-9 && abs($pB-(0.3*$T-$U))<1e-9 && $pk eq $kind}] "$pn $pT $pU $pH $pB $pk"
+}
+t_check "an unknown profile raises the SDC's own message with the valid names" [expr {[catch {unpu_profile_numbers syn17} m] && [string first "Valid profiles" $m] >= 0 && [string first signoff $m] >= 0}] ""
+t_check "the stage map: design_setup and placement use place, cts uses cts, route/fill/outputs use route" [expr {$PROFILE_DESIGN_SETUP eq "place" && $PROFILE_PLACEMENT eq "place" && $PROFILE_CTS eq "cts" && $PROFILE_ROUTE eq "route" && $PROFILE_FILL eq "route" && $PROFILE_OUTPUTS eq "route"}]
+t_check "every mapped profile exists in the SDC table" [expr {![catch {foreach v {PROFILE_DESIGN_SETUP PROFILE_PLACEMENT PROFILE_CTS PROFILE_ROUTE PROFILE_FILL PROFILE_OUTPUTS} { unpu_profile_numbers [set $v] }}]}]
+t_check "PROFILE_SDC is constraints/unpu_top.sdc and exists" [expr {[file tail $PROFILE_SDC] eq "unpu_top.sdc" && [file exists $PROFILE_SDC]}]
+t_check "the profile line parser" [expr {[unpu_parse_profile_line "x\nInfo: \[unpu\] SDC profile cts: period 18.0 ns, setup uncertainty 0.6 ns, hold uncertainty 0.05 ns, feedthrough budget 4.8 ns\ny"] eq "cts 18.0 0.6 0.05 4.8" && [unpu_parse_profile_line "no line here"] eq ""}]
+t_check "limits per stage (instructor): place -1.0, cts -0.4, route 0, fill 0, hold route 0" [expr {$WNS_SETUP_PLACE == -1.0 && $WNS_SETUP_CTS == -0.4 && $WNS_SETUP_ROUTE == 0.0 && $WNS_SETUP_FILL == 0.0 && $WNS_HOLD_ROUTE == 0.0}]
+t_check "wns rule: -1.5 fails and -0.9 passes at placement" [expr {![unpu_wns_ok -1.5 $WNS_SETUP_PLACE] && [unpu_wns_ok -0.9 $WNS_SETUP_PLACE]}]
+t_check "wns rule: -0.5 fails and -0.3 passes at CTS" [expr {![unpu_wns_ok -0.5 $WNS_SETUP_CTS] && [unpu_wns_ok -0.3 $WNS_SETUP_CTS]}]
+t_check "wns rule: -0.01 fails at route, 0.0 and 0.2 pass; unavailable fails" [expr {![unpu_wns_ok -0.01 $WNS_SETUP_ROUTE] && [unpu_wns_ok 0.0 $WNS_SETUP_ROUTE] && [unpu_wns_ok 0.2 $WNS_SETUP_ROUTE] && ![unpu_wns_ok unavailable 0.0] && ![unpu_wns_ok "" 0.0]}]
+t_check "wns margin: -0.9 against -1.0 is 0.1000; unavailable stays unavailable" [expr {[unpu_wns_margin -0.9 -1.0] eq "0.1000" && [unpu_wns_margin unavailable 0.0] eq "unavailable"}]
+# report_clocks parser (layout ASSUMED: PrimeTime style; VERIFY on the first probe)
+set rc "Clock    Period  Waveform       Attrs     Sources\n------------------------------------------------\nclk      18.00   \{0 9\}          p         \{clk\}\n"
+t_check "report_clocks: period 18 and propagated (attribute p)" [expr {[unpu_parse_report_clocks $rc clk] eq "18.00 1"}] [unpu_parse_report_clocks $rc clk]
+set rc2 "Clock    Period  Waveform   Sources\nclk      20.00   \{0 10\}     \{clk\}\n"
+t_check "report_clocks: no attribute word means ideal (not propagated)" [expr {[unpu_parse_report_clocks $rc2 clk] eq "20.00 0"}] [unpu_parse_report_clocks $rc2 clk]
+t_check "report_clocks: a clock that is not listed, or an empty text, is unavailable" [expr {[unpu_parse_report_clocks $rc2 other] eq "unavailable unavailable" && [unpu_parse_report_clocks "" clk] eq "unavailable unavailable"}]
+# netlist counts: modules, flattened leaf cells; a module instantiated twice counts twice; keywords and ports are not instances
+set nl "module leaf2 (a, y);\n  input a;\n  output y;\n  inv0d1 U1 ( .I(a), .ZN(n1) );\n  inv0d1 U2 ( .I(n1), .ZN(y) );\nendmodule\nmodule unpu_top (clk, o);\n  input clk;\n  output o;\n  wire w;\n  assign o = (w);\n  dfnrq1 F1 ( .D(w), .CP(clk), .Q(w) );\n  leaf2 u_a ( .a(w), .y(o) );\n  leaf2 u_b ( .a(w), .y(o) );\n  nd02d1 U3 ( .A1(w), .A2(w), .ZN(o) );\nendmodule\n"
+t_check "netlist counts: 2 modules, 1 + 2*2 + 1 = 6 leaf cells" [expr {[unpu_netlist_counts $nl unpu_top] eq "modules 2 leaf_cells 6"}] [unpu_netlist_counts $nl unpu_top]
+t_check "netlist counts: a missing top module is an error" [expr {[catch {unpu_netlist_counts $nl nosuchtop} m] && [string first "not defined" $m] >= 0}]
+t_check "netlist counts: a module that instantiates itself is an error" [expr {[catch {unpu_netlist_counts "module unpu_top (a);\n  unpu_top u ( .a(a) );\nendmodule\n" unpu_top} m] && [string first "itself" $m] >= 0}]
+t_check "netlist counts: the first run's reference numbers are kept for the comparison only" [expr {$PREV_LEAF_CELLS == 12487 && $PREV_NETLIST_MODULES == 76 && ![info exists EXPECT_LEAF_CELLS] && ![info exists EXPECT_NETLIST_MODULES]}]
+# parameters: UNPU_SYN_PROFILE
+set pre "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\n"
+lassign [t_child "${pre}puts \"P=\$SYN_PROFILE N=\$NETLIST\"" {}] c o
+t_check "UNPU_SYN_PROFILE unset is allowed in params.tcl (probes and NDM scripts need no netlist); NETLIST is empty" [expr {$c == 0 && [t_has $o "P= N="]}] "exit $c: $o"
+lassign [t_child "${pre}puts \"P=\$SYN_PROFILE N=\$NETLIST\"" {UNPU_SYN_PROFILE syn16}] c o
+t_check "UNPU_SYN_PROFILE=syn16 gives the netlist syn/out/syn16/unpu_top_cn.dc.v" [expr {$c == 0 && [t_has $o "P=syn16 N=*/syn/out/syn16/unpu_top_cn.dc.v"]}] "exit $c: $o"
+lassign [t_child "$pre" {UNPU_SYN_PROFILE syn17}] c o
+t_check "UNPU_SYN_PROFILE=syn17 is rejected, valid names listed" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*syn17*valid: syn20 syn18 syn16"]}] "exit $c: $o"
+lassign [t_child "${pre}puts \"N=\$NETLIST\"" {UNPU_SYN_PROFILE syn20 UNPU_NETLIST /tmp/my.dc.v}] c o
+t_check "UNPU_NETLIST overrides the netlist with a Warning" [expr {$c == 0 && [t_has $o "N=/tmp/my.dc.v"] && [t_has $o "Warning: \[unpu\]*NETLIST overridden"]}] "exit $c: $o"
+lassign [t_child "${pre}unpu_require_syn_profile\nputs OK" {}] c o
+t_check "unpu_require_syn_profile stops when UNPU_SYN_PROFILE is unset, naming the valid profiles" [expr {$c == 1 && [t_has $o "Error: \[unpu\]*UNPU_SYN_PROFILE is not set*syn20 syn18 syn16"]}] "exit $c: $o"
+lassign [t_child "${pre}unpu_require_syn_profile\nputs OK" {UNPU_SYN_PROFILE syn18}] c o
+t_check "unpu_require_syn_profile passes with syn18" [expr {$c == 0 && [t_has $o "OK"]}] "exit $c: $o"
+foreach c {report_clocks set_propagated_clock report_congestion report_clock_tree get_clocks all_clocks} {
+  t_check "probe list holds $c" [expr {[lsearch -exact $PROBE_COMMANDS_ICC2 $c] >= 0}]
+}
+# ---- utilisation, congestion, growth, floorplan record (task 054) ---------------------------------------------------
+t_check "utilisation limits: place 0.75, cts 0.80, route 0.80; congestion limit 1.0; cross-check 0.5 points; start utilisation 0.60" [expr {$UTIL_MAX_PLACE == 0.75 && $UTIL_MAX_CTS == 0.80 && $UTIL_MAX_ROUTE == 0.80 && $CONGESTION_MAX_PCT == 1.0 && $UTIL_CROSSCHECK_PP == 0.5 && $FP_START_UTIL == 0.60}]
+t_check "utilisation parser: '66.00%' -> 0.66, '0.7431' -> 0.7431, '74.5' -> 0.745, none -> empty" [expr {abs([unpu_parse_utilization "Core utilization: 66.00%"] - 0.66) < 1e-9 && abs([unpu_parse_utilization "Utilization  0.7431"] - 0.7431) < 1e-9 && abs([unpu_parse_utilization "core utilisation = 74.5"] - 0.745) < 1e-9 && [unpu_parse_utilization "no such line"] eq ""}]
+t_check "utilisation limit rule at placement: 0.76 fails, 0.75 passes" [expr {0.76 > $UTIL_MAX_PLACE && !(0.75 > $UTIL_MAX_PLACE)}]
+t_check "utilisation limit rule at CTS/route: 0.81 fails, 0.80 passes" [expr {0.81 > $UTIL_MAX_CTS && !(0.80 > $UTIL_MAX_CTS) && 0.81 > $UTIL_MAX_ROUTE && !(0.80 > $UTIL_MAX_ROUTE)}]
+set cg "Both Dirs: Overflow = 120 Max = 3 GRCs = 90 (0.12%)\nH routing: Overflow = 40 Max = 2 GRCs = 30 (0.08%)\nV routing: Overflow = 80 Max = 3 GRCs = 60 (0.16%)"
+t_check "congestion parser: the percentage of the Both Dirs line (0.12)" [expr {[unpu_parse_congestion $cg] == 0.12}] [unpu_parse_congestion $cg]
+t_check "congestion parser: layout GRCs = 90 (1.50%) -> 1.50; unreadable text -> empty" [expr {[unpu_parse_congestion "Both Dirs: Overflow = 12 Max = 1 GRCs = 9 (1.50%)"] == 1.50 && [unpu_parse_congestion "H routing: x (0.5%)"] eq "" && [unpu_parse_congestion ""] eq ""}]
+t_check "congestion limit rule: 1.5 fails, 0.8 passes" [expr {1.5 > $CONGESTION_MAX_PCT && !(0.8 > $CONGESTION_MAX_PCT)}]
+t_check "strict area parser: spaces around the line and commas are not accepted silently" [expr {[catch {unpu_parse_syn_area "Total cell area:   1,234.5" f} m] && [string first "not a positive number" $m] >= 0}]
+# growth rows: store, replace, read back
+set gtmp [file join $tmp_base unpu_pnr_growth_[pid]]; file mkdir $gtmp
+set RPT_DIR $gtmp
+unpu_growth_store {place 460000 11986 100 5000.00 50 3000.00 0 0.00}
+unpu_growth_store {cts 485000 12500 200 9000.00 60 3200.00 0 0.00}
+unpu_growth_store {place 461000 11990 101 5010.00 50 3000.00 0 0.00}
+set gr [unpu_growth_read [unpu_growth_file]]
+t_check "growth rows: two stages, the place row was replaced, the order of writing is kept for the others" [expr {[llength $gr] == 2 && [lindex [lindex $gr 1] 1] == 461000 && [lindex [lindex $gr 0] 0] eq "cts"}] $gr
+file delete -force $gtmp
+set rows [list {place 460000 11986 100 5000 50 3000 0 0} {cts 485000 12500 200 9000 60 3200 0 0} {clkopt 495000 13000 250 10000 60 3200 120 4000} {routed 520000 13100 260 10100 60 3200 140 4400}]
+lassign [unpu_growth_table $rows 429161.24 [list place $GROWTH_BUDGET_PLACE cts $GROWTH_BUDGET_CTS hold $GROWTH_BUDGET_HOLD total $GROWTH_BUDGET_TOTAL]] gl gw
+t_check "growth table: place_opt step 7.19 percent of the synthesis area (460000-429161.24)/429161.24, within 3-8: no Warning for it" [expr {[lsearch -glob $gl "place_opt *7.19*"] >= 0 && [lsearch -glob $gw "*place_opt*"] < 0}] [join $gl |]
+t_check "growth table: clock-tree step 5.83 percent is above 2-5: a Warning (not a failure)" [expr {[lsearch -glob $gw "growth of clock_tree is 5.83%*2-5%*"] >= 0}] $gw
+t_check "growth table: total 21.17 percent is above 10-20: a Warning" [expr {[lsearch -glob $gw "total growth is 21.17%*10-20%*"] >= 0 && [lsearch -glob $gl "total growth synthesis -> routed: 21.17%*"] >= 0}] "$gw"
+t_check "growth table: delay cells 120 after the hold optimisation, 140 after route_opt, difference 20" [expr {[lsearch -glob $gl "hold-buffer (delay cell) count: after the hold optimisation 120, after route_opt 140, difference 20*"] >= 0}]
+t_check "growth table: tie and spare cells are printed as not counted" [expr {[lsearch -glob $gl "tie and spare cells: not counted*"] >= 0}]
+lassign [unpu_growth_table [lrange $rows 0 1] 429161.24 [list place {3 8} cts {2 5} hold {2 5} total {10 20}]] gl2 gw2
+t_check "growth table with rows missing says so and does not fail" [expr {[lsearch -glob $gl2 "*no row*"] >= 0}] [join $gl2 |]
+t_check "growth classes name the library cells by pattern (buf*, inv*, dl0*)" [expr {$GROWTH_CLASSES eq [list buffers buf* inverters inv* delay_cells dl0*] || $GROWTH_CLASSES eq "buffers {buf*} inverters {inv*} delay_cells {dl0*}"}] $GROWTH_CLASSES
+# the floorplan record: later scripts must derive the same profile and die
+set rec_dir [file join $tmp_base unpu_pnr_rec_[pid]]; file mkdir $rec_dir
+set rec_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nproc unpu_manifest_append {args} {}\nset UNPU_CHECK_CONTINUE 1\nset UNPU_STAGE t\nset ::RUN_DIR [list $rec_dir]\nset SYN_AREA_FILE [list $area_fix]\n"
+lassign [t_child "${rec_child}unpu_derive_die record\nputs RECORDED" {UNPU_SYN_PROFILE syn20}] c o
+t_check "the floorplan record is written (profile syn20, die 862.4)" [expr {$c == 0 && [t_has $o "RECORDED"] && [file exists [file join $rec_dir floorplan_profile.txt]]}] "exit $c: $o"
+lassign [t_child "${rec_child}unpu_derive_die check\nputs \"FAILED=\$UNPU_CHECK_FAILED\"" {UNPU_SYN_PROFILE syn20}] c o
+t_check "a later script with the same profile and die passes the record check" [expr {$c == 0 && [t_has $o "CHECK t floorplan_profile PASS*FAILED=0"]}] "exit $c: $o"
+lassign [t_child "${rec_child}unpu_derive_die check\nputs \"FAILED=\$UNPU_CHECK_FAILED\"" {UNPU_SYN_PROFILE syn16}] c o
+t_check "a later script with ANOTHER profile fails the record check, naming both profiles" [expr {$c == 0 && [t_has $o "CHECK t floorplan_profile FAIL the floorplan was made from profile syn20*UNPU_SYN_PROFILE=syn16*FAILED=1"]}] "exit $c: $o"
+lassign [t_child "${rec_child}unpu_derive_die check\nputs \"FAILED=\$UNPU_CHECK_FAILED\"" {UNPU_SYN_PROFILE syn20 UNPU_DIE_SIZE 817.6}] c o
+t_check "a later script with another die (override) fails the record check" [expr {$c == 0 && [t_has $o "floorplan_profile FAIL*FAILED=1"]}] "exit $c: $o"
+file delete -force $rec_dir/floorplan_profile.txt
+lassign [t_child "${rec_child}unpu_derive_die check\nputs \"FAILED=\$UNPU_CHECK_FAILED\"" {UNPU_SYN_PROFILE syn20}] c o
+t_check "no floorplan record: the check fails" [expr {$c == 0 && [t_has $o "floorplan_profile FAIL no floorplan record*FAILED=1"]}] "exit $c: $o"
+file delete -force $rec_dir
+file delete -force $area_fix
 # UNPU_FILL_ECO: 0|1 only, a Warning for 1
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nputs ECO=\$FILL_ECO" {UNPU_FILL_ECO 1}] c o
 t_check "UNPU_FILL_ECO=1 is accepted with a Warning" [expr {$c == 0 && [t_has $o "ECO=1"] && [t_has $o "Warning: \[unpu\]*UNPU_FILL_ECO=1"]}] "exit $c: $o"
@@ -859,7 +980,7 @@ t_check "UNPU_WORK inside SCL_KIT_ROOT is refused" [expr {$c == 1 && [t_has $o "
 set LOG_DIR [file join $tmp logs]
 set mf [unpu_manifest teststage [list $sf] $LOG_DIR]
 set fh [open $mf r]; set mtxt [read $fh]; close $fh
-t_check "manifest lists a parameter by name" [expr {[string first "DIE_SIZE = 868.0" $mtxt] >= 0 && [string first "ANT_RATIO = 300" $mtxt] >= 0}]
+t_check "manifest lists a parameter by name" [expr {[string first "FP_START_UTIL = 0.60" $mtxt] >= 0 && [string first "ANT_RATIO = 300" $mtxt] >= 0}]
 t_check "manifest holds the checksum of the file" [expr {[string first "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  $sf" $mtxt] >= 0}]
 t_check "manifest holds date, host, git revision" [expr {[string first "date         = 20" $mtxt] >= 0 && [string first "host         = " $mtxt] >= 0 && [string first "git_rev      = " $mtxt] >= 0}]
 lassign [t_child "source [list [file join $here common.tcl]]\nsource [list [file join $here params.tcl]]\nunpu_manifest bad [list [file join $tmp nosuch.txt]] [list [file join $tmp logs2]]" {}] c o

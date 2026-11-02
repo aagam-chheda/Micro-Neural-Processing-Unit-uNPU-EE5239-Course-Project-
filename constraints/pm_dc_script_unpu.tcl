@@ -16,20 +16,39 @@
 #   3. target_library   UMC65 .db     ->  SCL FS120 4M1IL ss .db (ff commented out)
 #   4. RTL read         counter_4bit.v, -format verilog
 #                       ->  the 11 rtl/*.sv files, explicit list, -format sverilog
-#   5. report paths     ./reports     ->  syn/out/pm_flow (git-ignored)
+#   5. report paths     ./reports     ->  syn/out/$UNPU_STAGE (git-ignored), one directory per stage profile
 #
-# Run dc_shell from the repo root (paths are relative).
+# Run dc_shell from the repo root (paths are relative). The stage profile is REQUIRED:
+#   csh:   setenv UNPU_STAGE syn16 ; dc_shell -f constraints/pm_dc_script_unpu.tcl | tee syn/out/syn16.log
+# (valid profiles: syn20 syn18 syn16 place cts route signoff; no default; the same error as
+# constraints/unpu_top.sdc if it is unset or unknown).
 #
 #   6. constraints (clock, drive, load, I/O delays): moved to a pure SDC,
 #      constraints/pm_unpu_top.sdc, which this script reads with read_sdc. That file
 #      keeps the PM's constraints, adds those of constraints/unpu_top.sdc, and adds
 #      an input driving cell and an output load. Its numbers are assumptions.
+#   7. (task 051) stage profile: UNPU_STAGE is required; outputs go to syn/out/$UNPU_STAGE/.
+#   8. (task 051) after compile: extra reports (worst 5 setup paths per path group, violators, qor,
+#      check_timing, check_design), each with a one-line profile header; change_names, then the
+#      clean-name netlist, SDC and .ddc (unpu_top_cn.*) in addition to the originals.
 # =============================================================================
 
 
 # -----------------------------------------------------------------------------
 # 1. Setup: design, library, read RTL
 # -----------------------------------------------------------------------------
+
+# CHANGED (task 051): the stage profile is required, and names the output directory. No default: a
+# silent default would make a result look like another stage's. The list of valid names here must equal
+# the profile table of constraints/unpu_top.sdc (constraints/test_stages.tcl checks that).
+set stage_names {syn20 syn18 syn16 place cts route signoff}
+if {![info exists ::env(UNPU_STAGE)] || $::env(UNPU_STAGE) eq ""} {
+    error "unpu DC script: the environment variable UNPU_STAGE is not set. It has no default. Valid profiles: $stage_names. csh: setenv UNPU_STAGE <profile>"
+}
+set UNPU_STAGE $::env(UNPU_STAGE)
+if {[lsearch -exact $stage_names $UNPU_STAGE] < 0} {
+    error "unpu DC script: UNPU_STAGE='$UNPU_STAGE' is not a profile. Valid profiles: $stage_names"
+}
 
 # CHANGED: top module
 set top_module  unpu_top
@@ -80,6 +99,12 @@ link
 # output load. The PM's "is there a clk port, else make vclk" fallback is gone:
 # unpu_top has a real clk port. The path is relative to the repo root.
 read_sdc constraints/pm_unpu_top.sdc
+
+# CHANGED (task 051): the profile's numbers are set by the SDC as Tcl variables (they are used in the report headers
+# below). VERIFY: variables set inside read_sdc are visible here; if not, this stops with the message.
+foreach v {CLK_PERIOD CLK_UNCERT_SETUP CLK_UNCERT_HOLD} {
+    if {![info exists $v]} { error "unpu DC script: $v was not set by constraints/pm_unpu_top.sdc (the stage profile section) or is not visible after read_sdc" }
+}
 
 
 # -----------------------------------------------------------------------------
@@ -176,17 +201,50 @@ compile -map_effort high
 # 7. Reports and outputs
 # -----------------------------------------------------------------------------
 
-# CHANGED: reports go under syn/out/ (git-ignored) instead of ./reports.
-set rpt_dir syn/out/pm_flow
+# CHANGED: reports go under syn/out/<stage profile>/ (git-ignored) instead of ./reports.
+set rpt_dir syn/out/$UNPU_STAGE
 file mkdir $rpt_dir
 
-report_area > $rpt_dir/$top_module.area
-report_power -verbose > $rpt_dir/$top_module.power
-report_timing > $rpt_dir/$top_module.timing
+# CHANGED (task 051): the first line of every report file says which profile made it, so a copied file is never
+# anonymous. The header is written with echo, the report is appended.
+set profile_line "# stage profile $UNPU_STAGE: period $CLK_PERIOD ns, setup uncertainty $CLK_UNCERT_SETUP ns, hold uncertainty $CLK_UNCERT_HOLD ns; written [clock format [clock seconds]]"
+proc unpu_hdr {file} {
+    global profile_line
+    echo $profile_line > $file
+}
+unpu_hdr $rpt_dir/$top_module.profile
+
+unpu_hdr $rpt_dir/$top_module.area
+report_area >> $rpt_dir/$top_module.area
+unpu_hdr $rpt_dir/$top_module.power
+report_power -verbose >> $rpt_dir/$top_module.power
+unpu_hdr $rpt_dir/$top_module.timing
+report_timing >> $rpt_dir/$top_module.timing
+
+# CHANGED (task 051): the reports a reader needs, each in its own file. VERIFY: report_timing -max_paths 5 -nworst 1 gives
+# the 5 worst setup paths of each path group in dc_shell (max_paths counts per path group there).
+unpu_hdr $rpt_dir/$top_module.timing_top5
+report_timing -max_paths 5 -nworst 1 >> $rpt_dir/$top_module.timing_top5
+unpu_hdr $rpt_dir/$top_module.constraint
+report_constraint -all_violators >> $rpt_dir/$top_module.constraint
+unpu_hdr $rpt_dir/$top_module.qor
+report_qor >> $rpt_dir/$top_module.qor
+unpu_hdr $rpt_dir/$top_module.check_timing
+check_timing >> $rpt_dir/$top_module.check_timing
+unpu_hdr $rpt_dir/$top_module.check_design
+check_design >> $rpt_dir/$top_module.check_design
+
 write -hierarchy -format verilog -output $rpt_dir/$top_module.dc.v
 # write -hierarchy -format verilog -output $dir_out_synopsys/$top_module.db
 # write -hierarchy -format ddc -output $dir_out_synopsys/$top_module.ddc
 write_sdc -version 2.1 $rpt_dir/$top_module.sdc
+
+# CHANGED (task 051): clean names for ICC2 (18.8 did this by hand): change_names, then the clean-name netlist, SDC and .ddc
+# in addition to the originals above. The reports above keep the names DC chose.
+change_names -rules verilog -hierarchy
+write -hierarchy -format verilog -output $rpt_dir/${top_module}_cn.dc.v
+write_sdc -version 2.1 $rpt_dir/${top_module}_cn.sdc
+write -hierarchy -format ddc -output $rpt_dir/${top_module}_cn.ddc
 
 # More reports from the PM's file, all disabled:
 #

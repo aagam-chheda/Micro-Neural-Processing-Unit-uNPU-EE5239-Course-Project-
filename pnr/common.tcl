@@ -1450,6 +1450,474 @@ proc unpu_port_report_summary {rows long_um} {
   }
   return [list $flagged [expr {$lh < 0 ? "n/a" : $lh}] $lp $long $unk]
 }
+# ---- stage profiles (task 053) ---------------------------------------------------------------------------------
+# The stage constraints live in ONE file, constraints/unpu_top.sdc, selected by the environment variable UNPU_STAGE (task 051). The flow
+# never types the numbers of a profile: it runs the SDC's own table section under a stub (pure Tcl, in a slave interpreter) and reads the
+# line the SDC prints, "Info: [unpu] SDC profile <name>: period .. setup uncertainty .. hold uncertainty .. feedthrough budget ..".
+proc unpu_require_syn_profile {} {
+  global SYN_PROFILE SYN_PROFILES_VALID NETLIST
+  if {$SYN_PROFILE eq ""} {
+    unpu_die "UNPU_SYN_PROFILE is not set. It has no default. Valid synthesis profiles: $SYN_PROFILES_VALID. csh: setenv UNPU_SYN_PROFILE <profile> (the profile chosen in syn/RUNBOOK.md step 5)"
+  }
+  if {$NETLIST eq ""} { unpu_die "no netlist: UNPU_SYN_PROFILE=$SYN_PROFILE but NETLIST is empty" }
+}
+# {name period setup hold budget} from the printed profile line, or {} when the text has no such line
+proc unpu_parse_profile_line {text} {
+  foreach l [split $text "\n"] {
+    if {[regexp -- {SDC profile (\S+): period (\S+) ns, setup uncertainty (\S+) ns, hold uncertainty (\S+) ns, feedthrough budget (\S+) ns} $l -> n t u h b]} {
+      return [list $n $t $u $h $b]
+    }
+  }
+  return {}
+}
+# The numbers of a profile, from the SDC itself: {name period setup hold budget kind}, kind = pre | post. Raises an error (the SDC's own
+# message) for an unknown profile. VERIFY: `interp create` is available in icc2_shell (Tcl 8.6, version.txt).
+proc unpu_profile_numbers {profile} {
+  global PROFILE_SDC
+  set i [interp create]
+  $i eval {
+    set ::PUTS {}
+    proc puts {args} { lappend ::PUTS [lindex $args end] }
+    proc unknown {args} { return "" }
+  }
+  $i eval [list set ::env(UNPU_STAGE) $profile]
+  if {[catch {$i eval [list source $PROFILE_SDC]} msg]} { interp delete $i; return -code error $msg }
+  set lines [$i eval {set ::PUTS}]
+  set kind [$i eval {set UNPU_STAGE_KIND}]
+  interp delete $i
+  set got [unpu_parse_profile_line [join $lines "\n"]]
+  if {[llength $got] != 5 || [lindex $got 0] ne $profile} { return -code error "the SDC printed no profile line for '$profile': {$lines}" }
+  return [concat $got [list $kind]]
+}
+# leaf-cell and module counts of a netlist text: {modules N leaf_cells L}. The leaf count is the flattened count from the top module:
+# an instance whose type is a module of the netlist counts as that module's leaf count, any other instance is a library cell. A module
+# that is instantiated twice counts twice. Raises an error if the top module is not defined or the modules are recursive.
+proc unpu_netlist_counts {text top} {
+  set kw {module endmodule input output inout wire reg assign supply0 supply1 parameter localparam tri wand wor integer function endfunction task endtask always initial generate endgenerate defparam}
+  array set iskw {}
+  foreach k $kw { set iskw($k) 1 }
+  array set insts {}
+  set mods {}
+  set cur ""
+  foreach l [split $text "\n"] {
+    if {[regexp -- {^\s*module\s+(\\?[^\s(#;]+)} $l -> n]} { set cur $n; lappend mods $n; set insts($n) {}; continue }
+    if {[regexp -- {^\s*endmodule\M} $l]} { set cur ""; continue }
+    if {$cur ne "" && [regexp -- {^\s*(\\?[A-Za-z_][^\s(#;]*)\s+(\\?[^\s(;]+)\s*\(} $l -> ty nm]} {
+      if {![info exists iskw($ty)]} { lappend insts($cur) $ty }
+    }
+  }
+  if {[lsearch -exact $mods $top] < 0} { return -code error "top module $top is not defined in the netlist" }
+  array set ismod {}
+  foreach m $mods { set ismod($m) 1 }
+  array set memo {}
+  array set onstack {}
+  proc unpu_nl_leaf {m} {
+    upvar 1 insts insts ismod ismod memo memo onstack onstack
+    if {[info exists memo($m)]} { return $memo($m) }
+    if {[info exists onstack($m)]} { return -code error "module $m instantiates itself" }
+    set onstack($m) 1
+    set n 0
+    foreach ty $insts($m) { if {[info exists ismod($ty)]} { incr n [unpu_nl_leaf $ty] } else { incr n } }
+    unset onstack($m)
+    set memo($m) $n
+    return $n
+  }
+  set leaf [unpu_nl_leaf $top]
+  return [list modules [llength $mods] leaf_cells $leaf]
+}
+# Reads $NETLIST, sets the globals NETLIST_MODULES and NETLIST_LEAF_CELLS (the expectations of design_setup, power, placement and
+# outputs), prints them as RESULT and, next to the first run's numbers, as an Info (a difference is not a failure).
+proc unpu_netlist_expect {} {
+  global NETLIST TOP_NAME PREV_LEAF_CELLS PREV_NETLIST_MODULES NETLIST_MODULES NETLIST_LEAF_CELLS
+  unpu_need_file $NETLIST "netlist"
+  if {[catch {unpu_read_text $NETLIST} text]} { unpu_die "cannot read the netlist $NETLIST: $text" }
+  if {[catch {unpu_netlist_counts $text $TOP_NAME} cnt]} { unpu_die "cannot count the netlist $NETLIST: $cnt" }
+  array set c $cnt
+  set NETLIST_MODULES $c(modules)
+  set NETLIST_LEAF_CELLS $c(leaf_cells)
+  unpu_result [expr {[info exists ::UNPU_STAGE] ? $::UNPU_STAGE : "netlist"}] netlist_modules $NETLIST_MODULES
+  unpu_result [expr {[info exists ::UNPU_STAGE] ? $::UNPU_STAGE : "netlist"}] netlist_leaf_cells $NETLIST_LEAF_CELLS
+  unpu_info "netlist $NETLIST: $NETLIST_MODULES modules, $NETLIST_LEAF_CELLS leaf cells (first run's netlist: $PREV_NETLIST_MODULES modules, $PREV_LEAF_CELLS leaf cells; a difference is expected after a new synthesis and is not a failure)"
+}
+# report_clocks text -> {period propagated} for the clock `clock`, each "unavailable" when it cannot be read. Layout ASSUMED (PrimeTime
+# style, VERIFY): a table "Clock Period Waveform Attrs Sources"; the row starts with the clock name, then the period, the waveform in
+# braces, then an optional attribute word (p = propagated) and the sources in braces.
+proc unpu_parse_report_clocks {text clock} {
+  foreach l [split $text "\n"] {
+    set w [regexp -all -inline -- {\S+} $l]
+    if {[llength $w] < 3 || [lindex $w 0] ne $clock} continue
+    set period [lindex $w 1]
+    if {![string is double -strict $period]} continue
+    set k 2
+    while {$k < [llength $w] && ![string match *\} [lindex $w $k]]} { incr k }
+    incr k
+    set prop 0
+    if {$k < [llength $w] - 1 && [regexp -- {^[A-Za-z]+$} [lindex $w $k]]} { set prop [expr {[string first p [string tolower [lindex $w $k]]] >= 0}] }
+    return [list $period $prop]
+  }
+  return [list unavailable unavailable]
+}
+# {period propagated} of the clock `clk` in the CURRENT scenario. VERIFY (unprobed): get_attribute <clock> period / is_propagated, and
+# report_clocks. Each value falls back to the report_clocks text; "unavailable" if nothing works (the callers then FAIL their check).
+proc unpu_clock_facts {} {
+  set period unavailable; set prop unavailable
+  if {![catch {get_attribute [get_clocks clk] period} v] && [string is double -strict $v]} { set period $v }
+  foreach a {is_propagated propagated_clock} {
+    if {![catch {get_attribute [get_clocks clk] $a} v] && $v ne "" && [string is boolean -strict $v]} { set prop [expr {[string is true $v] ? 1 : 0}]; break }
+  }
+  if {$period eq "unavailable" || $prop eq "unavailable"} {
+    set ::UNPU_CK ""
+    if {![catch {redirect -variable ::UNPU_CK {report_clocks}} m]} {
+      lassign [unpu_parse_report_clocks $::UNPU_CK clk] p2 q2
+      if {$period eq "unavailable"} { set period $p2 }
+      if {$prop eq "unavailable"} { set prop $q2 }
+    } else { unpu_warn "report_clocks failed ($m); the clock period / propagation may be unreadable (VERIFY: the command is unprobed)" }
+  }
+  return [list $period $prop]
+}
+# Read back what is in force in scenario `scen` and CHECK it against the profile's numbers (from the SDC): the clock period, the setup
+# (setup scenario) or hold (hold scenario) uncertainty, and whether the clock is propagated (post-CTS profile with a clock tree: must be;
+# pre-CTS profile: must not be; post-CTS profile before the tree exists: not checked). VERIFY: report_timing prints "clock uncertainty".
+proc unpu_profile_readback {profile scen {tree_exists 1}} {
+  global SCEN_SETUP SCEN_HOLD UNPU_STAGE
+  lassign [unpu_profile_numbers $profile] pname T U H B kind
+  unpu_scenario $scen
+  lassign [unpu_clock_facts] period prop
+  set st $UNPU_STAGE
+  unpu_check_pass $st profile_${profile}_${scen}_period [expr {$period ne "unavailable" && abs($period - $T) < 1e-6}] "clock period in scenario $scen: '$period' ns, profile $profile expects $T ns"
+  set isset [expr {$scen eq $SCEN_SETUP}]
+  set delay [expr {$isset ? "max" : "min"}]
+  set want [expr {$isset ? $U : $H}]
+  set rb [unpu_report $st profile_${profile}_${scen}_uncertainty "report_timing -delay_type $delay -max_paths 1 -nosplit"]
+  set got [unpu_parse_clock_uncertainty $rb]
+  unpu_check_pass $st profile_${profile}_${scen}_[expr {$isset ? {setup} : {hold}}]_uncertainty [expr {$got ne "" && abs($got - $want) < 1e-6}] "[expr {$isset ? {setup} : {hold}}] clock uncertainty read back from report_timing in scenario $scen: '$got' ns, profile $profile expects $want ns"
+  if {$kind eq "post" && !$tree_exists} {
+    unpu_info "scenario $scen: clock propagation not checked (profile $profile is post-CTS but the clock tree does not exist yet): read back '$prop'"
+  } else {
+    set want_prop [expr {$kind eq "post" ? 1 : 0}]
+    unpu_check_pass $st profile_${profile}_${scen}_propagated [expr {$prop ne "unavailable" && $prop == $want_prop}] "clock propagated in scenario $scen: '$prop' (1 = propagated), profile $profile ($kind-CTS) expects $want_prop"
+  }
+  unpu_result $st profile_${profile}_${scen}_readback "period $period, [expr {$isset ? {setup} : {hold}}] uncertainty $got, propagated $prop"
+}
+# Both corners' operating condition and voltage/temperature, as design_setup.tcl checked them (report_corners; VERIFY the layout)
+proc unpu_check_corners {} {
+  global UNPU_STAGE CORNER_SETUP CORNER_HOLD EXPECT_SS_VOLT EXPECT_SS_TEMP EXPECT_FF_VOLT EXPECT_FF_TEMP
+  set rcorn [unpu_report $UNPU_STAGE corners "report_corners"]
+  lassign [unpu_corner_has_point $rcorn $CORNER_SETUP [list $CORNER_HOLD] $EXPECT_SS_VOLT $EXPECT_SS_TEMP] ok1 d1
+  unpu_check_pass $UNPU_STAGE corner_$CORNER_SETUP [expr {$ok1 eq "ok"}] "$d1 (expected $EXPECT_SS_VOLT V / $EXPECT_SS_TEMP C, ss)"
+  lassign [unpu_corner_has_point $rcorn $CORNER_HOLD [list $CORNER_SETUP] $EXPECT_FF_VOLT $EXPECT_FF_TEMP] ok2 d2
+  unpu_check_pass $UNPU_STAGE corner_$CORNER_HOLD [expr {$ok2 eq "ok"}] "$d2 (expected $EXPECT_FF_VOLT V / $EXPECT_FF_TEMP C, ff)"
+}
+# Apply a stage profile at the START of a stage script. For each scenario (default: both): select it explicitly, set UNPU_STAGE, read_sdc
+# the profile SDC (it redefines the clock `clk`: UIC-034 is expected), CHECK that the SDC printed the profile line with the expected numbers,
+# set the scenario's operating condition (the profile SDC carries none: ss for the setup scenario, ff for the hold scenario), make the
+# clock propagated again for a post-CTS profile when the clock tree exists, then read back and CHECK (unpu_profile_readback).
+# skip_read: scenarios whose SDC was just read by the caller (design_setup.tcl reads the first scenario itself). tree_exists = 0 before
+# the clock tree is built (cts.tcl, stages all and tree): the clock is not made propagated and the propagation is not checked.
+# VERIFY (unprobed commands): set_propagated_clock; that a re-read of the SDC in a block with a clock tree keeps or can restore the
+# propagation (the read-back CHECKs make a failure loud).
+proc unpu_apply_profile {profile {scenarios {}} {skip_read {}} {tree_exists 1}} {
+  global SCEN_SETUP SCEN_HOLD LIB_SS_NAME LIB_FF_NAME PROFILE_SDC UNPU_STAGE UNPU_PROFILE_APPLIED UNPU_PROFILE_SETUP UNPU_PROFILE_HOLD
+  if {[llength $scenarios] == 0} { set scenarios [list $SCEN_SETUP $SCEN_HOLD] }
+  if {[catch {unpu_profile_numbers $profile} exp]} { unpu_die "stage profile '$profile': $exp" }
+  lassign $exp pname T U H B kind
+  unpu_info "applying stage profile $profile ($kind-CTS): period $T ns, setup uncertainty $U ns, hold uncertainty $H ns, feedthrough budget $B ns"
+  foreach s $scenarios {
+    unpu_scenario $s
+    if {[lsearch -exact $skip_read $s] < 0} {
+      set ::env(UNPU_STAGE) $profile
+      set text [unpu_run_logged [list read_sdc $PROFILE_SDC] {SDC- UIC-}]
+      set got [unpu_parse_profile_line $text]
+      unpu_check_pass $UNPU_STAGE profile_${profile}_${s}_sdc_line [expr {[llength $got] == 5 && [lindex $got 0] eq $profile && abs([lindex $got 1] - $T) < 1e-6 && abs([lindex $got 2] - $U) < 1e-6 && abs([lindex $got 3] - $H) < 1e-6}] \
+          "the SDC read in scenario $s printed the profile line {$got}, expected $profile / $T / $U / $H (an empty line = the output was not captured or the SDC did not run its profile section)"
+    }
+    set lib [expr {$s eq $SCEN_SETUP ? $LIB_SS_NAME : $LIB_FF_NAME}]
+    unpu_run_logged [list set_operating_conditions $lib -library $lib] {}
+    if {$kind eq "post" && $tree_exists} { unpu_run_logged [list set_propagated_clock [get_clocks clk]] {} }
+    unpu_profile_readback $profile $s $tree_exists
+  }
+  set UNPU_PROFILE_APPLIED $profile
+  set UNPU_PROFILE_SETUP $U
+  set UNPU_PROFILE_HOLD $H
+  unpu_manifest_append $UNPU_STAGE [list "UNPU_PROFILE_APPLIED = $profile" "profile_period_ns = $T" "profile_setup_uncertainty_ns = $U" "profile_hold_uncertainty_ns = $H"]
+  unpu_check_corners
+}
+# fill.tcl and outputs.tcl open a block that route.tcl saved: they only CHECK that the profile in force is the expected one (no read_sdc)
+proc unpu_check_profile_state {profile} {
+  global SCEN_SETUP SCEN_HOLD UNPU_PROFILE_SETUP UNPU_PROFILE_HOLD UNPU_PROFILE_APPLIED UNPU_STAGE
+  if {[catch {unpu_profile_numbers $profile} exp]} { unpu_die "stage profile '$profile': $exp" }
+  lassign $exp pname T U H B kind
+  foreach s [list $SCEN_SETUP $SCEN_HOLD] { unpu_profile_readback $profile $s 1 }
+  set UNPU_PROFILE_APPLIED "$profile (verified, not applied)"
+  set UNPU_PROFILE_SETUP $U
+  set UNPU_PROFILE_HOLD $H
+  unpu_manifest_append $UNPU_STAGE [list "UNPU_PROFILE_APPLIED = $profile (verified in the opened block, not applied)" "profile_hold_uncertainty_ns = $H"]
+}
+# margin to a limit: worst - limit (ns), or "unavailable"
+proc unpu_wns_margin {worst limit} {
+  if {![string is double -strict $worst]} { return unavailable }
+  return [format %.4f [expr {$worst - $limit}]]
+}
+# 1 when the worst slack is a number and not below the limit
+proc unpu_wns_ok {worst limit} { return [expr {[string is double -strict $worst] && $worst >= $limit}] }
+# ---- die from the synthesis area, utilisation, congestion, netlist growth (task 054) -------------------------------
+# "Total cell area" of a DC area report, STRICT: the line must appear exactly once and hold a positive number. Raises an error that names
+# the file and the area lines that were seen.
+proc unpu_parse_syn_area {text file} {
+  set hits {}; set seen {}
+  foreach l [split $text "\n"] {
+    if {[regexp -nocase -- {area} $l] && [llength $seen] < 8} { lappend seen [string trim $l] }
+    if {[regexp -- {^\s*Total cell area:\s*(\S+)\s*$} $l -> v]} { lappend hits $v }
+  }
+  if {[llength $hits] != 1} { return -code error "$file: the line 'Total cell area:' must appear exactly once, found [llength $hits]. Area lines seen: {$seen}" }
+  set v [lindex $hits 0]
+  if {![string is double -strict $v] || $v <= 0} { return -code error "$file: 'Total cell area:' is '$v', not a positive number. Area lines seen: {$seen}" }
+  return $v
+}
+# The die from a cell area: core area = area / util; the core is square with the side rounded UP to a whole number of rows
+# (an exact multiple adds no row: the test is against a tolerance); die = core side + 2 x offset.
+# Returns {core_area_exact rows core_side die}. Raises an error for a non-positive area or a utilisation outside 0.3 to 0.9.
+proc unpu_die_from_area {area util row_h offset} {
+  if {![string is double -strict $area] || $area <= 0} { return -code error "cell area '$area' is not a positive number" }
+  if {![string is double -strict $util] || $util < 0.3 || $util > 0.9} { return -code error "start utilisation '$util' is outside 0.3 to 0.9" }
+  set core_area [expr {$area / $util}]
+  set rows [expr {int(ceil(sqrt($core_area) / $row_h - 1e-6))}]
+  if {$rows < 1} { set rows 1 }
+  set side [unpu_round4 [expr {$rows * $row_h}]]
+  return [list [unpu_round4 $core_area] $rows $side [unpu_round4 [expr {$side + 2.0 * $offset}]]]
+}
+proc unpu_floorplan_profile_file {} { global RUN_DIR; return [file join $RUN_DIR floorplan_profile.txt] }
+# Derives the die (and everything that follows from it) in the GLOBAL scope: SYN_CELL_AREA DIE_SIZE CORE_SIDE FP_ROWS FP_SITES_ACROSS
+# CORE_AREA FP_BOUNDARY EXPECT_ROWS. Needs UNPU_SYN_PROFILE and the stage already begun (the manifest line is appended to it). With
+# UNPU_DIE_SIZE set the derived die is replaced (experiment) and a Warning prints both. mode: "record" (floorplan.tcl writes the profile
+# record of the run) or "check" (every later script CHECKs that the record names the same profile and die).
+proc unpu_derive_die {{mode check}} {
+  global SYN_PROFILE SYN_AREA_FILE FP_START_UTIL ROW_HEIGHT CORE_OFFSET SITE_WIDTH FP_TOLERANCE DIE_OVERRIDE UNPU_STAGE
+  global SYN_CELL_AREA DIE_SIZE CORE_SIDE FP_ROWS FP_SITES_ACROSS CORE_AREA FP_BOUNDARY EXPECT_ROWS
+  unpu_require_syn_profile
+  unpu_need_file $SYN_AREA_FILE "synthesis area report of profile $SYN_PROFILE"
+  if {[catch {unpu_read_text $SYN_AREA_FILE} text]} { unpu_die "cannot read $SYN_AREA_FILE: $text" }
+  if {[catch {unpu_parse_syn_area $text $SYN_AREA_FILE} area]} { unpu_die "synthesis area: $area" }
+  if {[catch {unpu_die_from_area $area $FP_START_UTIL $ROW_HEIGHT $CORE_OFFSET} d]} { unpu_die "die from the area $area: $d" }
+  lassign $d core_exact rows side die
+  if {$DIE_OVERRIDE ne ""} {
+    unpu_warn "UNPU_DIE_SIZE = $DIE_OVERRIDE replaces the derived die $die um (cell area $area um2 at start utilisation $FP_START_UTIL, $rows rows): this is an experiment run"
+    set die $DIE_OVERRIDE
+  }
+  # the consistency checks of the floorplan (rows, sites and the offset are whole numbers); they stop the script for a die that is off the grid
+  lassign [unpu_floorplan_check $die $CORE_OFFSET $ROW_HEIGHT $SITE_WIDTH $FP_TOLERANCE] core_side nrows nsites core_area
+  set SYN_CELL_AREA $area
+  set DIE_SIZE $die
+  set CORE_SIDE $core_side
+  set FP_ROWS $nrows
+  set FP_SITES_ACROSS $nsites
+  set CORE_AREA $core_area
+  set EXPECT_ROWS $nrows
+  set hi [unpu_round4 [expr {$die - $CORE_OFFSET}]]
+  set FP_BOUNDARY [list [list [unpu_round4 $CORE_OFFSET] [unpu_round4 $CORE_OFFSET]] [list $hi $hi]]
+  unpu_info [format "die from the synthesis area of profile %s: cell area %.2f um2 at start utilisation %s -> core area %.2f um2, core side %.1f um (%d rows), die %.1f um (%.1f um2); boundary %s" \
+      $SYN_PROFILE $area $FP_START_UTIL $core_area $core_side $nrows $die [expr {$die * $die}] $FP_BOUNDARY]
+  unpu_manifest_append $UNPU_STAGE [list "SYN_CELL_AREA = $area" "DIE_SIZE = $die" "CORE_SIDE = $core_side" "FP_ROWS = $nrows" "FP_SITES_ACROSS = $nsites" "CORE_AREA = $core_area" "FP_START_UTIL = $FP_START_UTIL"]
+  if {$mode eq "record"} {
+    set f [unpu_floorplan_profile_file]
+    unpu_no_kit_write $f
+    set fh [open $f w]
+    puts $fh "syn_profile = $SYN_PROFILE\ncell_area = $area\ndie = $die\nrows = $nrows"
+    close $fh
+    unpu_info "floorplan record written: $f"
+  } else {
+    unpu_check_floorplan_profile
+  }
+}
+# parse the floorplan record: {syn_profile P cell_area A die D rows R} or an error
+proc unpu_read_floorplan_record {file} {
+  set d {}
+  foreach l [split [unpu_read_text $file] "\n"] { if {[regexp -- {^(\w+) = (.*)$} $l -> k v]} { lappend d $k $v } }
+  return $d
+}
+# every script after floorplan.tcl: the die it derived must be the die the floorplan was made with (same profile, same die)
+proc unpu_check_floorplan_profile {} {
+  global SYN_PROFILE DIE_SIZE UNPU_STAGE
+  set f [unpu_floorplan_profile_file]
+  if {![file exists $f]} {
+    unpu_check_pass $UNPU_STAGE floorplan_profile 0 "no floorplan record $f: floorplan.tcl has not run in this run tag"
+    return
+  }
+  array set r [unpu_read_floorplan_record $f]
+  set rp [expr {[info exists r(syn_profile)] ? $r(syn_profile) : "?"}]
+  set rd [expr {[info exists r(die)] ? $r(die) : "?"}]
+  unpu_check_pass $UNPU_STAGE floorplan_profile [expr {$rp eq $SYN_PROFILE && [string is double -strict $rd] && abs($rd - $DIE_SIZE) < 1e-6}] \
+      "the floorplan was made from profile $rp (die $rd um); this run uses UNPU_SYN_PROFILE=$SYN_PROFILE (die $DIE_SIZE um): they must be equal"
+}
+# utilisation as a FRACTION from report text: the first number after "utilization" / "utilisation"; with % it is divided by 100, without a % a
+# value above 1.5 is read as a percentage. "" when no such line exists. Layout of the real report: VERIFY.
+proc unpu_parse_utilization {text} {
+  foreach l [split $text "\n"] {
+    if {[regexp -nocase -- {utili[sz]ation[^0-9\-.]*([0-9][0-9,]*\.?[0-9]*)\s*(%?)} $l -> v pc]} {
+      set v [string map {, {}} $v]
+      if {![string is double -strict $v]} continue
+      if {$pc eq "%" || $v > 1.5} { return [expr {$v / 100.0}] }
+      return $v
+    }
+  }
+  return ""
+}
+# The checks of the utilisation (instructor POST 2). Reads report_utilization and report_qor, takes the tool's utilisation, cross-checks it with
+# cell area / core area (a Warning above UTIL_CROSSCHECK_PP percentage points), RESULT lines with the margin, and a CHECK (or a Warning when
+# warn_only) that it is not above `limit`. Unreadable = FAIL. Returns the utilisation or "unavailable". VERIFY: which number the tool calls utilization.
+proc unpu_check_utilization {stage limit label {warn_only 0}} {
+  global CORE_AREA UTIL_CROSSCHECK_PP
+  set ru [unpu_report $stage util_$label "report_utilization"]
+  set rq [unpu_report $stage util_${label}_qor "report_qor"]
+  set util [unpu_parse_utilization "$ru\n$rq"]
+  array set a [unpu_find_numbers "$ru\n$rq" {area {(?i)(total\s+)?(std\s*)?cell\s*area}}]
+  set area $a(area)
+  set comp [expr {[string is double -strict $area] && $area > 0 ? $area / $CORE_AREA : ""}]
+  if {$util eq ""} {
+    set util unavailable
+    if {$warn_only} { unpu_warn "utilisation after $label could not be read from report_utilization / report_qor" } else {
+      unpu_check_pass $stage utilization_$label 0 "utilisation after $label could not be read from report_utilization / report_qor (unreadable = FAIL; limit $limit)"
+    }
+    if {$comp ne ""} { unpu_result $stage utilization_${label}_computed [format %.4f $comp] }
+    return $util
+  }
+  unpu_result $stage utilization_$label [format %.4f $util]
+  unpu_result $stage utilization_${label}_margin [format %.4f [expr {$limit - $util}]]
+  if {$comp ne ""} {
+    unpu_result $stage utilization_${label}_computed [format %.4f $comp]
+    if {abs($comp - $util) * 100.0 > $UTIL_CROSSCHECK_PP} {
+      unpu_warn "utilisation after $label: the tool says [format %.2f [expr {$util*100}]]%, cell area $area / core area $CORE_AREA = [format %.2f [expr {$comp*100}]]% (more than $UTIL_CROSSCHECK_PP percentage points apart: the tool's definition may differ, VERIFY)"
+    }
+  } else { unpu_warn "utilisation after $label: the cell area could not be read for the cross-check" }
+  set ok [expr {$util <= $limit}]
+  set msg "utilisation after $label: [format %.2f [expr {$util*100}]]%, limit [format %.0f [expr {$limit*100}]]% (margin [format %.2f [expr {($limit-$util)*100}]] percentage points)"
+  if {$warn_only} { if {!$ok} { unpu_warn "$msg: ABOVE the limit (a Warning here, a CHECK later)" } } else { unpu_check_pass $stage utilization_$label $ok $msg }
+  return $util
+}
+# congestion overflow in percent from a report_congestion text. Layout ASSUMED (the common ICC2 table, VERIFY): a line "Both Dirs: Overflow = N Max = M GRCs = K (x.xx%)";
+# the percentage in the last parentheses of the "Both Dirs" line. "" when absent.
+proc unpu_parse_congestion {text} {
+  foreach l [split $text "\n"] {
+    if {[regexp -nocase -- {^\s*both\s+dirs} $l]} {
+      set all [regexp -all -inline -- {\(\s*([0-9]+\.?[0-9]*)\s*%\s*\)} $l]
+      if {[llength $all] >= 2} { return [lindex $all end] }
+    }
+  }
+  return ""
+}
+# report_congestion on the current block: the text goes to $RPT_DIR/<stage>_congestion_<label>.rpt; RESULT of the overflow; with `check` 1 a CHECK
+# against CONGESTION_MAX_PCT (unreadable = FAIL), else only a RESULT. VERIFY (unprobed): report_congestion and its options; it may need a global-route congestion map.
+proc unpu_check_congestion {stage label {check 1}} {
+  global RPT_DIR CONGESTION_MAX_PCT
+  set f [file join $RPT_DIR ${stage}_congestion_$label.rpt]
+  unpu_no_kit_write $f
+  set text ""; set err ""
+  if {[catch {redirect -file $f [list uplevel #0 report_congestion]} err]} { set text "" } elseif {[file exists $f]} { set fh [open $f r]; set text [read $fh]; close $fh; puts -nonewline $text }
+  set pct [unpu_parse_congestion $text]
+  if {$pct eq ""} {
+    set pct unavailable
+    unpu_result $stage congestion_${label}_overflow_pct unavailable
+    if {$check} { unpu_check_pass $stage congestion 0 "congestion overflow after $label could not be read from report_congestion (unreadable = FAIL; $err). Text seen: [string range [string trim $text] 0 200]" } else { unpu_warn "congestion overflow after $label could not be read ($err)" }
+    return $pct
+  }
+  unpu_result $stage congestion_${label}_overflow_pct $pct
+  if {$check} {
+    unpu_check_pass $stage congestion [expr {$pct <= $CONGESTION_MAX_PCT}] "congestion overflow after $label: $pct%, limit $CONGESTION_MAX_PCT% (margin [format %.2f [expr {$CONGESTION_MAX_PCT - $pct}]] points). If this fails the instructor says: lower the utilisation or spread the cells; the script does not fix it (a new FP_START_UTIL needs a written reason and the user's approval)"
+  }
+  return $pct
+}
+# ---- growth report: one row per stage in $RPT_DIR/growth_rows.txt (a row is replaced if its tag is written again) ----
+# row = {tag area instances buf_n buf_a inv_n inv_a dl_n dl_a}; values may be "unavailable"
+proc unpu_growth_file {} { global RPT_DIR; return [file join $RPT_DIR growth_rows.txt] }
+proc unpu_growth_read {file} {
+  set rows {}
+  if {![file exists $file]} { return $rows }
+  foreach l [split [unpu_read_text $file] "\n"] { if {[llength $l] == 9} { lappend rows $l } }
+  return $rows
+}
+proc unpu_growth_store {row} {
+  set f [unpu_growth_file]
+  set rows {}
+  foreach r [unpu_growth_read $f] { if {[lindex $r 0] ne [lindex $row 0]} { lappend rows $r } }
+  lappend rows $row
+  unpu_no_kit_write $f
+  set fh [open $f w]; foreach r $rows { puts $fh $r }; close $fh
+}
+# Tool side. Area and instance count from report_utilization / report_qor / get_cells; for each class of GROWTH_CLASSES the count and the area of
+# the cells whose reference name matches a pattern: get_cells -hierarchical -quiet -filter "ref_name=~<pattern>", area = get_attribute <cell> area.
+# VERIFY: the filter operator =~, the attribute ref_name (K28) and the cell attribute area. An unreadable value is "unavailable", never 0.
+proc unpu_growth_row {stage tag} {
+  global GROWTH_CLASSES
+  set ru [unpu_report $stage growth_${tag}_utilization "report_utilization"]
+  set rq [unpu_report $stage growth_${tag}_qor "report_qor"]
+  array set a [unpu_find_numbers "$ru\n$rq" {area {(?i)(total\s+)?(std\s*)?cell\s*area}}]
+  set area [expr {$a(area) eq "" ? "unavailable" : $a(area)}]
+  if {[catch {sizeof_collection [get_cells -hierarchical -quiet -filter "is_hierarchical==false"]} ninst]} { set ninst unavailable }
+  set row [list $tag $area $ninst]
+  foreach {cname pats} $GROWTH_CLASSES {
+    set n 0; set sum 0.0; set okn 1; set oka 1
+    foreach pat $pats {
+      if {[catch {get_cells -hierarchical -quiet -filter "ref_name=~$pat"} coll]} { set okn 0; set oka 0; continue }
+      incr n [sizeof_collection $coll]
+      foreach_in_collection c $coll {
+        if {[catch {get_attribute $c area} ca] || ![string is double -strict $ca]} { set oka 0 } else { set sum [expr {$sum + $ca}] }
+      }
+    }
+    lappend row [expr {$okn ? $n : "unavailable"}] [expr {$oka ? [format %.2f $sum] : "unavailable"}]
+  }
+  unpu_growth_store $row
+  unpu_info "growth row $tag: area $area um2, $ninst instances; [join [lrange $row 3 end] { }] (buffers n/area, inverters n/area, delay cells n/area)"
+  unpu_result $stage growth_row_$tag [join $row " "]
+  return $row
+}
+# percent of x relative to base, or "n/a"
+proc unpu_pct {x base} { if {[string is double -strict $x] && [string is double -strict $base] && $base > 0} { return [format %.2f [expr {100.0 * $x / $base}]] }; return n/a }
+# Pure. rows = growth rows (tags place cts clkopt routed), syn_area = the synthesis cell area. Returns {lines warnings}: a table of the area per stage,
+# the growth of each STEP and the cumulative growth in percent of the synthesis area next to the instructor's typical budget, the delay-cell counts
+# and their difference after the hold optimisation and after route_opt; warnings for a step above its budget (not checks). Tie and spare cells: not counted.
+proc unpu_growth_table {rows syn_area budgets} {
+  array set row {}
+  foreach r $rows { set row([lindex $r 0]) $r }
+  array set bud $budgets   ;# place {lo hi} cts {lo hi} hold {lo hi} total {lo hi}
+  set lines {}; set warns {}
+  lappend lines [format "%-9s %14s %9s %9s | %9s %9s | %-12s" stage "cell area um2" instances "d area %" "cum. %" "budget % (typ)" "note"]
+  lappend lines [format "%-9s %14s %9s %9s | %9s %9s | %-12s" synthesis $syn_area n/a n/a 0.00 "" ""]
+  set prev $syn_area
+  foreach {tag label bkey} {place place_opt place cts clock_tree cts clkopt hold_opt hold routed route_opt ""} {
+    if {![info exists row($tag)]} { lappend lines [format "%-9s %14s" $label "no row (stage not run in this run tag)"]; continue }
+    set a [lindex $row($tag) 1]; set n [lindex $row($tag) 2]
+    set step [expr {[string is double -strict $a] && [string is double -strict $prev] ? [unpu_pct [expr {$a - $prev}] $syn_area] : "n/a"}]
+    set cum [unpu_pct [expr {[string is double -strict $a] ? $a - $syn_area : "x"}] $syn_area]
+    set btxt ""
+    if {$bkey ne ""} {
+      lassign $bud($bkey) lo hi
+      set btxt "$lo-$hi"
+      if {[string is double -strict $step] && $step > $hi} { lappend warns "growth of $label is $step% of the synthesis area, above the instructor's typical $lo-$hi% (typical figures, not a limit)" }
+    }
+    lappend lines [format "%-9s %14s %9s %9s | %9s %9s | %-12s" $label $a $n $step $cum $btxt ""]
+    if {[string is double -strict $a]} { set prev $a }
+  }
+  if {[info exists row(routed)]} {
+    set ta [lindex $row(routed) 1]
+    set tot [unpu_pct [expr {[string is double -strict $ta] ? $ta - $syn_area : "x"}] $syn_area]
+    lassign $bud(total) lo hi
+    lappend lines "total growth synthesis -> routed: $tot% of the synthesis area (instructor's typical total $lo-$hi%)"
+    if {[string is double -strict $tot] && $tot > $hi} { lappend warns "total growth is $tot% of the synthesis area, above the instructor's typical $lo-$hi% (typical figures, not a limit)" }
+  }
+  foreach {tag label} {place place_opt cts clock_tree clkopt hold_opt routed route_opt} {
+    if {[info exists row($tag)]} {
+      lassign $row($tag) t ar ni bn ba iN iA dn da
+      lappend lines "  $label: buffers $bn ($ba um2), inverters $iN ($iA um2), delay cells $dn ($da um2)"
+    }
+  }
+  if {[info exists row(clkopt)] && [info exists row(routed)]} {
+    set d1 [lindex $row(clkopt) 7]; set d2 [lindex $row(routed) 7]
+    set diff [expr {[string is integer -strict $d1] && [string is integer -strict $d2] ? $d2 - $d1 : "n/a"}]
+    lappend lines "hold-buffer (delay cell) count: after the hold optimisation $d1, after route_opt $d2, difference $diff (instructor: watch it after final_opto and route_opt)"
+  }
+  lappend lines "tie and spare cells: not counted (no such cell names in the library listing of the NDM build log)"
+  return [list $lines $warns]
+}
 # cts.tcl stage rule: the guards of each mode as a list of "must_not_exist" blocks and "must_exist" blocks, and the block opened
 proc unpu_cts_stage_plan {stage placed cts clkopt} {
   switch -- $stage {

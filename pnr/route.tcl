@@ -29,6 +29,9 @@
 # from check_routes here is NOT the final word.
 #
 # Order: antenna rule -> route_auto -> checks -> save routeauto -> route_opt -> checks -> save routed.
+# The constraints: the stage profile PROFILE_ROUTE (`route`: 20 ns, setup uncertainty 0.6 ns, hold uncertainty 0.05 ns, post-CTS) of
+# constraints/unpu_top.sdc is applied FIRST by unpu_apply_profile (re-read in both scenarios, operating conditions, the clock made propagated
+# again, read-back CHECKS). Limits: setup WNS >= WNS_SETUP_ROUTE (0), hold WNS >= WNS_HOLD_ROUTE (0) after route_opt.
 # Hold is a Warning after route_auto and a CHECK after route_opt (plan D2). If the hold check fails the script stops without
 # saving, UNLESS the environment variable UNPU_ROUTE_ACCEPT_HOLD is 1 (default 0, never set it without a written reason):
 # then it saves, records hold_accepted = 1 and the endpoint list in the manifest and prints the worst endpoints. Only the hold
@@ -46,12 +49,15 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
   unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
 }
 unpu_stage_begin route run [list $lib_path]
+unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
 # neither checkpoint block may exist. VERIFY (server): get_blocks -quiet <name>
 foreach b [list $BLK_ROUTE_AUTO $BLK_ROUTED] {
   if {![catch {get_blocks -quiet $b} existing]} {
@@ -70,6 +76,9 @@ set lt [unpu_run_logged [list check_legality] {}]
 set leg0 [unpu_parse_legality $lt]
 unpu_check_pass route legality_before [expr {$leg0 ne "not parsed" && $leg0 == 0}] "check_legality on $BLK_CLKOPT: $leg0 violations (0 expected)"
 if {$UNPU_CHECK_FAILED > 0} { unpu_die "the input block is not legal; nothing is routed" }
+# the stage profile (task 053), before any route command: the clock tree exists, so the clock is made propagated again after the re-read
+unpu_apply_profile $PROFILE_ROUTE
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the stage profile $PROFILE_ROUTE is not in force (see the CHECK lines above); nothing is routed" }
 
 # ---- 2. the antenna rule, BEFORE any route command (18.25) ------------------------------------------
 # define_antenna_rule -mode 4 -diode_mode 1 -metal_ratio <r> -cut_ratio 0 applied to M1, M2, M3 and TOP_M in the first run.
@@ -110,7 +119,7 @@ proc rt_ids {label text} {
 # everything else is a RESULT or a Warning (hold is a Warning after route_auto). final = 1: every check is a CHECK.
 # Returns the hold decision text for the final stage. tag is route_auto or route_opt.
 proc rt_checks {tag final cmd_text} {
-  global SCEN_SETUP SCEN_HOLD HOLD_UNCERT ROUTE_ACCEPT_HOLD HOLD_ENDPOINTS_LISTED RPT_DIR
+  global SCEN_SETUP SCEN_HOLD UNPU_PROFILE_HOLD WNS_SETUP_ROUTE WNS_HOLD_ROUTE ROUTE_ACCEPT_HOLD HOLD_ENDPOINTS_LISTED RPT_DIR
   # check_routes (VERIFY: the first run printed a "Verify Summary" block)
   set crt [unpu_report route ${tag}_check_routes "check_routes"]
   array set cr [unpu_parse_check_routes $crt]
@@ -156,7 +165,9 @@ proc rt_checks {tag final cmd_text} {
   lassign [unpu_timing_summary route $SCEN_SETUP max ${tag}_setup] ws sv sg spaths
   unpu_result route ${tag}_worst_setup_slack_ns $ws
   if {$final} {
-    unpu_check_pass route ${tag}_setup_violations [expr {$sv ne "unavailable" && $sv == 0}] "$sv setup-violating endpoint(s) in $SCEN_SETUP after $tag (0 expected; 'unavailable' fails); worst slack $ws ns; by group {$sg}"
+    unpu_result route ${tag}_setup_violating_endpoints $sv
+    unpu_result route ${tag}_setup_wns_margin_ns [unpu_wns_margin $ws $WNS_SETUP_ROUTE]
+    unpu_check_pass route ${tag}_setup_wns [unpu_wns_ok $ws $WNS_SETUP_ROUTE] "worst setup slack $ws ns in $SCEN_SETUP after $tag, limit $WNS_SETUP_ROUTE ns (margin [unpu_wns_margin $ws $WNS_SETUP_ROUTE] ns; 'unavailable' fails); $sv setup-violating endpoint(s); by group {$sg}"
   } elseif {$sv ne "unavailable" && $sv != 0} {
     unpu_warn "$sv setup-violating endpoint(s) in $SCEN_SETUP after $tag (worst $ws ns); route_opt follows"
   }
@@ -164,6 +175,7 @@ proc rt_checks {tag final cmd_text} {
   lassign [unpu_timing_summary route $SCEN_HOLD min ${tag}_hold] wh hv hg hpaths
   unpu_result route ${tag}_worst_hold_slack_ns $wh
   unpu_result route ${tag}_hold_violating_endpoints $hv
+  unpu_result route ${tag}_hold_wns_margin_ns [unpu_wns_margin $wh $WNS_HOLD_ROUTE]   ;# limit WNS_HOLD_ROUTE; the pass rule below is the violating-endpoint count (equivalent to worst slack >= the limit)
   set worst [unpu_worst_endpoints $hpaths $HOLD_ENDPOINTS_LISTED]
   set decision ""
   if {!$final} {
@@ -173,13 +185,13 @@ proc rt_checks {tag final cmd_text} {
   } else {
     set decision [unpu_hold_decision $hv $ROUTE_ACCEPT_HOLD]
     if {$decision eq "pass"} {
-      unpu_check_pass route ${tag}_hold_violations 1 "0 hold-violating endpoints in $SCEN_HOLD after $tag at hold uncertainty $HOLD_UNCERT; worst slack $wh ns"
+      unpu_check_pass route ${tag}_hold_violations 1 "0 hold-violating endpoints in $SCEN_HOLD after $tag at hold uncertainty $UNPU_PROFILE_HOLD; worst slack $wh ns"
     } elseif {$decision eq "accepted"} {
       puts "Warning: \[unpu\] CHECK route ${tag}_hold_violations ACCEPTED BY UNPU_ROUTE_ACCEPT_HOLD=1: $hv hold-violating endpoint(s) remain in $SCEN_HOLD (worst $wh ns). The routed block is saved with a hold residual; this needs a written reason. Worst [llength $worst]: [join $worst { ; }]"
-      unpu_manifest_append route [concat [list "hold_accepted = 1" "hold_violating_endpoints = $hv" "hold_worst_slack_ns = $wh" "hold_uncertainty_ns = $HOLD_UNCERT"] [unpu_hold_endpoint_lines $worst]]
+      unpu_manifest_append route [concat [list "hold_accepted = 1" "hold_violating_endpoints = $hv" "hold_worst_slack_ns = $wh" "hold_uncertainty_ns = $UNPU_PROFILE_HOLD"] [unpu_hold_endpoint_lines $worst]]
       unpu_result route hold_accepted 1
     } else {
-      unpu_check_pass route ${tag}_hold_violations 0 "$hv hold-violating endpoint(s) in $SCEN_HOLD after $tag at hold uncertainty $HOLD_UNCERT ('unavailable' = could not be counted); worst slack $wh ns; by group {$hg}. Worst: [join $worst { ; }]. [expr {$hv eq {unavailable} ? {UNPU_ROUTE_ACCEPT_HOLD cannot override a count that could not be obtained.} : {To go on knowingly: setenv UNPU_ROUTE_ACCEPT_HOLD 1 (with a written reason).}}]"
+      unpu_check_pass route ${tag}_hold_violations 0 "$hv hold-violating endpoint(s) in $SCEN_HOLD after $tag at hold uncertainty $UNPU_PROFILE_HOLD ('unavailable' = could not be counted); worst slack $wh ns; by group {$hg}. Worst: [join $worst { ; }]. [expr {$hv eq {unavailable} ? {UNPU_ROUTE_ACCEPT_HOLD cannot override a count that could not be obtained.} : {To go on knowingly: setenv UNPU_ROUTE_ACCEPT_HOLD 1 (with a written reason).}}]"
     }
   }
   # max transition / capacitance
@@ -203,6 +215,9 @@ proc rt_summary {tag text} {
   foreach it [unpu_parse_dr_iterations $text] { unpu_result route ${tag}_dr_iteration_[lindex $it 0]_violations [lindex $it 1] }
 }
 
+# congestion before routing: RESULT only (task 054)
+unpu_check_congestion route before_route_auto 0
+
 # ---- 3. route_auto (18.20) ---------------------------------------------------------------------------
 # acts on all scenarios (the router uses the timing of both for timing-driven routing)
 set ra [unpu_run_logged [list route_auto] {ZRT- FLW-}]
@@ -212,6 +227,7 @@ unpu_check_pass route route_auto_zrt309 [expr {$z309a == 0}] "$z309a occurrence(
 
 # ---- 4. checks after route_auto; save routeauto only if the critical ones pass ------------------------
 rt_checks route_auto 0 $ra
+unpu_check_utilization route $UTIL_MAX_ROUTE route_auto 1      ;# a Warning after route_auto, a CHECK after route_opt
 if {$UNPU_CHECK_FAILED > 0} { unpu_die "route_auto failed its critical checks (ZRT-309, open nets, DRCs, shorts/opens, legality); no checkpoint saved (see the CHECK lines above)" }
 unpu_checkpoint $BLK_ROUTE_AUTO
 unpu_result route block_saved_route_auto $BLK_ROUTE_AUTO
@@ -231,6 +247,14 @@ if {[regexp -nocase -- {deleted\s+[0-9,]*\s*filler} $ro]} {
 
 # ---- 6. checks after route_opt (every one a CHECK; hold with the explicit switch) --------------------------
 set decision [rt_checks route_opt 1 $ro]
+# utilisation after route_opt (instructor POST 2: post-route <= 80-85 percent -> 80) and the growth report (task 054)
+unpu_check_utilization route $UTIL_MAX_ROUTE route_opt
+unpu_growth_row route routed
+set _syn_area $SYN_CELL_AREA
+lassign [unpu_growth_table [unpu_growth_read [unpu_growth_file]] $_syn_area [list place $GROWTH_BUDGET_PLACE cts $GROWTH_BUDGET_CTS hold $GROWTH_BUDGET_HOLD total $GROWTH_BUDGET_TOTAL]] _glines _gwarns
+unpu_info "---- netlist growth (percent of the synthesis area $_syn_area um2, profile $SYN_PROFILE) ----"
+foreach l $_glines { unpu_info $l }
+foreach w $_gwarns { unpu_warn $w }
 # area, instances, utilisation (RESULT lines, as cts.tcl). VERIFY: report_utilization / report_qor texts
 set ru [unpu_report route utilization "report_utilization"]
 set rq [unpu_report route qor "report_qor"]

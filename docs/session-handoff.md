@@ -1427,3 +1427,20 @@ State at stop (user took a break; nothing running).
 
 The raw Design Compiler reports of round 1 (2026-10-08) and round 3 (2026-10-14, the current one) were copied from the git-ignored `syn/out/` into `docs/planning/synthesis-reports/`
 with a README (which run is current, the headline numbers, what the reports do not cover). Meant for the PM. The netlist is not included.
+
+### 18.30 Constraints change from the instructor's guidance (user, 2026-11-02)
+
+The instructor posted (27 Oct) rules for timing closure, utilisation and I/O delays; recorded verbatim in `docs/planning/instructor-guidance-2026-10-27.md`. The user decided to follow them with
+the MOST PESSIMISTIC value of every range. Analysis, per-stage profiles (`syn20/18/16`, `place`, `cts`, `route`, `signoff`), the I/O delay table and the consequences for the flow:
+`docs/planning/constraints-update-2026-11-02.md`. Decisions: hold uncertainty 0.05 ns at all stages (supersedes 0.5 ns and 0.2 ns), `rst_n` stays timed at 70%, `paddr[*]` 35% as a
+feedthrough. SUPERSEDES the interface budgets of 18.5/18.9 (APB 35/35, DMA 40/40, `rst_n` 40, setup uncertainty 1.5, hold 0.5, min delays 0 and -0.5) and the 0.5 ns / 868 um decisions of
+2026-11-01 (the die is re-derived from the new synthesis area). Synthesis is repeated at 20, 18 and 16 ns; everything from the netlist onward is re-run. The scripted `pnr/` flow stays, with
+stage profiles, per-stage WNS thresholds and utilisation checks to be added.
+
+**Progress 2026-11-02.** Task 051 (stage-selectable SDC, PM script per profile) accepted. Task 052 (`syn/RUNBOOK.md`, `scripts/syn_compare.sh`, netlist rule: tightest eligible MET profile, else syn20) accepted with one change (ineligible
+if a non-`max_area` violator, latch or don't-use hit). Task 053 (`pnr/` follows the profiles: `UNPU_SYN_PROFILE`, `unpu_apply_profile`, per-stage WNS limits, netlist-derived expectations) sent to Execution; task 054
+(die size from new cell area, utilisation, congestion, hold-buffer reporting) follows. Waiting on the user: commit, then DC runs at syn20/18/16 on the server per `syn/RUNBOOK.md`.
+
+**Progress 2026-11-02 (later).** Tasks 053 and 054 accepted. `pnr/` now: netlist from `UNPU_SYN_PROFILE` (`syn/out/<profile>/unpu_top_cn.dc.v`), constraints from `constraints/unpu_top.sdc` with the stage profile (`place`/`cts`/`route`) applied and read back per stage,
+WNS limits placement -1.0 / CTS -0.4 / route 0 (setup and hold), die derived from `syn/out/<profile>/unpu_top.area` (start utilisation 0.60, rows of 5.6 um, die = core + 11.2; old area gives 862.4 um), utilisation limits 75% / 80% / 80%,
+congestion overflow <= 1%, growth table against the instructor's typical budget. 487 local tests; VERIFY items K1-K48 unknown until the first real run. Biggest risk: K37 (SDC re-read with a clock tree present). The 868.0 um die and the 0.5/0.2 ns hold decisions are superseded.

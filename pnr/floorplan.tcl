@@ -1,5 +1,5 @@
 # =============================================================================
-# floorplan.tcl -- script 3 of the back-end re-run: die, core, rows, don't-use cells, checkpoint fp
+# floorplan.tcl -- script 3 of the back-end re-run: die (derived from the synthesis area), core, rows, don't-use cells, checkpoint fp
 #
 # Runs in icc2_shell (U-2022.12-SP3). Plan: docs/planning/backend-rerun-plan.md stage B2 and the don't-use
 # part of B3; commands that worked in the first run: docs/session-handoff.md 18.14 (floorplan) and 18.15
@@ -16,7 +16,10 @@
 #   (-file / -output_log_file: confirmed on the server, VERIFY_STATUS.md)
 #
 # Input: the design library $LIB_DIR/$LIB_NAME with the block $BLK_IMPORT saved by design_setup.tcl
-#   (it must have no floorplan yet).
+#   (it must have no floorplan yet) and the DC area report of the chosen synthesis profile, syn/out/$UNPU_SYN_PROFILE/unpu_top.area
+#   (UNPU_SYN_PROFILE is required). The die is DERIVED: core area = cell area / FP_START_UTIL (0.60), square core, side rounded up to a
+#   whole number of rows, die = core + 2 x 5.6 um (unpu_derive_die, common.tcl). UNPU_DIE_SIZE is an experiment knob that replaces it (Warning).
+#   The profile and the die are written to $RUN_DIR/floorplan_profile.txt; every later script CHECKS that its own derivation equals that record.
 # Output: block $BLK_FP in the same library (the block $BLK_IMPORT on disk is never touched);
 #   $RPT_DIR/floorplan_design.rpt; $LOG_DIR/manifest_floorplan.txt.
 # Never: changes power, pins, placement; touches the library of the first run; writes into the kit.
@@ -36,13 +39,23 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
   unpu_die "design library not found: $lib_path. design_setup.tcl runs first (same UNPU_WORK and UNPU_RUN_TAG)"
 }
 unpu_stage_begin floorplan run [list $lib_path]
+unpu_derive_die record          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054) and the record of this floorplan
 unpu_open_stage $lib_path $LIB_NAME $BLK_IMPORT
+# the derived die, core, rows and the numbers they come from (task 054)
+unpu_result floorplan syn_profile $SYN_PROFILE
+unpu_result floorplan syn_cell_area_um2 $SYN_CELL_AREA
+unpu_result floorplan start_utilisation $FP_START_UTIL
+unpu_result floorplan core_side_um $CORE_SIDE
+unpu_result floorplan rows_derived $FP_ROWS
+unpu_result floorplan die_side_um $DIE_SIZE
+unpu_result floorplan die_area_um2 [format %.2f [expr {$DIE_SIZE * $DIE_SIZE}]]
 unpu_result floorplan ports_in_block [sizeof_collection [get_ports *]]     ;# sanity line, not asserted
 # the block from design_setup must have no floorplan yet
 # VERIFY (server): get_site_rows lists the site rows of the current block (empty before initialize_floorplan)

@@ -23,6 +23,8 @@ setenv UNPU_WORK /storage/EE5239G1/aagams_workspace/icc2_work_v2
 setenv UNPU_RUN_TAG run1
 ```
 
+`UNPU_SYN_PROFILE` is REQUIRED by every stage script from `design_setup` on (no default; only the probes, `ndm_file_gen` and `ndm_check` run without it): the synthesis profile chosen in `syn/RUNBOOK.md` step 5, for example `setenv UNPU_SYN_PROFILE syn16`; it selects the netlist `syn/out/$UNPU_SYN_PROFILE/unpu_top_cn.dc.v` (copy that file AND `syn/out/$UNPU_SYN_PROFILE/unpu_top.area` to the server's repo clone first: the die is derived from the area file; `UNPU_NETLIST` overrides the netlist path only).
+The stage constraints are not variables: each script applies its own profile of `constraints/unpu_top.sdc` (`place` for `design_setup` and `placement`, `cts` for `cts`, `route` for `route`, `fill` and `outputs`; table in `pnr/README.md`). `UNPU_SDC` and `UNPU_HOLD_UNCERT` are gone and stop the script if set.
 `UNPU_REPO` is only a convention for the commands below: the scripts find the repo from their own location. `UNPU_WORK` and
 `UNPU_RUN_TAG` default to the values above (`pnr/params.tcl`); set them only to change them. Other variables are named in the step that uses them
 and in the table of `pnr/README.md`.
@@ -63,9 +65,9 @@ a Warning is printed for each override) or a new `UNPU_RUN_TAG` (which needs eve
 
 ---
 
-## 0. The probes (optional)
+## 0. The probes (do this FIRST after task 053)
 
-Print the usage of the commands the flow uses. Already run once (`rpt/help/summary.txt`: 140 of 141 found). Run again only to answer the questions listed in
+Print the usage of the commands the flow uses. Task 053 added `report_clocks`, `set_propagated_clock`, `report_congestion`, `report_clock_tree`, `get_clocks`, `all_clocks` to the list (and the earlier gaps `get_app_option_value`, `report_constraint`, ...): RUN IT AGAIN before step 3, because the profile read-back (step 3, 7, 8, 9) uses `get_attribute <clock> period / is_propagated`, `report_clocks` and `set_propagated_clock`, none of which has been seen on the server. Already run once (`rpt/help/summary.txt`: 140 of 141 found). Run again only to answer the questions listed in
 `VERIFY_STATUS.md` (the probe list now also holds `get_app_option_value`, `report_constraint`, `report_pin_placement`, ...).
 
 ```
@@ -110,9 +112,9 @@ Needs no block (creates the library `$UNPU_WORK/$UNPU_RUN_TAG/lib/unpu2_lib`; an
 icc2_shell -file $UNPU_REPO/pnr/design_setup.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/design_setup.log
 ```
 
-Good result: both reference libraries open (`reflib_open_*`); 204 ports, 2,465 sequential cells, 12,487 leaf cells; the netlist links; corner `default` = ss 1.62 V / 125 C, corner `ff` = ff 1.98 V / -40 C;
-scenario `default` setup-only, `ff_hold` hold-only; `check_timing` shows only the `pready` constant warning; 11 checks **(stub)**. Informational first timing: about +0.82 ns setup, -0.50 ns hold (first run).
-Predicted failures (output layouts never seen, VERIFY_STATUS K3, K4, K13, K14, K30): the `report_corners` parser, the `link_block` wording, the scenario status attribute, the timing-path attribute (a fallback to `report_timing` exists). Fix the parser, not the check.
+Good result: both reference libraries open (`reflib_open_*`); 204 ports, 2,465 sequential cells, the leaf-cell count of the linked design equal to the count computed from the netlist file (RESULT `netlist_leaf_cells`, `netlist_modules`; the first run's netlist had 12,487 and 76); the netlist links; the profile `place` read in both scenarios and read back (`profile_place_*` checks: period 18 ns, setup uncertainty 1.2 ns in `default`, hold 0.05 ns in `ff_hold`, clock NOT propagated); corner `default` = ss 1.62 V / 125 C, corner `ff` = ff 1.98 V / -40 C;
+scenario `default` setup-only, `ff_hold` hold-only; `check_timing` shows only the `pready` constant warning; 19 checks **(stub)**. Informational first timing: about +0.82 ns setup, -0.50 ns hold (first run).
+Predicted failures: the profile read-back (task 053: `get_attribute <clock> period` / `is_propagated`, `report_clocks`, the `clock uncertainty` line of `report_timing` are unprobed: run step 0 first; a read-back that cannot be read FAILS as 'unavailable', it is never skipped), and (output layouts never seen, VERIFY_STATUS K3, K4, K13, K14, K30): the `report_corners` parser, the `link_block` wording, the scenario status attribute, the timing-path attribute (a fallback to `report_timing` exists). Fix the parser, not the check.
 Re-run: a failed run can be repeated after `UNPU_LIB_OVERWRITE 1`.
 
 ## 4. `floorplan.tcl` (icc2_shell)
@@ -123,8 +125,9 @@ Needs `unpu_top`; saves `fp`.
 icc2_shell -file $UNPU_REPO/pnr/floorplan.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/floorplan.log
 ```
 
-Good result: die 868.0 um square, core offset 5.6, 153 rows, core area 734,106.24 um2; site `unit` 0.56 x 5.6; dont_use: 15 cells matched by the patterns, 18 in total, the three library cells among them
-(`set_attribute ... dont_use`, `ATTR-12` is expected); 8 checks **(stub)**. Experiment knob (not for the plan run): `setenv UNPU_DIE_SIZE 817.6` is the old run's die.
+Good result: the die DERIVED from the synthesis area (RESULT lines `syn_cell_area_um2`, `start_utilisation` 0.60, `core_area_um2`, `core_side_um`, `rows_derived`, `die_side_um`, `die_area_um2`; for the old round-3 area 429,161 um2: 152 rows, core 851.2 um, die 862.4 um; a new area gives another die, always a whole number of rows, tell the top level the printed die); core offset 5.6; site `unit` 0.56 x 5.6; dont_use: 15 cells matched by the patterns, 18 in total, the three library
+(`set_attribute ... dont_use`, `ATTR-12` is expected); 8 checks **(stub)**. `floorplan_profile.txt` is written in the run directory: every later script derives the die again and stops if it differs (another `UNPU_SYN_PROFILE`, or `UNPU_DIE_SIZE` set differently).
+Stops with a message if `UNPU_SYN_PROFILE` is unset or not syn20/syn18/syn16, or if `syn/out/<profile>/unpu_top.area` is missing, has two `Total cell area:` lines, or a non-number. `setenv UNPU_DIE_SIZE <um>` is an EXPERIMENT knob (Warning prints both dies); the die must be on the site/row grid or the script stops.
 Predicted failures: the `report_design -floorplan` parser (K5) and the `boundary_bbox` / site attributes (K15, K16).
 
 ## 5. `power.tcl` (icc2_shell)
@@ -135,7 +138,7 @@ Needs `fp`; saves `pwr`.
 icc2_shell -file $UNPU_REPO/pnr/power.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/power.log
 ```
 
-Good result: nets `VDD`/`VSS` created and connected (`connected_*` = the leaf cell count 12,487); TOP_M stripes of 2.24 um at pitch 112 um, M1 rails (rows + 1 = 154); one terminal per stripe at the bottom edge (y from 0 to 6 um);
+Good result: nets `VDD`/`VSS` created and connected (`connected_*` = the leaf-cell count computed from the netlist file); TOP_M stripes of 2.24 um at pitch 112 um, M1 rails (rows + 1 = 154); one terminal per stripe at the bottom edge (y from 0 to 6 um);
 `check_pg_drc` 0; no floating wires/vias/terminals. Floating CELLS cannot be checked here (nothing is placed): that check is in step 7.
 Predicted failures: the `connect_pg_net` summary layout (K6), `get_shapes` filters on rails (K18), terminal attributes (K19), the `check_pg_*` texts (K20). The script has fallbacks and says so in Warnings.
 
@@ -169,39 +172,40 @@ Needs `pins`; saves `placed`. `place_opt` (all stages), checks, and the report o
 icc2_shell -file $UNPU_REPO/pnr/placement.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/placement.log
 ```
 
-Good result (first run in brackets): 204 signal terminals; the five stages named; setup violating endpoints 0 (WNS 0.0000; worst path `paddr[3]` to `prdata[23]`); max transition and capacitance 0; `check_legality` 0;
+Good result (first run in brackets): 204 signal terminals; the profile `place` applied and read back first; the five stages named; setup WNS >= `WNS_SETUP_PLACE` (-1.0 ns, instructor; the violating-endpoint count is a RESULT) [first run WNS 0.0000; worst path `paddr[3]` to `prdata[23]`]; max transition and capacitance 0; `check_legality` 0;
 `check_pg_connectivity` 0 floating cells/wires/vias/terminals [11,986 cells]; area about 426,097 um2, about 11,986 instances, 161 buffers, 1,353 inverters, `leaf_cells_difference` about 501; `LGL-031` and `PDC-003` are printed and benign;
-the HOLD Warning is expected [2,304 endpoints, worst -0.28 ns]: place_opt does not fix hold. 11 checks **(stub)**. Run time: about 133 s for `place_opt` [first run], a few minutes in all.
+the HOLD Warning is expected [2,304 endpoints, worst -0.28 ns]: place_opt does not fix hold. 24 checks **(stub)**. NEW (task 054): utilisation after `place_opt` <= 0.75 (CHECK, RESULT margin; the cross-check with cell area / core area warns above 0.5 percentage points) and congestion overflow <= 1.0 percent (CHECK; `report_congestion` unprobed and may need a global-route congestion map first: VERIFY K45). Run time: about 133 s for `place_opt` [first run], a few minutes in all.
 The port report: `rpt/placed_port_report.csv` (estimated antenna ratio per input port, worst first; an ESTIMATE, Calibre decides). The aim of the pin placement is a longest HPWL far below the first run's 180 um (`paddr[4]`).
 Predicted failures: the port direction / net bbox / gate-area attributes (the report then says "unavailable" per port and the run continues), `report_utilization` / `report_qor` texts (K27).
 
 ## 8. `cts.tcl` (icc2_shell)
 
-Needs `placed`; saves `cts` (clock tree built, hold not fixed) and `clkopt` (hold optimised at `HOLD_UNCERT`, default 0.5 ns).
+Needs `placed`; saves `cts` (clock tree built, hold not fixed) and `clkopt` (hold optimised). The stage profile `cts` (18 ns, setup uncertainty 0.6 ns, hold uncertainty 0.05 ns) is applied first and read back.
 
 ```
 icc2_shell -file $UNPU_REPO/pnr/cts.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/cts.log
 ```
 
-Good result: `sinks = 2465` (CHECK); levels about 3 and about 53 repeaters, ss latency about 1.21 ns / skew about 0.95 ns, ff latency about 0.49 / skew about 0.36 [first run, informational]; the hold uncertainty read back = 0.5;
-setup violating endpoints 0; max transition/capacitance 0; legality 0; no floating cells. `FLW-8004` may appear (counted, a Warning, cause unknown). Remaining hold endpoints are a Warning with the worst 10, NOT a failure (plan C2:
-the user decides). Run time: minutes (the two `clock_opt` stages) **(guess)**. 10 checks **(stub)**.
-Predicted failures: the `report_clock_qor -type summary` layout (K7), `report_constraint` (K2, not probed).
+Good result: the profile `cts` applied and read back (`profile_cts_*`: 18 ns, 0.6 / 0.05 ns, clock propagated after the tree); `sinks = 2465` (CHECK); levels about 3 and about 53 repeaters, ss latency about 1.21 ns / skew about 0.95 ns, ff latency about 0.49 / skew about 0.36 [first run, informational]; 
+setup WNS >= `WNS_SETUP_CTS` (-0.4 ns, the pessimistic end of the instructor's -0.4 to -0.6; the violating-endpoint count is a RESULT); max transition/capacitance 0; legality 0; no floating cells. `FLW-8004` may appear (counted, a Warning, cause unknown). Remaining hold endpoints are a Warning with the worst 10, NOT a failure (plan C2:
+the user decides). Run time: minutes (the two `clock_opt` stages) **(guess)**. 25 checks **(stub)** in `all` mode; NEW: congestion RESULT after the tree and utilisation <= 0.80 (CHECK) after the hold optimisation.
+Predicted failures: after the SDC re-read in a block WITH a clock tree (mode `hold`) the clock may lose its propagation: `set_propagated_clock` is called again and the read-back CHECK says so if it did not work (VERIFY, task 053); the `report_clock_qor -type summary` layout (K7), `report_constraint` (K2, not probed).
 Stages: `setenv UNPU_CTS_STAGE all|tree|hold` (default `all`).
 
-### The hold-uncertainty experiment (cts.tcl, then route.tcl)
+### A second optimisation from the same tree (cts.tcl, then route.tcl)
 
-To try another hold uncertainty from the saved tree (for example 0.2 ns, the old run's value) without rebuilding it:
+The hold uncertainty is NOT an experiment variable any more: it is 0.05 ns in the profile (instructor), and `UNPU_HOLD_UNCERT` is refused if you set it. What stays is the stage switch
+and the block names: to optimise again from the saved tree (for example after changing nothing but wanting a second result next to `clkopt`):
 
 ```
 setenv UNPU_CTS_STAGE hold
-setenv UNPU_HOLD_UNCERT 0.2
-setenv UNPU_BLK_CLKOPT clkopt_h02
-icc2_shell -file $UNPU_REPO/pnr/cts.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/cts_h02.log
+setenv UNPU_BLK_CLKOPT clkopt_b
+icc2_shell -file $UNPU_REPO/pnr/cts.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/cts_b.log
 ```
 
-Mode `hold` opens `cts`, applies the uncertainty with `-scenarios ff_hold`, optimises and saves `clkopt_h02`; `clkopt` stays untouched. A Warning prints that the value differs from the plan's 0.5. To route from that block keep
-`setenv UNPU_BLK_CLKOPT clkopt_h02` set when you run step 9. Unset it (`unsetenv UNPU_BLK_CLKOPT`, `unsetenv UNPU_HOLD_UNCERT`, `unsetenv UNPU_CTS_STAGE`) to return to the plan values. A tree-only run is `UNPU_CTS_STAGE tree`.
+Mode `hold` opens `cts`, re-applies the profile `cts` (the SDC is re-read, the clock is made propagated again, period / uncertainty / propagation are read back), optimises and saves `clkopt_b`; `clkopt` stays untouched.
+To route from that block keep `setenv UNPU_BLK_CLKOPT clkopt_b` set when you run step 9. Unset the three variables (`unsetenv UNPU_BLK_CLKOPT`, `unsetenv UNPU_CTS_STAGE`) to return to the defaults. A tree-only run is `UNPU_CTS_STAGE tree`.
+The experiment variables left: `UNPU_CTS_STAGE`, `UNPU_BLK_*`, `UNPU_DIE_SIZE`, `UNPU_ROUTE_ACCEPT_HOLD`, `UNPU_FILL_ECO`.
 
 ## 9. `route.tcl` (icc2_shell)
 
@@ -211,9 +215,9 @@ Needs `clkopt` (or the block named by `UNPU_BLK_CLKOPT`); saves `routeauto` (rig
 icc2_shell -file $UNPU_REPO/pnr/route.tcl -output_log_file $UNPU_WORK/$UNPU_RUN_TAG/logs/route.log
 ```
 
-Good result: `define_antenna_rule` runs BEFORE `route_auto`; `RESULT route antenna_switch_state = on (route.detail.antenna = 'true')` (a loud `!!!` Warning if not); `ZRT-309` count 0 in both routing outputs; open nets 0, DRCs 0,
-`check_lvs` shorts/opens/floating 0, ICC2 antenna violations 0 (the 80 input-port nets are skipped by ICC2, `ZRT-311`; Calibre decides), legality 0, no floating PG, setup and hold violating endpoints 0, max transition/capacitance 0.
-23 checks **(stub)**. Run time [first run]: `route_auto` about 1 min, `route_opt` about 45 s. `OPT-209` may appear twice (Warning; the QoR decides).
+Good result: the profile `route` applied and read back first (20 ns, 0.6 / 0.05 ns, propagated); `define_antenna_rule` runs BEFORE `route_auto`; `RESULT route antenna_switch_state = on (route.detail.antenna = 'true')` (a loud `!!!` Warning if not); `ZRT-309` count 0 in both routing outputs; open nets 0, DRCs 0,
+`check_lvs` shorts/opens/floating 0, ICC2 antenna violations 0 (the 80 input-port nets are skipped by ICC2, `ZRT-311`; Calibre decides), legality 0, no floating PG, setup WNS >= `WNS_SETUP_ROUTE` (0) and hold WNS >= `WNS_HOLD_ROUTE` (0), max transition/capacitance 0, utilisation after `route_opt` <= 0.80 (a Warning after `route_auto`); the NETLIST GROWTH table is printed at the end (area per stage in percent of the synthesis area against the instructor's typical 3-8 / 2-5 / 2-5 / 10-20, the delay-cell count after the hold optimisation and after `route_opt`): Warnings when a typical figure is exceeded, never failures.
+35 checks **(stub)**. Run time [first run]: `route_auto` about 1 min, `route_opt` about 45 s. `OPT-209` may appear twice (Warning; the QoR decides).
 Predicted failures: the `check_routes` / `check_lvs` / route-summary layouts (K8), `report_constraint` (K2). A hold residual after `route_opt` FAILS the stage; see the next paragraph.
 
 **`UNPU_ROUTE_ACCEPT_HOLD`** (default 0; never set it by default). If the hold check fails and you decide, with a WRITTEN REASON in your notes first, to go on: `setenv UNPU_ROUTE_ACCEPT_HOLD 1`
@@ -245,7 +249,7 @@ icc2_shell -file $UNPU_REPO/pnr/outputs.tcl -output_log_file $UNPU_WORK/$UNPU_RU
 ```
 
 Good result: 46 checks **(stub)** all PASS; files `unpu_top_sim.v`, `unpu_top_lvs.v`, `unpu_top.lef` (one `MACRO`, `SIZE 868.0 BY 868.0`), `unpu_top_{ss,ff}.spef.*`, `unpu_top_{ss,ff}.sdf`, `unpu_top_{ss,ff}.sdc`, `unpu_top.gds`;
-76 modules in both netlists; `GDS-017` printed a few times (the kit layer map's `T` lines, the file is still written); a text label in the GDS for every port and for VDD/VSS. Sizes at the old die: GDS about 15.7 MB, each SPEF about 25.7 MB, SDF 8 to 9 MB, LEF about 56 KB. Run time: a few minutes.
+as many modules in both netlists as the netlist file defines (76 in the first run); `GDS-017` printed a few times (the kit layer map's `T` lines, the file is still written); a text label in the GDS for every port and for VDD/VSS. Sizes at the old die: GDS about 15.7 MB, each SPEF about 25.7 MB, SDF 8 to 9 MB, LEF about 56 KB. Run time: a few minutes.
 No file is overwritten: if the targets exist the script stops naming them; `setenv UNPU_OUTPUTS_OVERWRITE 1` deletes and rewrites them. `setenv UNPU_GDS_LAYER_MAP <path>` uses a corrected layer map.
 Predicted failures: the GDS label text form (K12), the `write_sdc` uncertainty layout (K11), the LEF power-pin rectangle count (K12), `create_frame` / `write_lef` as in 18.23.
 
@@ -288,3 +292,12 @@ The flow does NOT end at `outputs.tcl`. Still to do, in this order (none of it i
 5. PrimeTime signoff: ss setup and ff hold with the SPEF/SDF/SDC of `outputs.tcl` (the filler hold residual of the fill step is judged here).
 6. Post-layout gate-level simulation with `unpu_top_sim.v` and the SDF (Xcelium).
 7. The macro timing model (`.lib`) for the top level (a PM question, open), the dummy-fill / density run (open), and handing the files to the top-level team.
+
+---
+
+## What to do when a utilisation or congestion check fails (task 054)
+
+The scripts only report; they never fix. A FAIL of `utilization_place_opt`, `utilization_hold_opt`, `utilization_route_opt` or `congestion` is a DECISION for the user: the knob is `FP_START_UTIL` in `pnr/params.tcl`
+(0.60 now; instructor range 60-70 percent), documented there as "needs a written reason". Lowering it gives a bigger die and means running every script again from `floorplan.tcl` (new `UNPU_RUN_TAG`), and
+the top level must be told the new macro size. Never change it silently to make a check pass. The instructor's advice for congestion above 1-2 percent: lower the utilisation or spread the cells. An unreadable value
+FAILS (it is never skipped): read the printed report text, fix the parser in `common.tcl` (`unpu_parse_utilization`, `unpu_parse_congestion`), not the limit.

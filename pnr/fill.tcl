@@ -44,12 +44,15 @@ unpu_load_params
 
 # ---- 1. start ----------------------------------------------------------------
 unpu_require_tool_version $ICC2_VERSION            ;# sh_product_version (confirmed, VERIFY_STATUS.md)
+unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
   unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
 }
 unpu_stage_begin fill run [list $lib_path]
+unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
+if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
 # the final block must not exist. VERIFY (server): get_blocks -quiet <name>
 if {![catch {get_blocks -quiet $BLK_FINAL} existing]} {
   if {[sizeof_collection $existing] > 0} {
@@ -59,6 +62,8 @@ if {![catch {get_blocks -quiet $BLK_FINAL} existing]} {
   unpu_warn "could not list the blocks of the library ($existing); cannot tell whether block $BLK_FINAL exists already"
 }
 unpu_open_stage $lib_path $LIB_NAME $BLK_ROUTED
+# the stage profile of the block we opened must be PROFILE_FILL (`route`, set by route.tcl): read back and CHECKED, not re-read (task 053)
+unpu_check_profile_state $PROFILE_FILL
 
 # ---- 2. preconditions (each a CHECK; nothing is inserted if one fails) --------------------------------------
 # 2a. the filler cells: exactly FILLER_CELLS, each with design_type filler. VERIFY: get_lib_cells -quiet <pattern>; get_attribute <cell> design_type
@@ -197,7 +202,9 @@ foreach {k what} {cells "floating standard cells" wires "floating wires" vias "f
 # 7d. setup (in $SCEN_SETUP)
 lassign [unpu_timing_summary fill $SCEN_SETUP max setup] ws sv sg spaths
 unpu_result fill worst_setup_slack_ns $ws
-unpu_check_pass fill setup_violations [expr {$sv ne "unavailable" && $sv == 0}] "$sv setup-violating endpoint(s) in $SCEN_SETUP after the fill (0 expected; 'unavailable' fails); worst slack $ws ns; by group {$sg}"
+unpu_result fill setup_violating_endpoints $sv
+unpu_result fill setup_wns_margin_ns [unpu_wns_margin $ws $WNS_SETUP_FILL]
+unpu_check_pass fill setup_wns [unpu_wns_ok $ws $WNS_SETUP_FILL] "worst setup slack $ws ns in $SCEN_SETUP after the fill, limit $WNS_SETUP_FILL ns (margin [unpu_wns_margin $ws $WNS_SETUP_FILL] ns; 'unavailable' fails); $sv setup-violating endpoint(s); by group {$sg}"
 # 7e. hold (in $SCEN_HOLD): the decision of 2026-10-29 (18.22 option A)
 lassign [unpu_timing_summary fill $SCEN_HOLD min hold] wh hv hg hpaths
 unpu_result fill worst_hold_slack_ns $wh
@@ -205,14 +212,14 @@ unpu_result fill hold_violating_endpoints $hv
 set worst [unpu_worst_endpoints $hpaths $HOLD_ENDPOINTS_LISTED]
 set decision [unpu_fill_hold_decision $hv $wh $FILL_HOLD_TOLERANCE_NS $FILL_HOLD_MAX_ENDPOINTS]
 if {$decision eq "pass"} {
-  unpu_check_pass fill hold_violations 1 "0 hold-violating endpoints in $SCEN_HOLD after the fill at hold uncertainty $HOLD_UNCERT; worst slack $wh ns"
+  unpu_check_pass fill hold_violations 1 "0 hold-violating endpoints in $SCEN_HOLD after the fill at hold uncertainty $UNPU_PROFILE_HOLD; worst slack $wh ns"
 } elseif {$decision eq "accepted"} {
   unpu_warn "HOLD RESIDUAL ACCEPTED (decision of 2026-10-29, handoff 18.22 option A): $hv hold-violating endpoint(s) in $SCEN_HOLD after the fill, worst slack $wh ns, not worse than -$FILL_HOLD_TOLERANCE_NS ns, at most $FILL_HOLD_MAX_ENDPOINTS endpoints. The filler capacitance causes it; PrimeTime judges it with its own extraction of the filled layout, and that path is fixed there only if PrimeTime also reports it. Endpoints ([llength $worst]): [join $worst { ; }]"
-  unpu_manifest_append fill [concat [list "hold_residual_accepted = 1" "hold_violating_endpoints = $hv" "hold_worst_slack_ns = $wh" "hold_tolerance_ns = $FILL_HOLD_TOLERANCE_NS" "hold_uncertainty_ns = $HOLD_UNCERT"] [unpu_hold_endpoint_lines $worst]]
+  unpu_manifest_append fill [concat [list "hold_residual_accepted = 1" "hold_violating_endpoints = $hv" "hold_worst_slack_ns = $wh" "hold_tolerance_ns = $FILL_HOLD_TOLERANCE_NS" "hold_uncertainty_ns = $UNPU_PROFILE_HOLD"] [unpu_hold_endpoint_lines $worst]]
   unpu_result fill hold_residual_accepted 1
 } else {
   set why [expr {$hv eq "unavailable" ? "the number of violating endpoints could not be read" : "worst slack $wh ns is worse than -$FILL_HOLD_TOLERANCE_NS ns, or more than $FILL_HOLD_MAX_ENDPOINTS endpoints are violated, or the slack could not be read"}]
-  unpu_check_pass fill hold_violations 0 "$hv hold-violating endpoint(s) in $SCEN_HOLD after the fill at hold uncertainty $HOLD_UNCERT: $why; by group {$hg}. Worst: [join $worst { ; }]"
+  unpu_check_pass fill hold_violations 0 "$hv hold-violating endpoint(s) in $SCEN_HOLD after the fill at hold uncertainty $UNPU_PROFILE_HOLD: $why; by group {$hg}. Worst: [join $worst { ; }]"
 }
 # 7f. max transition / max capacitance
 foreach {kind opt} {max_transition -max_transition max_capacitance -max_capacitance} {

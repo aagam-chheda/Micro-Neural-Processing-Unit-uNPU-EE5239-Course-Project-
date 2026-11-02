@@ -322,3 +322,63 @@ overwritten, big files listed), and the list of what is not scripted yet. No pas
 
 Tasks 038 to 050 done and reviewed: 13 tasks, 16 `.tcl` files, `RUNBOOK.md`, `VERIFY_STATUS.md`, `README.md`, 417 local tests, about 6,000 lines. Nothing past `ndm_check.tcl` has run on a real tool.
 Next steps need the user: commit, pull, run per the RUNBOOK, copy logs back. Then: Calibre scripts (need `drc.ctrl`, `ant.ctrl`, the deck headers), PrimeTime, post-layout simulation, antenna fix loop.
+
+## Constraints change (2026-11-02): tasks 051 onward
+
+Decisions of the user (Q1 hold 0.05 ns, Q2 `rst_n` timed at 70%, Q3 `paddr` 35%): `docs/planning/constraints-update-2026-11-02.md` section 9; source `docs/planning/instructor-guidance-2026-10-27.md`.
+
+### Task 051, round 1: accepted
+
+Independently verified: `tclsh constraints/test_stages.tcl` 171 passed, 0 failed; the printed profile table equals the specification (syn20/18/16, place, cts, route, signoff: periods, setup 1.2 or 0.6, hold 0.05,
+`paddr`/`prdata` 35%, other groups 70%, input min 5%, output min 0, feedthrough budgets 4.8/4.2/3.6/4.2/4.8/5.4/5.4); only `constraints/` changed. Read the profile table section of `unpu_top.sdc`: derived
+uncertainties (not typed), no default for `UNPU_STAGE`, self-check that the feedthrough fractions leave a positive budget, rounding to 1e-6 ns, one printed profile line. Execution mutated copies to prove the test
+fails on a wrong percent, a wrong twin value, a missing min delay and a wrong uncertainty kind. Good: `paddr` gets its own group and still receives the driving cell and the load (Execution noticed that the old group
+carried them).
+
+Notes: (1) the twin keeps the PM's `set_input_delay 0 [all_inputs]` which also touches the `clk` port: harmless, asserted as the only difference. (2) Risk: `error`, `foreach`, `puts`, `info exists ::env` inside
+`read_sdc` in `dc_shell`/`icc2_shell`/`pt_shell` are untested (earlier SDC used only `set`/`expr`); if DC rejects them the fallback is to `source` the file (Execution marked VERIFY). (3) The `pnr/` defaults
+(`UNPU_NETLIST`, `UNPU_SDC`, `HOLD_UNCERT`) now point at things this change replaces: to be done in task 053.
+
+## Task 052: syn/RUNBOOK.md, scripts/syn_compare.sh, the netlist rule
+
+Scope: the user runs DC at syn20/syn18/syn16; a runbook with commands, copy-back and the gate-level simulation; a comparison script with verdicts (syn20 must PASS, 18 and 16 reported); rule: the netlist
+from the tightest profile that meets its own period goes on.
+
+### Task 052: accepted with one change
+
+Independently verified: `bash scripts/test_syn_compare.sh` 33 passed, `bash -n` clean on both scripts, no CRs; `syn/RUNBOOK.md` has the 8 sections asked for. Verdict logic as specified (syn20 PASS needs worst slack >= 0, only
+`max_area` violated, no latch, no don't-use hit; syn18/syn16 MET or "NOT MET (ideal target)"; exit 0 only if syn20 PASSES and nothing is MISSING/UNPARSED/WRONG PROFILE/FLAGGED).
+Change requested (sent 2026-11-02): a tighter profile that is MET but has a violator other than `max_area`, a latch line or a don't-use hit is ineligible for the recommendation. Open: the real layouts of the new report
+files (`timing_top5`, `constraint`, `qor`, `check_timing`, `check_design`, `profile`) are assumptions until the first real DC run; the GLS file order is reconstructed from 18.7 (VERIFY).
+
+## Task 053: pnr/ follows the stage profiles
+
+Written and sent 2026-11-02. Scope: `UNPU_SYN_PROFILE` selects the netlist (`syn/out/<profile>/unpu_top_cn.dc.v`); the profile SDC `constraints/unpu_top.sdc` replaces `unpu_top_cn.sdc`; `unpu_apply_profile` applies
+place/cts/route per stage with read-back checks (period, uncertainty, propagated clock, operating condition); per-stage WNS limits (placement -1.0, CTS -0.4, route 0 setup and hold) replace "zero violators";
+`HOLD_UNCERT` removed; netlist-derived expectations; probe list extended. Task 054 (die size from the new cell area, utilisation, congestion, hold-buffer reporting) follows.
+
+### Task 053: accepted (2026-11-02)
+
+Independently verified: `tclsh pnr/test_common.tcl` 453 passed (417 + 36), `constraints/test_stages.tcl` 171, `scripts/test_syn_compare.sh` 36 (the 052 eligibility follow-up is in); greps for `HOLD_UNCERT`, `unpu_top_cn.sdc`, `SDC_FILE`,
+`pm_flow`, `EXPECT_LEAF_CELLS`, `EXPECT_NETLIST_MODULES`, `server_pull` find only tests and the refusal messages. Choices accepted: `UNPU_SDC` and `UNPU_HOLD_UNCERT` are refused (not ignored); expected profile numbers are computed from the SDC's own
+table through a slave interpreter (K39: `interp create` inside `icc2_shell` unverified); "unavailable" read-backs FAIL; post-CTS profile applied before the tree is read back after `clock_opt` build; unsafe-re-read fallback not written (K37).
+Not stub-run in 053 (done in 054): `power`, `fill`, `outputs`, `floorplan`, `pin_place`. `syn/RUNBOOK.md` section 8 sentence to update (in 054).
+
+## Task 054: die from the synthesis area, utilisation, congestion, growth report
+
+Sent 2026-11-02. Die = smallest multiple of 5.6 um >= sqrt(cell area / 0.60), plus 11.2 (old area: 862.4 um); limits 75% placement, 80% CTS and route, congestion overflow 1%; growth table against the instructor's typical budget (Warning, not check).
+
+### Task 054: accepted (2026-11-02)
+
+Independently verified: `tclsh pnr/test_common.tcl` 487 passed (453 + 34), `constraints/test_stages.tcl` 171, `scripts/test_syn_compare.sh` 36, all `pnr/*.tcl` complete Tcl; no `PLAN_DIE_SIZE`/`868`/`817.6`/`server_pull` live in code; the die table recomputed
+independently (area -> rows -> core -> die: 386,245 -> 144 -> 806.4 -> 817.6; 400,000 -> 146 -> 817.6 -> 828.8; 429,161 -> 152 -> 851.2 -> 862.4; 472,077 -> 159 -> 890.4 -> 901.6; 500,000 -> 164 -> 918.4 -> 929.6).
+Changed files: `pnr/` and one sentence of `syn/RUNBOOK.md` section 8. Stub runs now exist for every script from `design_setup` to `outputs`.
+Choices accepted: the die is derived in every script from floorplan on (`UNPU_SYN_PROFILE` required there); `floorplan_profile.txt` in the run directory is the record that later scripts check (same profile AND same die, else FAIL before any heavy command);
+classes for the growth table by name pattern (`buf*`, `inv*`, `dl0*`; tie/spare "not counted"); growth over the instructor's typical figures is a Warning; unreadable utilisation or congestion is a FAIL.
+My arithmetic slip in the task text (core area 715,268.3, correct 715,268.7) did not matter.
+Open (VERIFY K43-K48): `report_utilization` wording, `report_congestion` layout and options, `ref_name` filter and cell `area` attribute, CTS-added cells not identifiable by name.
+
+### Status after task 054
+
+The scripted flow is complete from `ndm_file_gen` to `outputs` with the instructor's stage profiles: 487 local tests, 48 VERIFY items (K1-K48) for the first real run. Next work needs the user: commit; pull on the server; DC at syn20/18/16
+(`syn/RUNBOOK.md`); `scripts/syn_compare.sh`; choose the netlist; run the probe again (`pnr/RUNBOOK.md` step 0); then `ndm_file_gen` onward. After real output: Calibre (needs `drc.ctrl`, `ant.ctrl`, `scr/headers` by scp), PrimeTime, post-layout simulation.
