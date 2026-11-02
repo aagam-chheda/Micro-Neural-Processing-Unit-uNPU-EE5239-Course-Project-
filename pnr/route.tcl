@@ -53,7 +53,7 @@ unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
-  unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
+  unpu_die "design library not found: $lib_path. [unpu_prev_msg cts $BLK_CLKOPT]"
 }
 unpu_stage_begin route run [list $lib_path]
 unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
@@ -68,7 +68,7 @@ foreach b [list $BLK_ROUTE_AUTO $BLK_ROUTED] {
     unpu_warn "could not list the blocks of the library ($existing); cannot tell whether block $b exists already"
   }
 }
-unpu_open_stage $lib_path $LIB_NAME $BLK_CLKOPT
+unpu_open_stage $lib_path $LIB_NAME $BLK_CLKOPT cts
 # VERIFY: no command known to tell whether the block already has routed signal nets. The input is the clock-optimised block,
 # in which only the clock nets are detail-routed (route_clock, 18.17), so this is not tested.
 unpu_warn "cannot tell by a command whether the block already has routed nets; the input is $BLK_CLKOPT (only the clock nets are routed in it)"

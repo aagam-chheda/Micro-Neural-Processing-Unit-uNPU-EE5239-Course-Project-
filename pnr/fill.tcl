@@ -48,7 +48,7 @@ unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
-  unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
+  unpu_die "design library not found: $lib_path. [unpu_prev_msg route $BLK_ROUTED]"
 }
 unpu_stage_begin fill run [list $lib_path]
 unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
@@ -61,7 +61,7 @@ if {![catch {get_blocks -quiet $BLK_FINAL} existing]} {
 } else {
   unpu_warn "could not list the blocks of the library ($existing); cannot tell whether block $BLK_FINAL exists already"
 }
-unpu_open_stage $lib_path $LIB_NAME $BLK_ROUTED
+unpu_open_stage $lib_path $LIB_NAME $BLK_ROUTED route
 # the stage profile of the block we opened must be PROFILE_FILL (`route`, set by route.tcl): read back and CHECKED, not re-read (task 053)
 unpu_check_profile_state $PROFILE_FILL
 

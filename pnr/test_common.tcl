@@ -804,6 +804,37 @@ t_check "report_clocks: a clock that is not listed, or an empty text, is unavail
 # netlist counts: modules, flattened leaf cells; a module instantiated twice counts twice; keywords and ports are not instances
 set nl "module leaf2 (a, y);\n  input a;\n  output y;\n  inv0d1 U1 ( .I(a), .ZN(n1) );\n  inv0d1 U2 ( .I(n1), .ZN(y) );\nendmodule\nmodule unpu_top (clk, o);\n  input clk;\n  output o;\n  wire w;\n  assign o = (w);\n  dfnrq1 F1 ( .D(w), .CP(clk), .Q(w) );\n  leaf2 u_a ( .a(w), .y(o) );\n  leaf2 u_b ( .a(w), .y(o) );\n  nd02d1 U3 ( .A1(w), .A2(w), .ZN(o) );\nendmodule\n"
 t_check "netlist counts: 2 modules, 1 + 2*2 + 1 = 6 leaf cells" [expr {[unpu_netlist_counts $nl unpu_top] eq "modules 2 leaf_cells 6"}] [unpu_netlist_counts $nl unpu_top]
+# task 060: DC wraps long instances; a continuation line like `n241), .B1(dim_m[2]), ...` looked like an instance start (136 extra in the real syn16 netlist: 14,889 vs the tool's 14,753)
+set nlw "// comment line with fake U1 ( x )\nmodule sub ( a, y );\n  input a;\n  output y;\n  inv0d1 U1 ( .I(a), .ZN(y) );\nendmodule\n\nmodule unpu_top ( clk, a,\n        y );\n  input clk, a;\n  output y;\n  wire n240, n239, n241, n231, n244;\n  aoi211d1 U9 ( .A(n240), .B(n239), .C1(\n        n241), .B1(dim_m\[2\]), .B2(n231), .ZN(n244) );\n  decrq4 psum_out_reg_31_ ( .D(N71), .ENN(n7), .CP(clk), .CDN(rst_n), .Q(\n        psum_out\[31\]) );\n  sub u_sub ( .a(a),\n        .y(y) );\n  dfcrq1 r ( .D(n1), .CP(clk), .CDN(n2), .Q(q) ); // trailing comment\nendmodule\n"
+t_check "netlist counts (task 060): wrapped instances and continuation lines count once: aoi211d1 + decrq4 + sub (1 cell inside) + dfcrq1 = 4 leaf cells, 2 modules" [expr {[unpu_netlist_counts $nlw unpu_top] eq "modules 2 leaf_cells 4"}] [unpu_netlist_counts $nlw unpu_top]
+t_check "netlist counts (task 060): the old pattern would have counted the continuation line (regression witness)" [expr {[llength [regexp -all -inline -line {^\s*(\\?[A-Za-z_][^\s(#;]*)\s+(\\?[^\s(;]+)\s*\(} $nlw]] > 0}]
+set hh [unpu_netlist_histogram $nlw unpu_top]
+t_check "060 histogram of the wrapped fixture: aoi211d1 1, decrq4 1, inv0d1 1 (inside sub), dfcrq1 1" [expr {[dict get [dict get $hh hist] aoi211d1] == 1 && [dict get [dict get $hh hist] inv0d1] == 1 && [dict size [dict get $hh hist]] == 4}] [dict get $hh hist]
+t_check "060 histogram counts a module instantiated twice twice" [expr {[dict get [dict get [unpu_netlist_histogram "module a (x);\n  inv0d1 U1 ( .I(x) );\nendmodule\nmodule unpu_top (x);\n  a u1 ( .x(x) );\n  a u2 ( .x(x) );\nendmodule\n" unpu_top] hist] inv0d1] == 2}]
+set dd [unpu_hist_diff {a 5 b 3 c 1 d 7} {a 5 b 1 c 4 e 2}]
+t_check "060 hist_diff: only differing names, largest |diff| first, then name: c(-3) b(2) d(7)... " [expr {[lmap r $dd {lindex $r 0}] eq {d c b e}}] $dd
+t_check "060 hist_diff: values {name a b diff}" [expr {[lindex $dd 0] eq {d 7 0 7} && [lindex $dd 1] eq {c 1 4 -3} && [lindex $dd 3] eq {e 0 2 -2}}] $dd
+t_check "060 hist_diff: equal histograms give an empty list" [expr {[unpu_hist_diff {a 1 b 2} {b 2 a 1}] eq {}}]
+t_check "060 hist_text: header with total and number of names, names sorted" [expr {[unpu_hist_text X {b 2 a 1}] eq "# X: 3 cells in 2 reference names\na 1\nb 2\n"}] [unpu_hist_text X {b 2 a 1}]
+t_check "060 clock network mode: ideal / propagated / mixed / none" [expr {[unpu_parse_clock_network_mode "  clock network delay (ideal)   0.00   0.00"] eq "ideal" && [unpu_parse_clock_network_mode "  clock network delay (propagated)  0.61   0.61"] eq "propagated" && [unpu_parse_clock_network_mode "clock network delay (ideal) x\nclock network delay (propagated) y"] eq "mixed" && [unpu_parse_clock_network_mode "nothing here"] eq "none"}]
+t_check "060 prev_msg names the stage and the block" [expr {[string first "block 'pin_place_blk'" [string map {"The block" "block"} [unpu_prev_msg pin_place pin_place_blk]]] >= 0 || ([string first "'pin_place_blk' is saved by pin_place.tcl" [unpu_prev_msg pin_place pin_place_blk]] >= 0)}] [unpu_prev_msg pin_place pin_place_blk]
+foreach {st prev} {floorplan design_setup power floorplan pin_place power placement pin_place cts placement route cts fill route outputs fill} {
+  set fh [open [file join $here $st.tcl] r]; set sdtxt [read $fh]; close $fh
+  t_check "060 $st.tcl names the previous stage $prev in its missing-library message and in unpu_open_stage" [expr {[string first "\[unpu_prev_msg $prev " $sdtxt] >= 0 && ([regexp "unpu_open_stage \\\$lib_path \\\$LIB_NAME \\\$\\w+ $prev\n" $sdtxt] || ($st eq "cts" && [string first "\"cts\" : \"placement\"" $sdtxt] >= 0))}]
+}
+# 060: the mismatch report writes both histograms and the differences (tool commands stubbed; the "tool" holds one more inv0d1 and one fewer nd02d1)
+set nlf [file join $tmp nl060.v]
+set fh [open $nlf w]; puts $fh "module unpu_top (a);\n  inv0d1 U1 ( .I(a) );\n  nd02d1 U2 ( .A1(a),\n        .A2(a) );\n  nd02d1 U3 ( .A1(a), .A2(a) );\nendmodule"; close $fh
+file mkdir [file join $tmp rpt060]
+set child "source [list [file join $here common.tcl]]\nset NETLIST [list $nlf]\nset TOP_NAME unpu_top\nset RPT_DIR [list [file join $tmp rpt060]]\nproc get_cells {args} { return {C1 C2 C3} }\nproc foreach_in_collection {v c body} { uplevel 1 \[list foreach \$v \$c \$body\] }\nset ::REFS {C1 inv0d1 C2 inv0d1 C3 nd02d1}\nproc get_attribute {c a} { return \[dict get \$::REFS \$c\] }\nunpu_leaf_mismatch_report\nputs DONE"
+lassign [t_child $child {}] c o
+t_check "060 leaf mismatch report runs and prints the top differences" [expr {$c == 0 && [t_has $o "LEAF-DIFF inv0d1: tool 2, netlist 1, difference 1"] && [t_has $o "LEAF-DIFF nd02d1: tool 1, netlist 2, difference -1"] && [t_has $o "DONE"]}] "exit $c: $o"
+set okf 1; foreach f {leaf_hist_tool.txt leaf_hist_netlist.txt leaf_hist_diff.txt} { if {![file exists [file join $tmp rpt060 $f]]} { set okf 0 } }
+t_check "060 leaf mismatch report writes the three files" $okf
+if {$okf} {
+  set fh [open [file join $tmp rpt060 leaf_hist_netlist.txt] r]; set nt [read $fh]; close $fh
+  t_check "060 netlist histogram file: 3 cells, inv0d1 1, nd02d1 2" [expr {[string first "3 cells in 2 reference names" $nt] >= 0 && [string first "nd02d1 2" $nt] >= 0}] $nt
+}
 t_check "netlist counts: a missing top module is an error" [expr {[catch {unpu_netlist_counts $nl nosuchtop} m] && [string first "not defined" $m] >= 0}]
 t_check "netlist counts: a module that instantiates itself is an error" [expr {[catch {unpu_netlist_counts "module unpu_top (a);\n  unpu_top u ( .a(a) );\nendmodule\n" unpu_top} m] && [string first "itself" $m] >= 0}]
 t_check "netlist counts: the first run's reference numbers are kept for the comparison only" [expr {$PREV_LEAF_CELLS == 12487 && $PREV_NETLIST_MODULES == 76 && ![info exists EXPECT_LEAF_CELLS] && ![info exists EXPECT_NETLIST_MODULES]}]

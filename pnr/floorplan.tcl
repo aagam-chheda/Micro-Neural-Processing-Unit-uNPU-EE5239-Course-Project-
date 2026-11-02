@@ -43,11 +43,11 @@ unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
-  unpu_die "design library not found: $lib_path. design_setup.tcl runs first (same UNPU_WORK and UNPU_RUN_TAG)"
+  unpu_die "design library not found: $lib_path. [unpu_prev_msg design_setup $BLK_IMPORT]"
 }
 unpu_stage_begin floorplan run [list $lib_path]
 unpu_derive_die record          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054) and the record of this floorplan
-unpu_open_stage $lib_path $LIB_NAME $BLK_IMPORT
+unpu_open_stage $lib_path $LIB_NAME $BLK_IMPORT design_setup
 # the derived die, core, rows and the numbers they come from (task 054)
 unpu_result floorplan syn_profile $SYN_PROFILE
 unpu_result floorplan syn_cell_area_um2 $SYN_CELL_AREA

@@ -141,6 +141,7 @@ set nseq   [sizeof_collection [get_cells -hierarchical -filter "is_sequential==t
 set nleaf  [sizeof_collection [get_cells -hierarchical -filter "is_hierarchical==false"]]
 unpu_check_pass design_setup ports [expr {$nports == $EXPECT_PORTS}] "$nports top-level ports, expected $EXPECT_PORTS (18.12)"
 unpu_check_pass design_setup seq_cells [expr {$nseq == $EXPECT_SEQ_CELLS}] "$nseq sequential cells, expected $EXPECT_SEQ_CELLS (18.12)"
+if {$nleaf != $NETLIST_LEAF_CELLS} { unpu_leaf_mismatch_report }   ;# task 060: say WHERE the two counts differ before the check stops the script
 unpu_check_pass design_setup leaf_cells [expr {$nleaf == $NETLIST_LEAF_CELLS}] "$nleaf leaf cells in the linked design, $NETLIST_LEAF_CELLS counted in the netlist file (the first run's netlist had $PREV_LEAF_CELLS)"
 
 # ---- 6. the profile SDC into the first scenario (18.12, 18.13; task 053) ----------------------------------------

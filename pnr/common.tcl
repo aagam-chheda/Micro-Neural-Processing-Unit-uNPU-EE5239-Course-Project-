@@ -1492,38 +1492,127 @@ proc unpu_profile_numbers {profile} {
 # leaf-cell and module counts of a netlist text: {modules N leaf_cells L}. The leaf count is the flattened count from the top module:
 # an instance whose type is a module of the netlist counts as that module's leaf count, any other instance is a library cell. A module
 # that is instantiated twice counts twice. Raises an error if the top module is not defined or the modules are recursive.
-proc unpu_netlist_counts {text top} {
+# unpu_netlist_scan text -> dict {mods <list of module names> insts <dict module -> list of instantiated type names>}.
+# A line starts an instance only if the PREVIOUS statement is complete (its last code line ended with `;`). Task 060: DC wraps long
+# instances over several lines, and a continuation line such as `n241), .B1(dim_m[2]), .B2(n231), .ZN(n244) );` looked like
+# `<type> <name> (` to the old pattern: 136 extra "instances" in the syn16 netlist (14,889 instead of the tool's 14,753).
+proc unpu_netlist_scan {text} {
   set kw {module endmodule input output inout wire reg assign supply0 supply1 parameter localparam tri wand wor integer function endfunction task endtask always initial generate endgenerate defparam}
   array set iskw {}
   foreach k $kw { set iskw($k) 1 }
-  array set insts {}
   set mods {}
+  set insts [dict create]
   set cur ""
+  set open_stmt 0
   foreach l [split $text "\n"] {
-    if {[regexp -- {^\s*module\s+(\\?[^\s(#;]+)} $l -> n]} { set cur $n; lappend mods $n; set insts($n) {}; continue }
-    if {[regexp -- {^\s*endmodule\M} $l]} { set cur ""; continue }
-    if {$cur ne "" && [regexp -- {^\s*(\\?[A-Za-z_][^\s(#;]*)\s+(\\?[^\s(;]+)\s*\(} $l -> ty nm]} {
-      if {![info exists iskw($ty)]} { lappend insts($cur) $ty }
+    regsub -- {//.*$} $l "" l
+    if {[string trim $l] eq ""} continue
+    set starts [expr {!$open_stmt}]
+    set open_stmt [expr {![regexp -- {;\s*$} $l]}]
+    if {!$starts} continue
+    if {[regexp -- {^\s*module\s+(\\?[^\s(#;]+)} $l -> n]} { set cur $n; lappend mods $n; dict set insts $n {}; continue }
+    if {[regexp -- {^\s*endmodule\M} $l]} { set cur ""; set open_stmt 0; continue }
+    if {$cur ne "" && [regexp -- {^\s*(\\?[A-Za-z_][A-Za-z0-9_$]*)\s+(\\?[^\s(;]+)\s*\(} $l -> ty nm]} {
+      if {![info exists iskw($ty)]} { dict lappend insts $cur $ty }
     }
   }
+  return [dict create mods $mods insts $insts]
+}
+# leaf-cell and module counts of a netlist text: {modules N leaf_cells L}. The leaf count is the flattened count from the top module:
+# an instance whose type is a module of the netlist counts as that module's leaf count, any other instance is a library cell. A module
+# that is instantiated twice counts twice. Raises an error if the top module is not defined or the modules are recursive.
+proc unpu_netlist_counts {text top} {
+  set h [unpu_netlist_histogram $text $top]
+  set total 0
+  dict for {ty n} [dict get $h hist] { incr total $n }
+  return [list modules [llength [dict get $h mods]] leaf_cells $total]
+}
+# unpu_netlist_histogram text top -> dict {mods <list> hist <dict library-cell type -> count in the flattened design>}. The flattened leaf
+# count is the sum of hist (the same quantity as the tool's get_cells -hierarchical -filter is_hierarchical==false).
+proc unpu_netlist_histogram {text top} {
+  set sc [unpu_netlist_scan $text]
+  set mods [dict get $sc mods]
+  set insts [dict get $sc insts]
   if {[lsearch -exact $mods $top] < 0} { return -code error "top module $top is not defined in the netlist" }
   array set ismod {}
   foreach m $mods { set ismod($m) 1 }
   array set memo {}
   array set onstack {}
-  proc unpu_nl_leaf {m} {
+  proc unpu_nl_hist {m} {
     upvar 1 insts insts ismod ismod memo memo onstack onstack
     if {[info exists memo($m)]} { return $memo($m) }
     if {[info exists onstack($m)]} { return -code error "module $m instantiates itself" }
     set onstack($m) 1
-    set n 0
-    foreach ty $insts($m) { if {[info exists ismod($ty)]} { incr n [unpu_nl_leaf $ty] } else { incr n } }
+    set h [dict create]
+    foreach ty [dict get $insts $m] {
+      if {[info exists ismod($ty)]} {
+        dict for {t n} [unpu_nl_hist $ty] { dict incr h $t $n }
+      } else {
+        dict incr h $ty
+      }
+    }
     unset onstack($m)
-    set memo($m) $n
-    return $n
+    set memo($m) $h
+    return $h
   }
-  set leaf [unpu_nl_leaf $top]
-  return [list modules [llength $mods] leaf_cells $leaf]
+  return [dict create mods $mods hist [unpu_nl_hist $top]]
+}
+# unpu_hist_diff a b -> list of {name count_a count_b diff} sorted by |diff| (largest first), then name; only names with diff != 0.
+proc unpu_hist_diff {a b} {
+  set names [lsort -unique [concat [dict keys $a] [dict keys $b]]]
+  set rows {}
+  foreach n $names {
+    set ca 0; set cb 0
+    if {[dict exists $a $n]} { set ca [dict get $a $n] }
+    if {[dict exists $b $n]} { set cb [dict get $b $n] }
+    if {$ca != $cb} { lappend rows [list $n $ca $cb [expr {$ca - $cb}]] }
+  }
+  return [lsort -command unpu_hist_cmp $rows]
+}
+# larger |diff| first; equal |diff|: by name
+proc unpu_hist_cmp {x y} {
+  set dx [expr {abs([lindex $x 3])}]; set dy [expr {abs([lindex $y 3])}]
+  if {$dx != $dy} { return [expr {$dx < $dy ? 1 : -1}] }
+  return [string compare [lindex $x 0] [lindex $y 0]]
+}
+# text of a histogram, one "name count" line per type, names sorted, preceded by a header line and the total.
+proc unpu_hist_text {title h} {
+  set total 0
+  dict for {n c} $h { incr total $c }
+  set out "# $title: $total cells in [dict size $h] reference names"
+  foreach n [lsort [dict keys $h]] { append out "\n$n [dict get $h $n]" }
+  return "$out\n"
+}
+# TOOL PROCEDURE (task 060). Histogram of the linked design's leaf cells by reference name: dict name -> count. VERIFY: the cell attribute
+# `ref_name` (it is used as a filter in K28/K46; read back here with get_attribute).
+proc unpu_linked_histogram {} {
+  set h [dict create]
+  foreach_in_collection c [get_cells -hierarchical -filter "is_hierarchical==false"] {
+    dict incr h [get_attribute $c ref_name]
+  }
+  return $h
+}
+# TOOL PROCEDURE (task 060). Called by design_setup.tcl when the leaf-cell count of the linked design differs from the count of the netlist
+# file: writes the two histograms and their difference to $RPT_DIR (leaf_hist_tool.txt, leaf_hist_netlist.txt, leaf_hist_diff.txt) and prints the top
+# differences. It never stops the script (the CHECK that follows does). Returns nothing.
+proc unpu_leaf_mismatch_report {} {
+  global NETLIST TOP_NAME RPT_DIR
+  unpu_warn "leaf-cell count mismatch: writing the reference-name histograms of the linked design and of the netlist file to $RPT_DIR"
+  if {[catch {unpu_read_text $NETLIST} text] || [catch {unpu_netlist_histogram $text $TOP_NAME} nh]} {
+    unpu_warn "cannot build the netlist histogram: [expr {[info exists nh] ? $nh : $text}]"
+    return
+  }
+  set nhist [dict get $nh hist]
+  if {[catch {unpu_linked_histogram} thist]} { unpu_warn "cannot build the histogram of the linked design: $thist (VERIFY the ref_name attribute)"; return }
+  foreach {f title h} [list leaf_hist_tool.txt "linked design (get_cells -hierarchical -filter is_hierarchical==false, ref_name)" $thist leaf_hist_netlist.txt "netlist file $NETLIST (flattened from $TOP_NAME)" $nhist] {
+    if {[catch {set fh [open $RPT_DIR/$f w]; puts -nonewline $fh [unpu_hist_text $title $h]; close $fh} msg]} { unpu_warn "cannot write $RPT_DIR/$f: $msg" }
+  }
+  set diff [unpu_hist_diff $thist $nhist]
+  set out "# difference per reference name: tool, netlist, tool - netlist ([llength $diff] names differ)\n"
+  foreach r $diff { append out "[lindex $r 0] [lindex $r 1] [lindex $r 2] [lindex $r 3]\n" }
+  if {[catch {set fh [open $RPT_DIR/leaf_hist_diff.txt w]; puts -nonewline $fh $out; close $fh} msg]} { unpu_warn "cannot write $RPT_DIR/leaf_hist_diff.txt: $msg" }
+  unpu_info "leaf histograms: $RPT_DIR/leaf_hist_tool.txt, leaf_hist_netlist.txt, leaf_hist_diff.txt; names that differ: [llength $diff]"
+  foreach r [lrange $diff 0 14] { unpu_info "  LEAF-DIFF [lindex $r 0]: tool [lindex $r 1], netlist [lindex $r 2], difference [lindex $r 3]" }
 }
 # Reads $NETLIST, sets the globals NETLIST_MODULES and NETLIST_LEAF_CELLS (the expectations of design_setup, power, placement and
 # outputs), prints them as RESULT and, next to the first run's numbers, as an Info (a difference is not a failure).
@@ -1557,20 +1646,31 @@ proc unpu_parse_report_clocks {text clock} {
   }
   return [list unavailable unavailable]
 }
+# report_timing text -> ideal | propagated | mixed | none, from the `clock network delay (ideal|propagated)` lines of the paths (task 060). This is
+# what the tool itself prints for the clock of the reported paths, so it needs no attribute name. none = no such line in the text.
+proc unpu_parse_clock_network_mode {text} {
+  set ideal [regexp -- {clock network delay \(ideal\)} $text]
+  set prop  [regexp -- {clock network delay \(propagated\)} $text]
+  if {$ideal && $prop} { return mixed }
+  if {$ideal} { return ideal }
+  if {$prop} { return propagated }
+  return none
+}
 # {period propagated} of the clock `clk` in the CURRENT scenario. VERIFY (unprobed): get_attribute <clock> period / is_propagated, and
 # report_clocks. Each value falls back to the report_clocks text; "unavailable" if nothing works (the callers then FAIL their check).
 proc unpu_clock_facts {} {
   set period unavailable; set prop unavailable
   if {![catch {get_attribute [get_clocks clk] period} v] && [string is double -strict $v]} { set period $v }
+  set ::UNPU_PROP_SOURCE unavailable
   foreach a {is_propagated propagated_clock} {
-    if {![catch {get_attribute [get_clocks clk] $a} v] && $v ne "" && [string is boolean -strict $v]} { set prop [expr {[string is true $v] ? 1 : 0}]; break }
+    if {![catch {get_attribute [get_clocks clk] $a} v] && $v ne "" && [string is boolean -strict $v]} { set prop [expr {[string is true $v] ? 1 : 0}]; set ::UNPU_PROP_SOURCE "attribute $a"; break }
   }
   if {$period eq "unavailable" || $prop eq "unavailable"} {
     set ::UNPU_CK ""
     if {![catch {redirect -variable ::UNPU_CK {report_clocks}} m]} {
       lassign [unpu_parse_report_clocks $::UNPU_CK clk] p2 q2
       if {$period eq "unavailable"} { set period $p2 }
-      if {$prop eq "unavailable"} { set prop $q2 }
+      if {$prop eq "unavailable" && $q2 ne "unavailable"} { set prop $q2; set ::UNPU_PROP_SOURCE "report_clocks (layout ASSUMED)" }
     } else { unpu_warn "report_clocks failed ($m); the clock period / propagation may be unreadable (VERIFY: the command is unprobed)" }
   }
   return [list $period $prop]
@@ -1591,6 +1691,25 @@ proc unpu_profile_readback {profile scen {tree_exists 1}} {
   set rb [unpu_report $st profile_${profile}_${scen}_uncertainty "report_timing -delay_type $delay -max_paths 1 -nosplit"]
   set got [unpu_parse_clock_uncertainty $rb]
   unpu_check_pass $st profile_${profile}_${scen}_[expr {$isset ? {setup} : {hold}}]_uncertainty [expr {$got ne "" && abs($got - $want) < 1e-6}] "[expr {$isset ? {setup} : {hold}}] clock uncertainty read back from report_timing in scenario $scen: '$got' ns, profile $profile expects $want ns"
+  # Task 060 (real run): `get_attribute <clock> is_propagated` is not defined in icc2_shell (ATTR-1). The propagation read from the attribute /
+  # report_clocks is therefore CROSS-CHECKED against the `clock network delay (ideal|propagated)` lines of the report_timing text just read; the
+  # source is a RESULT line; if both are available and disagree the value is "unavailable" and the check below fails.
+  set mode [unpu_parse_clock_network_mode $rb]
+  set prop_rt [expr {$mode eq "propagated" ? 1 : ($mode eq "ideal" ? 0 : "unavailable")}]
+  set src $::UNPU_PROP_SOURCE
+  if {$prop eq "unavailable"} {
+    set prop $prop_rt
+    set src [expr {$prop_rt eq "unavailable" ? "unavailable" : "report_timing clock network delay ($mode)"}]
+  } elseif {$prop_rt ne "unavailable" && $prop != $prop_rt} {
+    unpu_warn "scenario $scen: propagation read from $src is $prop but report_timing prints clock network delay ($mode): the two DISAGREE; treating the propagation as unavailable"
+    set prop unavailable
+    set src "disagreement"
+  } elseif {$prop_rt ne "unavailable"} {
+    set src "$src, confirmed by report_timing clock network delay ($mode)"
+  } else {
+    set src "$src (no clock network delay line in report_timing to confirm it)"
+  }
+  unpu_result $st profile_${profile}_${scen}_propagation_source $src
   if {$kind eq "post" && !$tree_exists} {
     unpu_info "scenario $scen: clock propagation not checked (profile $profile is post-CTS but the clock tree does not exist yet): read back '$prop'"
   } else {
@@ -1995,10 +2114,17 @@ proc unpu_current_block_name {} {
 }
 # Open the design library at lib_dir and the block lib_name:block.
 # VERIFY (server): open_lib <path>, open_block <lib>:<block> (handoff 18.12 shows unpu_lib:unpu_top.design).
-proc unpu_open_stage {lib_dir lib_name block} {
+# Task 060: the message that names the stage whose block this stage opens, so that a chain of stages run with `;` after a failed first stage says
+# WHICH block is missing (a stage saves its block only when all its checks passed).
+proc unpu_prev_msg {prev_stage block} {
+  return "The block '$block' is saved by $prev_stage.tcl; run $prev_stage.tcl first (same UNPU_WORK and UNPU_RUN_TAG) and make sure it finished with all CHECKs PASS: it saves its block only then."
+}
+proc unpu_open_stage {lib_dir lib_name block {prev_stage ""}} {
+  set hint [expr {$prev_stage eq "" ? "" : " [unpu_prev_msg $prev_stage $block]"}]
+  if {![file exists $lib_dir]} { unpu_die "design library not found: $lib_dir.$hint" }
   unpu_need_file $lib_dir "design library"
   if {[catch {open_lib $lib_dir} msg]} { unpu_die "open_lib $lib_dir failed: $msg" }
-  if {[catch {open_block ${lib_name}:${block}} msg]} { unpu_die "open_block ${lib_name}:${block} failed: $msg" }
+  if {[catch {open_block ${lib_name}:${block}} msg]} { unpu_die "open_block ${lib_name}:${block} failed: $msg.$hint" }
   set cur [unpu_current_block_name]
   # the name may carry a label suffix (.design) or a library prefix
   if {![unpu_block_name_matches $cur $block]} {

@@ -60,7 +60,7 @@ unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
-  unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
+  unpu_die "design library not found: $lib_path. [unpu_prev_msg placement $BLK_PLACED]"
 }
 unpu_stage_begin cts run [list $lib_path]
 unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
@@ -84,7 +84,7 @@ foreach b $must_have {
     unpu_die "UNPU_CTS_STAGE=$CTS_STAGE needs the block $b in $lib_path, and it was not found (run UNPU_CTS_STAGE tree or all first)"
   }
 }
-unpu_open_stage $lib_path $LIB_NAME $open_blk
+unpu_open_stage $lib_path $LIB_NAME $open_blk [expr {$CTS_STAGE eq "hold" ? "cts" : "placement"}]
 
 # ---- helpers: the shared procedures live in common.tcl (unpu_scenario, unpu_report, unpu_paths, unpu_timing_summary) ----
 proc ct_scen {name} { unpu_scenario $name }

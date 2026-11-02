@@ -43,13 +43,13 @@ unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
-  unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
+  unpu_die "design library not found: $lib_path. [unpu_prev_msg fill $BLK_FINAL]"
 }
 # the layer map and the standard-cell GDS are inputs of write_gds: their SHA-256 goes into the manifest (and a missing one stops here)
 unpu_stage_begin outputs run [list $lib_path $GDS_LAYER_MAP $STD_GDS]
 unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
 if {$UNPU_CHECK_FAILED > 0} { unpu_die "the floorplan record does not match this run (UNPU_SYN_PROFILE / die): see the CHECK line above; nothing is done" }
-unpu_open_stage $lib_path $LIB_NAME $BLK_FINAL
+unpu_open_stage $lib_path $LIB_NAME $BLK_FINAL fill
 unpu_result outputs syn_profile $SYN_PROFILE
 unpu_netlist_expect          ;# NETLIST_MODULES, NETLIST_LEAF_CELLS computed from the netlist file the layout started from
 # the stage profile of the block we opened must be PROFILE_OUTPUTS (`route`): read back and CHECKED, not re-read (task 053)

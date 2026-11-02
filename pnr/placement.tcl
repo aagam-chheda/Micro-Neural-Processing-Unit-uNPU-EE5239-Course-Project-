@@ -38,7 +38,7 @@ unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
-  unpu_die "design library not found: $lib_path. The earlier scripts run first (same UNPU_WORK and UNPU_RUN_TAG)"
+  unpu_die "design library not found: $lib_path. [unpu_prev_msg pin_place $BLK_PINS]"
 }
 unpu_stage_begin placement run [list $lib_path]
 unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
@@ -50,7 +50,7 @@ if {![catch {get_blocks -quiet $BLK_PLACED} existing]} {
 } else {
   unpu_warn "could not list the blocks of the library ($existing); cannot tell whether block $BLK_PLACED exists already"
 }
-unpu_open_stage $lib_path $LIB_NAME $BLK_PINS
+unpu_open_stage $lib_path $LIB_NAME $BLK_PINS pin_place
 unpu_info "synthesis profile $SYN_PROFILE: netlist $NETLIST"
 unpu_result placement syn_profile $SYN_PROFILE
 unpu_netlist_expect          ;# NETLIST_MODULES, NETLIST_LEAF_CELLS computed from the netlist file

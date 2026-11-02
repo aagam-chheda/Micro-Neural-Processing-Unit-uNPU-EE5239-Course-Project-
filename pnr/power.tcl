@@ -43,7 +43,7 @@ unpu_require_syn_profile
 set UNPU_CHECK_CONTINUE 1
 set lib_path $LIB_DIR/$LIB_NAME
 if {![file exists $lib_path]} {
-  unpu_die "design library not found: $lib_path. design_setup.tcl and floorplan.tcl run first (same UNPU_WORK and UNPU_RUN_TAG)"
+  unpu_die "design library not found: $lib_path. [unpu_prev_msg floorplan $BLK_FP]"
 }
 unpu_stage_begin power run [list $lib_path]
 unpu_derive_die check          ;# the die from the synthesis area of UNPU_SYN_PROFILE (task 054); the floorplan record must name the same profile and die
@@ -58,7 +58,7 @@ if {![catch {get_blocks -quiet $BLK_PWR} existing]} {
 } else {
   unpu_warn "could not list the blocks of the library ($existing); cannot tell whether block $BLK_PWR exists already"
 }
-unpu_open_stage $lib_path $LIB_NAME $BLK_FP
+unpu_open_stage $lib_path $LIB_NAME $BLK_FP floorplan
 # the block must have no power yet: no P/G net, no shapes on it. VERIFY get_nets -quiet, get_shapes -of_objects
 foreach n [list $PG_NET_POWER $PG_NET_GROUND] {
   set ex [get_nets -quiet $n]
