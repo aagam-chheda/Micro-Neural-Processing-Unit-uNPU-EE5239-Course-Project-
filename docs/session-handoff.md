@@ -1444,3 +1444,11 @@ if a non-`max_area` violator, latch or don't-use hit). Task 053 (`pnr/` follows 
 **Progress 2026-11-02 (later).** Tasks 053 and 054 accepted. `pnr/` now: netlist from `UNPU_SYN_PROFILE` (`syn/out/<profile>/unpu_top_cn.dc.v`), constraints from `constraints/unpu_top.sdc` with the stage profile (`place`/`cts`/`route`) applied and read back per stage,
 WNS limits placement -1.0 / CTS -0.4 / route 0 (setup and hold), die derived from `syn/out/<profile>/unpu_top.area` (start utilisation 0.60, rows of 5.6 um, die = core + 11.2; old area gives 862.4 um), utilisation limits 75% / 80% / 80%,
 congestion overflow <= 1%, growth table against the instructor's typical budget. 487 local tests; VERIFY items K1-K48 unknown until the first real run. Biggest risk: K37 (SDC re-read with a clock tree present). The 868.0 um die and the 0.5/0.2 ns hold decisions are superseded.
+
+### 18.31 Clean-slate restart with the user's example scripts (user, 2026-11-02)
+
+New server folder `aagams_workspace2/unpu`; layout flow = the user's 11 example ICC2 scripts (`docs/planning/reference-scripts-2026-11-02/`, pristine, with SHA256SUMS), edited minimally into `pnr_v2/` (task 063). Constraints: the OLD set of 18.5/18.9
+(supersedes the stage-profile decision of 18.30 for this run); synthesis first (output `syn/out/legacy/`), then GLS, then layout. Pins follow the top-level answers of 18.9 Q4 (right APB + `clk`/`rst_n` on M3, top DMA on M2). Facts that drove the edits: the DC-written
+SDC carries the ss operating condition (hold scenario needs the ff one set explicitly); spec uncertainties typed in `cts.tcl`/`route.tcl` become 1.5 / 0.5. The scripted `pnr/` flow (tasks 038 to 062) stays in the repo, validated through floorplan and most of power on the real tool; tasks 059 and 062 are uncommitted and parked.
+
+User decisions 2026-11-02 (later): server path `/storage/EE5239G1/aagams_workspace2/unpu` confirmed; the optimiser margin goals in `pnr_v2/cts.tcl` and `route.tcl` (example: hold +0.70, setup +0.30) are set to 0.0 (task 065). Task 064 (synthesis with the old constraints into `syn/out/legacy/`) in progress.

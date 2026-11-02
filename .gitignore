@@ -28,3 +28,6 @@ unpu_*-verilog.pvl
 unpu_*-verilog.syn
 default.svf
 alib-*/
+
+# ICC2 outputs of the pnr_v2 flow (written next to the clone on the server)
+pnr_icc2/

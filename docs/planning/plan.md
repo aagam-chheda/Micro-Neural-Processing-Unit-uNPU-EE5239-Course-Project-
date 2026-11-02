@@ -1955,3 +1955,9 @@ first scripts, paste the logs.
 
 Decisions in `docs/planning/constraints-update-2026-11-02.md` section 9; handoff 18.30. Plan: tasks 051 (stage-parameterised SDC), 052 (DC runs at 20/18/16 ns, runbook, comparison script),
 then 053 (pnr stage profiles, per-stage WNS thresholds, utilisation and die from the new area) after the synthesis results exist.
+
+## Clean-slate restart with the user's example scripts, 2026-11-02
+
+User decision: new server folder `aagams_workspace2/unpu` (clone), the user's 11 example ICC2 scripts with minimal edits, the OLD constraints (20 ns, setup 1.5 / hold 0.5, APB 35/35, DMA 40/40, `rst_n` 40, min delays 0 / -0.5),
+order: synthesis, then gate-level simulation (Xcelium), then layout. Pristine copies and provenance: `docs/planning/reference-scripts-2026-11-02/`. Task 063 (sent to Execution): working copies in `pnr_v2/`.
+Next task (064, not written): synthesis with the old constraints into `syn/out/legacy/`. The `pnr/` flow and tasks 059 and 062 are parked (not committed, not deleted). Open decisions D1 to D5 are in task 063.
