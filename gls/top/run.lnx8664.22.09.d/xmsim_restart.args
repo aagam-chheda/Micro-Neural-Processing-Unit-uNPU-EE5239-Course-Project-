@@ -1,0 +1,25 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-amsdlibdir
+gls/top/AMSD
+-MESSAGES
++EMGRLOG
+logs/gls_top.log
+-XLSTIME
+1792081537
+-XLKEEP
+-XLMODE
+gls/top/run.lnx8664.22.09.d
+-RUNMODE
+-CDSLIB
+gls/top/run.lnx8664.22.09.d/cds.lib
+-HDLVAR
+gls/top/run.lnx8664.22.09.d/hdl.var
+-XLNAME
+xrun
+-XLVERSION
+"TOOL:	xrun(64)	22.09-s003"
+-XLNAME
+./gls/top/run.lnx8664.22.09.d/lalita.iitg.ac.in_31557

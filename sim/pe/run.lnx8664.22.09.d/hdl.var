@@ -1,0 +1,8 @@
+define XMSIMRC	( /home/Cadence_tools/XCELIUM2209/tools/xcelium/files/xmsimrc, ~/.xmsimrc )
+define AMSRC	( /home/Cadence_tools/XCELIUM2209/tools/xcelium/files/amsrc, ~/.amsrc )
+include ./hdlrun.var
+define SNAPSHOT worklib.unpu_top:sv
+DEFINE RUNMODEDEFAULT 1
+DEFINE LIB_MAP ( + => worklib )
+define ELAB_SNAPSHOT
+define SNAPSHOT worklib.unpu_pe_tb:sv

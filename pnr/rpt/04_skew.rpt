@@ -1,0 +1,39 @@
+[icc2-lic Mon Nov  2 23:00:42 2026] Command 'report_clock_timing' requires licenses
+[icc2-lic Mon Nov  2 23:00:42 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Mon Nov  2 23:00:42 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Mon Nov  2 23:00:42 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Check-out of alternate set of keys directly with queueing was successful
+****************************************
+Report : clock timing
+        -type skew
+        -nworst 1
+        -setup
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Mon Nov  2 23:00:42 2026
+****************************************
+
+  Mode: func
+  Clock: clk
+
+  Clock Pin                                          Latency      Skew             Corner
+---------------------------------------------------------------------------------------------------
+  u_wbuf/bank_a_reg_2__2__6_/CP                         2.05              rp-+         ss
+  u_grid/g_row_2__g_col_2__pe/weight_reg_reg_6_/CP      1.58      0.47    rp-+         ss
+
+---------------------------------------------------------------------------------------------------
+1

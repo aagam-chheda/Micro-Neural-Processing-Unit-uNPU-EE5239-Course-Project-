@@ -1,0 +1,23 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-amsdlibdir
+sim/compile/AMSD
+-MESSAGES
++EMGRLOG
+logs/compile.log
+-XLSTIME
+1792074606
+-XLKEEP
+-XLMODE
+sim/compile/run.lnx8664.22.09.d
+-RUNMODE
+-CDSLIB
+sim/compile/run.lnx8664.22.09.d/cds.lib
+-HDLVAR
+sim/compile/run.lnx8664.22.09.d/hdl.var
+-XLNAME
+xrun
+-XLVERSION
+"TOOL:	xrun(64)	22.09-s003"

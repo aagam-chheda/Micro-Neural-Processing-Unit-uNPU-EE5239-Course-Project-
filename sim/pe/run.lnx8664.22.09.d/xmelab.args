@@ -1,0 +1,26 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-amsdlibdir
+sim/pe/AMSD
+-ACCESS
++r
+-timescale
+1ns/1ps
+-XMLIBDIRNAME
+sim/pe
+-no_analogsolver
+-MESSAGES
+unpu_pe_tb
+-XLMODE
+sim/pe/run.lnx8664.22.09.d
+-RUNMODE
+-CDSLIB
+sim/pe/run.lnx8664.22.09.d/cds.lib
+-HDLVAR
+sim/pe/run.lnx8664.22.09.d/hdl.var
+-WORK
+worklib
+-IRUNHASTOP
+-HASXLMODE

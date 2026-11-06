@@ -1,0 +1,371 @@
+[icc2-lic Mon Nov  2 23:00:42 2026] Command 'report_timing' requires licenses
+[icc2-lic Mon Nov  2 23:00:42 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Mon Nov  2 23:00:42 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Mon Nov  2 23:00:42 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Mon Nov  2 23:00:42 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 23:00:42 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Mon Nov  2 23:00:42 2026] Check-out of alternate set of keys directly with queueing was successful
+Warning: Scenario func_ss is not configured for hold analysis: skipping. (UIC-058)
+****************************************
+Report : timing
+        -path_type full
+        -delay_type min
+        -max_paths 10
+        -report_by design
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Mon Nov  2 23:00:42 2026
+****************************************
+
+  Startpoint: u_grid/g_row_3__g_col_3__pe/psum_out_reg_27_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_seq/c_dst_reg_0__3__27_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.79      0.79
+
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_27_/CP (decrq1)
+                                                   0.00      0.79 r
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_27_/Q (decrq1)
+                                                   0.29      1.08 f
+  u_seq/HFSINV_169_38/ZN (invbdk)                  0.03      1.11 r
+  u_seq/U133/ZN (oaim22d4)                         0.12      1.24 f
+  u_seq/c_dst_reg_0__3__27_/D (dfcrq2)             0.00      1.24 f
+  data arrival time                                          1.24
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.79      0.79
+  u_seq/c_dst_reg_0__3__27_/CP (dfcrq2)            0.00      0.79 r
+  clock uncertainty                                0.50      1.29
+  library hold time                                0.01      1.30
+  data required time                                         1.30
+  ------------------------------------------------------------------------
+  data required time                                         1.30
+  data arrival time                                         -1.24
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.06
+
+
+
+  Startpoint: u_wbuf/bank_a_reg_2__2__7_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_2__3__7_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.81      0.81
+
+  u_wbuf/bank_a_reg_2__2__7_/CP (dfcrq2)           0.00      0.81 r
+  u_wbuf/bank_a_reg_2__2__7_/Q (dfcrq2)            0.21      1.02 f
+  u_wbuf/gre_a_INV_161_inst_4800/ZN (inv0d0)       0.19      1.22 r
+  u_wbuf/U535/ZN (oai22d1)                         0.07      1.28 f
+  u_wbuf/bank_a_reg_2__3__7_/D (dfcrq2)            0.00      1.29 f
+  data arrival time                                          1.29
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.81      0.81
+  u_wbuf/bank_a_reg_2__3__7_/CP (dfcrq2)           0.00      0.81 r
+  clock uncertainty                                0.50      1.31
+  library hold time                               -0.01      1.31
+  data required time                                         1.31
+  ------------------------------------------------------------------------
+  data required time                                         1.31
+  data arrival time                                         -1.29
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.02
+
+
+
+  Startpoint: u_wbuf/bank_a_reg_1__2__6_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_1__2__6_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.83      0.83
+
+  u_wbuf/bank_a_reg_1__2__6_/CP (dfcrq2)           0.00      0.83 r
+  u_wbuf/bank_a_reg_1__2__6_/Q (dfcrq2)            0.19      1.02 r
+  u_wbuf/U456/ZN (inv0d0)                          0.12      1.14 f
+  u_wbuf/U455/ZN (oai22d2)                         0.15      1.29 r
+  u_wbuf/bank_a_reg_1__2__6_/D (dfcrq2)            0.00      1.29 r
+  data arrival time                                          1.29
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.83      0.83
+  u_wbuf/bank_a_reg_1__2__6_/CP (dfcrq2)           0.00      0.83 r
+  clock uncertainty                                0.50      1.33
+  library hold time                               -0.02      1.31
+  data required time                                         1.31
+  ------------------------------------------------------------------------
+  data required time                                         1.31
+  data arrival time                                         -1.29
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.02
+
+
+
+  Startpoint: u_csr/src_a_reg_reg_10_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_csr/src_a_reg_reg_10_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.79      0.79
+
+  u_csr/src_a_reg_reg_10_/CP (dfcrn1)              0.00      0.79 r
+  u_csr/src_a_reg_reg_10_/QN (dfcrn1)              0.32      1.11 r
+  u_csr/U338/ZN (oai22d4)                          0.16      1.27 f
+  u_csr/src_a_reg_reg_10_/D (dfcrn1)               0.00      1.27 f
+  data arrival time                                          1.27
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.79      0.79
+  u_csr/src_a_reg_reg_10_/CP (dfcrn1)              0.00      0.79 r
+  clock uncertainty                                0.50      1.29
+  library hold time                               -0.00      1.29
+  data required time                                         1.29
+  ------------------------------------------------------------------------
+  data required time                                         1.29
+  data arrival time                                         -1.27
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.01
+
+
+
+  Startpoint: u_wbuf/bank_b_reg_3__0__2_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_b_reg_3__0__2_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.78      0.78
+
+  u_wbuf/bank_b_reg_3__0__2_/CP (dfcrq2)           0.00      0.78 r
+  u_wbuf/bank_b_reg_3__0__2_/Q (dfcrq2)            0.18      0.96 r
+  u_wbuf/gre_a_INV_148_inst_4787/ZN (inv0d0)       0.17      1.13 f
+  u_wbuf/U289/ZN (oai22d1)                         0.11      1.24 r
+  u_wbuf/bank_b_reg_3__0__2_/D (dfcrq2)            0.00      1.24 r
+  data arrival time                                          1.24
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.78      0.78
+  u_wbuf/bank_b_reg_3__0__2_/CP (dfcrq2)           0.00      0.78 r
+  clock uncertainty                                0.50      1.28
+  library hold time                               -0.03      1.25
+  data required time                                         1.25
+  ------------------------------------------------------------------------
+  data required time                                         1.25
+  data arrival time                                         -1.24
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.01
+
+
+
+  Startpoint: u_wbuf/bank_b_reg_3__0__4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_b_reg_3__0__4_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.81      0.81
+
+  u_wbuf/bank_b_reg_3__0__4_/CP (dfcrq2)           0.00      0.81 r
+  u_wbuf/bank_b_reg_3__0__4_/Q (dfcrq2)            0.18      1.00 r
+  u_wbuf/gre_a_INV_161_inst_4785/ZN (inv0d0)       0.14      1.14 f
+  u_wbuf/U305/ZN (oai22d1)                         0.13      1.27 r
+  u_wbuf/bank_b_reg_3__0__4_/D (dfcrq2)            0.00      1.27 r
+  data arrival time                                          1.27
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.81      0.81
+  u_wbuf/bank_b_reg_3__0__4_/CP (dfcrq2)           0.00      0.81 r
+  clock uncertainty                                0.50      1.31
+  library hold time                               -0.04      1.28
+  data required time                                         1.28
+  ------------------------------------------------------------------------
+  data required time                                         1.28
+  data arrival time                                         -1.27
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.01
+
+
+
+  Startpoint: u_wbuf/bank_a_reg_2__2__7_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_2__2__7_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.81      0.81
+
+  u_wbuf/bank_a_reg_2__2__7_/CP (dfcrq2)           0.00      0.81 r
+  u_wbuf/bank_a_reg_2__2__7_/Q (dfcrq2)            0.18      1.00 r
+  u_wbuf/gre_a_INV_161_inst_4800/ZN (inv0d0)       0.12      1.12 f
+  u_wbuf/U537/ZN (oai22d4)                         0.17      1.29 r
+  u_wbuf/bank_a_reg_2__2__7_/D (dfcrq2)            0.00      1.29 r
+  data arrival time                                          1.29
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.81      0.81
+  u_wbuf/bank_a_reg_2__2__7_/CP (dfcrq2)           0.00      0.81 r
+  clock uncertainty                                0.50      1.31
+  library hold time                               -0.02      1.30
+  data required time                                         1.30
+  ------------------------------------------------------------------------
+  data required time                                         1.30
+  data arrival time                                         -1.29
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.01
+
+
+
+  Startpoint: pwdata[6] (input port clocked by clk)
+  Endpoint: u_csr/src_b_reg_reg_6_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: **in2reg_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.64      0.89
+  input external delay                             0.00      0.89 f
+  pwdata[6] (in)                                   0.25      0.89 f
+  u_csr/U82/ZN (inv0d0)                            0.33      1.21 r
+  u_csr/U302/ZN (oai22d1)                          0.08      1.29 f
+  u_csr/src_b_reg_reg_6_/D (dfcrn1)                0.00      1.29 f
+  data arrival time                                          1.29
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.80      0.80
+  u_csr/src_b_reg_reg_6_/CP (dfcrn1)               0.00      0.80 r
+  clock uncertainty                                0.50      1.30
+  library hold time                               -0.01      1.29
+  data required time                                         1.29
+  ------------------------------------------------------------------------
+  data required time                                         1.29
+  data arrival time                                         -1.29
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.00
+
+
+
+  Startpoint: u_wbuf/bank_b_reg_1__0__4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_b_reg_1__1__4_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.80      0.80
+
+  u_wbuf/bank_b_reg_1__0__4_/CP (dfcrq2)           0.00      0.80 r
+  u_wbuf/bank_b_reg_1__0__4_/Q (dfcrq2)            0.19      0.99 r
+  u_wbuf/U677/ZN (inv0d0)                          0.17      1.16 f
+  u_wbuf/U173/ZN (oai22d1)                         0.14      1.30 r
+  u_wbuf/bank_b_reg_1__1__4_/D (dfcrq2)            0.00      1.30 r
+  data arrival time                                          1.30
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.83      0.83
+  u_wbuf/bank_b_reg_1__1__4_/CP (dfcrq2)           0.00      0.83 r
+  clock uncertainty                                0.50      1.33
+  library hold time                               -0.03      1.30
+  data required time                                         1.30
+  ------------------------------------------------------------------------
+  data required time                                         1.30
+  data arrival time                                         -1.30
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.00
+
+
+
+  Startpoint: u_wbuf/bank_a_reg_2__3__1_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_2__3__1_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: func
+  Corner: ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.83      0.83
+
+  u_wbuf/bank_a_reg_2__3__1_/CP (dfcrq2)           0.00      0.83 r
+  u_wbuf/bank_a_reg_2__3__1_/Q (dfcrq2)            0.19      1.02 r
+  u_wbuf/gre_a_INV_71_inst_4796/ZN (inv0d0)        0.12      1.14 f
+  u_wbuf/U481/ZN (oai22d4)                         0.17      1.31 r
+  u_wbuf/bank_a_reg_2__3__1_/D (dfcrq2)            0.00      1.31 r
+  data arrival time                                          1.31
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.83      0.83
+  u_wbuf/bank_a_reg_2__3__1_/CP (dfcrq2)           0.00      0.83 r
+  clock uncertainty                                0.50      1.33
+  library hold time                               -0.02      1.31
+  data required time                                         1.31
+  ------------------------------------------------------------------------
+  data required time                                         1.31
+  data arrival time                                         -1.31
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.00
+
+
+1

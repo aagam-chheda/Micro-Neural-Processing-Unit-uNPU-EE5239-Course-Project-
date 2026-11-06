@@ -1,0 +1,12 @@
+****************************************
+Report : global_timing
+	-format { narrow }
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Thu Oct 15 21:38:28 2026
+****************************************
+
+No setup violations found.
+
+No hold violations found.
+1

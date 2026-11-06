@@ -1,0 +1,102 @@
+
+
+VERSION 5.4 ;
+
+NAMESCASESENSITIVE ON ;
+
+DIVIDERCHAR "/" ;
+BUSBITCHARS "[]" ;
+
+UNITS
+    DATABASE MICRONS 1000  ;
+    TIME NANOSECONDS 1  ;
+    CAPACITANCE PICOFARADS 1  ;
+    RESISTANCE OHMS 1  ;
+END UNITS
+
+ MANUFACTURINGGRID    0.005000 ;
+SITE CoreSite
+    SYMMETRY Y  ;
+    CLASS CORE  ;
+    SIZE 0.560 BY 5.600 ;
+END CoreSite
+
+MACRO feedth9
+    CLASS CORE ;
+    FOREIGN feedth9 0 0 ;
+    ORIGIN 0.000 0.000 ;
+    SIZE 5.040 BY 5.600 ;
+    SYMMETRY X Y ;
+    SITE CoreSite ;
+    PIN VDD
+        DIRECTION INOUT ;
+        USE POWER ;
+        SHAPE ABUTMENT ;
+        PORT
+        LAYER M1 ;
+        RECT  0.000 4.860 5.040 5.600 ;
+        END
+    END VDD
+    PIN VSS
+        DIRECTION INOUT ;
+        USE GROUND ;
+        SHAPE ABUTMENT ;
+        PORT
+        LAYER M1 ;
+        RECT  0.000 0.000 5.040 0.740 ;
+        END
+    END VSS
+END feedth9
+MACRO feedth3
+    CLASS CORE ;
+    FOREIGN feedth3 0 0 ;
+    ORIGIN 0.000 0.000 ;
+    SIZE 1.680 BY 5.600 ;
+    SYMMETRY X Y ;
+    SITE CoreSite ;
+    PIN VDD
+        DIRECTION INOUT ;
+        USE POWER ;
+        SHAPE ABUTMENT ;
+        PORT
+        LAYER M1 ;
+        RECT  0.000 4.860 1.680 5.600 ;
+        END
+    END VDD
+    PIN VSS
+        DIRECTION INOUT ;
+        USE GROUND ;
+        SHAPE ABUTMENT ;
+        PORT
+        LAYER M1 ;
+        RECT  0.000 0.000 1.680 0.740 ;
+        END
+    END VSS
+END feedth3
+MACRO feedth
+    CLASS CORE ;
+    FOREIGN feedth 0 0 ;
+    ORIGIN 0.000 0.000 ;
+    SIZE 0.560 BY 5.600 ;
+    SYMMETRY X Y ;
+    SITE CoreSite ;
+    PIN VDD
+        DIRECTION INOUT ;
+        USE POWER ;
+        SHAPE ABUTMENT ;
+        PORT
+        LAYER M1 ;
+        RECT  0.000 4.860 0.560 5.600 ;
+        END
+    END VDD
+    PIN VSS
+        DIRECTION INOUT ;
+        USE GROUND ;
+        SHAPE ABUTMENT ;
+        PORT
+        LAYER M1 ;
+        RECT  0.000 0.000 0.560 0.740 ;
+        END
+    END VSS
+END feedth
+END LIBRARY

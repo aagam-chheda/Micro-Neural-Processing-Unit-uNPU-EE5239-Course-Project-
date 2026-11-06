@@ -1,0 +1,400 @@
+[icc2-lic Mon Nov  2 22:53:25 2026] Command 'report_timing' requires licenses
+[icc2-lic Mon Nov  2 22:53:25 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 22:53:25 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Mon Nov  2 22:53:25 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 22:53:25 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Mon Nov  2 22:53:25 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 22:53:25 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Mon Nov  2 22:53:25 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 22:53:25 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Mon Nov  2 22:53:25 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Mon Nov  2 22:53:25 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Mon Nov  2 22:53:25 2026] Check-out of alternate set of keys directly with queueing was successful
+Warning: Scenario func_ff is not configured for setup analysis: skipping. (UIC-058)
+****************************************
+Report : timing
+        -path_type full
+        -delay_type max
+        -max_paths 10
+        -report_by design
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Mon Nov  2 22:53:25 2026
+****************************************
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[14] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      0.55
+  input external delay                             7.00      7.55 f
+  paddr[3] (in)                                    0.55      7.55 f
+  u_apb/U29/Z (buffd1)                             0.54      8.09 f
+  u_csr/U209/ZN (nr03d0)                           0.63      8.72 r
+  u_csr/U16/ZN (nd02d0)                            0.54      9.26 f
+  u_csr/U17/Z (buffd1)                             0.53      9.80 f
+  u_csr/U396/ZN (oai222d1)                         0.44     10.24 r
+  u_apb/U31/Z (bufbd4)                             1.23     11.47 r
+  prdata[14] (out)                                 0.02     11.49 r
+  data arrival time                                         11.49
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.49
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.01
+
+
+
+  Startpoint: paddr[2] (input port clocked by clk)
+  Endpoint: prdata[4] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      1.08
+  input external delay                             7.00      8.08 r
+  paddr[2] (in)                                    1.08      8.08 r
+  U61/Z (buffd1)                                   0.50      8.58 r
+  u_csr/U23/ZN (inv0d2)                            0.08      8.66 f
+  u_csr/U24/ZN (nr03d0)                            0.66      9.31 r
+  u_csr/ctmTdsLR_1_1013/ZN (nd12d1)                0.19      9.51 f
+  u_csr/U11/Z (buffd1)                             0.48      9.98 f
+  u_csr/U75/ZN (oai221d1)                          0.54     10.53 r
+  u_apb/U9/Z (buffd7)                              0.92     11.45 r
+  prdata[4] (out)                                  0.04     11.48 r
+  data arrival time                                         11.48
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.48
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.02
+
+
+
+  Startpoint: paddr[2] (input port clocked by clk)
+  Endpoint: prdata[30] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      1.08
+  input external delay                             7.00      8.08 r
+  paddr[2] (in)                                    1.08      8.08 r
+  U61/Z (buffd1)                                   0.50      8.58 r
+  u_csr/U23/ZN (inv0d2)                            0.08      8.66 f
+  u_csr/U24/ZN (nr03d0)                            0.66      9.31 r
+  u_csr/ctmTdsLR_1_1013/ZN (nd12d1)                0.19      9.51 f
+  u_csr/U11/Z (buffd1)                             0.48      9.98 f
+  u_csr/U69/ZN (oai222d1)                          0.52     10.51 r
+  U33/ZN (inv0d2)                                  0.16     10.67 f
+  U19/ZN (inv0d7)                                  0.78     11.45 r
+  prdata[30] (out)                                 0.03     11.48 r
+  data arrival time                                         11.48
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.48
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.02
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[16] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      0.55
+  input external delay                             7.00      7.55 f
+  paddr[3] (in)                                    0.55      7.55 f
+  u_apb/U29/Z (buffd1)                             0.54      8.09 f
+  u_csr/U209/ZN (nr03d0)                           0.63      8.72 r
+  u_csr/U16/ZN (nd02d0)                            0.54      9.26 f
+  u_csr/U17/Z (buffd1)                             0.53      9.80 f
+  u_csr/U394/ZN (oai222d1)                         0.43     10.22 r
+  u_apb/U36/Z (bufbd4)                             1.23     11.45 r
+  prdata[16] (out)                                 0.02     11.47 r
+  data arrival time                                         11.47
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.47
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.03
+
+
+
+  Startpoint: paddr[2] (input port clocked by clk)
+  Endpoint: prdata[2] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      1.08
+  input external delay                             7.00      8.08 r
+  paddr[2] (in)                                    1.08      8.08 r
+  U61/Z (buffd1)                                   0.50      8.58 r
+  u_csr/U23/ZN (inv0d2)                            0.08      8.66 f
+  u_csr/U208/ZN (nr02d0)                           0.50      9.16 r
+  u_csr/U106/Z (an02d0)                            0.31      9.46 r
+  u_csr/U105/Z (an02d1)                            0.25      9.71 r
+  u_csr/U373/ZN (aoi322d1)                         0.14      9.85 f
+  u_csr/U206/ZN (oai211d4)                         1.56     11.41 r
+  prdata[2] (out)                                  0.06     11.47 r
+  data arrival time                                         11.47
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.47
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.03
+
+
+
+  Startpoint: paddr[2] (input port clocked by clk)
+  Endpoint: prdata[0] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      1.08
+  input external delay                             7.00      8.08 r
+  paddr[2] (in)                                    1.08      8.08 r
+  U61/Z (buffd1)                                   0.50      8.58 r
+  u_csr/U23/ZN (inv0d2)                            0.08      8.66 f
+  u_csr/U208/ZN (nr02d0)                           0.50      9.16 r
+  u_csr/U106/Z (an02d0)                            0.31      9.46 r
+  u_csr/U105/Z (an02d1)                            0.25      9.71 r
+  u_csr/U402/ZN (aoi322d1)                         0.13      9.84 f
+  u_csr/U401/ZN (oai211d4)                         1.56     11.40 r
+  prdata[0] (out)                                  0.06     11.46 r
+  data arrival time                                         11.46
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.46
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.04
+
+
+
+  Startpoint: paddr[2] (input port clocked by clk)
+  Endpoint: prdata[3] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      1.08
+  input external delay                             7.00      8.08 r
+  paddr[2] (in)                                    1.08      8.08 r
+  U61/Z (buffd1)                                   0.50      8.58 r
+  u_csr/U23/ZN (inv0d2)                            0.08      8.66 f
+  u_csr/U24/ZN (nr03d0)                            0.66      9.31 r
+  u_csr/ctmTdsLR_1_1013/ZN (nd12d1)                0.19      9.51 f
+  u_csr/U11/Z (buffd1)                             0.48      9.98 f
+  u_csr/U368/ZN (oai221d1)                         0.38     10.36 r
+  U48/ZN (inv0d1)                                  0.21     10.57 f
+  U4/ZN (invbd4)                                   0.87     11.44 r
+  prdata[3] (out)                                  0.02     11.46 r
+  data arrival time                                         11.46
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.46
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.04
+
+
+
+  Startpoint: paddr[2] (input port clocked by clk)
+  Endpoint: prdata[29] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      1.08
+  input external delay                             7.00      8.08 r
+  paddr[2] (in)                                    1.08      8.08 r
+  U61/Z (buffd1)                                   0.50      8.58 r
+  u_csr/U23/ZN (inv0d2)                            0.08      8.66 f
+  u_csr/U24/ZN (nr03d0)                            0.66      9.31 r
+  u_csr/ctmTdsLR_1_1013/ZN (nd12d1)                0.19      9.51 f
+  u_csr/U11/Z (buffd1)                             0.48      9.98 f
+  u_csr/U376/ZN (oai222d1)                         0.36     10.34 r
+  U56/ZN (inv0d1)                                  0.19     10.53 f
+  U57/ZN (invbd4)                                  0.88     11.41 r
+  prdata[29] (out)                                 0.05     11.46 r
+  data arrival time                                         11.46
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.46
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.04
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[18] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      0.55
+  input external delay                             7.00      7.55 f
+  paddr[3] (in)                                    0.55      7.55 f
+  u_apb/U29/Z (buffd1)                             0.54      8.09 f
+  u_csr/U209/ZN (nr03d0)                           0.63      8.72 r
+  u_csr/U16/ZN (nd02d0)                            0.54      9.26 f
+  u_csr/U17/Z (buffd1)                             0.53      9.80 f
+  u_csr/U392/ZN (oai222d1)                         0.41     10.20 r
+  u_apb/U32/Z (bufbd4)                             1.22     11.43 r
+  prdata[18] (out)                                 0.03     11.45 r
+  data arrival time                                         11.45
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.45
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.05
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[26] (output port clocked by clk)
+  Mode: func
+  Corner: ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (ideal)                      0.00      0.55
+  input external delay                             7.00      7.55 f
+  paddr[3] (in)                                    0.55      7.55 f
+  u_apb/U29/Z (buffd1)                             0.54      8.09 f
+  u_csr/U209/ZN (nr03d0)                           0.63      8.72 r
+  u_csr/U16/ZN (nd02d0)                            0.54      9.26 f
+  u_csr/U18/Z (buffd1)                             0.54      9.80 f
+  u_csr/U379/ZN (oai222d1)                         0.52     10.32 r
+  u_apb/U42/Z (buffd4)                             1.11     11.43 r
+  prdata[26] (out)                                 0.02     11.45 r
+  data arrival time                                         11.45
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (ideal)                      0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.45
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.05
+
+
+1

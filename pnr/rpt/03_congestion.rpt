@@ -1,0 +1,18 @@
+Information: The command 'report_congestion' cleared the undo history. (UNDO-016)
+Warning: The congestion map is out dated. Specify -rerun_global_router option to regenerate one.
+
+****************************************
+Report : congestion
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Mon Nov  2 22:53:25 2026
+****************************************
+
+Layer     |    overflow     |              # GRCs has
+Name      |  total  |  max  | overflow (%)      | max overflow
+---------------------------------------------------------------
+Both Dirs |     587 |     7 |     421  ( 0.97%) |       1
+H routing |     113 |     3 |     101  ( 0.47%) |       1
+V routing |     474 |     7 |     320  ( 1.48%) |       1
+
+1

@@ -1,0 +1,27 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-amsdlibdir
+gls/top/AMSD
+-ACCESS
++r
+-timescale
+1ns/1ps
+-NOTIMINGCHECKS
+-XMLIBDIRNAME
+gls/top
+-no_analogsolver
+-MESSAGES
+unpu_top_tb
+-XLMODE
+gls/top/run.lnx8664.22.09.d
+-RUNMODE
+-CDSLIB
+gls/top/run.lnx8664.22.09.d/cds.lib
+-HDLVAR
+gls/top/run.lnx8664.22.09.d/hdl.var
+-WORK
+worklib
+-IRUNHASTOP
+-HASXLMODE

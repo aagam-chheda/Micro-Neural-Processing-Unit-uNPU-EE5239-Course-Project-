@@ -1,0 +1,32 @@
+ 
+****************************************
+Report : area
+Design : unpu_top
+Version: T-2022.03-SP5
+Date   : Thu Oct  8 18:29:00 2026
+****************************************
+
+Information: Updating design information... (UID-85)
+Warning: Design 'unpu_top' contains 1 high-fanout nets. A fanout number of 1000 will be used for delay calculations involving these nets. (TIM-134)
+Library(s) Used:
+
+    tsl18fs120_scl_ss (File: /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss/tsl18fs120_scl_ss.db)
+
+Number of ports:                         7452
+Number of nets:                         22262
+Number of cells:                        13236
+Number of combinational cells:          10644
+Number of sequential cells:              2465
+Number of macros/black boxes:               0
+Number of buf/inv:                       2375
+Number of references:                      16
+
+Combinational area:             269404.533420
+Buf/Inv area:                    29397.570100
+Noncombinational area:          172266.190163
+Macro/Black Box area:                0.000000
+Net Interconnect area:           13243.782386
+
+Total cell area:                441670.723582
+Total area:                     454914.505968
+1

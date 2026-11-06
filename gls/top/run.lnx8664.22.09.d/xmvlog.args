@@ -1,0 +1,26 @@
+//
+// File created by:  xrun
+// Do not modify this file
+//
+-XLMODE
+gls/top/run.lnx8664.22.09.d
+-RUNMODE
+-amsdlibdir
+gls/top/AMSD
+-sv
+-XMLIBDIRNAME
+gls/top
+syn/out/unpu_top_cn.dc.v
+/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v
+tb/unpu_top_tb.sv
+-CDSLIB
+gls/top/run.lnx8664.22.09.d/cdsrun.lib
+-HDLVAR
+gls/top/run.lnx8664.22.09.d/hdlrun.var
+-no_analogsolver
+-MESSAGES
+-UPDATE
+-XLLIBSTORE
+gls/top/run.lnx8664.22.09.d/xllibs
+-ALLOWUNBOUND
+-hastop

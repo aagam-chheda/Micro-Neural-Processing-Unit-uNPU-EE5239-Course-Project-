@@ -1,0 +1,33 @@
+# Compiled golden-model binary and its generated vector files (model/golden.c
+# writes these at run time; see docs/planning/tasks/002-golden-model.md).
+model/golden
+model/golden.exe
+model/vectors/
+
+# Cadence Xcelium (xrun) output -- scripts/run_xrun.sh writes everything
+# under xrun_out/; the rest is what a bare xrun drops in the working dir.
+xrun_out/
+xcelium.d/
+INCA_libs/
+xrun.history
+xrun.key
+xrun.log
+xmsim.key
+*.shm/
+.simvision/
+*.log
+
+# Synopsys Design Compiler output (syn/dc_run.tcl writes everything under
+# syn/out/<design>/: logs, reports, netlist, .ddc, WORK/, default.svf).
+syn/out/
+
+# Synopsys DC scratch files. constraints/pm_dc_script_unpu.tcl cd's into syn/out/work/<profile>/ (already ignored
+# above), so these should no longer appear in the repo root; the patterns cover the leftovers of runs made before task 055.
+UNPU_*.mr
+unpu_*-verilog.pvl
+unpu_*-verilog.syn
+default.svf
+alib-*/
+
+# ICC2 outputs of the pnr_v2 flow (written next to the clone on the server)
+pnr_icc2/

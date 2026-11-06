@@ -1,0 +1,26 @@
+****************************************
+Report : report_utilization
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Thu Oct 15 23:11:03 2026
+****************************************
+Utilization Ratio:			0.6355
+Utilization options:
+ - Area calculation based on:		site_row of block unpu_top
+ - Categories of objects excluded:	hard_macros macro_keepouts soft_macros io_cells hard_blockages 
+Total Area:				675353.2800
+Total Capacity Area:			675353.2800
+Total Area of cells:			429158.4640
+Area of excluded objects:
+ - hard_macros         :		0.0000
+ - macro_keepouts      :		0.0000
+ - soft_macros         :		0.0000
+ - io_cells            :		0.0000
+ - hard_blockages      :		0.0000
+Total Area of excluded objects:		0.0000
+Ratio of excluded objects:		0.0000
+
+Utilization of site-rows with:
+ - Site 'unit':				0.6355
+
+0.6355

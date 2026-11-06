@@ -1,0 +1,2 @@
+s1(15Oct2026:20:01:01):  xrun -sv -64bit -access +r -timescale 1ns/1ps -top unpu_pe_tb -xmlibdirname sim/pe -l logs/sim_pe.log -f scripts/filelist.f tb/unpu_pe_tb.sv 
+s2(15Oct2026:20:03:04):  xrun -sv -64bit -access +r -timescale 1ns/1ps -top unpu_pe_tb -xmlibdirname sim/pe -l logs/sim_pe.log -f scripts/filelist.f tb/unpu_pe_tb.sv -gui 

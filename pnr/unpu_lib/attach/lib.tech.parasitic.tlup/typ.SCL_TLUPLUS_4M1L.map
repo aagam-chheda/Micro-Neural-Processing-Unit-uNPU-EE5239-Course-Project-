@@ -1,0 +1,24 @@
+********************************************************************************
+*       File:           TLUPLUS map file
+
+
+********************************************************************
+
+conducting_layers
+  poly			POLY
+  metal1                M1
+  metal2                M2
+  metal3                M3
+  metal4                TOP_M
+
+via_layers
+  CC			CS_GC
+  via1                    V2
+  via2                    V3
+  via3                    TOP_V
+  
+marker_layers
+  
+remove_layers
+  ACTIVE
+  SUBSTRATE
