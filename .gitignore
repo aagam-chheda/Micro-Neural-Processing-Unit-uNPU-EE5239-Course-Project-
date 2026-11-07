@@ -20,3 +20,31 @@ xmsim.key
 # Synopsys Design Compiler output (syn/dc_run.tcl writes everything under
 # syn/out/<design>/: logs, reports, netlist, .ddc, WORK/, default.svf).
 syn/out/
+
+# Design Compiler WORK library dumped in the launch directory when analyze runs
+# without define_design_lib (scripts/synth.tcl now points it at syn/out/).
+*-verilog.pvl
+*-verilog.syn
+*-sverilog.pvl
+*-sverilog.syn
+/*.mr
+/WORK/
+default.svf
+command.log
+filenames.log
+Synopsys_stack_trace_*.txt
+crte_*.txt
+
+# Tool console captures at the repo root
+/lm_output.txt
+/icc2_output.txt
+
+# Xcelium per-run scratch (xrun run dirs, compiled libs, histories)
+run.lnx8664.*/
+worklib/
+*.history
+waves.shm/
+
+# Zipped copy of scripts/ -- the scripts themselves are tracked
+/unpu_pnr_scripts.zip
+/logs/*.txt

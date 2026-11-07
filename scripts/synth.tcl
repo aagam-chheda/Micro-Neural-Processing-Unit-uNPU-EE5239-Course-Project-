@@ -59,6 +59,11 @@ set rtl_files [list \
     $rtl_dir/unpu_dma.sv   $rtl_dir/unpu_seq.sv    $rtl_dir/unpu_csr.sv \
     $rtl_dir/unpu_apb.sv   $rtl_dir/unpu_top.sv ]
 
+# ADDED: keep DC's WORK library (the *-verilog.pvl / *-verilog.syn / *.mr
+# files written by analyze) out of the repo root. syn/out/ is git-ignored.
+file mkdir syn/out/pm_flow/WORK
+define_design_lib WORK -path syn/out/pm_flow/WORK
+
 foreach ff $rtl_files {
     analyze -library WORK -format sverilog $ff
 }
