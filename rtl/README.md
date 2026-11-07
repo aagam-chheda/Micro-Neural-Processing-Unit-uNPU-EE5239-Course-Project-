@@ -63,19 +63,7 @@ The macro has two ports, and they do different jobs:
 | [`unpu_apb.sv`](unpu_apb.sv) | 93 | APB → register-port glue (no flops) | control |
 | [`unpu_top.sv`](unpu_top.sv) | 286 | Instantiates and connects all of the above | top |
 
-```mermaid
-graph TD
-    top[unpu_top] --> apb[unpu_apb]
-    top --> csr[unpu_csr]
-    top --> seq[unpu_seq]
-    top --> dma[unpu_dma]
-    top --> wbuf[unpu_wbuf]
-    top --> actbuf[unpu_actbuf]
-    top --> skew[unpu_skew]
-    top --> grid[unpu_grid]
-    top --> deskew[unpu_deskew]
-    grid --> pe["unpu_pe × 16"]
-```
+<p align="center"><img src="figures/15_hierarchy.png" alt="Module hierarchy" width="900"></p>
 
 ---
 
@@ -207,23 +195,7 @@ assign rd_data = active_bank[rd_row];         // 0-latency read
 
 ### 4.5 `unpu_seq` — the main sequencer
 
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> LATCH_CFG: start
-    LATCH_CFG --> ERROR: dim illegal (0 or >4)
-    LATCH_CFG --> W_FETCH: dims OK
-    W_FETCH --> W_SWAP: job_done
-    W_SWAP --> A_FETCH
-    A_FETCH --> A_SWAP: job_done
-    A_SWAP --> COMPUTE: cycle = 0
-    COMPUTE --> COMPUTE: cycle++
-    COMPUTE --> READ_OUTPUT: cycle == M+6
-    READ_OUTPUT --> WRITE_OUTPUT
-    WRITE_OUTPUT --> DONE: job_done
-    DONE --> IDLE
-    ERROR --> LATCH_CFG: start
-```
+<p align="center"><img src="figures/11_seq_fsm.png" alt="unpu_seq state machine" width="370"></p>
 
 | State | What happens | `array_en` |
 |---|---|:---:|
@@ -253,18 +225,7 @@ else if (state == COMPUTE && cycle >= 4'd7)
 
 ### 4.6 `unpu_dma` — the bus master
 
-```mermaid
-stateDiagram-v2
-    [*] --> D_IDLE
-    D_IDLE --> D_REQ: job_start
-    D_REQ --> D_REQ: !dma_ready
-    D_REQ --> D_ACK: dma_ready
-    D_ACK --> D_REQ: more beats
-    D_ACK --> BUF_LOAD: last beat (fetch A / W)
-    D_ACK --> D_FIN: last beat (write C)
-    BUF_LOAD --> D_FIN: 4 cycles
-    D_FIN --> D_IDLE: job_done
-```
+<p align="center"><img src="figures/12_dma_fsm.png" alt="unpu_dma state machine" width="900"></p>
 
 One FSM serves three job kinds (`job_kind`: `0` = FETCH_A, `1` = FETCH_W, `2` = WRITE_C). Reads land in a 4-word `stage` register file and are then streamed into the right buffer in `BUF_LOAD`. Weights are streamed in reverse row order to match `unpu_wbuf`'s bottom-up shift.
 
@@ -352,37 +313,7 @@ One transfer at a time, no bursts. Each beat takes at least 2 cycles (`D_REQ` + 
 
 ### 5.3 Internal job handshake, end to end
 
-```mermaid
-sequenceDiagram
-    participant CPU
-    participant CSR as unpu_csr
-    participant SEQ as unpu_seq
-    participant DMA as unpu_dma
-    participant BUF as wbuf / actbuf
-    participant SRAM
-    CPU->>CSR: APB write npu_ctrl.START
-    CSR->>SEQ: start_pulse (1 cycle later)
-    SEQ->>DMA: job_start, kind = FETCH_W, base = src_b
-    loop K beats
-        DMA->>SRAM: dma_valid, dma_addr
-        SRAM-->>DMA: dma_ready, then dma_rdata
-    end
-    DMA->>BUF: w_load_start + 4 rows
-    DMA-->>SEQ: job_done
-    SEQ->>BUF: w_swap (all PEs latch weights)
-    SEQ->>DMA: job_start, kind = FETCH_A, base = src_a
-    DMA->>BUF: a_load_start + 4 rows
-    DMA-->>SEQ: job_done
-    SEQ->>BUF: a_swap
-    Note over SEQ,BUF: COMPUTE: M + 7 cycles
-    SEQ->>DMA: job_start, kind = WRITE_C, base = dest_c
-    loop M·N beats
-        DMA->>SRAM: dma_valid, dma_wstrb = F, dma_wdata
-    end
-    DMA-->>SEQ: job_done
-    SEQ->>CSR: done pulse → npu_status.DONE
-    CPU->>CSR: APB read npu_status
-```
+<p align="center"><img src="figures/14_handshake.png" alt="End-to-end handshake sequence" width="900"></p>
 
 | Handshake | Shape | Rule |
 |---|---|---|
@@ -422,16 +353,7 @@ The array only works for `M + 7` of those cycles. **The single 32-bit memory por
 
 ## 8. Programming it from firmware
 
-```mermaid
-flowchart TD
-    A["Put A and B in SRAM, one row per word"] --> B["Write src_a, src_b, dest_c"]
-    B --> C["Write dim_m, dim_n, dim_k (1-4)"]
-    C --> D["Write npu_ctrl = 0x3 (START + SIGNED)"]
-    D --> E{"Read npu_status"}
-    E -- "DONE=0, ERROR=0" --> E
-    E -- "ERROR=1" --> F["Illegal dimension: fix and restart"]
-    E -- "DONE=1" --> G["Read C at dest_c + 16m + 4j"]
-```
+<p align="center"><img src="figures/13_firmware.png" alt="Firmware flow" width="460"></p>
 
 ```c
 #include <stdint.h>

@@ -48,7 +48,7 @@ verilator --binary --timing -Wno-fatal --top-module unpu_top_tb rtl/*.sv tb/unpu
 ./obj_dir/Vunpu_top_tb
 ```
 
-![Regression flow](figures/09_regression.svg)
+![Regression flow](figures/09_regression.png)
 
 `run_xrun.sh` decides PASS/FAIL **from the log, never from xrun's exit code**. The testbenches end in `$finish`, so xrun exits 0 even when checks fail. A testbench passes only if its log has no `*E`, `*F`, `FAIL` or `$fatal` line **and** contains its own final `ALL ... PASSED` line.
 
@@ -380,7 +380,7 @@ Counts are from `docs/freeze-report-v2.md` (and its addenda). The suite was also
 
 ### Mutation testing: does the suite have teeth?
 
-![Mutation flow](figures/10_mutation.svg)
+![Mutation flow](figures/10_mutation.png)
 
 Thousands of passing checks prove nothing if the checks cannot fail. Each mutation below was applied alone, in a throwaway `git worktree`, and the whole suite was run:
 
