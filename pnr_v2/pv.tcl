@@ -127,6 +127,26 @@ proc pv_lef_check {text name pins w h {tol 0.001}} {
 }
 # ---- END PURE TCL 073 ----
 
+# ---- BEGIN PURE TCL 076 ----
+# 076: SDF version check (plain Tcl). The first server run of the post-layout simulation showed that write_sdf of this ICC2 writes the header (SDFVERSION "OVI 2.1") but REMOVAL / RECOVERY entries,
+# 076: which exist only in SDF 3.0: Xcelium stops with SDFIRE ("REMOVAL keyword is only allowed in SDFVERSION of 3.0 or later") and SDFCNC (SDF skipped, a zero-delay run).
+# 076: the version strings of all (SDFVERSION "...") lines of a text, in order
+proc pv_sdf_versions {text} {
+    set out {}
+    foreach l [split $text "\n"] { if {[regexp {\(\s*SDFVERSION\s+"([^"]*)"\s*\)} $l -> v]} { lappend out $v } }
+    return $out
+}
+
+# 076: "" when the header has exactly one SDFVERSION line and it is "3.0"; otherwise a sentence
+proc pv_sdf_version_problem {text} {
+    set v [pv_sdf_versions $text]
+    if {[llength $v] == 0} { return "no (SDFVERSION \"...\") line in the header" }
+    if {[llength $v] > 1} { return "[llength $v] SDFVERSION lines in the header ($v), 1 expected" }
+    if {[lindex $v 0] ne "3.0"} { return "SDFVERSION is \"[lindex $v 0]\", 3.0 required" }
+    return ""
+}
+# ---- END PURE TCL 076 ----
+
 file mkdir $OUT_DIR
 file mkdir $LOG_DIR
 file mkdir $RPT_DIR
@@ -340,10 +360,39 @@ redirect -tee -file ${LOG_DIR}/7_pv.log {
         -mode mode_func \
         ${OUT_DIR}/${DESIGN_NAME}_ff.sdf
 
+    # 076: the SDF version. write_sdf of this ICC2 has NO -version option (usage text in ~/server_pull/rpt/help/write_sdf.txt: -include, -significant_digits, -compress, -corner, -mode), and it wrote the header
+    # 076: (SDFVERSION "OVI 2.1") over REMOVAL / RECOVERY entries, which belong to SDF 3.0 (Xcelium: SDFIRE, SDFCNC). The header line is therefore rewritten to 3.0 in the first lines of each file
+    # 076: (3.0 is a superset of 2.1, the entries are not touched), and the result is CHECKED: exactly one SDFVERSION line and it is 3.0, else the run ends with ERROR 076 below. The layout, the GDS and the
+    # 076: delays are unchanged, so the Calibre results stay valid.
+    set pv_sdf_problems {}   ;# 076
+    foreach pv_c {ss ff} {   ;# 076
+        set pv_sdf ${OUT_DIR}/${DESIGN_NAME}_${pv_c}.sdf   ;# 076
+        if {![file exists $pv_sdf] || [file size $pv_sdf] == 0} { lappend pv_sdf_problems "the SDF $pv_sdf does not exist or is empty"; continue }   ;# 076
+        if {[catch {exec head -n 60 $pv_sdf} pv_head]} { lappend pv_sdf_problems "cannot read the header of $pv_sdf: $pv_head"; continue }   ;# 076
+        set pv_ver0 [pv_sdf_versions $pv_head]   ;# 076
+        if {[catch {exec grep -c -E {\((REMOVAL|RECOVERY|RECREM|SETUPHOLD)[ )]} $pv_sdf} pv_n3]} { set pv_n3 0 }   ;# 076: grep -c exits 1 when the count is 0
+        puts ">>> 076 SDF $pv_sdf: SDFVERSION lines $pv_ver0; entries that exist only in SDF 3.0 (REMOVAL, RECOVERY, RECREM, SETUPHOLD): $pv_n3"   ;# 076
+        if {[pv_sdf_version_problem $pv_head] ne ""} {   ;# 076
+            if {[llength $pv_ver0] == 0} { lappend pv_sdf_problems "$pv_sdf: [pv_sdf_version_problem $pv_head] (nothing to rewrite)"; continue }   ;# 076
+            if {[catch {exec sed -i {1,60s/(SDFVERSION "[^"]*")/(SDFVERSION "3.0")/} $pv_sdf} pv_sed_err]} {   ;# 076: only the header lines are edited
+                lappend pv_sdf_problems "cannot rewrite the SDFVERSION of $pv_sdf: $pv_sed_err"; continue   ;# 076
+            }   ;# 076
+            puts ">>> 076 SDF $pv_sdf: SDFVERSION rewritten $pv_ver0 -> 3.0 (write_sdf has no -version option)"   ;# 076
+        }   ;# 076
+        catch {exec head -n 60 $pv_sdf} pv_head2   ;# 076
+        set pv_prob [pv_sdf_version_problem $pv_head2]   ;# 076
+        if {$pv_prob ne ""} { lappend pv_sdf_problems "$pv_sdf: $pv_prob" } else { puts ">>> 076 SDF CHECK PASSED: $pv_sdf has exactly one SDFVERSION line and it is 3.0" }   ;# 076
+    }   ;# 076
+    foreach pv_pr $pv_sdf_problems { puts ">>> 076 SDF CHECK FAILED: $pv_pr" }   ;# 076
+
     # 073: a failed LEF check makes the whole run fail (the other exports above are written, but nothing is saved and no COMPLETE line is printed)
     if {[llength $pv_lef_problems] > 0} {   ;# 073
         error "ERROR 073: the LEF export failed its checks, NOTHING SAVED, the run is NOT complete: [join $pv_lef_problems {; }]"   ;# 073
     }   ;# 073
+
+    if {[llength $pv_sdf_problems] > 0} {   ;# 076
+        error "ERROR 076: the SDF export failed its checks, NOTHING SAVED, the run is NOT complete: [join $pv_sdf_problems {; }]"   ;# 076
+    }   ;# 076
 
     # 5. Save Final Checkpoint
     save_block -as ${DESIGN_NAME}_pv

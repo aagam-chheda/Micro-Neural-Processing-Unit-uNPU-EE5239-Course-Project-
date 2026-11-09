@@ -63,6 +63,14 @@ judge_log() {
   echo "--- SDF warnings (not-found class): $n_sdfwarn; by message id:"
   printf '%s\n' "$sdftext" | grep -oE '\*W,SDF[A-Z]*' | sort | uniq -c | sed 's/^/    /'
   printf '%s\n' "$sdftext" | head -n 5 | sed 's/^/    /'
+  # ---- SDF compile errors (xmsdfc *E,SDFIRE syntax error, xmelab *W,SDFCNC "Cannot compile SDF file - skipping annotation"): the run is then a ZERO-DELAY run ----
+  local n_sdfc sdfctext
+  sdfctext=$(grep -E 'SDFIRE|SDFCNC' "$log")
+  n_sdfc=$(printf '%s' "$sdfctext" | grep -c . )
+  if [ "$n_sdfc" -gt 0 ]; then
+    echo "--- SDF compile errors (SDFIRE / SDFCNC): $n_sdfc; the SDF was NOT annotated, the simulation ran with zero delays:"
+    printf '%s\n' "$sdfctext" | head -n 5 | sed 's/^/    /'
+  fi
   # ---- timing-check violations (checks mode only) ----
   n_viol=0
   if [ "$mode" = checks ]; then
@@ -82,6 +90,7 @@ judge_log() {
   [ "$n_ann" -ge 1 ] || why+=("no SDF annotation message in the log: nothing proves that the SDF was applied")
   [ "$n_sdfwarn" -eq 0 ] || why+=("$n_sdfwarn SDF not-found warnings")
   [ "$n_viol" -eq 0 ] || why+=("$n_viol timing-check violations")
+  [ "$n_sdfc" -eq 0 ] || why+=("the SDF could not be compiled: check the SDFVERSION (needs 3.0 if it has REMOVAL/RECOVERY entries) and regenerate with pv.tcl")
   if [ "${#why[@]}" -eq 0 ]; then return 0; fi
   printf -- '--- reasons: %s\n' "$(IFS=';'; echo "${why[*]}")"
   return 1
@@ -104,6 +113,14 @@ sdf_info() {
   echo "=== SDF $f: [$(ls -l "$f" | awk '{print $5}') bytes]"
   head -n 40 "$f" | grep -E '^\s*\((SDFVERSION|DESIGN|DATE|VENDOR|PROGRAM|VERSION|DIVIDER|VOLTAGE|PROCESS|TEMPERATURE|TIMESCALE)' | sed 's/^/    /'
   echo "    counts: IOPATH $(grep -c 'IOPATH' "$f"), INTERCONNECT $(grep -c 'INTERCONNECT' "$f"), SETUPHOLD $(grep -c 'SETUPHOLD' "$f"), SETUP $(grep -cE '\(SETUP ' "$f"), HOLD $(grep -cE '\(HOLD ' "$f"), RECOVERY $(grep -c 'RECOVERY' "$f"), REMOVAL $(grep -c 'REMOVAL' "$f"), WIDTH $(grep -c 'WIDTH' "$f")"
+  local ver nrem
+  ver=$(head -n 40 "$f" | grep -oE '\(SDFVERSION[^)]*\)' | head -n1)
+  nrem=$(( $(grep -c 'REMOVAL' "$f") + $(grep -c 'RECOVERY' "$f") ))
+  echo "    SDF version line: ${ver:-none found}; REMOVAL + RECOVERY entries: $nrem"
+  case "$ver" in
+    *'"3.0"'*) ;;
+    *) if [ "$nrem" -gt 0 ]; then echo "    WARNING: the header is not SDFVERSION \"3.0\" but the file has $nrem REMOVAL/RECOVERY entries (SDF 3.0 only): Xcelium stops with *E,SDFIRE and skips the SDF (*W,SDFCNC). Regenerate with pv.tcl (it writes 3.0 since task 076) or run the sed of the README known-problem note."; fi ;;
+  esac
   echo "    first INSTANCE lines:"; grep -m3 -E '^\s*\(INSTANCE' "$f" | sed 's/^/        /'
   # do the min:typ:max triples differ? look at the first 5000 triples
   grep -m5000 -oE '\(-?[0-9.]*:-?[0-9.]*:-?[0-9.]*\)' "$f" | awk -F'[(:)]' 'BEGIN{n=0;d=0} {n++; if ($2!=$4) d++} END{printf "    triples sampled: %d, with min != max: %d (%s)\n", n, d, (n==0 ? "no triples found" : (d==0 ? "all equal: the delay selection changes nothing" : "they differ: MTM_CONTROL matters"))}'

@@ -11,6 +11,7 @@ Nothing in PrimeTime changes a constraint: no uncertainty, limit, exception, cas
 | `pt_common.tcl` | paths and parameters in ONE place (top of the file), the procs; sourced by the two scripts; only `set` and `proc` at the top level, so `tclsh` can source it |
 | `pt_setup_ss.tcl` | setup at the slow corner: library `tsl18fs120_scl_ss`, SPEF of `corner_ss`, `unpu_top_pnr_ss.sdc` |
 | `pt_hold_ff.tcl` | hold at the fast corner: library `tsl18fs120_scl_ff`, SPEF of `corner_ff`, `unpu_top_pnr_ff.sdc` |
+| `check_annotation.tcl` | the post-run annotation check (see 3b): `tclsh` on the finished `parasitics_command.log`, same parser and policy as the scripts; prints `ANNOTATION CHECK PASSED` or `FAILED` |
 | `test_pt_common.tcl` | local tests of the pure-Tcl procs (`tclsh pnr_v2/pt/test_pt_common.tcl`) |
 
 Inputs (written by `pv.tcl` into `pnr_icc2/outputs/`): `unpu_top_pnr_sim.v` (the netlist WITHOUT PG pins: PrimeTime without UPF does not know the PG pins, and `pv.tcl` renames the nets `N<digits>` to `N_uc_<digits>` only in the PG netlist, so the SPEF would not match it), `unpu_top_spef.TYPICAL_RC_125.spef`, `unpu_top_spef.TYPICAL_RC_-40.spef`, `unpu_top_spef.spef_scenario`, `unpu_top_pnr_ss.sdc`, `unpu_top_pnr_ff.sdc`, and the two kit `.db` libraries. The `.sdf` files are not needed for STA.
@@ -53,6 +54,27 @@ The two SPEF files are named by temperature; the file name is NEVER used to deci
 - one file is named for both corners.
 
 If it stops: read the printed content, decide by eye which file belongs to which scenario, and set `PT_SPEF_OVERRIDE(ss)` / `PT_SPEF_OVERRIDE(ff)` in `pt_common.tcl` to the file name (the script then prints `OVERRIDE`). Do not set it without having read the content. The mapping, once known, goes into the progress log.
+
+## 3b. The parasitics log is written buffered (why the annotation check may need a second step)
+
+PrimeTime T-2022.03-SP2 does not print the text of `read_parasitics` and `report_annotated_parasitics` into the session. It prints `Information: Log for '<command> command' will be generated in 'parasitics_command.log'. (PARA-107)` and writes the text to that file in the CURRENT directory. In the rerun the file stayed at 0 bytes during the session and was complete only afterwards, and each `pt_shell` run recreates it. The annotation check is MANDATORY (it is the proof that the parasitics of every net with timing arcs were applied), so:
+
+1. **In-session (the method to verify on the server).** Before `read_parasitics` the script prints `printvar parasitics_log_file`, sets the variable to an empty string (`set_app_var parasitics_log_file ""`, VERIFY V19) and prints it again; the text is then expected in the session and is parsed there (`annotation table read from the session text of report_annotated_parasitics`). If this works, nothing else is needed. If it works, the README should be updated with that result.
+2. **Fallback, two steps, still mandatory.** If the table is still not in the session the script STOPS and says so. To continue anyway the user declares the post-run check (csh):
+
+```
+setenv PT_ANNOTATION_CHECKED_AFTER 1
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+cp parasitics_command.log parasitics_command_ss.log
+tclsh ../../pnr_v2/pt/check_annotation.tcl parasitics_command_ss.log TYPICAL_RC_125 |& tee pt_annotation_check_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+cp parasitics_command.log parasitics_command_ff.log
+tclsh ../../pnr_v2/pt/check_annotation.tcl parasitics_command_ff.log TYPICAL_RC_-40 |& tee pt_annotation_check_ff.log
+unsetenv PT_ANNOTATION_CHECKED_AFTER
+```
+
+   The last argument is the tag of the SPEF that the script decided for the corner (the line `SPEF for corner ss decided from the text` in the log); `check_annotation.tcl` fails if that text is not in the file, which catches a file of the wrong run. The `cp` before the next run is needed because each run recreates the file. With the declaration, the log prints `ANNOTATION NOT CHECKED IN-SESSION: run check_annotation after the session` and the SUMMARY block carries the line `CAVEAT: ANNOTATION NOT CHECKED IN-SESSION ...`. The sign-off result counts only when the matching `check_annotation.tcl` run printed `ANNOTATION CHECK PASSED`. The check applies the same rules as in-session (read_parasitics errors, pin-to-pin nets not annotated above `PT_MAX_UNANNOTATED_PCT`, table consistency) and cannot be waived.
+3. Without the declaration the default stands: the script stops.
 
 ## 4. What to read in the log
 
@@ -122,3 +144,4 @@ Hold violators have their own files: copy `pt_hold_ff_violated_*.rpt` too (`scp 
 | V16 | `get_license PrimeTime-SI` (only with `PT_SI_ENABLE 1`) | the line `SI/crosstalk analysis ON` or the stop message |
 | V17 | `get_cells -hierarchical -filter "is_hierarchical == false"` and `get_lib_cells -filter "is_black_box == true"` | the `linked` line |
 | V18 | The per-endpoint `report_timing -from <startpoint> -to <endpoint>` finds the objects by name | the `pt_hold_ff_violated_*.rpt` files |
+| V19 | `parasitics_log_file`: `printvar` shows its value; `set_app_var parasitics_log_file ""` makes `read_parasitics` / `report_annotated_parasitics` print into the session | the lines `parasitics_log_file before:` / `after:` and `annotation table read from the session text` |

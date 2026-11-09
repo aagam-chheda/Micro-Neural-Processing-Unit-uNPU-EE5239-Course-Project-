@@ -212,6 +212,55 @@ check "last block: the LAST 'Report : annotated_parasitics' block of the whole f
 check "last block: none -> empty" {[pt_last_annotation_block "no report"] eq ""}
 file delete $lname
 check "the parasitics log name is a parameter" {$PT_PARA_LOG eq "parasitics_command.log"}
+# ---- the post-run check (check_annotation.tcl) and the in-session caveat (second fix: the log file is written buffered, complete only after the session)
+set logtext "SPEF parsing summary:\n  Reading SPEF file unpu_top_spef.TYPICAL_RC_125.spef\n  0 error(s)\n  3 warning(s)\n\n$tbl"
+lassign [pt_check_log_text $logtext 0.0] ok lines
+check "log check: the real log text is accepted" {$ok == 1 && [llength [lsearch -all -glob $lines "read_parasitics errors: 0"]] == 1}
+lassign [pt_check_log_text [string map {"|   16113 |      0 |     0 |      16113 |             0" "|   16113 |      0 |     0 |      16100 |            13"} $logtext] 0.0] ok lines
+check "log check: an unannotated pin-to-pin row fails (also the inconsistent total)" {$ok == 0}
+lassign [pt_check_log_text [string map {"0 error(s)" "7 error(s)"} $logtext] 0.0] ok lines
+check "log check: errors fail" {$ok == 0 && [llength [lsearch -all -glob $lines "read_parasitics reported 7 error(s)*"]] == 1}
+lassign [pt_check_log_text "SPEF parsing summary:\n  0 error(s)\n" 0.0] ok lines
+check "log check: no table fails, and it cannot be waived" {$ok == 0}
+set two "$logtext\nReport : annotated_parasitics -check\n[string map {16113 99999} [string range $tbl [string first Net $tbl] end]]"
+lassign [pt_check_log_text $two 0.0] ok lines
+check "log check: the LAST report block is the one judged (the first block's numbers are not used)" {[llength [lsearch -all -glob $lines "*99999*"]] == 1 || $ok == 0}
+check "declared after: only the value 1" {[pt_declared_after 1] == 1 && [pt_declared_after ""] == 0 && [pt_declared_after 0] == 0 && [pt_declared_after yes] == 0 && [pt_declared_after 11] == 0}
+check "caveat: none when checked in-session" {[pt_summary_caveat 0] eq ""}
+check "caveat: the SUMMARY line when not checked" {[llength [pt_summary_caveat 1]] == 1 && [string match "ANNOTATION NOT CHECKED IN-SESSION: run check_annotation after the session*" [lindex [pt_summary_caveat 1] 0]]}
+check "the environment variable name" {$PT_ANNOTATION_ENV eq "PT_ANNOTATION_CHECKED_AFTER"}
+# the script itself, run with tclsh on files
+set cdir [file join [expr {[info exists ::env(TMPDIR)] ? $::env(TMPDIR) : "/tmp"}] ptca_[pid]]
+file mkdir $cdir
+proc wr {path text} { set fp [open $path w]; puts -nonewline $fp $text; close $fp }
+proc ca {args} { global here; set rc [catch {exec tclsh $here/check_annotation.tcl {*}$args 2>@1} out]; return [list $rc $out] }
+wr $cdir/good.log $logtext
+lassign [ca $cdir/good.log] rc out
+check "check_annotation: the real log -> exit 0 and ANNOTATION CHECK PASSED" {$rc == 0 && [string match "*ANNOTATION CHECK PASSED*" $out] && [string match "*pin-to-pin nets: 16295 in total*" $out]}
+check "check_annotation: it prints the SPEF lines of the log" {[string match "*Reading SPEF file unpu_top_spef.TYPICAL_RC_125.spef*" $out]}
+lassign [ca $cdir/good.log TYPICAL_RC_125] rc out
+check "check_annotation: the expected text is found -> PASSED" {$rc == 0}
+lassign [ca $cdir/good.log TYPICAL_RC_-40] rc out
+check "check_annotation: the expected text is missing (log of the wrong run) -> FAILED" {$rc != 0 && [string match "*ANNOTATION CHECK FAILED*expected text 'TYPICAL_RC_-40'*" $out]}
+wr $cdir/bad1.log [string map {"|   16113 |      0 |     0 |      16113 |             0" "|   16113 |      0 |     0 |      16100 |            13" "|   16688 |      0 |     0 |      16295 |           393 |" "|   16688 |      0 |     0 |      16282 |           406 |"} $logtext]
+lassign [ca $cdir/bad1.log] rc out
+check "check_annotation: 13 unannotated pin-to-pin nets -> FAILED, exit 1" {$rc != 0 && [string match "*ANNOTATION CHECK FAILED*" $out] && [string match "*13 pin-to-pin nets*" $out]}
+wr $cdir/bad2.log [string map {"0 error(s)" "3 error(s)"} $logtext]
+lassign [ca $cdir/bad2.log] rc out
+check "check_annotation: read_parasitics errors -> FAILED" {$rc != 0 && [string match "*3 error(s)*" $out]}
+wr $cdir/bad3.log "SPEF parsing summary:\n  0 error(s)\n"
+lassign [ca $cdir/bad3.log] rc out
+check "check_annotation: no table in the file -> FAILED" {$rc != 0 && [string match "*ANNOTATION CHECK FAILED*" $out]}
+wr $cdir/empty.log ""
+lassign [ca $cdir/empty.log] rc out
+check "check_annotation: an empty file -> FAILED" {$rc != 0 && [string match "*is empty*" $out]}
+lassign [ca $cdir/missing.log] rc out
+check "check_annotation: a missing file -> FAILED" {$rc != 0 && [string match "*does not exist*" $out]}
+set cwd [pwd]
+cd $cdir; file copy -force good.log parasitics_command.log
+set rc [catch {exec tclsh $here/check_annotation.tcl 2>@1} out]; cd $cwd
+check "check_annotation: the default file is parasitics_command.log of the current directory" {$rc == 0 && [string match "*ANNOTATION CHECK PASSED*" $out]}
+file delete -force $cdir
 set ct "Warning: There are 3 endpoints which are not constrained for maximum delay.\n  pready\n  u_x/reg_a/D\n  u_y/reg_b/D\n\nInformation: next section\n"
 lassign [pt_parse_unconstrained $ct] head names
 check "check_timing: heading and names" {$head == 1 && $names eq "pready u_x/reg_a/D u_y/reg_b/D"}

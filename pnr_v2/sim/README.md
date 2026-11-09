@@ -81,6 +81,22 @@ The cell delays are real now, so the absolute timing of the testbench matters: t
 2. **The testbench samples earlier than the output settles.** Signs: the FAIL lines are read values (`prdata`, `npu_status`, `mem C`) with plausible but old values, not X; the first FAIL is early; the failure appears at ss (A) and not at ff (C), because the ff delays are smaller; `DONE never observed` for a polling bound means the status never changed within the bound. The cure is not in the layout: report it to Planning with the first FAIL line and the time.
 3. **A real timing error in the placed design.** Signs: in `checks` mode (B, D) a violation message names an instance and a time BEFORE the first FAIL line; X appears in the failing values (the notifier turned a flop output to X); run A (checks off) passes while B or D fails; the instance is a reg-to-reg path that PrimeTime (task 074) also lists. Compare with `pt_hold_ff.log` and the ICC2 hold path of about -0.0004 ns.
 
+## Known problem: `*E,SDFIRE ... REMOVAL keyword is only allowed in SDFVERSION of 3.0 or later` (first server run, run A)
+
+- **What was seen:** `xmsdfc: *E,SDFIRE: pnr_icc2/outputs/unpu_top_ss.sdf, line 872: Syntax Error: REMOVAL keyword is only allowed in SDFVERSION of 3.0 or later`, then `xmelab: *W,SDFCNC: Cannot compile SDF file - skipping annotation`. The verdict was FAIL, correctly. The run itself was effectively zero-delay: `ALL CHECKS PASSED`, 343,341 checks, but the simulated end time was 276,701,592 ns (the 20 ns clock doubles the 138,350,796 ns of the 10 ns runs); a PASS in that state would have proved nothing about delays.
+- **Cause:** the `write_sdf` of this ICC2 writes the header `(SDFVERSION "OVI 2.1")` but the file holds `REMOVAL`, `RECOVERY` and `SETUPHOLD`-type entries, which belong to SDF 3.0. The `write_sdf` of this release has NO `-version` option (usage text: `-include`, `-significant_digits`, `-compress`, `-corner`, `-mode`).
+- **Cure:** since task 076 `pv.tcl` rewrites the header line of both files to `(SDFVERSION "3.0")` (only the first 60 lines are edited, the entries are not touched; 3.0 is a superset of 2.1) and stops with `ERROR 076` if the result is not exactly one `SDFVERSION "3.0"` line. Re-run `pv.tcl` (the layout is unchanged, so the Calibre results stay valid), or fix the existing files by hand:
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs
+sed -i '1,60s/(SDFVERSION "[^"]*")/(SDFVERSION "3.0")/' unpu_top_ss.sdf
+sed -i '1,60s/(SDFVERSION "[^"]*")/(SDFVERSION "3.0")/' unpu_top_ff.sdf
+head -n 5 unpu_top_ss.sdf
+```
+
+- **How the script helps:** the SDF info block prints the `SDFVERSION` line and the number of `REMOVAL + RECOVERY` entries and warns when the header is not 3.0 but the entries exist; the verdict lists any `SDFIRE`/`SDFCNC` line, says the run had zero delays, and adds the reason "the SDF could not be compiled: check the SDFVERSION (needs 3.0 if it has REMOVAL/RECOVERY entries) and regenerate with pv.tcl".
+- **Always check:** the simulated end time of the zero-delay run at the 20 ns clock was 276,701,592 ns; a run that really used the SDF is expected to end at the same time if the testbench is cycle-identical (read it, do not assume it); and the annotation lines must show a large annotated count.
+
 ## 6. After the runs
 
 ```

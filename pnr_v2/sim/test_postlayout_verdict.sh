@@ -107,6 +107,26 @@ mklog "$GOODBODY" withann2
 printf 'SDF annotation log\n  187654 delays annotated\n' > "$T/ann2.log"
 judge withann2 checks "$T/ann2.log"; chk "a clean annotation log passes" $([ $rc -eq 0 ] && echo 1 || echo 0)
 
+# 8b. the real compile error of the first server run: the SDF header said OVI 2.1 but the file had REMOVAL entries
+mklog "$GOODBODY"'xmsdfc: *E,SDFIRE: pnr_icc2/outputs/unpu_top_ss.sdf, line 872: Syntax Error: REMOVAL keyword is only allowed in SDFVERSION of 3.0 or later
+xmelab: *W,SDFCNC: Cannot compile SDF file - skipping annotation
+' sdfc
+judge sdfc nochecks
+chk "SDFIRE/SDFCNC lines are FAIL even with ALL CHECKS PASSED and 343341 checks" $([ $rc -eq 1 ] && echo 1 || echo 0)
+chk "the verdict prints the two real lines" $(echo "$out" | grep -q 'Syntax Error: REMOVAL keyword is only allowed' && echo "$out" | grep -q 'Cannot compile SDF file - skipping annotation' && echo 1 || echo 0)
+chk "the verdict says the run had zero delays" $(echo "$out" | grep -q 'ran with zero delays' && echo 1 || echo 0)
+chk "the reasons carry the hint: check the SDFVERSION (needs 3.0 if it has REMOVAL/RECOVERY entries) and regenerate with pv.tcl" $(echo "$out" | grep -q 'the SDF could not be compiled: check the SDFVERSION (needs 3.0 if it has REMOVAL/RECOVERY entries) and regenerate with pv.tcl' && echo 1 || echo 0)
+judge sdfc checks; chk "the same in checks mode is FAIL" $([ $rc -eq 1 ] && echo 1 || echo 0)
+judge good nochecks; chk "a good log has no compile-error block and no hint" $([ $rc -eq 0 ] && ! echo "$out" | grep -q 'SDF compile errors' && ! echo "$out" | grep -q 'could not be compiled' && echo 1 || echo 0)
+# the SDF info block: version line and REMOVAL/RECOVERY counts, with a warning for OVI 2.1 + REMOVAL
+printf '(DELAYFILE\n(SDFVERSION "OVI 2.1")\n(DESIGN "unpu_top")\n(DIVIDER /)\n(CELL (INSTANCE u1) (TIMINGCHECK (REMOVAL RN (posedge CP) (0:0:0)) (RECOVERY RN (posedge CP) (0:0:0))))\n' > "$T/ovi.sdf"
+info=$(sdf_info "$T/ovi.sdf" 2>&1)
+chk "sdf_info prints the SDFVERSION line and the REMOVAL + RECOVERY count" $(echo "$info" | grep -q 'SDF version line: (SDFVERSION "OVI 2.1"); REMOVAL + RECOVERY entries: 2' && echo 1 || echo 0)
+chk "sdf_info warns about OVI 2.1 with REMOVAL entries" $(echo "$info" | grep -q 'WARNING: the header is not SDFVERSION "3.0" but the file has 2 REMOVAL/RECOVERY entries' && echo 1 || echo 0)
+printf '(DELAYFILE\n(SDFVERSION "3.0")\n(DESIGN "unpu_top")\n(CELL (INSTANCE u1) (TIMINGCHECK (REMOVAL RN (posedge CP) (0:0:0))))\n' > "$T/v3.sdf"
+info=$(sdf_info "$T/v3.sdf" 2>&1)
+chk "sdf_info: no warning for a 3.0 file" $(echo "$info" | grep -q 'SDF version line: (SDFVERSION "3.0")' && ! echo "$info" | grep -q WARNING && echo 1 || echo 0)
+
 # 9. no annotation message at all: nothing proves the SDF was applied
 mklog 'checked 343341 value(s)/assertion(s) total
 ALL CHECKS PASSED

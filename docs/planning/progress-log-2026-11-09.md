@@ -15,8 +15,8 @@ Kept by Planning so that everything done today (and what comes next) can be expl
 | Calibre LVS | CORRECT | needed the deck's `FILTER_DWN2PSUB` switch (approved, reason written); re-run CORRECT on the final layout |
 | Timing in ICC2 | nearly closed | after the 6e pass and fill: no setup violations; hold: 1 reg-to-reg path, about -0.0004 ns (0.4 ps). PrimeTime to judge |
 | LEF for the top-level team | done, check passed | one `MACRO unpu_top`, 206 pins, 885.6 x 885.6 um |
-| PrimeTime sign-off | not started | |
-| Post-layout simulation | not started | |
+| PrimeTime sign-off | scripts written, first run stopped at the annotation check; fix committed | needs a rerun after pulling |
+| Post-layout simulation | scripts written; run A failed correctly (SDF header 2.1 with 3.0 entries) | fix in `pv.tcl`, rerun `pv`, then runs A to D |
 | PM message, `Final/` folder | not done | |
 
 ## 2. Why this run exists
@@ -82,6 +82,12 @@ On 2026-11-02 the user decided on a clean slate: a new server folder `/storage/E
 ### 3.8 Final layout checks (about 18:00 to 18:35)
 - Restored the first 6e result, re-ran `metal_fill` and `pv` (LEF check PASSED), then all three Calibre checks on the final GDS and netlist: **DRC 404 rules 0 results; antenna 16 rules 0 results; LVS CORRECT.** Timing after fill: no setup violations; one hold violation of about 0.4 ps (reg to reg).
 - This is the layout to hand over unless PrimeTime asks for more.
+
+### 3.9 PrimeTime and post-layout simulation: first server runs (about 18:50 to 19:15)
+- **Tasks 074 / 075 written and run for the first time.** Both stopped on the first run at a problem that the script's own guard caught (nothing fails silently).
+- **PrimeTime setup run (ss):** linking worked (14,397 leaf cells, 75 hierarchical cells, 0 black boxes); the SPEF was chosen from `unpu_top_spef.spef_scenario` (`TYPICAL_RC_125` for `func_ss`, `TYPICAL_RC_-40` for `func_ff`, read from the text, not from the temperature). The annotation check stopped it: PrimeTime does not print the `report_annotated_parasitics` text into the session; it writes `parasitics_command.log`, and that file is only flushed when the session ends (0 bytes during the run). The file itself shows the ss parasitics are complete: 16,113 internal and 182 boundary pin-to-pin nets, all annotated; the 393 unannotated nets are driverless (323) or loadless (48 + 22, the unused `paddr` inputs), so they carry no timing arc. Fix written: set `parasitics_log_file` to an empty string so the text comes into the session, and a mandatory post-run check (`check_annotation.tcl`) as fallback; the sign-off result carries a caveat line if it has to use the fallback.
+- **Post-layout simulation, run A (ss SDF, timing checks off):** the verdict said FAIL, correctly. `xmsdfc: *E,SDFIRE ... "REMOVAL keyword is only allowed in SDFVERSION of 3.0 or later"` and `*W,SDFCNC: Cannot compile SDF file - skipping annotation`: ICC2's SDF header says `OVI 2.1` but the file has REMOVAL/RECOVERY entries. Xcelium skipped the annotation, so that run was effectively zero-delay (ALL CHECKS PASSED, 343,341 checks, simulated end 276,701,592 ns = the 20 ns clock doubling the 138,350,796 ns of the 10 ns runs). A PASS there would have proved nothing; the rule "an SDF annotation message must exist and no SDF warning" caught it. `write_sdf` has no `-version` option in this ICC2 (usage text checked by Execution), so `pv.tcl` now rewrites only the SDFVERSION header line to 3.0 after the writes and checks it (hard stop otherwise). The layout is unchanged, so the Calibre results stay valid.
+- **A mix-up:** a stopped terminal left an `xmsim` process (PID 11819) running; killed. Nothing in the layout was affected (these runs are read-only).
 
 ## 4. Tasks written today (Planning -> Execution)
 | Task | What | State |

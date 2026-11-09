@@ -54,6 +54,11 @@ set PT_MAX_UNANNOTATED_PCT 0.0
 set PT_ALLOW_UNREADABLE_ANNOTATION 0
 # PrimeTime (T-2022.03-SP2) writes the text of read_parasitics / report_annotated_parasitics to this file in the CURRENT directory (PARA-107): the runbook runs from pnr_icc2/pt
 set PT_PARA_LOG "parasitics_command.log"
+# The log file is written BUFFERED: in the second server run it stayed at 0 bytes during the session and was complete only afterwards. pt_read_spef therefore sets the PrimeTime variable
+# parasitics_log_file to an empty string before read_parasitics (VERIFY: an empty string makes the two commands print to the session) and reads the table from the session text.
+# If the table is still not in the session, the script STOPS, unless the user declares the post-run check with the shell variable PT_ANNOTATION_CHECKED_AFTER=1 (csh: setenv PT_ANNOTATION_CHECKED_AFTER 1)
+# and then runs `tclsh pnr_v2/pt/check_annotation.tcl parasitics_command.log` after the session; the SUMMARY block then carries the caveat.
+set PT_ANNOTATION_ENV "PT_ANNOTATION_CHECKED_AFTER"
 
 # Endpoints that are unconstrained by design and may be reported by check_timing (task 074: "known constants such as pready")
 set PT_KNOWN_UNCONSTRAINED {pready}
@@ -468,6 +473,27 @@ proc pt_limit_report {entries exp_tran exp_cap} {
     if {[llength $dw_cap] == 0 || [lsearch -real -exact $dw_cap $exp_cap] < 0} { lappend out "WARNING: the design-wide max_capacitance is [expr {[llength $dw_cap] ? $dw_cap : {absent}}], the legacy value is $exp_cap" }
     return $out
 }
+# 074: the whole-log check used after the session (check_annotation.tcl): errors from the whole text, the table from the LAST report block (else from the whole text); the policy is
+# 074: the in-session one (pt_annotation_policy), with allow_unreadable ALWAYS 0: a post-run check cannot be waived. Returns {ok lines}.
+proc pt_check_log_text {text max_pct} {
+    set errors [pt_parse_para_errors $text]
+    set blk [pt_last_annotation_block $text]
+    set parsed [pt_parse_annotation_table $blk]
+    if {![dict get $parsed found]} { set parsed [pt_parse_annotation_table $text] }
+    set res [pt_annotation_policy $parsed $errors $max_pct 0]
+    return [list [lindex $res 0] [linsert [lindex $res 1] 0 "read_parasitics errors: [expr {$errors eq {} ? {none printed} : $errors}]"]]
+}
+
+# 074: 1 when the user declared the post-run annotation check (the value of the shell variable is exactly 1)
+proc pt_declared_after {value} {
+    return [expr {$value eq "1"}]
+}
+
+# 074: the caveat lines of the SUMMARY block: empty when the annotation was checked in-session
+proc pt_summary_caveat {unchecked} {
+    if {!$unchecked} { return {} }
+    return [list "ANNOTATION NOT CHECKED IN-SESSION: run check_annotation after the session (tclsh pnr_v2/pt/check_annotation.tcl parasitics_command.log); this result is valid only if that check prints ANNOTATION CHECK PASSED"]
+}
 # ---- END PURE TCL 074 ----
 
 # ------------------------------------------------------------------------------
@@ -538,13 +564,24 @@ proc pt_link {corner} {
     if {$missing > 0} { error "PT ERROR: $missing library cells are missing after link_design" }
 }
 
-# 074: read the SPEF and apply the annotation policy. The text of read_parasitics and report_annotated_parasitics is in parasitics_command.log of the CURRENT directory
-# (PARA-107): the size of that file is taken before each command and only the text added by the command is read.
+# 074: read the SPEF and apply the annotation policy. PrimeTime T-2022.03-SP2 sends the text of read_parasitics and report_annotated_parasitics to the file parasitics_command.log
+# (PARA-107), WRITTEN BUFFERED (0 bytes during the session in the second server run). So the variable parasitics_log_file is set to an empty string first (VERIFY: then the text
+# comes to the session); the table is taken from the session text, else from the part of the log file added by the command, else from the last report block of the file.
+# If no table is found in-session: STOP, unless PT_ANNOTATION_CHECKED_AFTER=1 is declared (then the sign-off continues with the caveat in the SUMMARY block).
 proc pt_read_spef {corner spef} {
-    global PT_MAX_UNANNOTATED_PCT PT_ALLOW_UNREADABLE_ANNOTATION PT_SI_ENABLE PT_PARA_LOG
+    global PT_MAX_UNANNOTATED_PCT PT_ALLOW_UNREADABLE_ANNOTATION PT_SI_ENABLE PT_PARA_LOG PT_ANNOTATION_ENV PT_ANNOTATION_UNCHECKED env
     pt_need_file $spef "SPEF file"
     set logf [file join [pwd] $PT_PARA_LOG]
-    puts ">>> 074 reading parasitics $spef (the command's text goes to $logf, PARA-107)"
+    # the variable that controls the log file
+    if {[catch {redirect -variable pt_pv_txt { printvar parasitics_log_file }} err]} { set pt_pv_txt "printvar failed: $err" }   ;# VERIFY printvar parasitics_log_file
+    puts ">>> 074 parasitics_log_file before: [string trim $pt_pv_txt]"
+    if {[catch {set_app_var parasitics_log_file ""} err]} {   ;# VERIFY: an empty string sends the text of the two commands to the session
+        puts ">>> 074 set_app_var parasitics_log_file \"\" failed: $err (the text will be looked for in the log file)"
+    } else {
+        if {[catch {redirect -variable pt_pv_txt { printvar parasitics_log_file }} err]} { set pt_pv_txt "printvar failed: $err" }
+        puts ">>> 074 parasitics_log_file after: [string trim $pt_pv_txt]"
+    }
+    puts ">>> 074 reading parasitics $spef"
     set off0 [pt_file_size0 $logf]
     redirect -variable pt_rp_txt {
         if {$PT_SI_ENABLE} {
@@ -555,23 +592,40 @@ proc pt_read_spef {corner spef} {
     }
     puts $pt_rp_txt
     set rp_chunk [pt_file_tail $logf $off0]
-    puts ">>> 074 read_parasitics text from $PT_PARA_LOG ([string length $rp_chunk] bytes):\n$rp_chunk"
+    if {$rp_chunk ne ""} { puts ">>> 074 read_parasitics text from $PT_PARA_LOG ([string length $rp_chunk] bytes):\n$rp_chunk" }
     set errors [pt_parse_para_errors "$pt_rp_txt\n$rp_chunk"]
     set off1 [pt_file_size0 $logf]
     redirect -variable pt_an_txt { report_annotated_parasitics -check -internal_nets -boundary_nets }   ;# VERIFY: the options are the ones the report header of this PrimeTime printed
     puts $pt_an_txt
     set an_chunk [pt_file_tail $logf $off1]
-    puts ">>> 074 report_annotated_parasitics text from $PT_PARA_LOG ([string length $an_chunk] bytes):\n$an_chunk"
-    # the table: from the command's own part of the log file; else the session text; else the LAST report block of the whole file
+    if {$an_chunk ne ""} { puts ">>> 074 report_annotated_parasitics text from $PT_PARA_LOG ([string length $an_chunk] bytes):\n$an_chunk" }
+    puts ">>> 074 session text: read_parasitics [string length $pt_rp_txt] bytes, report_annotated_parasitics [string length $pt_an_txt] bytes; file $logf: [pt_file_size0 $logf] bytes"
     set parsed ""
-    foreach {src txt} [list "the part of $PT_PARA_LOG written by report_annotated_parasitics" $an_chunk "the session text" $pt_an_txt "the last report block of $PT_PARA_LOG" [pt_last_annotation_block [pt_file_tail $logf 0]]] {
+    foreach {src txt} [list "the session text of report_annotated_parasitics" $pt_an_txt "the part of $PT_PARA_LOG written by report_annotated_parasitics" $an_chunk "the last report block of $PT_PARA_LOG" [pt_last_annotation_block [pt_file_tail $logf 0]]] {
         set p [pt_parse_annotation_table [pt_last_annotation_block $txt]]
         if {![dict get $p found]} { set p [pt_parse_annotation_table $txt] }
         if {[dict get $p found]} { set parsed $p; puts ">>> 074 annotation table read from $src"; break }
     }
-    if {$parsed eq ""} { set parsed [pt_parse_annotation_table ""] }
-    lassign [pt_annotation_policy $parsed $errors $PT_MAX_UNANNOTATED_PCT $PT_ALLOW_UNREADABLE_ANNOTATION] ok lines
     puts ">>> 074 ANNOTATION: read_parasitics errors '[expr {$errors eq {} ? {none printed} : $errors}]'"
+    if {$parsed eq ""} {
+        # no table in the session
+        set declared [pt_declared_after [expr {[info exists env($PT_ANNOTATION_ENV)] ? $env($PT_ANNOTATION_ENV) : {}}]]
+        set why "the annotation table is NOT in the session text: the log file $PT_PARA_LOG is written only at the end of the session (it was [pt_file_size0 $logf] bytes now), so the check cannot be done in-session."
+        if {[string is integer -strict $errors] && $errors > 0} { error "PT ERROR: parasitics annotation: read_parasitics reported $errors error(s). $why" }
+        if {$declared} {
+            set PT_ANNOTATION_UNCHECKED 1
+            puts ">>> 074 ANNOTATION NOT CHECKED IN-SESSION: run check_annotation after the session. $why The user declared the post-run check with $PT_ANNOTATION_ENV=1; the sign-off continues and its SUMMARY block carries the caveat."
+            puts ">>> 074 AFTER the session: tclsh <repo>/pnr_v2/pt/check_annotation.tcl parasitics_command.log   (must print ANNOTATION CHECK PASSED)"
+            return
+        }
+        if {$PT_ALLOW_UNREADABLE_ANNOTATION} {
+            set PT_ANNOTATION_UNCHECKED 1
+            puts ">>> 074 WARNING: $why Continuing because PT_ALLOW_UNREADABLE_ANNOTATION is 1; the SUMMARY block carries the caveat."
+            return
+        }
+        error "PT ERROR: parasitics annotation: $why The check stays MANDATORY. Options: (a) verify with printvar that parasitics_log_file is empty and read the session text above; (b) the two-step path: setenv $PT_ANNOTATION_ENV 1, run this script again, and AFTER the session run: tclsh pnr_v2/pt/check_annotation.tcl parasitics_command.log (it prints ANNOTATION CHECK PASSED or FAILED; the sign-off counts only if it passed)."
+    }
+    lassign [pt_annotation_policy $parsed $errors $PT_MAX_UNANNOTATED_PCT $PT_ALLOW_UNREADABLE_ANNOTATION] ok lines
     foreach l $lines { puts ">>> 074 ANNOTATION: $l" }
     if {!$ok} { error "PT ERROR: parasitics annotation: [join $lines { | }]" }
 }
@@ -712,6 +766,8 @@ proc pt_print_summary {kind corner wns tns num icc2_wns} {
     puts "   [pt_summary_line $kind $corner $wns $tns $num]"
     puts "   [string toupper $kind]: $v[expr {$v eq {UNKNOWN} ? { (a number could not be read, see the log above)} : {}}]"
     puts "   [pt_compare_line $kind $wns $icc2_wns]"
+    global PT_ANNOTATION_UNCHECKED
+    foreach cav [pt_summary_caveat [expr {[info exists PT_ANNOTATION_UNCHECKED] && $PT_ANNOTATION_UNCHECKED}]] { puts "   CAVEAT: $cav" }
     puts "=============================================================================="
     return $v
 }
