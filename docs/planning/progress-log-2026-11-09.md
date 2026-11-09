@@ -10,11 +10,11 @@ Kept by Planning so that everything done today (and what comes next) can be expl
 | Synthesis (legacy constraints) | done | 2,465 flops, area 442,295.8 um2, only `max_area` violated, 0 latches |
 | Gate-level simulation | PASS | 343,341 checks, 0 failures (zero-delay cell models: function only) |
 | Floorplan, power, placement, CTS, route, fill, export | done once | die 885.6 x 885.6 um |
-| Calibre DRC | 404 rules, 0 results | after the antenna ECOs and fill |
-| Calibre antenna | 16 rules, 0 results | sequence 55 -> 50 -> 46 -> 1 -> 0 |
-| Calibre LVS | CORRECT | needed the deck's `FILTER_DWN2PSUB` switch (approved, reason written) |
-| Timing in ICC2 | NOT closed | setup -0.10 ns on 2 in-to-out paths; hold 53 violations, worst -0.04 ns |
-| LEF for the top-level team | wrong (no `unpu_top` macro) | fix written (task 073), not yet run |
+| Calibre DRC | 404 rules, 0 results | final layout (after the closure pass, fill and export) |
+| Calibre antenna | 16 rules, 0 results | sequence 55 -> 50 -> 46 -> 1 -> 0; still 0 on the final layout |
+| Calibre LVS | CORRECT | needed the deck's `FILTER_DWN2PSUB` switch (approved, reason written); re-run CORRECT on the final layout |
+| Timing in ICC2 | nearly closed | after the 6e pass and fill: no setup violations; hold: 1 reg-to-reg path, about -0.0004 ns (0.4 ps). PrimeTime to judge |
+| LEF for the top-level team | done, check passed | one `MACRO unpu_top`, 206 pins, 885.6 x 885.6 um |
 | PrimeTime sign-off | not started | |
 | Post-layout simulation | not started | |
 | PM message, `Final/` folder | not done | |
@@ -79,6 +79,10 @@ On 2026-11-02 the user decided on a clean slate: a new server folder `/storage/E
 - A second 6e run (3 more `route_opt` passes) made things slightly worse: setup +0.0143 -> +0.0081, hold -0.00043 -> -0.00258 ns. The optimiser reached hold -0.0007 after its third pass, then the filler re-insertion and the two `route_eco` steps gave a little back. Verdict `UNCHANGED` (the script's worse-tolerance is 5 ps). DECISION: restore the first 6e result from the backup `bak_post_closure1` (the worse one is kept as `unpu_top.dlib.closure3_worse`), stop iterating, and let PrimeTime sign-off judge the 0.4 ps residual.
 - Still to do on that layout: `metal_fill`, `pv` (with the fixed LEF check), and all three Calibre checks (DRC, antenna, `v2lvs` + LVS; antenna must be 0 and LVS CORRECT).
 
+### 3.8 Final layout checks (about 18:00 to 18:35)
+- Restored the first 6e result, re-ran `metal_fill` and `pv` (LEF check PASSED), then all three Calibre checks on the final GDS and netlist: **DRC 404 rules 0 results; antenna 16 rules 0 results; LVS CORRECT.** Timing after fill: no setup violations; one hold violation of about 0.4 ps (reg to reg).
+- This is the layout to hand over unless PrimeTime asks for more.
+
 ## 4. Tasks written today (Planning -> Execution)
 | Task | What | State |
 |---|---|---|
@@ -121,12 +125,13 @@ On 2026-11-02 the user decided on a clean slate: a new server folder `/storage/E
 `e3e7f2a` (start), `519ebfb` (Calibre files, handoff 18.32), `2af2808` (4b), `2460320` (068), `3a6b2b3` (069), `ed881de` (070), `a221b3b` (071), `c827159` (072, handoff 18.33 and 18.34). The next commit holds task 073, the 072 fix and this log.
 
 ## 9. What comes next (in order)
-1. Run 6e (timing closure) on the server after the fix is pulled; read the verdict and the protected-cell checks.
-2. Then `metal_fill`, `pv`, and ALL THREE Calibre checks again (DRC, antenna, `v2lvs` + LVS), because any layout change invalidates them.
-3. Read the new LEF (one `MACRO unpu_top`, 204 + 2 pins, size 885.6 um) and the `UIC-057` message.
-4. If setup stays negative on the two in-to-out paths: decide with the user (structural, 4.6 ns of logic against a 4.5 ns budget; changing it means RTL, which is frozen).
-5. PrimeTime sign-off with the SPEF, post-layout simulation, the PM message (port antenna handling, netlist ECOs, LEF, pin list), the 0.40 ns clock-path transition limit, the `Final/` folder, the parked 059/062 decision, round-3 bookkeeping.
-6. At the end: a full explanation of the day for the user, from this log.
+1. (done) 6e timing closure, `metal_fill`, `pv`, DRC / antenna / LVS on the final layout: all clean.
+2. PrimeTime sign-off with the SPEF (ss setup, ff hold) - the authority for the 0.4 ps hold residual.
+3. Post-layout simulation with the SDF (the cell models have zero delay, so the SDF is what adds delays).
+4. The PM message (port antenna handling, the netlist ECOs 6c/6d, the LEF, the pin list with the tool's positions, the die size), and the files for the top-level team.
+5. The 0.40 ns clock-path transition limit of the example `cts.tcl` (454 entries after fill; not a course constraint): decide.
+6. The `Final/` folder (user's idea) for frozen results and per-stage reports; the parked 059/062 files; round-3 bookkeeping; the small 071 polarity-check fix.
+7. At the end: a full explanation of the day for the user, from this log.
 
 ## 10. How I would explain it (outline for the end)
 1. What the design and flow are; why a clean slate. 2. Synthesis and what the numbers mean. 3. Why gate-level simulation is function-only. 4. The physical steps in order and what each produces. 5. What an antenna violation is and why input ports were the problem. 6. Why pin placement caused it, and what we tried (hopping, 4b, buffers, bigger root inverter). 7. What LVS checks and why the well diode needed a filter. 8. Why timing is the remaining issue and what the sign-off will be. 9. The tool traps we hit and how each was found.
