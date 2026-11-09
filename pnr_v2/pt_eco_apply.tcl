@@ -46,10 +46,13 @@ set DIST_TIER2      120.0       ;# 079: tier 2 (only if tier 1 has no usable fil
 set MAX_SITE_TRIES  5           ;# 079: candidate filler runs tried per tier and change (closest first), as antenna_port_buffers.tcl
 set POS_TOL         0.001       ;# 079: um: the final origin must equal the requested site to this tolerance
 set UNPROTECT_DURING 1          ;# 079: 1 = dont_touch of the protected cells/nets is switched off while the changes are applied (insert_buffer on a dont_touch net may be refused) and switched on again; the snapshot comparison is the guard. 0 = leave it as it is.
+set ALLOW_PARTIAL   0           ;# 079 fix 3: 0 = strict: a change that cannot be placed after all tiers stops the script (nothing saved). 1 = that change is SKIPPED together with every later change that uses a pin of the cell it should have created; the script continues, prints a SKIPPED CHANGES block and ends with STAGE 6g COMPLETE (PARTIAL: ...). PrimeTime must then be re-run (a second ECO round may be needed).
 set SETUP_SCEN      "func_ss"   ;# 079: scenario names of cts.tcl / route.tcl
 set HOLD_SCEN       "func_ff"
 # 079 fix: insertions on an input PORT (get_ports): the pin-to-new-cell wire must stay short (antenna). Limits are READ from antenna_port_buffers.tcl into PORT_MAX_PIN_BUF_DIST, PORT_ANT_RATIO_LIMIT,
-# 079 fix: PORT_ANT_WEIGHT_PINWIRE, PORT_WIRE_WIDTH_UM (hard distance limit of step 6c, Calibre ratio limit, M2/M3 weight, wire width); there is no tier 2 for ports (a delay cell far from the pin is an antenna risk)
+# 079 fix: PORT_ANT_WEIGHT_PINWIRE, PORT_WIRE_WIDTH_UM (hard distance limit of step 6c, Calibre ratio limit, M2/M3 weight, wire width).
+# 079 fix 3: TIER 2 for ports (when no filler run works within tier 1): the distance at which the predicted ratio with the TOP_M weight (PORT_ANT_WEIGHT_TOPM, 0.84 from the Calibre log, the worst case:
+# 079 fix 3: no layer restriction is needed) and the cell's own input gate area stays <= PORT_TIER2_RATIO (360 = 10 percent under the 400 limit, from antenna_port_buffers.tcl TIER2_RATIO).
 set DONT_USE_PATTERNS {slnht* skbrb* slbhb* slnhn* slnln* mx08d* adiode bh01d1 cload1}   ;# 079: handoff 18.15 (as antenna_port_buffers.tcl); the delay cells dl* are normal library cells
 
 # ---- BEGIN PURE TCL 079 ----
@@ -357,6 +360,78 @@ proc eco079_progress {done total ok failed every} {
     if {$done <= 0 || $done % $every != 0} { return "" }
     return "$done of $total changes processed, $ok OK so far, $failed failed"
 }
+# 079 fix 3: TIER 2 for a PORT insertion: the largest pin-to-cell distance (um) at which the predicted antenna ratio, computed with the TOP_M weight (the worst case: the wire may go up to the top metal)
+# and the cell's own input gate area, stays at or below ratio2 (10 percent under the Calibre limit). Returns {limit text}; limit 0.0 = no tier 2 (not larger than tier 1, or unknown gate).
+proc eco079_port_tier2 {gate w_topm ratio2 width tier1} {
+    if {$gate <= 0} { return [list 0.0 "the input gate area of the cell is unknown"] }
+    set d [ant_max_dist_for_ratio $gate $width $w_topm $ratio2]
+    if {$d <= $tier1} { return [list 0.0 "the ratio distance [format %.1f $d] um is not larger than the tier-1 limit [format %.1f $tier1] um"] }
+    return [list $d "predicted ratio <= $ratio2 with the TOP_M weight $w_topm and the input gate [format %.3f $gate] um^2"]
+}
+# 079 fix 3: why no usable filler run was found. runs = ant_filler_runs of the WHOLE filler table, bw the cell width, tiers = list of {tier limit}. One text line: the nearest free run wide
+# enough with its centre distance and, for every tier, whether the limit was exceeded (and by how much) or was met (then another check rejected the sites).
+proc eco079_fail_diag {runs bw site_w px py tiers} {
+    set best ""
+    set bd 1e18
+    set nwide 0
+    foreach r $runs {
+        set ev [ant_run_eval $r $bw $site_w $px $py 1e18]
+        if {![dict get $ev ok]} continue
+        incr nwide
+        if {[dict get $ev dist] < $bd} { set bd [dict get $ev dist]; set best $r }
+    }
+    set need [expr {ceil($bw / $site_w - 1e-6) * $site_w}]
+    if {$best eq ""} { return "no free filler run in the design is wide enough for the cell ([format %.2f $need] um = [expr {int(ceil($bw / $site_w - 1e-6))}] sites; [llength $runs] runs examined)" }
+    set t [format "nearest free run wide enough: row y=%.2f x=%.2f..%.2f (width %.2f um), centre distance from the pin %.1f um ($nwide such runs in the design)" [dict get $best y0] [dict get $best x0] [dict get $best x1] [expr {[dict get $best x1] - [dict get $best x0]}] $bd]
+    foreach ti $tiers {
+        lassign $ti tn tl
+        if {$bd > $tl} { append t [format "; exceeds the tier-%s limit %.1f um by %.1f um" $tn $tl [expr {$bd - $tl}]] } else { append t [format "; within the tier-%s limit %.1f um, so the sites were rejected by another check (see the CHANGE lines)" $tn $tl] }
+    }
+    return $t
+}
+# 079 fix 3: the cell that a command depends on when it was created by a skipped / failed change: "" when none. gone = new cell names of skipped or failed insertions.
+proc eco079_depends_on_gone {cmd gone} {
+    if {[dict get $cmd type] eq "insert_buffer"} {
+        if {[dict get $cmd objkind] eq "port"} { return "" }
+        set c [eco079_pin_cell [dict get $cmd full_pin]]
+    } else {
+        set c [dict get $cmd full_inst]
+    }
+    if {$c ne "" && [lsearch -exact $gone $c] >= 0} { return $c }
+    return ""
+}
+# 079 fix 3: the SKIPPED CHANGES block. skipped = list of dicts idx line pin reason on ("" = the change itself failed, else the cell of the skipped change it depends on); cmds = all commands (to know which
+# cell each change creates). One text line per skipped change with its dependants (transitively, by name).
+proc eco079_skip_report {skipped cmds} {
+    array set made {}
+    foreach c $cmds { if {[dict get $c type] eq "insert_buffer"} { set made([dict get $c idx]) [dict get $c cell] } }
+    set out {}
+    foreach r $skipped {
+        set idx [dict get $r idx]
+        set deps {}
+        if {[info exists made($idx)]} {
+            set frontier [list $made($idx)]
+            while {[llength $frontier]} {
+                set cell [lindex $frontier 0]
+                set frontier [lrange $frontier 1 end]
+                foreach d $skipped {
+                    if {[dict get $d on] eq $cell} {
+                        lappend deps [dict get $d idx]
+                        if {[info exists made([dict get $d idx])]} { lappend frontier $made([dict get $d idx]) }
+                    }
+                }
+            }
+        }
+        lappend out [format "change %d (file line %d): pin %s: %s; dependants: %s" $idx [dict get $r line] [dict get $r pin] [dict get $r reason] [expr {[llength $deps] ? [join [lsort -integer -unique $deps] {, }] : {none}}]]
+    }
+    return $out
+}
+# 079 fix 3: the STAGE line. No skipped change: the plain line; some: PARTIAL with the count and the numbers.
+proc eco079_final_line {nskipped total skipped_nums ninserted nresized nwatch block logfile} {
+    set head "STAGE 6g COMPLETE"
+    if {$nskipped > 0} { set head "STAGE 6g COMPLETE (PARTIAL: $nskipped of $total changes skipped: [join [lsort -integer $skipped_nums] {, }])" }
+    return "$head: $ninserted cells inserted, $nresized cells resized, $nwatch on the ANTENNA WATCH list, $block overwritten in place. Log: $logfile"
+}
 # ---- END PURE TCL 079 ----
 
 # 079: take the helper procs from the text of antenna_port_buffers.tcl (pure block 068 and the ICC2 helpers) and of timing_closure.tcl (pure block 072 and its ICC2 helpers): same code, no copy
@@ -370,7 +445,7 @@ if {$ec_b < 0 || $ec_e < 0 || $ec_h < 0 || $ec_f < 0 || $ec_f <= $ec_h} { error 
 eval [string range $ec_src $ec_b $ec_e]
 eval [string range $ec_src $ec_h [expr {$ec_f - 1}]]
 # 079 fix: the antenna numbers used for insertions on a PORT are read from antenna_port_buffers.tcl (one source), printed below
-foreach ec_n {MAX_PIN_BUF_DIST ANT_RATIO_LIMIT ANT_WEIGHT_PINWIRE WIRE_WIDTH_UM} {
+foreach ec_n {MAX_PIN_BUF_DIST ANT_RATIO_LIMIT ANT_WEIGHT_PINWIRE WIRE_WIDTH_UM ANT_WEIGHT_TOPM TIER2_RATIO} {
     if {[catch {set PORT_$ec_n [eco079_param_from_text $ec_src $ec_n]} ec_err]} { error "ERROR 079: ${SCRIPT_DIR}/antenna_port_buffers.tcl: $ec_err" }
 }
 set ec_src2 [eco079_read ${SCRIPT_DIR}/timing_closure.tcl]
@@ -574,6 +649,8 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                 lassign [eco079_port_limit [dict get $ea_gate $r] $PORT_MAX_PIN_BUF_DIST $PORT_ANT_RATIO_LIMIT $PORT_ANT_WEIGHT_PINWIRE $PORT_WIRE_WIDTH_UM] pl ptxt
                 puts ">>> 079 port insertions with $r: input gate [format %.3f [dict get $ea_gate $r]] um^2, distance limit pin-to-cell [format %.1f $pl] um ($ptxt; ratio limit $PORT_ANT_RATIO_LIMIT, weight $PORT_ANT_WEIGHT_PINWIRE, wire width $PORT_WIRE_WIDTH_UM, all read from antenna_port_buffers.tcl)"
                 if {$pl <= 0} { error "ERROR 079: reference $r cannot be placed on a port: $ptxt (nothing changed)" }
+                lassign [eco079_port_tier2 [dict get $ea_gate $r] $PORT_ANT_WEIGHT_TOPM $PORT_TIER2_RATIO $PORT_WIRE_WIDTH_UM $pl] pl2 ptxt2
+                if {$pl2 > 0} { puts ">>> 079 port insertions with $r: TIER 2 limit pin-to-cell [format %.1f $pl2] um ($ptxt2; TOP_M weight $PORT_ANT_WEIGHT_TOPM, ratio limit $PORT_TIER2_RATIO, both read from antenna_port_buffers.tcl)" } else { puts ">>> 079 port insertions with $r: NO tier 2 ($ptxt2)" }
             }
         }
     }
@@ -615,10 +692,20 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_moves {}
     set ea_removed 0
     set ea_ins_err_shown 0
+    set ea_skipped {}
+    set ea_gone {}
     foreach c $ea_cmds {
         set idx [dict get $c idx]
         set pl [eco079_progress [expr {$idx - 1}] [llength $ea_cmds] [llength $ea_done] [llength $ea_failed] 10]
         if {$pl ne ""} { puts ">>> 079 PROGRESS $pl" }
+        set dep [eco079_depends_on_gone $c $ea_gone]
+        if {$dep ne ""} {   ;# 079 fix 3: uses a pin of a cell that a skipped / failed change should have created
+            set dreason "uses a pin of $dep, the cell of a skipped or failed change"
+            puts ">>> 079 CHANGE $idx [expr {$ALLOW_PARTIAL ? {SKIPPED} : {FAILED}}]: $dreason"
+            if {$ALLOW_PARTIAL} { lappend ea_skipped [dict create idx $idx line [dict get $c line] pin [expr {[dict get $c type] eq {insert_buffer} ? [dict get $c full_pin] : [dict get $c full_inst]}] reason $dreason on $dep] } else { lappend ea_failed "change $idx: $dreason" }
+            if {[dict get $c type] eq "insert_buffer"} { lappend ea_gone [dict get $c cell] }
+            continue
+        }
         set ref [dict get $c ref]
         set lcname ${STD_LIB}/$ref
         set lc [get_lib_cells -quiet -exact $lcname]
@@ -636,7 +723,12 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
             set rm {}
             if {$extra > 0.001} {
                 lassign [eco079_grow_plan [ant_filler_runs $ea_ftable] $cy0 $cx1 $extra $ea_site_w] gok rm greason
-                if {!$gok} { puts ">>> 079 SIZE change $idx $inst $oldref -> $ref FAILED: $greason"; lappend ea_failed "change $idx: $inst $oldref -> $ref needs [format %.2f $extra] um more width: $greason"; continue }
+                if {!$gok} {
+                    set fmsg "$inst $oldref -> $ref needs [format %.2f $extra] um more width: $greason"
+                    puts ">>> 079 SIZE change $idx [expr {$ALLOW_PARTIAL ? {SKIPPED} : {FAILED}}]: $fmsg"
+                    if {$ALLOW_PARTIAL} { lappend ea_skipped [dict create idx $idx line [dict get $c line] pin $inst reason $fmsg on {}] } else { lappend ea_failed "change $idx: $fmsg" }
+                    continue
+                }
                 remove_cells [get_cells -exact $rm]
                 set ea_ftable [ant_rows_remove $ea_ftable $rm]
                 incr ea_removed [llength $rm]
@@ -694,16 +786,27 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
         set tried {}
         set last_why "no usable filler run"
         set tiers {1 2}
-        if {$isport} { set tiers {1} }   ;# no tier 2 for ports (antenna)
+        set tier_notes {}
+        set tier_lims {}
+        set portlim2 0.0
+        if {$isport} {
+            lassign [eco079_port_tier2 $gate $PORT_ANT_WEIGHT_TOPM $PORT_TIER2_RATIO $PORT_WIRE_WIDTH_UM $portlim] portlim2 portwhy2
+            if {$portlim2 <= 0} { set tiers {1} }
+        }
         foreach tier $tiers {
             if {$placed} break
-            if {$isport} { set lim $portlim } else { set lim [expr {$tier == 1 ? $DIST_TIER1 : $DIST_TIER2}] }
+            if {$isport} { set lim [expr {$tier == 1 ? $portlim : $portlim2}] } else { set lim [expr {$tier == 1 ? $DIST_TIER1 : $DIST_TIER2}] }
+            lappend tier_lims [list $tier $lim]
+            set rw $PORT_ANT_WEIGHT_PINWIRE; set rl $PORT_ANT_RATIO_LIMIT   ;# the predicted ratio of a port wire: tier 1 with the M2/M3 weight against the limit, tier 2 with the TOP_M weight against TIER2_RATIO
+            if {$tier == 2} { set rw $PORT_ANT_WEIGHT_TOPM; set rl $PORT_TIER2_RATIO }
             set L [expr {$lim + $bw + $bh}]
             set frows [ant_rows_in_window $ea_ftable [expr {$px - $L}] [expr {$py - $L}] [expr {$px + $L}] [expr {$py + $L}]]
             set cands {}
             foreach cd [ant_site_candidates [ant_filler_runs $frows] $bw $ea_site_w $px $py $lim] {
                 if {[lsearch -exact $tried [list [dict get $cd x] [dict get $cd y]]] < 0} { lappend cands $cd }
             }
+            if {[llength $cands] == 0} { lappend tier_notes [format "tier %d (limit %.1f um): no usable filler run within the limit" $tier $lim] }
+            set tier_rej {}
             set ntry 0
             foreach cd $cands {
                 if {$ntry >= $MAX_SITE_TRIES} break
@@ -747,12 +850,17 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                 if {$dpos > $POS_TOL} { lappend why "cell at ([format %.3f $bx0], [format %.3f $by0]) instead of the site ([format %.3f $cx], [format %.3f $cy])" }
                 if {$dist > $lim} { lappend why "distance [format %.1f $dist] > [format %.1f $lim]" }
                 set ratio 0.0
-                if {$isport} { set ratio [ant_ratio $gate $dist $PORT_WIRE_WIDTH_UM $PORT_ANT_WEIGHT_PINWIRE]; if {$ratio > $PORT_ANT_RATIO_LIMIT} { lappend why "predicted antenna ratio [format %.0f $ratio] > $PORT_ANT_RATIO_LIMIT" } }
+                set rtxt ""
+                if {$isport} {
+                    set ratio [ant_ratio $gate $dist $PORT_WIRE_WIDTH_UM $rw]
+                    set rtxt [format " predicted antenna ratio %.0f (weight %s, limit %s)" $ratio $rw $rl]
+                    if {$ratio > $rl} { lappend why "predicted antenna ratio [format %.0f $ratio] > $rl (weight $rw)" }
+                }
                 set bi [get_object_name $inp]; set bz [get_object_name $outp]
                 set netin [eco079_net_of_pin $bi]; set netout [eco079_net_of_pin $bz]
                 set tprob [eco079_topology_check $dir $pinname $before [eco079_net_leaf_pins $netin] [eco079_net_leaf_pins $netout] $bname $sigin $sigout $ea_pgnames]
                 foreach tp $tprob { lappend why "topology: $tp" }
-                puts [format ">>> 079 CHANGE %d (%s line %d) %s %s ref %s tier %d site (%.3f, %.3f) distance %.1f um cell %s %s" $idx [dict get $c file] [dict get $c line] [switch -- $dir { out {string cat {driver pin}} port {string cat {input port}} default {string cat {load pin}} }] $pinname $ref $tier $cx $cy $dist $bname [expr {[llength $why] ? "REJECTED: [join $why {; }]" : "OK"}]]
+                puts [format ">>> 079 CHANGE %d (%s line %d) %s %s ref %s tier %d%s site (%.3f, %.3f) distance %.1f um%s cell %s %s" $idx [dict get $c file] [dict get $c line] [switch -- $dir { out {string cat {driver pin}} port {string cat {input port}} default {string cat {load pin}} }] $pinname $ref $tier [expr {$isport && $tier == 2 ? { (TIER 2: beyond the tier-1 limit)} : {}}] $cx $cy $dist $rtxt $bname [expr {[llength $why] ? "REJECTED: [join $why {; }]" : "OK"}]]
                 if {[llength $why] == 0} {
                     set placed 1
                     lappend ea_done [dict create idx $idx type insert_buffer cell $bname ref $ref pin $pinname dir $dir net_in $netin net_out $netout site [list $cx $cy] dist $dist]
@@ -764,7 +872,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                         if {$drv_xy ne ""} { set ddist [format %.1f [ant_manhattan [lindex $drv_xy 0] [lindex $drv_xy 1] $ix $iy]] }
                         set extra ""
                         if {$isport} {
-                            set extra [format "; input gate %.3f um^2, predicted antenna ratio %.0f (limit %s), distance limit %.1f um" $gate $ratio $PORT_ANT_RATIO_LIMIT $portlim]
+                            set extra [format "; %s input gate %.3f um^2, predicted antenna ratio %.0f (TOP_M-weight worst case %.0f; this tier: weight %s, limit %s), tier-%d distance limit %.1f um" [expr {$tier == 2 ? {TIER 2:} : {tier 1:}}] $gate $ratio [ant_ratio $gate $dist $PORT_WIRE_WIDTH_UM $PORT_ANT_WEIGHT_TOPM] $rw $rl $tier $lim]
                             if {[llength $abpins] > 0} {
                                 set closer {}
                                 foreach ap $abpins { lassign [ant068_centre [get_pins -exact $ap]] ax ay; lappend closer [format "%s is %.1f um from the port pin: the new cell is %s" $ap [ant_manhattan $px $py $ax $ay] [expr {$dist <= [ant_manhattan $px $py $ax $ay] ? {CLOSER} : {not closer, but within the limit}}]] }
@@ -779,14 +887,34 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                     error "ERROR 079: change $idx ([dict get $c file] line [dict get $c line]): the topology after insert_buffer on $pinname ($dir) differs from what PrimeTime assumed (independent of the site, so no other candidate is tried): [join $tprob {; }]. Nothing saved. Net before (signal pins): {$before}; buffer input net $netin: {[eco079_net_leaf_pins $netin]}; buffer output net $netout: {[eco079_net_leaf_pins $netout]}"
                 }
                 set last_why [join $why {; }]
+                lappend tier_rej "($cx, $cy): $last_why"
                 if {[catch {remove_buffers $bc} err]} { error "ERROR 079: change $idx: cannot remove the rejected cell $bname: $err (nothing saved)" }   ;# VERIFY remove_buffers restores the net
                 set after_back [eco079_net_leaf_pins [expr {$isport ? [eco079_net_of_port $pinname] : [eco079_net_of_pin $pinname]}]]   ;# 079 fix: a port has no pin object
                 if {[lsort $after_back] ne [lsort $before]} { error "ERROR 079: change $idx: after removing the rejected cell the net of $pinname has {[lsort $after_back]}, expected {[lsort $before]} (nothing saved)" }
             }
+            if {!$placed && [llength $tier_rej] > 0} { lappend tier_notes [format "tier %d (limit %.1f um): %d candidate(s) rejected: %s" $tier $lim [llength $tier_rej] [join $tier_rej { | }]] }
         }
-        if {!$placed} { puts ">>> 079 CHANGE $idx FAILED: pin $pinname ref $ref: $last_why"; lappend ea_failed "change $idx: pin $pinname ($ref): $last_why" }
+        if {!$placed} {
+            set fwhy "[join $tier_notes {; }]; [eco079_fail_diag [ant_filler_runs $ea_ftable] $bw $ea_site_w $px $py $tier_lims]"
+            if {$ALLOW_PARTIAL} {
+                puts ">>> 079 CHANGE $idx SKIPPED (ALLOW_PARTIAL 1): pin $pinname ref $ref: $fwhy"
+                lappend ea_skipped [dict create idx $idx line [dict get $c line] pin $pinname reason $fwhy on {}]
+            } else {
+                puts ">>> 079 CHANGE $idx FAILED: pin $pinname ref $ref: $fwhy"
+                lappend ea_failed "change $idx: pin $pinname ($ref): $fwhy"
+            }
+            lappend ea_gone [dict get $c cell]
+        }
     }
-    puts ">>> 079 fillers removed: $ea_removed; changes applied: [llength $ea_done] of [llength $ea_cmds]"
+    puts ">>> 079 fillers removed: $ea_removed; changes applied: [llength $ea_done] of [llength $ea_cmds], skipped: [llength $ea_skipped]"
+    set ea_skip_idx [lmap r $ea_skipped {dict get $r idx}]
+    set ea_nskip_ins 0
+    foreach c $ea_cmds { if {[lsearch -exact $ea_skip_idx [dict get $c idx]] >= 0 && [dict get $c type] eq "insert_buffer"} { incr ea_nskip_ins } }
+    if {[llength $ea_skipped] > 0} {
+        puts ">>> 079 ===== SKIPPED CHANGES (ALLOW_PARTIAL 1): [llength $ea_skipped] of [llength $ea_cmds]: [join [lsort -integer $ea_skip_idx] {, }] ====="
+        foreach ln [eco079_skip_report $ea_skipped $ea_cmds] { puts ">>> 079 SKIPPED $ln" }
+        puts ">>> 079 SKIPPED: PrimeTime assumed these changes; its timing (zero violations) is NOT valid for this netlist. PrimeTime MUST be re-run (pt_hold_ff.tcl, pt_setup_ss.tcl) and a second ECO round may be needed."
+    }
     if {[llength $ea_failed] > 0} { error "ERROR 079: [llength $ea_failed] change(s) FAILED, nothing saved and nothing routed (the design in memory is not saved):\n    [join $ea_failed "\n    "]" }
 
     # --------------------------------------------------------------------------
@@ -829,16 +957,17 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_n_ins_done 0; set ea_n_size_done 0
     foreach d $ea_done { if {[dict get $d type] eq "insert_buffer"} { incr ea_n_ins_done } else { incr ea_n_size_done } }
     set ea_found [sizeof_collection [get_cells -quiet -hierarchical -filter "name =~ *${NEW_CELL_MARK}*"]]
-    puts ">>> 079 CHECK inserted cells: applied $ea_n_ins_done, in the change files $ea_nins, found in the design by name ($NEW_CELL_MARK): $ea_found"
-    if {$ea_n_ins_done != $ea_nins} { lappend ea_failures "inserted cells applied $ea_n_ins_done != $ea_nins insertions in the change files" }
-    if {$ea_found != $ea_nins} { lappend ea_failures "cells with $NEW_CELL_MARK in the name: $ea_found != $ea_nins insertions" }
+    set ea_want_ins [expr {$ea_nins - $ea_nskip_ins}]
+    puts ">>> 079 CHECK inserted cells: applied $ea_n_ins_done, insertions in the change files $ea_nins, skipped $ea_nskip_ins, expected applied = total - skipped = $ea_want_ins, found in the design by name ($NEW_CELL_MARK): $ea_found"
+    if {$ea_n_ins_done != $ea_want_ins} { lappend ea_failures "inserted cells applied $ea_n_ins_done != $ea_want_ins (= $ea_nins insertions in the change files - $ea_nskip_ins skipped)" }
+    if {$ea_found != $ea_want_ins} { lappend ea_failures "cells with $NEW_CELL_MARK in the name: $ea_found != $ea_want_ins (= $ea_nins - $ea_nskip_ins skipped)" }
     foreach d $ea_done {
         set cobj [get_cells -quiet -exact [dict get $d cell]]
         if {[sizeof_collection $cobj] != 1} { lappend ea_failures "change [dict get $d idx]: cell [dict get $d cell] vanished"; continue }
         if {[get_attribute -quiet $cobj ref_name] ne [dict get $d ref]} { lappend ea_failures "change [dict get $d idx]: [dict get $d cell] has reference [get_attribute -quiet $cobj ref_name], PrimeTime wrote [dict get $d ref]" }
     }
     # new nets exist
-    foreach c $ea_cmds { if {[dict get $c type] eq "insert_buffer" && [eco079_lookup_net [dict get $c net]] eq ""} { lappend ea_failures "change [dict get $c idx]: the net name [dict get $c net] does not exist after the insertion (PrimeTime's name is not kept)" } }
+    foreach c $ea_cmds { if {[dict get $c type] eq "insert_buffer" && [lsearch -exact $ea_skip_idx [dict get $c idx]] < 0 && [eco079_lookup_net [dict get $c net]] eq ""} { lappend ea_failures "change [dict get $c idx]: the net name [dict get $c net] does not exist after the insertion (PrimeTime's name is not kept)" } }
     # protected cells
     set ea_snap1 [lmap nm $ea_names {ant072_snapshot $nm}]
     set ea_diff [ant072_snapshot_diff $ea_snap0 $ea_snap1]
@@ -856,6 +985,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     save_block
     save_block -force -as ${DESIGN_NAME}_route
     save_lib
-    puts ">>> STAGE 6g COMPLETE: $ea_n_ins_done cells inserted, $ea_n_size_done cells resized, [llength $ea_watch] on the ANTENNA WATCH list, ${DESIGN_NAME}_route overwritten in place. Log: ${LOG_DIR}/6g_pt_eco_apply.log"
+    puts ">>> [eco079_final_line [llength $ea_skipped] [llength $ea_cmds] $ea_skip_idx $ea_n_ins_done $ea_n_size_done [llength $ea_watch] ${DESIGN_NAME}_route ${LOG_DIR}/6g_pt_eco_apply.log]"
+    if {[llength $ea_skipped] > 0} { puts ">>> 079 PARTIAL RESULT: re-run PrimeTime on the result; the skipped changes are listed above (SKIPPED CHANGES)" }
     puts ">>> 079 NEXT: metal_fill.tcl, pv.tcl, the Calibre DRC / antenna / LVS runs (the ANTENNA WATCH cells first), then PrimeTime pt_setup_ss.tcl and pt_hold_ff.tcl (zero violations expected), then the post-layout simulation."
 }

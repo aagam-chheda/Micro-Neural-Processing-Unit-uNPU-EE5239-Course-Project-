@@ -188,6 +188,59 @@ check "port, NEW check rejects a load left on the port net" {[llength [eco079_to
 check "port with an antenna buffer, PG pins present -> accepted" {[eco079_topology_check port pwdata\[0\] {antbuf_pwdata_0_/I antbuf_pwdata_0_/VDD} [list U_PTECO_HOLD_BUF9/I] [list U_PTECO_HOLD_BUF9/Z antbuf_pwdata_0_/I antbuf_pwdata_0_/VSS] U_PTECO_HOLD_BUF9 I Z $pgn] eq ""}
 # progress line
 check "progress: a line only at multiples of 10" {[eco079_progress 9 109 9 0 10] eq "" && [eco079_progress 10 109 10 0 10] eq "10 of 109 changes processed, 10 OK so far, 0 failed" && [eco079_progress 0 109 0 0 10] eq "" && [eco079_progress 20 109 18 2 10] eq "20 of 109 changes processed, 18 OK so far, 2 failed"}
+# ---- 12. fix 3: tier 2 for ports, partial mode, reasons of a failure
+# tier 2 distance with the real numbers of the server run: dl01d1 input gate 0.371 um^2, TOP_M weight 0.84, ratio 360, wire width 0.28 -> 360*0.371/(2*0.84) - 0.28 = 79.2 um
+lassign [eco079_port_tier2 0.371 0.84 360.0 0.28 40.0] t2 t2txt
+check "tier 2: dl01d1 (gate 0.371) -> about 79 um" {abs($t2 - 79.2214) < 0.01 && [string match "predicted ratio <= 360.0 with the TOP_M weight 0.84*" $t2txt]}
+lassign [eco079_port_tier2 0.194 0.84 360.0 0.28 40.0] t2 t2txt
+check "tier 2: the antenna buffer's 0.194 um^2 gives 41.3 um, only just above tier 1" {abs($t2 - 41.2914) < 0.01}
+lassign [eco079_port_tier2 0.1 0.84 360.0 0.28 40.0] t2 t2txt
+check "tier 2: a small gate gives a distance below tier 1 -> no tier 2, with the reason" {$t2 == 0.0 && [string match "*not larger than the tier-1 limit*" $t2txt]}
+lassign [eco079_port_tier2 0.0 0.84 360.0 0.28 40.0] t2 t2txt
+check "tier 2: unknown gate -> no tier 2" {$t2 == 0.0 && [string match "*unknown*" $t2txt]}
+check "tier 2 ratio at the limit distance equals the ratio limit" {abs([ant_ratio 0.371 79.2214 0.28 0.84] - 360.0) < 0.01}
+check "tier 2: the tier-1 ratio of dl01d1 at 40 um (M2/M3 weight) is far under 400" {[ant_ratio 0.371 40.0 0.28 0.54] < 120}
+# diagnostics of a failure: runs of fillers; the pin at (10, 2.5); a narrow run is near, a wide run is 95 um away
+set drows {}
+for {set i 0} {$i < 3} {incr i} { lappend drows [list n$i [expr {12 + $i * 0.56}] 0.0 [expr {12 + ($i + 1) * 0.56}] 5.04 N] }
+for {set i 0} {$i < 12} {incr i} { lappend drows [list w$i [expr {105 + $i * 0.56}] 0.0 [expr {105 + ($i + 1) * 0.56}] 5.04 N] }
+set druns [ant_filler_runs $drows]
+set dg [eco079_fail_diag $druns 5.04 0.56 10.0 2.5 {{1 40.0} {2 79.2}}]
+check "failure diagnosis: the nearest WIDE run (not the nearer narrow one) with its distance and the limits it exceeds" {[string match "nearest free run wide enough: row y=0.00 x=105.00..111.72 (width 6.72 um), centre distance from the pin *" $dg] && [string match "*exceeds the tier-1 limit 40.0 um by *" $dg] && [string match "*exceeds the tier-2 limit 79.2 um by *" $dg]}
+set dg2 [eco079_fail_diag $druns 5.04 0.56 100.0 2.5 {{1 40.0} {2 79.2}}]
+check "failure diagnosis: a run within the limit is reported as rejected by another check" {[string match "*within the tier-1 limit 40.0 um, so the sites were rejected by another check*" $dg2]}
+set dg3 [eco079_fail_diag $druns 9.0 0.56 10.0 2.5 {{1 40.0}}]
+check "failure diagnosis: no run wide enough anywhere -> says so with the width needed" {[string match "no free filler run in the design is wide enough for the cell (9.52 um = 17 sites; 2 runs examined)" $dg3]}
+# partial mode with the real example: changes 4 and 30 (ports) cannot be placed, change 106 inserts on U_PTECO_HOLD_BUF4/Z
+set mk {}
+foreach {i kind pin cellname} {4 port dma_rdata[14] U_PTECO_HOLD_BUF4 30 port pwdata[3] U_PTECO_HOLD_BUF30 105 pin u_dma/U5/Z u_dma/U_PTECO_HOLD_BUF105 106 pin U_PTECO_HOLD_BUF4/Z U_PTECO_HOLD_BUF106 107 pin U_PTECO_HOLD_BUF106/Z U_PTECO_HOLD_BUF107} {
+    lappend mk [dict create idx $i type insert_buffer objkind $kind full_pin $pin cell $cellname line [expr {$i + 8}]]
+}
+set szc [dict create idx 110 type size_cell full_inst U_PTECO_HOLD_BUF30 line 3]
+set gone {}
+set skipped {}
+foreach c $mk {
+    set dep [eco079_depends_on_gone $c $gone]
+    if {$dep ne ""} {
+        lappend skipped [dict create idx [dict get $c idx] line [dict get $c line] pin [expr {[dict exists $c full_pin] ? [dict get $c full_pin] : [dict get $c full_inst]}] reason "uses a pin of $dep" on $dep]
+        lappend gone [dict get $c cell]
+    } elseif {[dict get $c idx] in {4 30}} {
+        lappend skipped [dict create idx [dict get $c idx] line [dict get $c line] pin [expr {[dict exists $c full_pin] ? [dict get $c full_pin] : [dict get $c full_inst]}] reason "no usable filler run" on {}]
+        lappend gone [dict get $c cell]
+    }
+}
+check "dependency: change 106 (pin of BUF4) and then 107 (pin of BUF106) are skipped with the cell they depend on; 105 is not" {[lmap r $skipped {dict get $r idx}] eq {4 30 106 107}}
+check "dependency: a port insertion never depends on a cell; the size_cell on BUF30 would" {[eco079_depends_on_gone [lindex $mk 0] {U_PTECO_HOLD_BUF4}] eq "" && [eco079_depends_on_gone $szc {U_PTECO_HOLD_BUF30}] eq "U_PTECO_HOLD_BUF30"}
+set rep [eco079_skip_report $skipped $mk]
+check "skip report: one line per skipped change with the hold line, the pin, the reason and the dependants (4 -> 106, 107)" {[llength $rep] == 4 && [string match "change 4 (file line 12): pin dma_rdata\\\[14\\\]: no usable filler run; dependants: 106, 107" [lindex $rep 0]] && [string match "change 30 (file line 38): *dependants: none" [lindex $rep 1]] && [string match "change 106 (file line 114): pin U_PTECO_HOLD_BUF4/Z: uses a pin of U_PTECO_HOLD_BUF4; dependants: 107" [lindex $rep 2]]}
+# counts: applied = total - skipped
+lassign [eco079_count_check "applied insertions (total 109 - skipped 3)" 106 [expr {109 - 3}]] ok msg
+check "count with skipped: 106 applied = 109 - 3 -> ok, both numbers printed" {$ok == 1 && [string match "*106 (expected 106)*" $msg]}
+lassign [eco079_count_check "applied insertions" 107 [expr {109 - 3}]] ok msg
+check "count with skipped: 107 applied but 106 expected -> error" {$ok == 0}
+# final line
+check "final line, strict / nothing skipped: plain STAGE 6g COMPLETE" {[eco079_final_line 0 109 {} 109 0 12 unpu_top_route /l/6g.log] eq "STAGE 6g COMPLETE: 109 cells inserted, 0 cells resized, 12 on the ANTENNA WATCH list, unpu_top_route overwritten in place. Log: /l/6g.log"}
+check "final line, partial: STAGE 6g COMPLETE (PARTIAL: N of 109 changes skipped: <numbers>)" {[string match "STAGE 6g COMPLETE (PARTIAL: 3 of 109 changes skipped: 4, 30, 106): 106 cells inserted*" [eco079_final_line 3 109 {106 4 30} 106 0 12 unpu_top_route /l/6g.log]]}
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0
