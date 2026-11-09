@@ -1,3 +1,4 @@
+# PARKED (task 068): see README
 # ==============================================================================
 # Script: pin_replace.tcl
 # Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/pin_replace.tcl   ;# 067: new script (flow step 4b, between placement.tcl and cts.tcl)

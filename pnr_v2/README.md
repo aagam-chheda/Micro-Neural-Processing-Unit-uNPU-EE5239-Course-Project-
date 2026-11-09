@@ -17,16 +17,20 @@ If the folder differs: `sed -i 's#/storage/EE5239G1/aagams_workspace2/unpu#<real
 | 2 | `floorplanning.tcl` | `icc2_shell` |
 | 3 | `powerplanning.tcl` | `icc2_shell` |
 | 4 | `placement.tcl` | `icc2_shell` |
-| 4b | `pin_replace.tcl` | `icc2_shell` (task 067: re-places the pins after the cells are placed; reads `_placement`, writes `_pinplace`) |
-| 5 | `cts.tcl` | `icc2_shell` (reads `_pinplace` since task 067) |
+| 4b | `pin_replace.tcl` | PARKED (task 068, see "Why step 4b"): not part of the flow; it reads `_placement` and writes `_pinplace`, which `cts.tcl` no longer reads |
+| 5 | `cts.tcl` | `icc2_shell` |
 | 6 | `route.tcl` | `icc2_shell` |
 | 6b | `fix_antenna.tcl` | `icc2_shell` (after the first Calibre antenna run; needs `<BASE>/pv/drc/unpu_top_antenna_bkp.db`) |
+| 6c | `antenna_port_buffers.tcl` | `icc2_shell` (task 068: after `fix_antenna.tcl`, before `metal_fill.tcl`; a buffer next to the pin of each long INPUT PORT net, an ECO on the netlist; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place; `clk` is never buffered) |
 | 7 | `metal_fill.tcl` | `icc2_shell` |
 | 8 | `pv.tcl` | `icc2_shell` |
 
-Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_pinplace` -> `_cts` -> `_route` -> `_filled` -> `_pv`.
+Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_cts` -> `_route` -> `_filled` -> `_pv`.
+PARKED (task 068): the chain with `_pinplace` between `_placement` and `_cts` (step 4b) is not used.
 
-## Why step 4b (task 067)
+## Why step 4b (task 067) -- PARKED (task 068)
+
+Result of the run (task 068): the second `place_pins` moved 196 of 204 pins but ignored the 8 um spacing (pitch 0.56 and 0.61 um), its legality check could not read its result, and the measured pin-to-load distances stayed 100 to 250 um for most nets, so it cannot fix the antenna problem. `pin_replace.tcl` stays in the repo unchanged and `cts.tcl` reads `_placement` again. The text below is kept as it was.
 
 In the clean-slate run `floorplanning.tcl` places the 204 pins once, before any cell exists (`place_pins -self`); the tool filled each edge from both ends in alternating pairs, so for example `clk` is at offset 7.33 um (bottom of the right edge) and `rst_n` at 869.87 um (top) while the logic they drive sits near the middle.
 After route, Calibre antenna reported 55 results and one round of `fix_antenna.tcl` left 50 and made setup worse; the nets it names are mostly input port nets (`pwdata[*]`, `psel`, `clk`, `rst_n`, `dma_rdata[9]`, `dma_rdata[11]`), which have no diode inside the macro, so the whole pin-to-gate wire counts against a gate area of about 0.19 um^2 (about 144 um of M3 or about 92 um of TOP_M per net).
@@ -64,6 +68,50 @@ In `pin_replace_console.log` (also `logs/4b_pin_replace.log`), lines that start 
 - `EVIDENCE` lines: for `clk rst_n psel pwdata[0] pwdata[10] pwdata[26] dma_rdata[9] dma_rdata[11]` the nearest and farthest load distance from the pin before and after. The experiment worked if these distances got shorter.
 - Timing in the `report_qor` / `report_global_timing` output of this step: compare setup and hold with the end of `placement.tcl` (the pins moved, the cells were optimised again).
 - `STAGE 4b COMPLETE`. New files: `pnr_icc2/reports/pins_before_replace.txt`, `pins_after_replace.txt` (the pin list for the top-level team, format `block unpu_top pin <name> layer <L> side <S> offset <um>`) and `pins_after_replace_report.txt` (the tool's own `report_pin_placement -self`).
+
+## Loop after the Calibre antenna run (task 068)
+
+Why 6c: the antenna polygons that remain after `fix_antenna.tcl` are on INPUT PORT nets (no driver and no diffusion inside the macro), and no layer can carry a 130 to 250 um pin-to-load run. A buffer within a few um of the pin shortens the wire that counts against the tiny gate to about 20 to 30 um and gives the rest of the net a driver with diffusion. `adiode` is not usable, step 4b did not shorten the nets. The buffers are an ECO: the netlist written by `pv.tcl` has one extra buffer per fixed net (tell the PM).
+The script reads the Calibre antenna database of a Calibre run, finds the port net of every polygon (it lists and counts any polygon it cannot decide and stops BEFORE changing anything), prints the set of nets, picks the buffer from the antenna areas in the kit LEF, and prints `clk` but does not buffer it.
+
+One command per line (csh, from the server). Take the databases from a NEW Calibre run of the current `unpu_top_routed.gds`; never repeat the loop on a stale database:
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_portbuf
+cp calibre/run1/ant/unpu_top.ant.db ../pv/drc/unpu_top_antenna_bkp.db
+cp calibre/run1/drc/unpu_top.drc.db ../pv/drc/unpu_top_drc_bkp.db
+icc2_shell -f ../pnr_v2/antenna_port_buffers.tcl |& tee antenna_port_buffers_console.log
+icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
+icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
+```
+
+(`unpu_top_drc_bkp.db` is optional: it only gives the script the location of a leftover DRC marker such as `M3.S.1`.) Type `exit` at each `icc2_shell` prompt. If `antenna_port_buffers.tcl` stops with an error nothing was saved; restore with `rm -r blocks/unpu_top.dlib` and `mv blocks/unpu_top.dlib.bak_pre_portbuf blocks/unpu_top.dlib` only if the library was changed.
+Then the two Calibre runs of `pnr_v2/calibre/README.md` (sections 4 and 5), in a NEW run folder so the earlier results stay:
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu
+mkdir -p pnr_icc2/calibre/run2/drc pnr_icc2/calibre/run2/ant
+cp pnr_v2/calibre/drc.ctrl pnr_icc2/calibre/run2/drc/
+cp pnr_v2/calibre/ant.ctrl pnr_icc2/calibre/run2/ant/
+cd pnr_icc2/calibre/run2/drc
+calibre -drc -hier drc.ctrl |& tee drc.log
+cd ../ant
+calibre -drc -hier ant.ctrl |& tee ant.log
+```
+
+What to read after each step:
+
+- `antenna_port_buffers_console.log` (also `logs/6c_antenna_port_buffers.log`), lines that start with `>>> 068`:
+  - `POLY` lines: one per polygon with the rule, bbox, the ranked candidate nets (`net:tier:score`, tier 3 = shape with the polygon bbox, 2 = shape containing it, 1 = overlap), the chosen net and the status. `UNRESOLVED` lines stop the script before any change.
+  - `port nets with antenna polygons` and the comparison with the 16 nets expected by task 068.
+  - `CLOCK clk`: the polygons and the distance from the pin to the first loads of the CTS root. Not buffered, decision for Planning.
+  - `candidate table` and `CHOSEN buffer`: the cell and why. `fillers removed` per net, then `inserted`.
+  - `CHECK` lines: DRC 0, open nets 0, legality 0, buffer count equal to nets buffered, loads before and after per net, pin-to-buffer distance and predicted antenna ratio.
+  - `TIMING` lines: setup and hold slack of the paths from each port before and after (reported, not tuned; `WORSE` is a flag for the user).
+  - `STAGE 6c COMPLETE`. Any `ERROR 068` means nothing was saved.
+- `metal_fill_console.log` and `pv_console.log` as before; the exported netlist and GDS now contain the buffers.
+- Calibre: `drc.log` 0 results, `ant.log` the number of results per rule and which nets remain. A net that remains after its buffer is a new finding, not a reason to repeat the script on the old database.
 
 ## Edits
 

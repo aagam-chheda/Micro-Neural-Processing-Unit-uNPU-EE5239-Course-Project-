@@ -40,7 +40,7 @@ redirect -tee -file ${LOG_DIR}/5_cts.log {
         remove_blocks ${DESIGN_NAME}.dlib:${DESIGN_NAME}_cts
     }
 
-    open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${DESIGN_NAME}_pinplace   ;# 067: reads the block of step 4b (pin_replace.tcl); it was ${DESIGN_NAME}_placement
+    open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${DESIGN_NAME}_placement   ;# 068: back to _placement, step 4b is parked
     link_block
 
     # Save as _cts immediately from clean placement checkpoint
