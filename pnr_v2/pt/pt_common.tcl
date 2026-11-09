@@ -111,6 +111,9 @@ set PT_ECO_FILE_TEXT "pt_eco_hold_changes.txt"
 # 080: that group. PrimeTime's hold ECO runs in ONE fast-corner session and cannot see the setup damage at ss. So during fix_eco_timing every cell and net on an input-to-output path is dont_touch.
 set PT_CONE_PROTECT       1        ;# 080: 1 = protect the cone during the hold ECO (the default and the only value that is safe for the read path); 0 = compute and report the cone only (for a comparison run)
 set PT_CONE_PROTECT_NETS  0        ;# 080 (decision of Planning): 0 = only the cone CELLS are dont_touch (default). A delay cell at the load pin of a flop that shares a net with the read mux affects only that branch; the after-check on the change file still rejects any insertion on a pin of a cone cell, on a cone port, or any resize of a cone cell, and the ICC2 gate (in2out and whole-design setup WNS not worse than 0.005 ns) is the second safety net. 1 = the cone NETS are dont_touch too (no buffer anywhere on a cone net, not even at a load pin of a non-cone flop; violators whose only fix point is on a shared net then remain)
+set PT_CONE_EXPECT_PREFIXES {u_apb/ u_csr/}   ;# 080 sanity: the cone must contain at least one cell whose name starts with one of these (the APB read mux lives in u_apb / u_csr); none = the cone is wrong, the ECO is NOT run
+set PT_CONE_REPORT_PATHS  20       ;# 080: method (b): number of paths of the report_timing cross-check
+set PT_CONE_MAX_NODES     200000   ;# 080: method (c): bound on the number of cells visited by the structural traversal (a runaway traversal is an ERROR, not a hang)
 set PT_CONE_MAX_PATHS     100000   ;# 080: bound of get_timing_paths -unique_pins for the input-to-output paths; a list as long as the bound is an ERROR (the cone may be truncated). Same size and reason as PT_VIOL_MAX_PATHS
 set PT_CONE_PRINT_NAMES   20       ;# 080: how many cone names are printed (the full lists are written to the cone files)
 set PT_CONE_SAMPLE        3        ;# 080: how many protected objects get the dont_touch attribute read back (proof that it is in effect)
@@ -974,6 +977,90 @@ proc pt_cone_head {names n} {
     if {[llength $s] > $n} { append t " ... (and [expr {[llength $s] - $n}] more)" }
     return $t
 }
+
+# 080: set operations on name lists (the cone is computed by several methods and compared)
+proc pt_cone_intersect {a b} {
+    array set in {}
+    foreach x $b { set in($x) 1 }
+    set out {}
+    foreach x $a { if {[info exists in($x)]} { lappend out $x } }
+    return [lsort -unique $out]
+}
+proc pt_cone_union {lists} {
+    set all {}
+    foreach l $lists { lappend all {*}$l }
+    return [lsort -unique $all]
+}
+# 080: a breadth-first traversal over cells. seeds: cell names; step: a command prefix called as {*}$step <cell> and returning {successor_cells is_sequential}; a sequential cell is visited
+# (it is an endpoint of the combinational region) but not expanded. Returns a dict: all (every visited cell, sorted), seq (the visited sequential cells). An error when more than max_nodes cells are visited.
+proc pt_cone_reach {seeds step max_nodes} {
+    array set seen {}
+    set queue {}
+    foreach s $seeds { if {![info exists seen($s)]} { set seen($s) 1; lappend queue $s } }
+    set seqs {}
+    set i 0
+    while {$i < [llength $queue]} {
+        set n [lindex $queue $i]
+        incr i
+        if {$i > $max_nodes} { error "the traversal visited more than $max_nodes cells (PT_CONE_MAX_NODES)" }
+        lassign [{*}$step $n] succ isseq
+        if {$isseq} { lappend seqs $n; continue }
+        foreach c $succ { if {![info exists seen($c)]} { set seen($c) 1; lappend queue $c } }
+    }
+    return [dict create all [lsort -unique $queue] seq [lsort -unique $seqs]]
+}
+# 080: the structural cone from the forward region (cells reachable from the input ports through combinational cells) and the backward region (cells that reach an output port through
+# combinational cells): the intersection without the sequential cells. Each cell of it has a combinational path from an input port to it and from it to an output port.
+proc pt_cone_structural {fwd bwd} {
+    set seq [pt_cone_union [list [dict get $fwd seq] [dict get $bwd seq]]]
+    set both [pt_cone_intersect [dict get $fwd all] [dict get $bwd all]]
+    set out {}
+    foreach c $both { if {[lsearch -exact $seq $c] < 0} { lappend out $c } }
+    return $out
+}
+# 080: parse the text of report_timing (path_type full): the number of "Startpoint:" lines, the cells (from the pin lines "inst/pin (ref)") and the ports (lines "name (in)" / "name (out)")
+proc pt_cone_parse_report {text} {
+    set nstart 0
+    array set cells {}
+    array set ports {}
+    foreach l [split $text "\n"] {
+        if {[regexp {^\s*Startpoint:} $l]} { incr nstart; continue }
+        if {[regexp {^\s+(\S+/\S+)\s+\(([^)]+)\)} $l -> pin ref]} {
+            set i [string last / $pin]
+            set cells([string range $pin 0 [expr {$i - 1}]]) 1
+        } elseif {[regexp {^\s+(\S+)\s+\((in|out|inout)\)} $l -> port dir]} {
+            set ports($port) 1
+        }
+    }
+    return [dict create nstart $nstart cells [lsort [array names cells]] ports [lsort [array names ports]]]
+}
+# 080: the sanity check of the finished cone: problems (empty = ok). The cone must contain a cell of one of the expected blocks (the read mux) and no sequential cell; it must not be empty.
+proc pt_cone_sanity {cells nseq prefixes} {
+    set out {}
+    if {[llength $cells] == 0} { return [list "the cone is empty"] }
+    set hit 0
+    foreach c $cells { foreach pf $prefixes { if {[string first $pf $c] == 0} { set hit 1; break } } ; if {$hit} break }
+    if {!$hit} { lappend out "the cone has [llength $cells] cells but none starts with one of {$prefixes} (the APB read mux is expected there)" }
+    if {$nseq != 0} { lappend out "the cone contains $nseq sequential cell(s), expected 0" }
+    return $out
+}
+# 080: compare the sizes of the methods: notes (a mismatch is a NOTE, not an error). methods: dict name -> list of cells ("" entries for methods that did not run are not passed).
+proc pt_cone_compare {methods final} {
+    set out {}
+    dict for {m cl} $methods {
+        set miss [llength [pt_cone_missing $cl $final]]
+        set extra [llength [pt_cone_missing $final $cl]]
+        lappend out "method $m: [llength $cl] cells; [expr {$extra == 0 ? {equal to or covering the final cone} : "$extra cells of the final cone are not in it"}][expr {$miss > 0 ? "; $miss of its cells are not in the final cone (BUG: the final cone is the union)" : {}}]"
+    }
+    return $out
+}
+proc pt_cone_missing {a b} {   ;# elements of a that are not in b
+    array set inb {}
+    foreach x $b { set inb($x) 1 }
+    set out {}
+    foreach x $a { if {![info exists inb($x)]} { lappend out $x } }
+    return $out
+}
 # ---- END PURE TCL 074 ----
 
 # ------------------------------------------------------------------------------
@@ -1351,64 +1438,214 @@ proc pt_load_eco_parser {} {
     if {[llength [info commands eco079_parse]] == 0} { error "PT ERROR: eco079_parse was not defined by the pure block of $f" }
 }
 
-# 080: the input-to-output cone from the timing graph of this session. Method (exact): every timing path from an input port (clock source ports excluded) to an output port, enumerated with
-# 080: get_timing_paths -unique_pins (each reported path adds at least one pin that no earlier path had, so with a bound that is not reached the UNION of the pins is every pin on any such path);
-# 080: the data-path points from the startpoint on give the pins and ports; the cells and nets are those of the pins. Cost: one path enumeration of the combinational read logic (small).
-# 080: Returns a dict: cells nets ports (name lists, sorted, unique), cells_c nets_c ports_c (collections), npaths, nstart_missing (paths whose startpoint was not among the points: all their points are used).
-# 080: VERIFY: get_timing_paths -from -to -unique_pins -max_paths; the path attributes startpoint and points; the point attribute object; get_cells / get_nets -of_objects <pins>; append_to_collection -unique.
+# ---- 080: the input-to-output cone. The first server run (commit e0ace51): `get_timing_paths -from <inputs> -to <outputs> -unique_pins` returned an EMPTY collection with no message, so
+# 080: the cone is now computed by several methods, every command and every raw message printed, nothing swallowed:
+# 080:   (c) PRIMARY: the STRUCTURAL method (independent of corner, slack, constraints and timing-path options): forward region from the input ports (clock source ports removed) and backward region
+# 080:       from the output ports, both through COMBINATIONAL cells only (a sequential cell is an endpoint, not expanded), cone = intersection minus sequential cells. Implemented as an explicit
+# 080:       traversal with get_pins / get_nets / all_connected (not with all_fanout / all_fanin, whose stop-at-sequential option is unverified); multi-output cells connect every input to every
+# 080:       output; disabled arcs and constants are ignored, so the structural cone is a SUPERSET of the timing paths (the safe direction).
+# 080:   (c2) cross-check: all_fanout -from <inputs> -flat -only_cells  intersected with  all_fanin -to <outputs> -flat -only_cells (VERIFY the options: `help` of both is printed), sequential removed.
+# 080:   (a) cross-check: get_timing_paths -from <ports> -to <ports> in several forms (with and without -unique_pins, with -slack_lesser_than): cells of the path points (a lower bound).
+# 080:   (b) cross-check: report_timing -from -to -max_paths N captured as text, the pin lines parsed (a lower bound).
+# 080: the FINAL cone is the UNION of every method that returned a non-empty result (when a method cannot decide the cone gets larger, never smaller); empty from all = ERROR. Then the sanity
+# 080: check (a cell of u_apb/ or u_csr/, zero sequential cells in it).
+# 080: cell handles (collections) are kept in the global array pt_cone_h by name, so no name is ever used as a pattern.
+proc pt_cone_reg {cellcoll} {   ;# register the cells of a collection by name; returns the names
+    global pt_cone_h
+    set names {}
+    foreach_in_collection c $cellcoll { set n [get_object_name $c]; set pt_cone_h($n) $c; lappend names $n }
+    return $names
+}
+proc pt_cone_isseq {name} {   ;# VERIFY the cell attribute is_sequential; an unreadable value is an ERROR (raw message), never "no"
+    global pt_cone_h pt_cone_seqc
+    if {[info exists pt_cone_seqc($name)]} { return $pt_cone_seqc($name) }
+    set v [get_attribute $pt_cone_h($name) is_sequential]
+    if {$v ne "true" && $v ne "false"} { error "the attribute is_sequential of cell $name reads '$v' (true or false expected)" }
+    set pt_cone_seqc($name) [expr {$v eq "true"}]
+    return $pt_cone_seqc($name)
+}
+proc pt_cone_net_pins {net dir} {   ;# the LEAF pins of a net with the given direction (flat view). VERIFY all_connected -leaf; the fallback is get_pins -of_objects <net> -leaf
+    global pt_cone_allconn_ok
+    if {![info exists pt_cone_allconn_ok]} { set pt_cone_allconn_ok 1 }
+    if {$pt_cone_allconn_ok} {
+        if {[catch {set all [all_connected $net -leaf]} err]} {
+            puts ">>> 080 all_connected \$net -leaf failed ($err): the structural traversal uses get_pins -of_objects <net> -leaf from now on"
+            set pt_cone_allconn_ok 0
+        } else {
+            return [filter_collection $all "object_class == pin && direction == $dir"]
+        }
+    }
+    return [get_pins -quiet -of_objects $net -leaf -filter "direction == $dir"]   ;# VERIFY
+}
+proc pt_cone_step_fwd {name} {   ;# {successor cells, is_sequential}
+    global pt_cone_h
+    if {[pt_cone_isseq $name]} { return [list {} 1] }
+    set succ {}
+    foreach_in_collection op [get_pins -quiet -of_objects $pt_cone_h($name) -filter "direction == out"] {
+        set net [get_nets -quiet -of_objects $op]
+        if {[sizeof_collection $net] == 0} continue
+        foreach_in_collection lp [pt_cone_net_pins $net in] { lappend succ {*}[pt_cone_reg [get_cells -quiet -of_objects $lp]] }
+    }
+    return [list [lsort -unique $succ] 0]
+}
+proc pt_cone_step_bwd {name} {
+    global pt_cone_h
+    if {[pt_cone_isseq $name]} { return [list {} 1] }
+    set succ {}
+    foreach_in_collection ip [get_pins -quiet -of_objects $pt_cone_h($name) -filter "direction == in"] {
+        set net [get_nets -quiet -of_objects $ip]
+        if {[sizeof_collection $net] == 0} continue
+        foreach_in_collection dp [pt_cone_net_pins $net out] { lappend succ {*}[pt_cone_reg [get_cells -quiet -of_objects $dp]] }
+    }
+    return [list [lsort -unique $succ] 0]
+}
+# the cells from the path points of a collection of timing paths (method a): {cells ports}
+proc pt_cone_from_paths {paths} {
+    set cpins ""
+    set cports ""
+    foreach_in_collection path $paths {
+        set sp ""
+        catch {set sp [get_object_name [get_attribute $path startpoint]]}
+        set on [expr {$sp eq ""}]
+        foreach_in_collection pt [get_attribute $path points] {
+            set obj [get_attribute $pt object]
+            if {!$on} { if {[get_object_name $obj] ne $sp} continue; set on 1 }
+            set cls [get_attribute $obj object_class]
+            if {$cls eq "pin"} { append_to_collection -unique cpins $obj } elseif {$cls eq "port"} { append_to_collection -unique cports $obj }
+        }
+        if {!$on} { foreach_in_collection pt [get_attribute $path points] { set obj [get_attribute $pt object]; set cls [get_attribute $obj object_class]; if {$cls eq "pin"} { append_to_collection -unique cpins $obj } elseif {$cls eq "port"} { append_to_collection -unique cports $obj } } }
+    }
+    set cn {}
+    if {$cpins ne ""} { set cn [pt_cone_reg [get_cells -quiet -of_objects $cpins]] }
+    set pn {}
+    if {$cports ne ""} { foreach_in_collection c $cports { lappend pn [get_object_name $c] } }
+    return [list [lsort -unique $cn] [lsort -unique $pn]]
+}
 proc pt_in2out_cone {} {
-    global PT_CONE_MAX_PATHS
-    set ins [all_inputs]
-    set nin0 [sizeof_collection $ins]
+    global PT_CONE_MAX_PATHS PT_CONE_REPORT_PATHS PT_CONE_MAX_NODES PT_CONE_EXPECT_PREFIXES pt_cone_h pt_cone_seqc
+    catch {unset pt_cone_h}
+    catch {unset pt_cone_seqc}
+    array set pt_cone_h {}
+    array set pt_cone_seqc {}
+    set all_in [all_inputs]
+    set ins $all_in
     set nclk 0
     foreach_in_collection clk [get_clocks -quiet *] {
         set src ""
         catch {set src [get_attribute $clk sources]}   ;# VERIFY the clock attribute sources
         if {$src ne "" && [sizeof_collection $src] > 0} { set ins [remove_from_collection $ins $src]; incr nclk }
     }
-    puts ">>> 080 in2out cone: [sizeof_collection $ins] input ports ($nin0 inputs, the sources of $nclk clock(s) removed), [sizeof_collection [all_outputs]] output ports"
-    set paths [get_timing_paths -from $ins -to [all_outputs] -delay_type max -max_paths $PT_CONE_MAX_PATHS -unique_pins]
-    set n [sizeof_collection $paths]
-    if {$n >= $PT_CONE_MAX_PATHS} { error "PT ERROR: $n input-to-output paths, the bound PT_CONE_MAX_PATHS is $PT_CONE_MAX_PATHS: the cone may be truncated; raise the parameter in pt_common.tcl" }
-    if {$n == 0} { error "PT ERROR: no timing path from an input port to an output port was found, but the design has a combinational read path (paddr -> prdata): the cone cannot be computed" }
-    set cpins ""
-    set cports ""
-    set nmiss 0
-    foreach_in_collection path $paths {
-        set sp ""
-        catch {set sp [get_object_name [get_attribute $path startpoint]]}
-        set on [expr {$sp eq ""}]
-        set got 0
-        foreach_in_collection pt [get_attribute $path points] {
-            set obj [get_attribute $pt object]
-            if {!$on} { if {[get_object_name $obj] ne $sp} continue; set on 1 }
-            set cls [get_attribute $obj object_class]
-            if {$cls eq "pin"} { append_to_collection -unique cpins $obj; set got 1 } elseif {$cls eq "port"} { append_to_collection -unique cports $obj; set got 1 }
+    set outs [all_outputs]
+    puts ">>> 080 in2out cone: input collection [sizeof_collection $ins] ports ([sizeof_collection $all_in] inputs minus the sources of $nclk clock(s)), output collection [sizeof_collection $outs] ports"
+    set methods [dict create]
+    set ports_all {}
+    # ---- (c) primary: the structural traversal ----
+    puts ">>> 080 method (c): structural traversal (forward from the input ports, backward from the output ports, through combinational cells only; sequential cells are endpoints); cells are visited at most $PT_CONE_MAX_NODES"
+    if {[catch {
+        set fseeds {}
+        foreach_in_collection p $ins {
+            set net [get_nets -quiet -of_objects $p]
+            if {[sizeof_collection $net] == 0} continue
+            foreach_in_collection lp [pt_cone_net_pins $net in] { lappend fseeds {*}[pt_cone_reg [get_cells -quiet -of_objects $lp]] }
         }
-        if {!$on} {
-            incr nmiss
-            foreach_in_collection pt [get_attribute $path points] {
-                set obj [get_attribute $pt object]
-                set cls [get_attribute $obj object_class]
-                if {$cls eq "pin"} { append_to_collection -unique cpins $obj } elseif {$cls eq "port"} { append_to_collection -unique cports $obj }
+        set bseeds {}
+        foreach_in_collection p $outs {
+            set net [get_nets -quiet -of_objects $p]
+            if {[sizeof_collection $net] == 0} continue
+            foreach_in_collection dp [pt_cone_net_pins $net out] { lappend bseeds {*}[pt_cone_reg [get_cells -quiet -of_objects $dp]] }
+        }
+        puts ">>> 080 method (c): [llength [lsort -unique $fseeds]] cells directly behind the input ports, [llength [lsort -unique $bseeds]] cells directly in front of the output ports"
+        set fwd [pt_cone_reach [lsort -unique $fseeds] pt_cone_step_fwd $PT_CONE_MAX_NODES]
+        set bwd [pt_cone_reach [lsort -unique $bseeds] pt_cone_step_bwd $PT_CONE_MAX_NODES]
+        puts ">>> 080 method (c): forward region [llength [dict get $fwd all]] cells ([llength [dict get $fwd seq]] sequential endpoints), backward region [llength [dict get $bwd all]] cells ([llength [dict get $bwd seq]] sequential startpoints)"
+        dict set methods c [pt_cone_structural $fwd $bwd]
+    } err]} { puts ">>> 080 method (c) FAILED: $err" } else { puts ">>> 080 method (c): [llength [dict get $methods c]] cells in the cone" }
+    # ---- (c2) cross-check: all_fanout / all_fanin ----
+    foreach c {all_fanout all_fanin} { if {[catch {help $c} herr]} { puts ">>> 080 help $c failed: $herr" } }   ;# VERIFY help <cmd>: the real options of this release are in the log
+    puts ">>> 080 method (c2): all_fanout -from <[sizeof_collection $ins] ports> -flat -only_cells  and  all_fanin -to <[sizeof_collection $outs] ports> -flat -only_cells, intersected, sequential removed"
+    if {[catch {
+        set fo [all_fanout -from $ins -flat -only_cells]   ;# VERIFY the options
+        set fi [all_fanin -to $outs -flat -only_cells]
+        puts ">>> 080 method (c2): fan-out [sizeof_collection $fo] cells, fan-in [sizeof_collection $fi] cells"
+        set both [pt_cone_intersect [pt_cone_reg $fo] [pt_cone_reg $fi]]
+        set keep {}
+        foreach n $both { if {![pt_cone_isseq $n]} { lappend keep $n } }
+        dict set methods c2 $keep
+    } err]} { puts ">>> 080 method (c2) FAILED: $err" } else { puts ">>> 080 method (c2): [llength [dict get $methods c2]] cells in the cone" }
+    # ---- (a) get_timing_paths in several forms ----
+    foreach {tag form} [list a1 "-unique_pins -max_paths $PT_CONE_MAX_PATHS" a2 "-max_paths $PT_CONE_MAX_PATHS -nworst 1" a3 "-slack_lesser_than 1e9 -max_paths $PT_CONE_MAX_PATHS -nworst 1"] {
+        puts ">>> 080 method ($tag): get_timing_paths -from <[sizeof_collection $ins] ports> -to <[sizeof_collection $outs] ports> -delay_type max $form"
+        if {[catch {
+            set paths [eval get_timing_paths -from \$ins -to \$outs -delay_type max $form]
+            set np [sizeof_collection $paths]
+            puts ">>> 080 method ($tag): $np paths returned"
+            if {$np >= $PT_CONE_MAX_PATHS} { error "$np paths, the bound PT_CONE_MAX_PATHS is $PT_CONE_MAX_PATHS: truncated" }
+            if {$np > 0} {
+                lassign [pt_cone_from_paths $paths] pc pp
+                dict set methods $tag $pc
+                set ports_all [pt_cone_union [list $ports_all $pp]]
             }
-        }
+        } err]} { puts ">>> 080 method ($tag) FAILED: $err" } elseif {[dict exists $methods $tag]} { puts ">>> 080 method ($tag): [llength [dict get $methods $tag]] cells" } else { puts ">>> 080 method ($tag): EMPTY (no message from PrimeTime)" }
+        if {[dict exists $methods $tag]} break
     }
-    if {$cpins eq "" && $cports eq ""} { error "PT ERROR: the $n input-to-output paths gave no pin and no port (the path points could not be read)" }
-    set cells_c [get_cells -quiet -of_objects $cpins]
-    set nets_c [get_nets -quiet -of_objects $cpins]
-    if {$cports ne ""} { set nets_c [add_to_collection $nets_c [get_nets -quiet -of_objects $cports]] }
-    set cn {}; foreach_in_collection c $cells_c { lappend cn [get_object_name $c] }
+    # ---- (b) report_timing as text ----
+    set cmdb "report_timing -from \$ins -to \$outs -delay_type max -max_paths $PT_CONE_REPORT_PATHS -path_type full"
+    puts ">>> 080 method (b): $cmdb (<[sizeof_collection $ins] ports> -> <[sizeof_collection $outs] ports>), captured and parsed for Startpoint: / pin lines"
+    if {[catch {
+        set rt ""
+        redirect -variable rt { eval $cmdb }
+        set pr [pt_cone_parse_report $rt]
+        puts ">>> 080 method (b): [dict get $pr nstart] Startpoint: lines, [llength [dict get $pr cells]] cells, [llength [dict get $pr ports]] ports parsed from [string length $rt] characters"
+        if {[dict get $pr nstart] == 0} { puts ">>> 080 method (b): no path in the report; the first lines of the text: [join [lrange [split $rt "\n"] 0 5] { | }]" } else { dict set methods b [dict get $pr cells]; set ports_all [pt_cone_union [list $ports_all [dict get $pr ports]]] }
+    } err]} { puts ">>> 080 method (b) FAILED: $err" }
+    # ---- the final cone: the union of every non-empty method ----
+    set nonempty [dict create]
+    dict for {m cl} $methods { if {[llength $cl] > 0} { dict set nonempty $m $cl } }
+    if {[dict size $nonempty] == 0} { error "PT ERROR: every method returned an empty cone (methods tried: c a1 a2 a3 b c2; see the lines above for the raw messages): the in2out cone cannot be computed" }
+    set final [pt_cone_union [dict values $nonempty]]
+    puts ">>> 080 in2out cone: methods with a result: [dict keys $nonempty]; sizes: [lmap m [dict keys $nonempty] {string cat $m= [llength [dict get $nonempty $m]]}]; FINAL cone = union = [llength $final] cells (primary method: [expr {[dict exists $nonempty c] ? {c, structural} : [lindex [dict keys $nonempty] 0]}])"
+    foreach l [pt_cone_compare $nonempty $final] { puts ">>> 080 NOTE: $l" }
+    # the sanity check: sequential cells in the cone, the read mux in it
+    set nseq 0
+    set seqnames {}
+    foreach n $final { if {![info exists pt_cone_h($n)]} { set pt_cone_h($n) [get_cells -quiet $n] }; if {[pt_cone_isseq $n]} { incr nseq; lappend seqnames $n } }
+    puts ">>> 080 sanity: [llength $final] cells in the cone, $nseq sequential (expected 0)[expr {$nseq > 0 ? " : [lrange $seqnames 0 4]" : {}}]; cells starting with [join $PT_CONE_EXPECT_PREFIXES { or }]: [llength [lsearch -all -inline -glob $final u_apb/*]] / [llength [lsearch -all -inline -glob $final u_csr/*]]"
+    set sprob [pt_cone_sanity $final $nseq $PT_CONE_EXPECT_PREFIXES]
+    if {[llength $sprob] > 0} { error "PT ERROR: the in2out cone failed its sanity check: [join $sprob {; }]" }
+    # collections of the final cells, their nets (every net on a signal pin of a cone cell: a superset, the safe direction)
+    set cells_c ""
+    foreach n $final { append_to_collection cells_c $pt_cone_h($n) }
+    set nets_c [get_nets -quiet -of_objects [get_pins -quiet -of_objects $cells_c]]
+    # the ports of the cone: the path-based methods name them; the structural method adds every input port whose net feeds a cone cell and every output port driven by one
+    set fset [dict create]
+    foreach n $final { dict set fset $n 1 }
+    if {[catch {
+        foreach_in_collection p $ins {
+            set net [get_nets -quiet -of_objects $p]
+            if {[sizeof_collection $net] == 0} continue
+            foreach_in_collection lp [pt_cone_net_pins $net in] { set cn [pt_cone_reg [get_cells -quiet -of_objects $lp]]; if {[dict exists $fset [lindex $cn 0]]} { lappend ports_all [get_object_name $p]; break } }
+        }
+        foreach_in_collection p $outs {
+            set net [get_nets -quiet -of_objects $p]
+            if {[sizeof_collection $net] == 0} continue
+            foreach_in_collection dp [pt_cone_net_pins $net out] { set cn [pt_cone_reg [get_cells -quiet -of_objects $dp]]; if {[dict exists $fset [lindex $cn 0]]} { lappend ports_all [get_object_name $p]; break } }
+        }
+    } err]} { puts ">>> 080 the structural port search FAILED: $err (the ports of the cone are then only those named by the path-based methods)" }
+    set pn [lsort -unique $ports_all]
+    puts ">>> 080 cone ports: [llength $pn]"
+    set ports_c ""
+    foreach_in_collection p [add_to_collection $ins $outs] {
+        if {[lsearch -exact $pn [get_object_name $p]] >= 0} { append_to_collection ports_c $p }
+    }
+    if {$ports_c ne "" && [sizeof_collection $ports_c] > 0} { set nets_c [add_to_collection $nets_c [get_nets -quiet -of_objects $ports_c]] }
     set nn {}; foreach_in_collection c $nets_c { lappend nn [get_object_name $c] }
-    set pn {}; if {$cports ne ""} { foreach_in_collection c $cports { lappend pn [get_object_name $c] } }
-    return [dict create cells [lsort -unique $cn] nets [lsort -unique $nn] ports [lsort -unique $pn] cells_c $cells_c nets_c $nets_c ports_c $cports npaths $n nstart_missing $nmiss]
+    return [dict create cells $final nets [lsort -unique $nn] ports $pn cells_c $cells_c nets_c $nets_c ports_c $ports_c methods $nonempty]
 }
 
-# 080: print the cone (counts, the first PT_CONE_PRINT_NAMES names) and write the full lists to <base>_cells.txt / _nets.txt / _ports.txt
+# 080: print the cone (counts, the first PT_CONE_PRINT_NAMES names) and write the full lists to <base>_cone_cells.txt / _cone_nets.txt / _cone_ports.txt
 proc pt_cone_print {cone base} {
     global PT_CONE_PRINT_NAMES
-    puts ">>> 080 in2out cone: [dict get $cone npaths] input-to-output paths (unique pins), [llength [dict get $cone cells]] cells, [llength [dict get $cone nets]] nets, [llength [dict get $cone ports]] ports"
-    if {[dict get $cone nstart_missing] > 0} { puts ">>> 080 NOTE: [dict get $cone nstart_missing] path(s) did not show their startpoint among the points: all their points were used (the cone is larger, never smaller)" }
+    puts ">>> 080 in2out cone: [llength [dict get $cone cells]] cells, [llength [dict get $cone nets]] nets, [llength [dict get $cone ports]] ports (ports are known only from the path-based methods)"
     puts ">>> 080   first cells: [pt_cone_head [dict get $cone cells] $PT_CONE_PRINT_NAMES]"
     puts ">>> 080   first nets:  [pt_cone_head [dict get $cone nets] $PT_CONE_PRINT_NAMES]"
     puts ">>> 080   ports:       [pt_cone_head [dict get $cone ports] $PT_CONE_PRINT_NAMES]"

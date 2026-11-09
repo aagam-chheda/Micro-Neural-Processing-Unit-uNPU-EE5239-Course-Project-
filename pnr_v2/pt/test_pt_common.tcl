@@ -545,6 +545,35 @@ check "cone head: sorted, truncated with the number of the rest" {[pt_cone_head 
 check "PROBE RESULT touches" {[pt_eco_result_line touches "3 of 109 proposed changes touch the cone"] eq "PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE: 3 of 109 proposed changes touch the cone"}
 check "PROBE RESULT cone not computed / check not completed" {[pt_eco_result_line cone "m"] eq "PROBE RESULT: ECO NOT RUN, IN2OUT CONE NOT COMPUTED: m" && [pt_eco_result_line unchecked "m"] eq "PROBE RESULT: ECO RAN BUT THE IN2OUT CONE CHECK COULD NOT BE COMPLETED: m"}
 check "the old three PROBE RESULT lines are unchanged" {[pt_eco_result_line 1 "109 changes proposed, change file f"] eq "PROBE RESULT: ECO RAN: 109 changes proposed, change file f" && [string match "PROBE RESULT: ECO NOT AVAILABLE: x" [pt_eco_result_line 0 x]] && [string match "PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: x" [pt_eco_result_line nochanges x]]}
+
+# ------------------------------------------------------------------ 080 fix: the cone by several methods (pure parts)
+check "intersect: common names, sorted, unique" {[pt_cone_intersect {c a b a} {b c d}] eq {b c}}
+check "union: all names, sorted, unique" {[pt_cone_union {{b a} {c a} {}}] eq {a b c}}
+check "missing: elements of a not in b" {[pt_cone_missing {a b c} {b}] eq {a c}}
+# a toy netlist: ports -> U1 -> U2 -> out port; U2 -> FF1 (D); FF1 -> U3 -> out2; in2 -> U4 -> FF2.  Cone = {U1 U2}
+array set succF {U1 {U2} U2 {FF1} FF1 {U3} U3 {} U4 {FF2} FF2 {}}
+array set predB {U2 {U1} U1 {} U3 {FF1} FF1 {U2} U4 {} FF2 {U4}}
+array set isseq {U1 0 U2 0 U3 0 U4 0 FF1 1 FF2 1}
+proc stepF {n} { global succF isseq; return [list $succF($n) $isseq($n)] }
+proc stepB {n} { global predB isseq; return [list $predB($n) $isseq($n)] }
+set fwd [pt_cone_reach {U1 U4} stepF 1000]
+set bwd [pt_cone_reach {U2 U3} stepB 1000]
+check "reach forward: stops at the flops (they are visited, not expanded): U3 is NOT reached" {[dict get $fwd all] eq {FF1 FF2 U1 U2 U4} && [dict get $fwd seq] eq {FF1 FF2}}
+check "reach backward from the outputs: U3 stops at FF1 (U2 behind the flop is not reached through it)" {[dict get $bwd all] eq {FF1 U1 U2 U3} && [dict get $bwd seq] eq {FF1}}
+check "structural cone = forward ∩ backward minus the sequential cells: {U1 U2}" {[pt_cone_structural $fwd $bwd] eq {U1 U2}}
+check "a flop in both regions (reached at D from an input, drives an output) is not in the cone" {[lsearch -exact [pt_cone_structural $fwd $bwd] FF1] < 0}
+check "reach: the bound is an error" {[catch {pt_cone_reach {U1} stepF 1} e] == 1 && [string match "*more than 1 cells*" $e]}
+set rep "  Startpoint: paddr\[2\] (input port clocked by clk)\n  Endpoint: prdata\[5\] (output port clocked by clk)\n  Path Group: in2out_default\n\n  Point    Incr   Path\n  ---------\n  input external delay   7.00   7.00 r\n  paddr\[2\] (in)   0.00   7.00 r\n  u_apb/U46/Z (buffd1)   0.20   7.20 f\n  u_csr/U9/ZN (nd02d1)   0.10   7.30 r\n  prdata\[5\] (out)   0.40   7.70 r\n  data arrival time   7.70\n\n  Startpoint: paddr\[3\] (input port clocked by clk)\n  u_apb/U46/Z (buffd1)  0.2  7.2 f\n"
+set pr [pt_cone_parse_report $rep]
+check "report parser: two Startpoint lines, the cells without the pin, the ports" {[dict get $pr nstart] == 2 && [dict get $pr cells] eq {u_apb/U46 u_csr/U9} && [lindex [dict get $pr ports] 0] eq "paddr\[2\]" && [lindex [dict get $pr ports] 1] eq "prdata\[5\]" && [llength [dict get $pr ports]] == 2}
+check "report parser: an empty report has no startpoint" {[dict get [pt_cone_parse_report ""] nstart] == 0}
+check "sanity: u_apb cell present, no flop -> no problem" {[pt_cone_sanity {u_apb/U46 x/U1} 0 {u_apb/ u_csr/}] eq ""}
+check "sanity: no cell of the expected blocks -> problem naming the prefixes" {[string match "*none starts with one of {u_apb/ u_csr/}*" [lindex [pt_cone_sanity {x/U1 y/U2} 0 {u_apb/ u_csr/}] 0]]}
+check "sanity: a flop in the cone -> problem" {[string match "*contains 2 sequential cell(s), expected 0*" [lindex [pt_cone_sanity {u_csr/U1} 2 {u_apb/ u_csr/}] 0]]}
+check "sanity: an empty cone -> problem" {[pt_cone_sanity {} 0 {u_apb/}] eq {{the cone is empty}}}
+set cmp [pt_cone_compare [dict create c {a b c} a1 {a b}] {a b c}]
+check "compare: the smaller path-based method is reported as not covering the union; no BUG text for subsets" {[llength $cmp] == 2 && [string match "method c: 3 cells; equal to or covering*" [lindex $cmp 0]] && [string match "method a1: 2 cells; 1 cells of the final cone are not in it" [lindex $cmp 1]] && [string first BUG [join $cmp]] < 0}
+check "compare: a method with a cell outside the final cone is flagged (cannot happen with the union)" {[string match "*BUG*" [lindex [pt_cone_compare [dict create z {a q}] {a b}] 0]]}
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0
