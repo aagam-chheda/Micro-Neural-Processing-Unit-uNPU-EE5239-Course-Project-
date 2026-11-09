@@ -21,8 +21,9 @@ pt_main {
     set wns_before ""
     catch {set wns_before [get_attribute [get_timing_paths -delay_type min -max_paths 1] slack]}
     puts ">>> 078 BEFORE the ECO: $n_before hold-violating endpoints, WNS [pt_fmt_ns $wns_before] ns"
-    set eps [pt_eco_port_fed_endpoints $rows_before]
-    puts ">>> 078 hold violators whose startpoint is an input port and whose endpoint is a pin: [llength $eps] (the ECO is asked to fix these; the task expects 255 flop D pins)"
+    set split [pt_eco_split_kinds $rows_before]
+    puts ">>> 078 hold violators by kind (information; the ECO is run for ALL of them, without a -to / -from restriction): port-fed pin (startpoint is an input port, endpoint a pin) [dict get $split port_fed_pin]; other pin (endpoint a pin, startpoint a pin, e.g. register to register) [dict get $split other_pin]; endpoint is a port [dict get $split port]; kind unreadable [dict get $split unknown]; total [dict get $split total]"
+    if {[dict get $split total] == 0} { puts ">>> 078 NOTE: there is no hold violator before the ECO; the probe has nothing to fix" }
 
     # ---- everything below is the probe: any error is the ANSWER, not a script error -----------------------------------------------------------------
     if {[catch {
@@ -46,7 +47,7 @@ pt_main {
             if {[catch {get_license $f} lres]} { puts ">>> 078 get_license $f: FAILED: $lres" } else { puts ">>> 078 get_license $f: ok ($lres)" }   ;# VERIFY get_license <feature>
         }
 
-        # 3. buffer candidates from the library, with their data; the choice is made by data (is_buffer, delay, area), not by name
+        # 3. buffer candidates from the library, with their data (raw is_buffer value, pin function, delay, area); when no delay is readable the hold-fixing set is chosen by name (dl* + buffd1), and the log says so
         set lib $PT_CORNER($corner,lib)
         set cands {}
         set seen {}
@@ -54,8 +55,19 @@ pt_main {
             foreach_in_collection lc [get_lib_cells -quiet "${lib}/${pat}"] {
                 set nm [lindex [split [get_object_name $lc] /] end]
                 set isb ""; set area ""; set delay ""
-                catch {set isb [get_attribute $lc is_buffer]}    ;# VERIFY the lib cell attribute is_buffer
+                catch {set isb [get_attribute $lc is_buffer]}    ;# VERIFY the lib cell attribute is_buffer (the raw value is kept and printed; an unrecognised value is not read as "no")
                 catch {set area [get_attribute $lc area]}
+                # the function of the pins (VERIFY get_lib_pins -of_objects and the lib pin attributes direction / function)
+                set lpins {}
+                catch {
+                    foreach_in_collection lp [get_lib_pins -of_objects $lc] {
+                        set pd ""; set pf ""
+                        catch {set pd [get_attribute $lp direction]}
+                        catch {set pf [get_attribute $lp function]}
+                        lappend lpins [dict create name [lindex [split [get_object_name $lp] /] end] dir $pd func $pf]
+                    }
+                }
+                set fnb [pt_eco_func_is_buffer $lpins]
                 # the largest delay value found among the timing arcs of the cell (VERIFY: lib timing arc attributes; unreadable -> empty)
                 set dmax ""
                 catch {
@@ -69,13 +81,17 @@ pt_main {
                 }
                 if {[lsearch -exact $seen $nm] >= 0} continue   ;# a cell matched by two patterns is listed once
                 lappend seen $nm
-                lappend cands [dict create name $nm is_buffer $isb area $area delay $dmax]
+                lappend cands [dict create name $nm raw $isb func $fnb area $area delay $dmax]
             }
         }
-        puts ">>> 078 buffer candidates (name, is_buffer, area, delay at this corner if readable; patterns: $PT_ECO_LIB_PATTERNS):"
-        foreach c $cands { puts ">>> 078   [format {%-12s is_buffer %-6s area %-10s delay %s} [dict get $c name] [dict get $c is_buffer] [dict get $c area] [expr {[dict get $c delay] eq {} ? {n/a} : [dict get $c delay]}]]" }
-        lassign [pt_eco_choose_buffers $cands $PT_ECO_MAX_BUFFERS] blist bnote
-        puts ">>> 078 buffer list for the ECO: $blist -- $bnote"
+        puts ">>> 078 buffer candidates (patterns: $PT_ECO_LIB_PATTERNS; is_buffer is the RAW attribute value; function = buffer by the pins' function: yes / no / n/a):"
+        foreach c $cands {
+            lassign [pt_eco_buffer_class $c] cls basis
+            puts ">>> 078   [format {%-12s is_buffer=%-8s function-buffer=%-4s area %-10s delay %-6s -> buffer: %-3s (%s)} [dict get $c name] '[dict get $c raw]' [expr {[dict get $c func] eq {} ? {n/a} : [dict get $c func]}] [dict get $c area] [expr {[dict get $c delay] eq {} ? {n/a} : [dict get $c delay]}] $cls $basis]"
+        }
+        lassign [pt_eco_choose_buffers $cands $PT_ECO_MAX_BUFFERS $PT_ECO_DELAY_PATTERN $PT_ECO_EXTRA_CELLS] blist bnote
+        puts ">>> 078 buffer list for the ECO ([llength $blist] cells): $blist"
+        puts ">>> 078   $bnote"
         if {[llength $blist] == 0} { error "PROBE: no buffer cell among the candidates ($bnote)" }
         set libblist {}
         foreach b $blist { lappend libblist ${lib}/$b }
@@ -83,30 +99,10 @@ pt_main {
         # 4. ECO options (logical ECO: no physical data)
         if {[catch {set_eco_options -log_file ${rpt}_eco.log} oerr]} { puts ">>> 078 set_eco_options -log_file failed (not fatal): $oerr" }   ;# VERIFY set_eco_options and -log_file
 
-        # 5. the fix, restricted to the port-fed endpoints; the forms are tried in order, only an unknown-option error moves on to the next form
-        if {[llength $eps] == 0} { error "PROBE: no hold violator is fed by an input port (and ends at a pin): nothing to fix; the probe has nothing to test" }
-        set inports [remove_from_collection [all_inputs] [get_ports $PT_CLOCK]]
-        set epobjs [get_pins $eps]
-        set forms [list \
-            "-to \$epobjs" \
-            "-from \$inports" \
-            "" ]
-        set done 0
-        set errs {}
-        foreach restr $forms {
-            set text "$cmd -type hold -methods {insert_buffer} -buffer_list {$libblist} -hold_margin $PT_ECO_HOLD_MARGIN $restr"   ;# VERIFY -type -methods -buffer_list -hold_margin and the restriction option
-            puts ">>> 078 trying: [string map [list \$epobjs "<[llength $eps] endpoint pins>" \$inports "<input ports>"] $text]"
-            if {[catch {eval $text} ferr]} {
-                lappend errs "($restr) $ferr"
-                puts ">>> 078 that form failed: $ferr"
-                if {[pt_eco_is_option_error $ferr]} { continue }
-                error "PROBE: $cmd failed: $ferr"
-            }
-            set done 1
-            if {$restr eq ""} { puts ">>> 078 NOTE: neither -to nor -from was accepted: the ECO was run WITHOUT a restriction, it may also touch the endpoints that are not port-fed" }
-            break
-        }
-        if {!$done} { error "PROBE: $cmd rejected every form of the command: [join $errs { | }]" }
+        # 5. the fix for ALL hold violators (no -to / -from restriction: the first server run showed 26 pin endpoints with other startpoints and about 8 port endpoints besides the 229 port-fed pins)
+        set text "$cmd -type hold -methods {insert_buffer} -buffer_list {$libblist} -hold_margin $PT_ECO_HOLD_MARGIN"   ;# VERIFY -type -methods -buffer_list -hold_margin
+        puts ">>> 078 trying: $text"
+        if {[catch {eval $text} ferr]} { error "PROBE: $cmd failed: $ferr" }
 
         # 6. the changes: three formats are tried; icc2tcl is the one the ICC2 side of the next task would read (VERIFY the format names)
         set outs [list icctcl $PT_ECO_FILE_ICCTCL icc2tcl $PT_ECO_FILE_ICC2TCL text $PT_ECO_FILE_TEXT]

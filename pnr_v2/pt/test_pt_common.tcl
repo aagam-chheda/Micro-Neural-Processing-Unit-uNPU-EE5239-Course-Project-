@@ -404,21 +404,56 @@ check "eco: fix_eco_timing is preferred" {[pt_eco_pick_cmd {write_changes fix_ec
 check "eco: fix_eco_hold is the fallback" {[pt_eco_pick_cmd {write_changes fix_eco_hold}] eq "fix_eco_hold"}
 check "eco: neither exists -> empty" {[pt_eco_pick_cmd {write_changes}] eq ""}
 check "eco licence lines: only the lines that mention ECO" {[pt_eco_license_lines "PrimeTime  ok\nPrimeTime-ECO  not available\n PrimeTime-SI x\n"] eq [list "PrimeTime-ECO  not available"]}
+# buffer classification: the raw values of the first server run and the true/false forms
+check "attr bool: true / 1 / yes / TRUE -> yes" {[pt_eco_attr_bool true] eq "yes" && [pt_eco_attr_bool 1] eq "yes" && [pt_eco_attr_bool yes] eq "yes" && [pt_eco_attr_bool TRUE] eq "yes" && [pt_eco_attr_bool " true "] eq "yes"}
+check "attr bool: false / 0 / no -> no" {[pt_eco_attr_bool false] eq "no" && [pt_eco_attr_bool 0] eq "no" && [pt_eco_attr_bool no] eq "no"}
+check "attr bool: the raw text 'is_buffer' seen on the server and an empty value are UNRECOGNISED (not no)" {[pt_eco_attr_bool is_buffer] eq "" && [pt_eco_attr_bool ""] eq ""}
+set pb [list [dict create name I dir in func ""] [dict create name Z dir out func "I"]]
+check "function: one input, one output, Z = I -> buffer" {[pt_eco_func_is_buffer $pb] eq "yes"}
+check "function: parentheses and blanks ignored" {[pt_eco_func_is_buffer [list [dict create name I dir input func ""] [dict create name Z dir output func " ( I ) "]]] eq "yes"}
+check "function: an inverter (Z = !I) is not a buffer" {[pt_eco_func_is_buffer [list [dict create name I dir in func ""] [dict create name ZN dir out func "!I"]]] eq "no"}
+check "function: two inputs -> no" {[pt_eco_func_is_buffer [list [dict create name A dir in func ""] [dict create name B dir in func ""] [dict create name Z dir out func "A"]]] eq "no"}
+check "function: unreadable pins or function -> unknown" {[pt_eco_func_is_buffer {}] eq "" && [pt_eco_func_is_buffer [list [dict create name I dir in func ""] [dict create name Z dir out func ""]]] eq ""}
+# classes: recognised attribute wins; unrecognised raw -> the function; nothing readable -> the queried name pattern
+check "class: attribute true" {[lindex [pt_eco_buffer_class [dict create name buffd1 raw true func ""]] 0] eq "yes"}
+check "class: attribute false is respected even for a dl* name" {[lindex [pt_eco_buffer_class [dict create name dl01d1 raw false func yes]] 0] eq "no"}
+check "class: raw 'is_buffer' (unrecognised) with a buffer function -> yes, basis names the function" {[lindex [pt_eco_buffer_class [dict create name dl04d1 raw is_buffer func yes]] 0] eq "yes" && [string match "function*" [lindex [pt_eco_buffer_class [dict create name dl04d1 raw is_buffer func yes]] 1]]}
+check "class: raw 'is_buffer' with an inverter function -> no" {[lindex [pt_eco_buffer_class [dict create name buffd9 raw is_buffer func no]] 0] eq "no"}
+check "class: raw unrecognised, pins unreadable, dl*/buff* name -> yes by the name pattern, and says so" {[lindex [pt_eco_buffer_class [dict create name dl04d1 raw is_buffer func ""]] 0] eq "yes" && [string match "name pattern*" [lindex [pt_eco_buffer_class [dict create name dl04d1 raw is_buffer func ""]] 1]]}
+check "class: raw unrecognised, pins unreadable, other name -> no" {[lindex [pt_eco_buffer_class [dict create name inv0d1 raw "" func ""]] 0] eq "no"}
+# the 18 cells of the first server run (areas: dl04d1 40.77 as printed; the others are test values), all with the raw text 'is_buffer' and delay n/a
+set names18 {dl04d1 dl03d1 dl02d2 dl03d4 dl04d2 dl02d1 dl01d4 dl04d4 dl02d4 dl01d2 dl01d1 dl03d2 buffd2 buffda buffd3 buffd4 buffd7 buffd1}
+set areas18 {40.77 31.0 30.5 38.0 45.0 25.0 33.0 52.0 36.0 22.0 20.0 24.0 14.0 15.0 13.0 18.0 25.5 10.0}
+set cands18 {}
+foreach n $names18 a $areas18 { lappend cands18 [dict create name $n raw is_buffer func "" area $a delay ""] }
+lassign [pt_eco_choose_buffers $cands18 20 dl* {buffd1}] lst note
+check "server case: none rejected -- 13 cells (12 dl* plus buffd1) are chosen" {[llength $lst] == 13 && [lsearch $lst buffd1] >= 0 && [lsearch $lst buffd2] < 0 && [lsearch $lst buffd7] < 0}
+check "server case: ordered by area, largest first" {[lindex $lst 0] eq "dl04d4" && [lindex $lst 1] eq "dl04d2" && [lindex $lst end] eq "buffd1"}
+check "server case: the note says the delay was not readable and what the proxy is" {[string match "THE DELAY WAS NOT READABLE*area, largest first*" $note]}
+lassign [pt_eco_choose_buffers $cands18 5 dl* {buffd1}] lst5 note5
+check "server case: max is respected" {[llength $lst5] == 5 && [lindex $lst5 0] eq "dl04d4"}
+# with proper attribute values and delays: by delay
 set cands [list \
-  [dict create name dl01d1 is_buffer true area 20.0 delay 0.30] \
-  [dict create name dl02d1 is_buffer true area 25.0 delay 0.55] \
-  [dict create name buffd1 is_buffer true area 10.0 delay 0.17] \
-  [dict create name buffd2 is_buffer true area 12.0 delay 0.17] \
-  [dict create name inv0d1 is_buffer false area 5.0 delay 0.05] \
-  [dict create name dlx_nodata is_buffer true area 30.0 delay ""]]
+  [dict create name dl01d1 raw true func "" area 20.0 delay 0.30] \
+  [dict create name dl02d1 raw true func "" area 25.0 delay 0.55] \
+  [dict create name buffd1 raw true func "" area 10.0 delay 0.17] \
+  [dict create name buffd2 raw true func "" area 12.0 delay 0.17] \
+  [dict create name inv0d1 raw false func "" area 5.0 delay 0.05] \
+  [dict create name dlx_nodata raw true func "" area 30.0 delay ""]]
 lassign [pt_eco_choose_buffers $cands 3] lst note
 check "eco choose: buffers only, the largest delay first, ties by smaller area" {$lst eq {dl02d1 dl01d1 buffd1}}
 check "eco choose: the maximum count is respected and the inverter is never chosen" {[llength [lindex [pt_eco_choose_buffers $cands 10] 0]] == 4 && [lsearch [lindex [pt_eco_choose_buffers $cands 10] 0] inv0d1] < 0}
 check "eco choose: the note says it was chosen by delay" {[string match "*chosen by delay*4 buffer cells*" $note]}
-set nod [list [dict create name dlA is_buffer true area 22.0 delay ""] [dict create name bufB is_buffer true area 9.0 delay ""] [dict create name invC is_buffer false area 3.0 delay ""]]
-lassign [pt_eco_choose_buffers $nod 5] lst2 note2
-check "eco choose: no readable delay -> by area, and the note says so" {$lst2 eq {bufB dlA} && [string match "NO delay was readable*" $note2]}
-check "eco choose: no buffer at all -> empty list" {[lindex [pt_eco_choose_buffers [list [dict create name x is_buffer false area 1 delay 1]] 3] 0] eq ""}
+# no dl*/extra cell among the buffers: all buffers by area, largest first
+lassign [pt_eco_choose_buffers [list [dict create name bufB raw true func "" area 9.0 delay ""] [dict create name bufC raw true func "" area 12.0 delay ""] [dict create name invC raw false func "" area 3.0 delay ""]] 5] lst2 note2
+check "eco choose: no dl*/extra cell -> all buffers by area, largest first, and the note says so" {$lst2 eq {bufC bufB} && [string match "*no cell matches*all 2 buffer cells*" $note2]}
+check "eco choose: no buffer at all -> empty list" {[lindex [pt_eco_choose_buffers [list [dict create name x raw false func "" area 1 delay 1]] 3] 0] eq ""}
+check "eco parameters for the buffer list" {$PT_ECO_MAX_BUFFERS >= 18 && $PT_ECO_DELAY_PATTERN eq "dl*" && $PT_ECO_EXTRA_CELLS eq "buffd1"}
+# the split of the violators by kind
+set prow [list [dict create endpoint a/D sp_kind port ep_kind pin] [dict create endpoint b/D sp_kind pin ep_kind pin] [dict create endpoint p sp_kind port ep_kind port] [dict create endpoint c/D sp_kind port ep_kind pin] [dict create endpoint u sp_kind "" ep_kind ""]]
+set sp [pt_eco_split_kinds $prow]
+check "split: port-fed pin 2, other pin 1, port 1, unknown 1, total 5" {[dict get $sp port_fed_pin] == 2 && [dict get $sp other_pin] == 1 && [dict get $sp port] == 1 && [dict get $sp unknown] == 1 && [dict get $sp total] == 5}
+check "split: the real run (229 + 26 + 8 = 263)" {[dict get [pt_eco_split_kinds [concat [lrepeat 229 [dict create endpoint x sp_kind port ep_kind pin]] [lrepeat 26 [dict create endpoint y sp_kind pin ep_kind pin]] [lrepeat 8 [dict create endpoint z sp_kind port ep_kind port]]]] total] == 263}
 set chg "# changes\ninsert_buffer \[get_pins u_dma/stage_reg_1__14_/D\] buffd1 -new_cell_names hfix_1\ninsert_buffer \[get_pins u_dma/stage_reg_1__13_/D\] dl01d1 -new_cell_names hfix_2\ninsert_buffer \[get_pins u_dma/stage_reg_1__12_/D\] dl01d1\nsize_cell U12 buffd2\nset x 1\n"
 set cc [pt_eco_count_changes $chg {buffd1 dl01d1 buffd2}]
 check "eco changes: total, per verb and per library cell" {[dict get $cc n] == 4 && [dict get [dict get $cc verbs] insert_buffer] == 3 && [dict get [dict get $cc verbs] size_cell] == 1 && [dict get [dict get $cc refs] dl01d1] == 2 && [dict get [dict get $cc refs] buffd1] == 1 && [dict get [dict get $cc refs] buffd2] == 1}
@@ -426,8 +461,6 @@ check "eco changes: a text without any change line counts 0" {[dict get [pt_eco_
 check "eco option error: unknown option" {[pt_eco_is_option_error "Error: unknown option '-to' (CMD-010)."] == 1}
 check "eco option error: licence error is not an option error" {[pt_eco_is_option_error "Error: Unable to checkout 'PrimeTime-ECO' license. (PT-110)"] == 0}
 check "eco option error: no such command is not an option error" {[pt_eco_is_option_error "Error: unknown command 'fix_eco_timing' (CMD-005)."] == 0}
-set prow [list [dict create endpoint a/D sp_kind port ep_kind pin] [dict create endpoint b/D sp_kind pin ep_kind pin] [dict create endpoint p sp_kind port ep_kind port] [dict create endpoint c/D sp_kind port ep_kind pin]]
-check "eco endpoints: only port-fed pins" {[pt_eco_port_fed_endpoints $prow] eq {a/D c/D}}
 check "eco result line: ran" {[pt_eco_result_line 1 "255 changes proposed, change file /x/pt_eco_hold_changes.tcl"] eq "PROBE RESULT: ECO RAN: 255 changes proposed, change file /x/pt_eco_hold_changes.tcl"}
 check "eco result line: not available" {[pt_eco_result_line 0 "no licence"] eq "PROBE RESULT: ECO NOT AVAILABLE: no licence"}
 check "eco parameters: margin 0.05, output files" {$PT_ECO_HOLD_MARGIN == 0.05 && $PT_ECO_FILE_ICCTCL eq "pt_eco_hold_changes.tcl" && $PT_ECO_FILE_TEXT eq "pt_eco_hold_changes.txt"}

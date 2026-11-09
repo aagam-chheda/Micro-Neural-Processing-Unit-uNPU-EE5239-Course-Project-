@@ -85,8 +85,13 @@ set PT_VIOL_MAX_PATHS 100000
 set PT_ECO_HOLD_MARGIN 0.05
 # library cell name patterns for the buffer candidates (names relative to the library; the choice among them is made by DATA: is_buffer, delay, area -- see pt_eco_choose_buffers)
 set PT_ECO_LIB_PATTERNS {dl* buff*}
-# how many candidate cells are handed to -buffer_list (the delay cells with the largest delay first)
-set PT_ECO_MAX_BUFFERS 6
+# 078 fix: when NO delay is readable from the library, the buffer list is the hold-fixing set: every candidate that matches PT_ECO_DELAY_PATTERN (the dl* delay cells) plus the cells in
+# PT_ECO_EXTRA_CELLS (buffd1: the smallest plain buffer), ordered by area, largest first, as the proxy for the delay (the first server run: the delay was n/a for all 18 cells). This is a
+# NAME-based choice, forced by the missing data; the log says so.
+set PT_ECO_DELAY_PATTERN {dl*}
+set PT_ECO_EXTRA_CELLS {buffd1}
+# how many candidate cells are handed to -buffer_list at most. 20 is above the 18 cells the first server run listed (dl* 12, buffd* 6), so the list is not cut; fix_eco_timing picks the best cell itself.
+set PT_ECO_MAX_BUFFERS 20
 # licence feature names that are TRIED (not assumed): the probe prints PrimeTime's own answer for each, and the ECO command itself is the final test
 set PT_ECO_LICENSE_TRIES {PrimeTime-ECO}
 # output files of the probe (in $PT_RPT_DIR)
@@ -694,11 +699,50 @@ proc pt_eco_license_lines {text} {
     foreach l [split $text "\n"] { if {[regexp -nocase {eco} $l]} { lappend out [string trim $l] } }
     return $out
 }
-# candidates: list of dicts {name is_buffer area delay}; is_buffer true/1; delay a number or "" (unreadable). Chooses by DATA, never by name: only buffer cells; if delays are readable
-# the ones with the largest delay first (ties: smaller area first), else the smallest area first; at most max cells. Returns {list note}.
-proc pt_eco_choose_buffers {cands max} {
+# 078 fix: the raw value of the lib-cell attribute is_buffer -> yes / no / "" (unrecognised). The first server run printed the raw text where true/false was expected, so an unrecognised value
+# is NEVER read as "not a buffer".
+proc pt_eco_attr_bool {raw} {
+    set v [string tolower [string trim $raw]]
+    if {$v in {true 1 yes y on}} { return yes }
+    if {$v in {false 0 no n off}} { return no }
+    return ""
+}
+# 078 fix: from the pins of a library cell (a list of dicts {name dir func}) decide whether the cell is a buffer by its FUNCTION: exactly one input pin, exactly one output pin and the
+# output function equal to the input pin name (parentheses and blanks ignored). Returns yes / no / "" (the pins or functions could not be read). VERIFY the lib pin attributes.
+proc pt_eco_func_is_buffer {pins} {
+    set ins {}
+    set outs {}
+    foreach p $pins {
+        switch -- [string tolower [dict get $p dir]] {
+            in - input { lappend ins $p }
+            out - output { lappend outs $p }
+        }
+    }
+    if {[llength $ins] == 0 || [llength $outs] == 0} { return "" }
+    if {[llength $ins] != 1 || [llength $outs] != 1} { return no }
+    set f [string map {( "" ) "" " " ""} [dict get [lindex $outs 0] func]]
+    if {$f eq ""} { return "" }
+    return [expr {$f eq [dict get [lindex $ins 0] name] ? "yes" : "no"}]
+}
+# 078 fix: is this candidate a buffer? cand: dict name, raw (the raw is_buffer value), func (yes / no / "" from pt_eco_func_is_buffer). Order: a recognised attribute value, else the
+# function, else (nothing readable) the name pattern that was queried (dl* or buff*) -- marked as such. Returns {yes|no basis}.
+proc pt_eco_buffer_class {cand} {
+    set a [pt_eco_attr_bool [dict get $cand raw]]
+    if {$a ne ""} { return [list $a "attribute is_buffer=[dict get $cand raw]"] }
+    set f [dict get $cand func]
+    if {$f ne ""} { return [list $f "function of the pins (attribute unrecognised: '[dict get $cand raw]')"] }
+    set n [dict get $cand name]
+    if {[string match dl* $n] || [string match buff* $n]} { return [list yes "name pattern dl*/buff* only (attribute unrecognised: '[dict get $cand raw]', pins not readable)"] }
+    return [list no "attribute unrecognised and pins not readable, name outside dl*/buff*"]
+}
+# candidates: list of dicts {name raw func area delay}. Chooses the -buffer_list. Only cells that pt_eco_buffer_class calls buffers are considered.
+#  - some delay readable: those with a readable delay, the largest delay first (ties: smaller area first);
+#  - NO delay readable: the hold-fixing set = buffers that match delay_pattern plus the cells named in extra, area LARGEST first (the proxy for the delay); if that set is empty,
+#    all buffers by area, largest first. At most max cells.
+# Returns {list note}.
+proc pt_eco_choose_buffers {cands max {delay_pattern dl*} {extra {}}} {
     set bufs {}
-    foreach c $cands { if {[dict get $c is_buffer] in {true 1}} { lappend bufs $c } }
+    foreach c $cands { if {[lindex [pt_eco_buffer_class $c] 0] eq "yes"} { lappend bufs $c } }
     if {[llength $bufs] == 0} { return [list {} "no candidate is a buffer cell"] }
     set withd {}
     foreach c $bufs { if {[string is double -strict [dict get $c delay]]} { lappend withd $c } }
@@ -711,14 +755,29 @@ proc pt_eco_choose_buffers {cands max} {
         foreach r $rows { lappend names [lindex $r 2] }
         set note "chosen by delay (largest first, ties by smaller area) among [llength $withd] buffer cells with a readable delay"
     } else {
+        set sel {}
+        foreach c $bufs { if {[string match $delay_pattern [dict get $c name]] || [lsearch -exact $extra [dict get $c name]] >= 0} { lappend sel $c } }
+        set what "the hold-fixing set: [llength $sel] cells matching $delay_pattern or named in {$extra}"
+        if {[llength $sel] == 0} { set sel $bufs; set what "no cell matches $delay_pattern or {$extra}: all [llength $bufs] buffer cells" }
         set rows {}
-        foreach c $bufs { lappend rows [list [expr {[string is double -strict [dict get $c area]] ? [dict get $c area] : 1e30}] [dict get $c name]] }
-        set rows [lsort -real -index 0 -increasing $rows]
+        foreach c $sel { lappend rows [list [expr {[string is double -strict [dict get $c area]] ? [dict get $c area] : -1}] [dict get $c name]] }
+        set rows [lsort -real -index 0 -decreasing $rows]
         set names {}
         foreach r $rows { lappend names [lindex $r 1] }
-        set note "NO delay was readable for any candidate: chosen by area (smallest first) among [llength $bufs] buffer cells"
+        set note "THE DELAY WAS NOT READABLE for any candidate: $what, ordered by area, largest first (the proxy for the delay); fix_eco_timing picks the best cell of the list itself"
     }
     return [list [lrange $names 0 [expr {$max - 1}]] $note]
+}
+# 078 fix: the split of the hold violators (rows of pt_collect_violations) by kind, for information: port-fed pin (startpoint port, endpoint pin), other pin (endpoint pin, other
+# startpoint), port (endpoint is a port), unknown (a kind that could not be read). Returns a dict.
+proc pt_eco_split_kinds {rows} {
+    set a 0; set b 0; set c 0; set u 0
+    foreach r $rows {
+        set sp [dict get $r sp_kind]
+        set ep [dict get $r ep_kind]
+        if {$ep eq "port"} { incr c } elseif {$ep eq "pin" && $sp eq "port"} { incr a } elseif {$ep eq "pin" && $sp eq "pin"} { incr b } else { incr u }
+    }
+    return [dict create port_fed_pin $a other_pin $b port $c unknown $u total [llength $rows]]
 }
 # a change text (write_changes -format text/icctcl): count the lines whose first word is a netlist-changing command, per verb, and for insert-type lines the library cell (the first token
 # that is one of `known_refs`). Returns a dict: n (total), verbs (dict verb -> count), refs (dict ref -> count). VERIFY the verbs against the real change file.
@@ -745,12 +804,6 @@ proc pt_eco_count_changes {text known_refs} {
 # is this error text an unknown/invalid option error (then the next form of the command is tried) -- anything else (licence, no such command ...) stops
 proc pt_eco_is_option_error {msg} {
     return [regexp -nocase {(unknown|unrecognized|invalid|illegal|not\s+(a\s+)?valid)\s+(option|argument)|CMD-01[0-9]|option\s+.*\s+(is\s+)?(unknown|not\s+recognized)} $msg]
-}
-# the endpoints (pins) of the rows whose startpoint is a port: the hold violators that the ECO is restricted to
-proc pt_eco_port_fed_endpoints {rows} {
-    set out {}
-    foreach r $rows { if {[dict get $r sp_kind] eq "port" && [dict get $r ep_kind] eq "pin"} { lappend out [dict get $r endpoint] } }
-    return $out
 }
 # the one result line of the probe
 proc pt_eco_result_line {ok detail} {
