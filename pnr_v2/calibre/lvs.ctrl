@@ -7,6 +7,10 @@
 // VERIFY: the deck may need its own #define switches (the DRC deck refused to run without 4M1L/BLOCK/3V, handoff 18.24).
 // The README step "read the LVS deck switches" prints the deck's #ifdef/#ifndef/#define lines; add the switches it demands, none are guessed here except 4M1L.
 #define 4M1L
+// FILTER_DWN2PSUB (task 073, user approved 2026-11-09). Reason: the layout has one extra device D(DWN2PSUB), the N-well to P-substrate diode (76 parallel diodes reduced to 1) of the N-well of the
+// feedth* filler cells. It is a parasitic junction with no schematic equivalent, and the kit CDL defines feedth, feedth3, feedth9 as EMPTY subcircuits, so the source cannot carry it.
+// The deck provides this switch for it (LVS FILTER D(dwn2psub) OPEN, deck lines 4016 to 4018). With it nets and instances match 100 percent. BLOCK_DWN2PSUB (extraction off) is NOT used.
+#define FILTER_DWN2PSUB
 // VERIFY: same name as in drc.ctrl; if the layout and source names of the top cell differ, set LAYOUT PRIMARY from the README step "find the GDS top cell name"
 LAYOUT PATH "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs/unpu_top_routed.gds"
 LAYOUT PRIMARY "unpu_top"
@@ -18,9 +22,6 @@ SOURCE SYSTEM SPICE
 // VERIFY: the deck may already define the report and the SVDB; if Calibre reports a duplicate or conflicting statement, remove the statement here (do not edit the deck)
 LVS REPORT "unpu_top.lvs.rpt"
 MASK SVDB DIRECTORY "svdb"
-// VERIFY: the two VIRTUAL CONNECT lines are copied from drc.ctrl (they worked there); whether LVS needs or tolerates them is untested
-VIRTUAL CONNECT COLON NO
-VIRTUAL CONNECT REPORT NO
 // Power and ground names: NOT set here (VERIFY: the deck normally has LVS POWER NAME / LVS GROUND NAME; grep for them in the README step).
 // If the report says the supply nets are not recognised, add: LVS POWER NAME "VDD" and LVS GROUND NAME "VSS"
 INCLUDE "/storage/EE5239G1/aagams_workspace/calibre_run/scr/LVS_TS18SL_SCL_CALIBRE"

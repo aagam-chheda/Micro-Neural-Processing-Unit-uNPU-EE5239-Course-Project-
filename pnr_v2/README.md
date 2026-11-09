@@ -25,7 +25,7 @@ If the folder differs: `sed -i 's#/storage/EE5239G1/aagams_workspace2/unpu#<real
 | 6d | `antenna_clk_root.tcl` | `icc2_shell` (task 071: after `antenna_port_buffers.tcl`, before `metal_fill.tcl`; replaces the CTS root inverter on the `clk` port net by a larger inverter, a size-only ECO on one clock-tree cell; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place) |
 | 6e | `timing_closure.tcl` | `icc2_shell` (task 072: after `antenna_clk_root.tcl`, before `metal_fill.tcl`; `route_opt` again with the same goals and options as `route.tcl`, the 15 `antbuf_*` buffers and the clock root protected, fillers removed during the pass and re-created; can resize cells and add hold buffers, so it changes the netlist; overwrites `_route` in place) |
 | 7 | `metal_fill.tcl` | `icc2_shell` |
-| 8 | `pv.tcl` | `icc2_shell` |
+| 8 | `pv.tcl` | `icc2_shell` (task 073: the LEF is the macro `unpu_top` only, from `create_frame` + `write_lef -include cell`, with hard checks; read the `>>> 073 LEF CHECK PASSED` line in the log, a `FAILED` line makes the run end with `ERROR 073`) |
 
 Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_cts` -> `_route` -> `_filled` -> `_pv`.
 PARKED (task 068): the chain with `_pinplace` between `_placement` and `_cts` (step 4b) is not used.

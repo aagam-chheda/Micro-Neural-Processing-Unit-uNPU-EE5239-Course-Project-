@@ -120,17 +120,28 @@ cp unpu_top.ant.db /storage/EE5239G1/aagams_workspace2/unpu/pv/drc/unpu_top_ante
 
 The script parses lines `AN.<rule>` and `p <id> <nverts>` followed by vertex lines, dividing coordinates by 1000 (database units of `-units 1000`). Check the format first: `grep -c "^p " unpu_top.ant.db` must be non-zero when there are results (`VERIFY V10`).
 
-## 6. LVS: read the deck switches (first time only)
+## 6. LVS: the deck switches (settled by the first real run, 2026-11-09)
 
-LVS has never been run here. The DRC deck refused to run until the right `#define` switches were given (18.24); the LVS deck may do the same.
+The first LVS run on the server ended `CORRECT` (44,615 nets and 67,472 instances matched, all 204 signal ports and `VDD`/`VSS` matched by name) with `pnr_v2/calibre/lvs.ctrl` as it is now. The copy used on the server needed exactly two changes to the file written in task 066, and both are made in the committed file:
+
+1. The two lines `VIRTUAL CONNECT COLON NO` and `VIRTUAL CONNECT REPORT NO` are gone. Calibre stopped with error `SPC1` "superfluous specification statement: virtual connect colon", because the LVS deck sets it itself (deck line 257). The rule for any statement of `lvs.ctrl`: if Calibre reports a duplicate or superfluous statement, delete it from the COPY in the run folder, never edit the deck. The same two lines are correct in `drc.ctrl` (that deck does not set them).
+2. `#define FILTER_DWN2PSUB` is added after `#define 4M1L`. Reason (written, user approved 2026-11-09): the layout has one extra device `D(DWN2PSUB)`, an N-well to P-substrate diode (the report says "76 parallel layout diodes were reduced to 1"), from the N-well of the `feedth`, `feedth3`, `feedth9` filler cells. It is a parasitic junction with no schematic equivalent, and the kit CDL defines the three fillers as EMPTY subcircuits, so the source netlist cannot carry it. Without the switch the report is `INCORRECT` with "Different numbers of instances" and ONE incorrect instance (`X8/D5(19.700,19.700) D(DWN2PSUB)`, "missing instance"); everything else already matched. The deck provides `FILTER_DWN2PSUB` for exactly this (`LVS FILTER D(dwn2psub) OPEN`, deck lines 4016 to 4018). The other switch of the deck, `BLOCK_DWN2PSUB` (switches the extraction of that device off), was NOT used.
+
+Facts about the deck found in the run:
+
+- The metal-level switch `#define 4M1L` is enough: the deck maps it to its `4LM` setting. No other `#define` was needed.
+- The deck already sets `LVS POWER NAME` (`VDD`, `vdd`, `VCC`, ...) and `LVS GROUND NAME` (`GND`, `gnd`, `VSS`, ...), `LVS GLOBALS ARE PORTS YES`, `LVS COMPARE CASE NO`. `lvs.ctrl` does not set them (do not add them).
+- The deck reads the pin text labels correctly: the signal ports are matched by name in "Initial Correspondence Points", although `write_gds` prints `GDS-017` for line 8 of the kit layer map.
+
+To print the deck lines again (for a new deck or a new switch):
 
 ```
 cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/lvs
 grep -n -i "#ifdef\|#ifndef\|#define\|MUST\|ERROR" /storage/EE5239G1/aagams_workspace/calibre_run/scr/LVS_TS18SL_SCL_CALIBRE | head -60
-grep -n -i "^ *LVS REPORT\|^ *SOURCE \|^ *LAYOUT \|^ *LVS POWER\|^ *LVS GROUND\|^ *MASK SVDB\|TEXT LAYER\|PORT LAYER" /storage/EE5239G1/aagams_workspace/calibre_run/scr/LVS_TS18SL_SCL_CALIBRE | head -60
+grep -n -i "^ *LVS REPORT\|^ *SOURCE \|^ *LAYOUT \|^ *LVS POWER\|^ *LVS GROUND\|^ *MASK SVDB\|VIRTUAL CONNECT\|DWN2PSUB" /storage/EE5239G1/aagams_workspace/calibre_run/scr/LVS_TS18SL_SCL_CALIBRE | head -60
 ```
 
-Add any `#define` the first command shows as required to `lvs.ctrl` in the run folder. The second command shows which of the statements in `lvs.ctrl` the deck already makes (a duplicate may be an error: remove it from the COPY of `lvs.ctrl`) and which layers the deck reads text labels from (`TEXT LAYER` / `PORT LAYER TEXT`; `VERIFY V11`).
+LVS, DRC and antenna must ALL be re-run after every change of the layout or the netlist: steps 6c, 6d and 6e of `pnr_v2/README.md`, any ECO, any new `pv.tcl` run. A result is valid only for the GDS and the netlist it was run on.
 
 ## 7. LVS: source netlist and run
 
@@ -145,8 +156,8 @@ v2lvs -h
 ```
 
 - The first line must show the top module `unpu_top`; the second count is non-zero when nets named `N<digits>` existed.
-- The third count shows whether constants are written as `1'b0`/`1'b1` (non-zero) or as `VSS`/`VDD` connections (zero). The library has no tie cells and ICC2 tied 129 gate pins directly to `VSS` (handoff 18.19 and `backend-rerun-plan.md` E3): `v2lvs` must map `1'b0` to `VSS` and `1'b1` to `VDD` (options `-s0`/`-s1` below, `VERIFY V12`).
-- `v2lvs -h` prints its real options: compare with the next line before running it (`VERIFY V13`).
+- The third count shows whether constants are written as `1'b0`/`1'b1` (non-zero) or as `VSS`/`VDD` connections (zero). The library has no tie cells and ICC2 tied 129 gate pins directly to `VSS` (handoff 18.19 and `backend-rerun-plan.md` E3). The `-s0 VSS -s1 VDD` mapping of the next command is only needed when this count is non-zero; when it is 0 the options do nothing and can stay.
+- `v2lvs -h` prints its options; the command below worked as written in the first run.
 
 ```
 v2lvs -v /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs/unpu_top_pnr_pg.v -s /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/cdl/scl18fs120_supply_pins.cdl -s0 VSS -s1 VDD -o unpu_top.sp |& tee v2lvs.log
@@ -154,32 +165,31 @@ grep -n -i "^\.subckt unpu_top" unpu_top.sp
 grep -n -i "error\|warning\|not found\|undefined" v2lvs.log
 ```
 
-Read `v2lvs.log`: every cell master of the netlist must be found in the CDL (an "undefined"/"not found" master means the CDL does not hold it; fillers are not in the source netlist by design). The top subckt line must be `unpu_top` (it is `SOURCE PRIMARY` in `lvs.ctrl`).
+Read `v2lvs.log`: every cell master of the netlist must be found in the CDL (an "undefined"/"not found" master means the CDL does not hold it; fillers are not in the source netlist by design). The top subckt line must be `unpu_top` (it is `SOURCE PRIMARY` in `lvs.ctrl`). The many "No module declaration" warnings for the library cells are NORMAL: the netlist has no module for a library cell, and the pin order of each cell comes from the CDL (`-s`).
 
 ```
 calibre -lvs -hier lvs.ctrl |& tee lvs.log
 ```
 
-`-hier` as written in the task; if the log says a cell-match list (`-hcell`) or `-automatch` is needed, add `-automatch` (`VERIFY V14`). If hierarchical LVS reports cell-name mismatches between layout (`-hierarchy all -long_names`) and source, flat LVS (without `-hier`) is the fallback; that is the user's decision.
+`-hier` worked without `-hcell` or `-automatch` in the first run. If a future log says a cell-match list is needed, add `-automatch`; if hierarchical LVS reports cell-name mismatches between layout and source, flat LVS (without `-hier`) is the fallback, that is the user's decision. The control file used must be the committed `pnr_v2/calibre/lvs.ctrl` (it holds the `FILTER_DWN2PSUB` switch and no `VIRTUAL CONNECT` lines, section 6).
 
 ## 8. LVS: what to read first in the report
 
-Everything below is general Calibre report structure, NOT seen on this project (`VERIFY V15`: section names and wording).
-
 ```
+grep -n "LVS completed" lvs.log
 grep -n "CORRECT" unpu_top.lvs.rpt | head
 grep -n -i "discrepanc" unpu_top.lvs.rpt | head -40
-grep -n -i "warning\|ignor\|unlabel\|unnamed\|not found" unpu_top.lvs.rpt | head -60
 grep -n -i "error" lvs.log
 ```
 
-1. `CORRECT` / `INCORRECT` in the overall result and the CELL SUMMARY (`unpu_top` layout against `unpu_top` source).
-2. The object counts: ports, nets, instances, layout against source. Source instances = the cells of the netlist; the layout has the same cells PLUS fillers (22,512 in the old run; `feedth`, no devices) and the unused library structures. Filler cells have no devices, so Calibre should leave them out of the compare (18.23 note: they are layout-only); an instance-count gap equal to the filler count means the deck does not skip them (`VERIFY V16`).
-3. Tell a LABEL problem from a REAL mismatch with the ports:
-   - Label problem: the layout shows 0 ports, or only `VDD`/`VSS`, while the source has 206 (204 signal + `VDD` + `VSS`, handoff 18.23; recount from the netlist); the report lists the signal port names as unmatched in the source; layout nets carry generated names instead of `paddr[4]`-style names; the antenna run prints no `NETNAME`. All of it points to the pin text labels not being on the layer the deck reads (the kit layer map's `T` lines, rejected with `GDS-017` at line 8, were rejected again in the run of 18.32). Cell connectivity (net and instance counts) can still be equal while every port is unmatched.
-   - Real mismatch: the signal ports are found on both sides by name, but named nets differ in the instances/pins they connect (a short or an open between two named nets, an instance whose pins connect differently), or the counts of a cell type differ (for example one extra `inv0d0`, which would point to the constant ties). The discrepancy block names the nets: use the name on both sides.
-   - A short or an open between `VDD` and `VSS` nets, or the 129 tie-to-`VSS` pins: read the discrepancies for `VSS`; `v2lvs -s0 VSS` (step 7) is the first suspect when the source is wrong, the layout's ties (a gate input joined to the rail with metal, no tie cell) when the layout is wrong.
-4. If it is a label problem, do not edit the deck. The fix is on the ICC2 side (a corrected COPY of the layer map for `write_gds`, task A3 of `backend-rerun-plan.md`) and a new GDS; report it to Planning.
+What the first real run showed (the structure of the report is now known):
+
+1. `lvs.log` ends with `LVS completed. CORRECT. See report file: unpu_top.lvs.rpt` (the line was `LVS completed. INCORRECT.` before the `FILTER_DWN2PSUB` switch). The report starts with `OVERALL COMPARISON RESULTS` and a `CELL SUMMARY` row `CORRECT unpu_top unpu_top`.
+2. `NUMBERS OF OBJECTS AFTER TRANSFORMATION`: layout and source equal. Real values of the first run: 44,615 nets and 67,472 instances matched on both sides (CORRECT run). The "INITIAL NUMBERS OF OBJECTS" differ (layout 94,123 nets against source 94,506, transistors counted before reduction) and that is normal: the transformation reduces parallel and split-gate MOS the same way on both sides (6,692 layout and 5,911 source transistors reduced).
+3. `Initial Correspondence Points` lists the nets matched by name: `VDD`, `VSS` and all 204 signal ports (printed in upper case, the compare is case-insensitive). This is how you see that the pin text labels are read; a label problem would show no or only `VDD`/`VSS` ports.
+4. Benign messages: "Ambiguity points were found and resolved arbitrarily" and "22 isolated layout nets / 22 isolated source nets": these are the 22 unused `paddr` inputs (`PADDR[0]`, `[1]`, `[12]` to `[31]`; no load), identical on both sides. Also "119 source nets had all their pins removed", "21 nets were matched arbitrarily", "146 source nets were deep shorted to 6" (the power nets), the descriptor-limit warning at the top of the log.
+5. Without `FILTER_DWN2PSUB` the report listed ONE incorrect instance, `D(DWN2PSUB)` "missing instance" (section 6); any OTHER incorrect object is a real discrepancy: the signal ports are found on both sides by name, so read the named nets in the discrepancy block and compare the instances and pins they connect.
+6. If a run shows 0 ports, or only `VDD`/`VSS`, or generic net names, it is a label problem again (the layer map): report it to Planning, do not edit the deck.
 
 ## 9. Copy the results back (from a LAPTOP terminal, not from the server)
 
@@ -231,12 +241,12 @@ Also copy `antenna_results.ant` from the `ant` folder if `ls` found it, and the 
 | V8 | Antenna runs as `calibre -drc -hier ant.ctrl` | `ant.log` ends with the summary |
 | V9 | `antenna_results.ant` is written by the antenna deck | `ls` in the `ant` folder |
 | V10 | `unpu_top.ant.db` has the `AN.` and `p <id> <n>` format that `fix_antenna.tcl` parses | `grep -c "^p " unpu_top.ant.db` and its first lines |
-| V11 | The LVS deck's switches, text-label layers and which statements it already makes | the two `grep` commands of step 6 |
-| V12 | `v2lvs -s0 VSS -s1 VDD` maps the constants as needed | `unpu_top.sp` instance lines of the tied cells; `grep -c "1'b"` in the netlist |
-| V13 | The `v2lvs` options `-v -s -s0 -s1 -o` exist with this meaning | `v2lvs -h` |
-| V14 | `-hier` works without `-hcell`/`-automatch` | `lvs.log` |
-| V15 | The LVS report structure and wording | the report itself |
-| V16 | Filler cells (no devices) are skipped by the compare | instance counts in the report |
+| V11 | SETTLED (first run): the deck needs `#define 4M1L` (maps to `4LM`) and, for the filler N-well diode, `#define FILTER_DWN2PSUB`; it sets the power and ground names and `VIRTUAL CONNECT` itself; it reads the pin labels | section 6 |
+| V12 | SETTLED by the result: 67,472 instances matched; the `-s0 VSS -s1 VDD` options are only needed when the netlist has `1'b0`/`1'b1` (the grep count of step 7) | the grep count in step 7 |
+| V13 | SETTLED: `v2lvs -v -s -s0 -s1 -o` worked as written | `v2lvs.log` |
+| V14 | SETTLED: `calibre -lvs -hier lvs.ctrl` worked without `-hcell`/`-automatch` | `lvs.log` |
+| V15 | SETTLED: report structure and wording as in section 8 | `unpu_top.lvs.rpt` |
+| V16 | SETTLED: the fillers have no devices, instance counts are equal (67,472); the only layout extra was the parasitic diode `D(DWN2PSUB)` of the filler N-wells, handled by `FILTER_DWN2PSUB` | the instance table of the report |
 | V17 | The CDL file exists at the assembled full path | the `ls -l` in step 7 |
-| deck switches | `#define 4M1L` is enough for LVS; `LVS REPORT`, `MASK SVDB DIRECTORY`, `VIRTUAL CONNECT` lines in `lvs.ctrl` do not clash with the deck | `lvs.log` first errors |
+| deck switches | SETTLED: `#define 4M1L` and `#define FILTER_DWN2PSUB` are the switches; the `VIRTUAL CONNECT` lines of `drc.ctrl` must NOT be in `lvs.ctrl` (error SPC1); `LVS REPORT` and `MASK SVDB DIRECTORY` did not clash | `lvs.log` first errors |
 | `3V` | the DRC voltage option stays an assumption (18.24) | not testable from the layout |

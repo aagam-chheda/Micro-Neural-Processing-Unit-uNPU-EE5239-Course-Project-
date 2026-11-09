@@ -136,6 +136,43 @@ proc ant072_filler_check {count_before count_after sites_before sites_after cell
     }
     return [list 0 "filler count $count_before -> $count_after ([format %+d $dc], [format %.2f $pc] percent); the site balance does not explain it: filler sites [format %.0f $sites_before] -> [format %.0f $sites_after], cells added take [format %.0f $cell_sites_added] sites, residual [format %.0f $resid] sites ([format %.2f $pr] percent)"]
 }
+# 072: cell statistics from the reference names of ALL design cells (read with the proven attribute ref_name). The area comes from the kit LEF (SIZE width x height of the reference),
+# 072: not from a design-cell attribute; buffers and inverters are the design cells whose reference is in the library buffer / inverter name lists (is_buffer / is_inverter exist on LIBRARY cells,
+# 072: not on design cells: FLT-005 on the first server run). Fillers are not counted. Returns a dict: ncell area nbuf ninv unknown (cells whose reference has no LEF size) unknown_names (first five).
+proc ant072_count_refs {refs filler_refs buf_names inv_names lef} {
+    array set isf {}
+    foreach f $filler_refs { set isf($f) 1 }
+    array set isb {}
+    foreach b $buf_names { set isb($b) 1 }
+    array set isi {}
+    foreach i $inv_names { set isi($i) 1 }
+    set n 0
+    set area 0.0
+    set nb 0
+    set ni 0
+    set unknown 0
+    set unk {}
+    foreach r $refs {
+        if {[info exists isf($r)]} continue
+        incr n
+        if {[info exists isb($r)]} { incr nb }
+        if {[info exists isi($r)]} { incr ni }
+        if {$r ne "" && [dict exists $lef $r]} {
+            set w [dict get $lef $r w]
+            set h [dict get $lef $r h]
+            if {$w ne "" && $h ne ""} { set area [expr {$area + $w * $h}]; continue }
+        }
+        incr unknown
+        if {[lsearch -exact $unk $r] < 0 && [llength $unk] < 5} { lappend unk $r }
+    }
+    return [dict create ncell $n area $area nbuf $nb ninv $ni unknown $unknown unknown_names $unk]
+}
+
+# 072: b - a formatted, or "n/a" when one of them is not a number (the metric is UNKNOWN)
+proc ant072_delta {a b {fmt %.2f}} {
+    if {![string is double -strict $a] || ![string is double -strict $b]} { return "n/a" }
+    return [format $fmt [expr {$b - $a}]]
+}
 # ---- END PURE TCL 072 ----
 
 # 072: take the ICC2 helper procs of antenna_port_buffers.tcl from its text (same code, no copy): ant068_bbox_of, ant068_centre, ant070_all_fillers, ant068_net_leaf_pins, ant068_check_routes_counts, ...
@@ -165,31 +202,45 @@ proc ant072_snapshot {cellname} {   ;# 072: dict name ref x y ori pins of one ce
     lassign [ant068_bbox_of $c] x0 y0 x1 y1
     return [dict create name $cellname ref [get_attribute -quiet $c ref_name] x $x0 y $y0 ori [get_attribute -quiet $c orientation] pins [ant072_pin_nets $c]]
 }
-proc ant072_wns {scen dtype} {   ;# 072: {wns tns num groups} from get_timing_paths: wns = worst slack of all paths (positive when nothing violates), tns/num over the violating endpoints, groups = {{group wns tns num} ...}
+proc ant072_wns {scen dtype} {   ;# 072: {wns tns num groups}: wns = worst slack of all paths (positive when nothing violates), tns / num over the violating endpoints, groups = {{group wns tns num} ...}; "" = UNKNOWN
+    global ab_pg_warned
     set wns ""
-    set tns 0.0
-    set num 0
-    array set g {}
+    set tns ""
+    set num ""
+    set groups {}
+    # 072: the worst slack: get_timing_paths with the slack attribute worked on the server (task 071 metrics)
     if {[catch {
         set p [get_timing_paths -scenarios $scen -delay_type $dtype -max_paths 1]
         if {[sizeof_collection $p] > 0} { set wns [get_attribute $p slack] }
-        set v [get_timing_paths -scenarios $scen -delay_type $dtype -max_paths 100000 -slack_lesser_than 0.0]   ;# 072: -slack_lesser_than is in the usage text
+    } err]} { puts ">>> 072 WNS of $scen $dtype is UNKNOWN: $err" }
+    # 072: TNS, number of violating endpoints, groups: -slack_lesser_than / -max_paths 100000 are in the usage text but not yet proven; path_group is unproven
+    if {[catch {
+        array set g {}
+        set tns 0.0
+        set num 0
+        set v [get_timing_paths -scenarios $scen -delay_type $dtype -max_paths 100000 -slack_lesser_than 0.0]
         foreach_in_collection q $v {
             set s [get_attribute $q slack]
             set tns [expr {$tns + $s}]
             incr num
-            if {![catch {set gn [get_object_name [get_attribute $q path_group]]}]} {   ;# 072: VERIFY the path attribute path_group
-                if {![info exists g($gn)]} { set g($gn) [list $s 0.0 0] }
-                lassign $g($gn) gw gt gn2
-                set g($gn) [list [expr {min($gw, $s)}] [expr {$gt + $s}] [expr {$gn2 + 1}]]
+            if {![info exists ab_pg_warned]} {
+                if {[catch {set gn [get_object_name [get_attribute $q path_group]]}]} {   ;# 072: VERIFY the path attribute path_group (unproven)
+                    set ab_pg_warned 1
+                    puts ">>> 072 the path attribute path_group is not available: per-group lines are skipped (the totals are still printed)"
+                } else {
+                    if {![info exists g($gn)]} { set g($gn) [list $s 0.0 0] }
+                    lassign $g($gn) gw gt gn2
+                    set g($gn) [list [expr {min($gw, $s)}] [expr {$gt + $s}] [expr {$gn2 + 1}]]
+                }
             }
         }
+        foreach k [lsort [array names g]] { lappend groups [concat [list $k] $g($k)] }
     } err]} {
-        puts ">>> 072 WNS query failed for $scen $dtype: $err"
-        return [list "" "" "" {}]
+        puts ">>> 072 TNS and violating-endpoint count of $scen $dtype are UNKNOWN: $err"
+        set tns ""
+        set num ""
+        set groups {}
     }
-    set groups {}
-    foreach k [lsort [array names g]] { lappend groups [concat [list $k] $g($k)] }
     return [list $wns $tns $num $groups]
 }
 proc ant072_metrics {label} {   ;# 072: print and return the numbers of the verdict (dict setup hold, ...)
@@ -199,9 +250,9 @@ proc ant072_metrics {label} {   ;# 072: print and return the numbers of the verd
     report_global_timing
     lassign [ant072_wns $SETUP_SCEN max] sw st sn sg
     lassign [ant072_wns $HOLD_SCEN min] hw ht hn hg
-    puts ">>> 072 $label SETUP ($SETUP_SCEN): WNS $sw ns, TNS [expr {$st eq {} ? {n/a} : [format %.4f $st]}] ns, violating endpoints $sn"
+    puts ">>> 072 $label SETUP ($SETUP_SCEN): WNS [expr {$sw eq {} ? {UNKNOWN} : $sw}] ns, TNS [expr {$st eq {} ? {UNKNOWN} : [format %.4f $st]}] ns, violating endpoints [expr {$sn eq {} ? {UNKNOWN} : $sn}]"
     foreach e $sg { puts ">>> 072 $label SETUP group [lindex $e 0]: WNS [format %.4f [lindex $e 1]] ns, TNS [format %.4f [lindex $e 2]] ns, violating endpoints [lindex $e 3]" }
-    puts ">>> 072 $label HOLD ($HOLD_SCEN): WNS $hw ns, TNS [expr {$ht eq {} ? {n/a} : [format %.4f $ht]}] ns, violating endpoints $hn"
+    puts ">>> 072 $label HOLD ($HOLD_SCEN): WNS [expr {$hw eq {} ? {UNKNOWN} : $hw}] ns, TNS [expr {$ht eq {} ? {UNKNOWN} : [format %.4f $ht]}] ns, violating endpoints [expr {$hn eq {} ? {UNKNOWN} : $hn}]"
     foreach e $hg { puts ">>> 072 $label HOLD group [lindex $e 0]: WNS [format %.4f [lindex $e 1]] ns, TNS [format %.4f [lindex $e 2]] ns, violating endpoints [lindex $e 3]" }
     return [dict create setup $sw hold $hw setup_tns $st hold_tns $ht setup_num $sn hold_num $hn]
 }
@@ -216,21 +267,47 @@ proc ant072_paths {label} {   ;# 072: the worst setup path of the in2out group a
         report_timing -scenarios $HOLD_SCEN -delay_type min -groups $HOLD_GROUP -max_paths 1 -path_type full_clock_expanded -significant_digits 4
     } err]} { puts ">>> 072 $label hold path report failed: $err" }
 }
-proc ant072_stats {label filler_filter nonfiller_filter site_w} {   ;# 072: cells (not fillers), area, buffers, inverters, fillers (count and sites); returns a dict
-    set ncell 0
-    set area 0.0
-    foreach_in_collection c [get_cells -quiet -filter $nonfiller_filter] {   ;# 072: VERIFY the filter ref_name != ...
-        incr ncell
-        set a [get_attribute -quiet $c area]   ;# 072: VERIFY the cell attribute area
-        if {[string is double -strict $a]} { set area [expr {$area + $a}] }
+proc ant072_lib_names {lib filter} {   ;# 072: {ok names} of the LIBRARY cells matching a filter; is_buffer / is_inverter are proven on library cells (tasks 068, 071)
+    if {[catch {set lc [get_lib_cells -quiet ${lib}/* -filter $filter]} err]} {
+        puts ">>> 072 library filter '$filter' failed: $err"
+        return [list 0 {}]
     }
-    set nbuf [sizeof_collection [get_cells -quiet -filter "is_buffer == true"]]   ;# 072: VERIFY the cell attributes is_buffer / is_inverter
-    set ninv [sizeof_collection [get_cells -quiet -filter "is_inverter == true"]]
-    set fl [ant070_all_fillers $filler_filter]
-    set fsites 0.0
-    foreach r $fl { lassign $r nm x0 y0 x1 y1; set fsites [expr {$fsites + ($x1 - $x0) / $site_w}] }
-    puts ">>> 072 $label CELLS: $ncell cells (fillers excluded), area [format %.2f $area] um^2, buffers $nbuf, inverters $ninv, fillers [llength $fl] ([format %.0f $fsites] sites)"
-    return [dict create ncell $ncell area $area nbuf $nbuf ninv $ninv nfill [llength $fl] fsites $fsites]
+    set names {}
+    foreach_in_collection c $lc { lappend names [lindex [split [get_object_name $c] /] end] }
+    return [list 1 $names]
+}
+proc ant072_stats {label filler_filter site_w lef filler_refs} {   ;# 072: cells (not fillers), area, buffers, inverters, fillers (count and sites); a value that cannot be read is "" (UNKNOWN), never an error
+    global STD_LIB
+    set out [dict create ncell "" area "" nbuf "" ninv "" nfill "" fsites ""]
+    lassign [ant072_lib_names $STD_LIB "is_buffer == true"] okb bufs
+    lassign [ant072_lib_names $STD_LIB "is_inverter == true"] oki invs
+    set refs {}
+    if {[catch {
+        foreach_in_collection c [get_cells -quiet *] { lappend refs [get_attribute -quiet $c ref_name] }   ;# 072: ref_name of a design cell is proven (tasks 069 to 071)
+    } err]} {
+        puts ">>> 072 $label CELLS: reading the design cells failed ($err): cells, area, buffers, inverters are UNKNOWN"
+    } else {
+        set cn [ant072_count_refs $refs $filler_refs $bufs $invs $lef]
+        dict set out ncell [dict get $cn ncell]
+        if {[dict get $cn unknown] == 0} { dict set out area [dict get $cn area] } else {
+            puts ">>> 072 $label CELLS: [dict get $cn unknown] cells have a reference without a LEF size (first: [dict get $cn unknown_names]): the area is UNKNOWN"
+        }
+        if {$okb} { dict set out nbuf [dict get $cn nbuf] } else { puts ">>> 072 $label CELLS: the number of buffers is UNKNOWN (no library buffer list)" }
+        if {$oki} { dict set out ninv [dict get $cn ninv] } else { puts ">>> 072 $label CELLS: the number of inverters is UNKNOWN (no library inverter list)" }
+    }
+    if {[catch {
+        set fl [ant070_all_fillers $filler_filter]
+        set fsites 0.0
+        foreach r $fl { lassign $r nm x0 y0 x1 y1; set fsites [expr {$fsites + ($x1 - $x0) / $site_w}] }
+        dict set out nfill [llength $fl]
+        dict set out fsites $fsites
+    } err]} { puts ">>> 072 $label FILLERS: reading the fillers failed ($err): the filler numbers are UNKNOWN" }
+    foreach {k fmt} {ncell %d area %.2f nbuf %d ninv %d nfill %d fsites %.0f} {
+        set v [dict get $out $k]
+        set txt($k) [expr {[string is double -strict $v] ? [format $fmt $v] : {UNKNOWN}}]
+    }
+    puts ">>> 072 $label CELLS: $txt(ncell) cells (fillers excluded), area $txt(area) um^2 (from the LEF sizes), buffers $txt(nbuf), inverters $txt(ninv), fillers $txt(nfill) ($txt(fsites) sites)"
+    return $out
 }
 
 file mkdir $LOG_DIR
@@ -369,9 +446,6 @@ redirect -tee -file ${LOG_DIR}/6e_timing_closure.log {
     set tc_filter {}
     foreach f $FILLER_REFS { lappend tc_filter "ref_name == $f" }
     set tc_filter [join $tc_filter " || "]
-    set tc_nfilter {}
-    foreach f $FILLER_REFS { lappend tc_nfilter "ref_name != $f" }
-    set tc_nfilter [join $tc_nfilter " && "]
     set fp [open $STD_LEF r]
     set tc_lef [ant_parse_lef [read $fp]]
     close $fp
@@ -380,11 +454,14 @@ redirect -tee -file ${LOG_DIR}/6e_timing_closure.log {
     if {$tc_site > 1e8} { error "ERROR 072: none of the filler masters $FILLER_REFS is in the LEF" }
     set tc_row_h [dict get $tc_lef [lindex $FILLER_REFS 0] h]
     puts ">>> 072 site width $tc_site um, row height $tc_row_h um (narrowest filler master in the LEF)"
-    set tc_stats0 [ant072_stats BEFORE $tc_filter $tc_nfilter $tc_site]
+    set tc_stats0 [ant072_stats BEFORE $tc_filter $tc_site $tc_lef $FILLER_REFS]
     set tc_before [ant072_metrics BEFORE]
     ant072_paths BEFORE
-    redirect -variable tc_cq0 { report_clock_qor -type summary }   ;# 072: VERIFY (usage text); printed only
-    puts ">>> 072 BEFORE ===== report_clock_qor -type summary =====\n$tc_cq0"
+    if {[catch {redirect -variable tc_cq0 { report_clock_qor -type summary }} err]} {   ;# 072: VERIFY (usage text); printed only
+        puts ">>> 072 BEFORE report_clock_qor failed: $err"
+    } else {
+        puts ">>> 072 BEFORE ===== report_clock_qor -type summary =====\n$tc_cq0"
+    }
     set tc_cr0 [ant068_check_routes_counts]
     puts ">>> 072 check_routes BEFORE: DRCs [lindex $tc_cr0 0], open nets [lindex $tc_cr0 1], ICC2 antenna violations [lindex $tc_cr0 2]"
 
@@ -417,15 +494,24 @@ redirect -tee -file ${LOG_DIR}/6e_timing_closure.log {
     set tc_status0 {}
     foreach_in_collection c $tc_cells { lappend tc_status0 [list [get_object_name $c] [get_attribute -quiet $c physical_status]] }   ;# 072: VERIFY the cell attribute physical_status
     set tc_dt_ok 0
-    if {![catch {set_dont_touch $tc_cells true} err]} { set tc_dt_ok 1 } else { puts ">>> 072 set_dont_touch on the cells failed: $err" }   ;# 072: VERIFY set_dont_touch <cells> true (not in the probed help)
+    if {![catch {set_dont_touch $tc_cells true} err]} {   ;# 072: VERIFY set_dont_touch <cells> true (not in the probed help, UNPROVEN)
+        set tc_dt_ok 1
+    } else {
+        puts ">>> 072 set_dont_touch on the cells failed: $err; trying set_attribute dont_touch"
+        if {![catch {set_attribute -objects $tc_cells -name dont_touch -value true} err2]} { set tc_dt_ok 1 } else { puts ">>> 072 set_attribute dont_touch failed too: $err2" }   ;# 072: VERIFY the attribute dont_touch is settable (UNPROVEN)
+    }
     if {$PROTECT_NETS} {
         if {[catch {set_dont_touch [get_nets -quiet -exact $tc_pnets] true} err]} { puts ">>> 072 set_dont_touch on the nets failed: $err"; set tc_dt_ok 0 }
     }
     if {!$tc_dt_ok} { error "ERROR 072: the protection could not be set (set_dont_touch), nothing was changed. Without it route_opt may resize or remove the antenna cells." }
     if {[catch {set_attribute -objects $tc_cells -name physical_status -value fixed} err]} { puts ">>> 072 physical_status fixed failed: $err (the cell origin is still checked at the end)" }   ;# 072: VERIFY physical_status fixed blocks moving
+    set tc_dt_read 0
     foreach_in_collection c $tc_cells {
-        puts ">>> 072 PROTECTION [get_object_name $c]: dont_touch=[get_attribute -quiet $c dont_touch] physical_status=[get_attribute -quiet $c physical_status]"   ;# 072: VERIFY the cell attribute dont_touch
+        set tc_dtv [get_attribute -quiet $c dont_touch]   ;# 072: VERIFY the cell attribute dont_touch (UNPROVEN, -quiet: empty when it does not exist)
+        if {$tc_dtv ne ""} { incr tc_dt_read }
+        puts ">>> 072 PROTECTION [get_object_name $c]: dont_touch=$tc_dtv physical_status=[get_attribute -quiet $c physical_status]"
     }
+    if {$tc_dt_read == 0} { puts ">>> 072 the cell attribute dont_touch cannot be read back: the protection relies on the command having returned without error, and it is checked by the snapshot comparison after every pass" }
 
     # --------------------------------------------------------------------------
     # 4. Remove the fillers (table method of task 070; counts kept)
@@ -434,7 +520,7 @@ redirect -tee -file ${LOG_DIR}/6e_timing_closure.log {
     set tc_nfill0 [sizeof_collection $tc_fcoll]
     puts ">>> 072 removing $tc_nfill0 filler instances (count and site balance are checked at the end)"
     if {$tc_nfill0 == 0} { error "ERROR 072: no filler instance found with the filter '$tc_filter'" }
-    remove_cells $tc_fcoll   ;# 069: VERIFY remove_cells on 20k filler instances at once (it worked per net in the task 069/070 runs)
+    if {[catch {remove_cells $tc_fcoll} err]} { error "ERROR 072: remove_cells on the $tc_nfill0 fillers failed: $err. Nothing was saved (the protection was set in memory only)." }   ;# 069: VERIFY remove_cells on 20k filler instances at once (it worked per net in the task 069/070 runs)
     puts ">>> 072 fillers left after the removal: [sizeof_collection [get_cells -quiet -filter $tc_filter]]"
 
     # --------------------------------------------------------------------------
@@ -541,12 +627,19 @@ redirect -tee -file ${LOG_DIR}/6e_timing_closure.log {
     puts ">>> 072 CHECK $CLK_PORT leaf loads: $tc_loads1, root $tc_root reference [dict get [lindex $tc_snap1 end] ref] (before [dict get [lindex $tc_snap0 end] ref])"
     if {$tc_loads1 ne $tc_loads} { lappend tc_failures "the leaf loads of $CLK_PORT changed: $tc_loads -> $tc_loads1" }
 
-    set tc_stats1 [ant072_stats AFTER $tc_filter $tc_nfilter $tc_site]
-    set tc_cell_sites [expr {([dict get $tc_stats1 area] - [dict get $tc_stats0 area]) / ($tc_site * $tc_row_h)}]
+    set tc_stats1 [ant072_stats AFTER $tc_filter $tc_site $tc_lef $FILLER_REFS]
+    set tc_a0 [dict get $tc_stats0 area]
+    set tc_a1 [dict get $tc_stats1 area]
+    if {[string is double -strict $tc_a0] && [string is double -strict $tc_a1]} {
+        set tc_cell_sites [expr {($tc_a1 - $tc_a0) / ($tc_site * $tc_row_h)}]
+    } else {
+        set tc_cell_sites 0.0
+        puts ">>> 072 cell area before or after is UNKNOWN: the filler check uses the filler COUNT only (no site-balance explanation)"
+    }
     lassign [ant072_filler_check $tc_nfill0 [dict get $tc_stats1 nfill] [dict get $tc_stats0 fsites] [dict get $tc_stats1 fsites] $tc_cell_sites $FILLER_TOL_PCT] tc_fok tc_fmsg
     puts ">>> 072 CHECK fillers: $tc_fmsg"
     if {!$tc_fok} { lappend tc_failures $tc_fmsg }
-    puts ">>> 072 ADDED by the pass: cells [expr {[dict get $tc_stats1 ncell] - [dict get $tc_stats0 ncell]}], area [format %.2f [expr {[dict get $tc_stats1 area] - [dict get $tc_stats0 area]}]] um^2, buffers [expr {[dict get $tc_stats1 nbuf] - [dict get $tc_stats0 nbuf]}], inverters [expr {[dict get $tc_stats1 ninv] - [dict get $tc_stats0 ninv]}] (hold buffers and resizing by route_opt)"
+    puts ">>> 072 ADDED by the pass: cells [ant072_delta [dict get $tc_stats0 ncell] [dict get $tc_stats1 ncell] %d], area [ant072_delta $tc_a0 $tc_a1] um^2, buffers [ant072_delta [dict get $tc_stats0 nbuf] [dict get $tc_stats1 nbuf] %d], inverters [ant072_delta [dict get $tc_stats0 ninv] [dict get $tc_stats1 ninv] %d] (hold buffers and resizing by route_opt; n/a = UNKNOWN)"
 
     # --------------------------------------------------------------------------
     # 8. AFTER and verdict
@@ -554,8 +647,11 @@ redirect -tee -file ${LOG_DIR}/6e_timing_closure.log {
     puts ">>> 072 timing after route_opt and legalisation, before the fillers / route_eco steps: setup WNS [dict get $tc_afteropt setup], hold WNS [dict get $tc_afteropt hold] (compare with AFTER below: the difference is what the filler and route_eco steps of route.tcl cost)"
     set tc_after [ant072_metrics AFTER]
     ant072_paths AFTER
-    redirect -variable tc_cq1 { report_clock_qor -type summary }
-    puts ">>> 072 AFTER ===== report_clock_qor -type summary =====\n$tc_cq1"
+    if {[catch {redirect -variable tc_cq1 { report_clock_qor -type summary }} err]} {
+        puts ">>> 072 AFTER report_clock_qor failed: $err"
+    } else {
+        puts ">>> 072 AFTER ===== report_clock_qor -type summary =====\n$tc_cq1"
+    }
     lassign [ant072_verdict $tc_before $tc_after $WORSE_TOL $IMPROVE_EPS] tc_verdict tc_vwhy
     puts ">>> 072 VERDICT $tc_verdict: $tc_vwhy"
     puts ">>> 072 BEFORE setup WNS [dict get $tc_before setup] hold WNS [dict get $tc_before hold]; AFTER setup WNS [dict get $tc_after setup] hold WNS [dict get $tc_after hold]"

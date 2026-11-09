@@ -125,6 +125,26 @@ check "more fillers, sites equal (other filler sizes) -> explained" {$ok == 1 &&
 lassign [ant072_filler_check 0 100 0 500 0 1.0] ok m
 check "no filler before -> not ok" {$ok == 0}
 
+
+# ------------------------------------------------------------------ 4b. cell statistics from reference names (task 072 fix: is_buffer / is_inverter do not exist on design cells)
+set lef [dict create \
+    buffd1 [dict create w 2.24 h 5.6] inv0d4 [dict create w 4.48 h 5.6] nand2 [dict create w 3.36 h 5.6] feedth9 [dict create w 5.04 h 5.6]]
+set refs {buffd1 buffd1 inv0d4 nand2 nand2 nand2 feedth9 feedth9 feedth9}
+set cn [ant072_count_refs $refs {feedth feedth3 feedth9} {buffd1 buffd2} {inv0d4 inv0d2} $lef]
+check "stats: fillers are not counted" {[dict get $cn ncell] == 6}
+check "stats: buffers counted by reference" {[dict get $cn nbuf] == 2}
+check "stats: inverters counted by reference" {[dict get $cn ninv] == 1}
+check "stats: area from the LEF sizes" {abs([dict get $cn area] - (2*2.24*5.6 + 4.48*5.6 + 3*3.36*5.6)) < 1e-9}
+check "stats: nothing unknown" {[dict get $cn unknown] == 0}
+set cn [ant072_count_refs {buffd1 mystery mystery2 ""} {feedth} {buffd1} {} $lef]
+check "stats: references without a LEF size are counted as unknown" {[dict get $cn unknown] == 3 && [dict get $cn unknown_names] eq "mystery mystery2 {}"}
+check "stats: they still count as cells" {[dict get $cn ncell] == 4}
+check "stats: empty design" {[dict get [ant072_count_refs {} {feedth} {} {} $lef] ncell] == 0}
+check "delta: numbers" {[ant072_delta 10 12.5] eq "2.50"}
+check "delta: integer format" {[ant072_delta 100 98 %d] eq "-2"}
+check "delta: unreadable before -> n/a" {[ant072_delta "" 5] eq "n/a"}
+check "delta: unreadable after -> n/a" {[ant072_delta 5 UNKNOWN] eq "n/a"}
+
 # ------------------------------------------------------------------ 5. the settings copied from route.tcl are identical to route.tcl (line by line, in order)
 set rt [split [read_file $here/route.tcl] "\n"]
 set tc [split $src "\n"]
