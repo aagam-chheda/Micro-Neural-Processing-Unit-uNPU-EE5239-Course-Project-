@@ -1961,3 +1961,7 @@ then 053 (pnr stage profiles, per-stage WNS thresholds, utilisation and die from
 User decision: new server folder `aagams_workspace2/unpu` (clone), the user's 11 example ICC2 scripts with minimal edits, the OLD constraints (20 ns, setup 1.5 / hold 0.5, APB 35/35, DMA 40/40, `rst_n` 40, min delays 0 / -0.5),
 order: synthesis, then gate-level simulation (Xcelium), then layout. Pristine copies and provenance: `docs/planning/reference-scripts-2026-11-02/`. Task 063 (sent to Execution): working copies in `pnr_v2/`.
 Next task (064, not written): synthesis with the old constraints into `syn/out/legacy/`. The `pnr/` flow and tasks 059 and 062 are parked (not committed, not deleted). Open decisions D1 to D5 are in task 063.
+
+## Clean-slate run status, 2026-11-09
+
+Synthesis (legacy constraints), GLS, NDMs, design_setup, floorplan, powerplan, placement, CTS, route, metal fill and pv ran on the server; see handoff 18.32 for the numbers. Open: setup -0.07 ns on one in-to-out path and 18 tiny hold violations after route, 76 ICC2 antenna violations (Calibre decides), 454 clock-path max-transition entries against the example script's own 0.40 ns limit, LEF without the `unpu_top` macro, `GDS-017` label layers. Next: Calibre scripts (task 067), antenna loop, timing closure loop, LEF/`pv.tcl` fixes, PrimeTime. A `Final/` folder for frozen results is planned for the end.

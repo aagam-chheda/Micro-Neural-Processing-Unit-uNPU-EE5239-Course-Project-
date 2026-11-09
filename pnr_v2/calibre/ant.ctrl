@@ -1,0 +1,11 @@
+#define 4M1L
+LAYOUT PATH "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs/unpu_top_routed.gds"
+LAYOUT PRIMARY "unpu_top"
+LAYOUT SYSTEM GDSII
+DRC SUMMARY REPORT "unpu_top.ant.rpt" REPLACE HIER
+DRC RESULTS DATABASE "unpu_top.ant.db" ASCII
+DRC MAXIMUM RESULTS ALL
+DRC MAXIMUM VERTEX ALL
+DRC CELL NAME YES CELL SPACE XFORM
+DRC ICSTATION YES
+INCLUDE "/storage/EE5239G1/aagams_workspace/calibre_run/scr/ANTENNA_TS18SL_SCL_CALIBRE"

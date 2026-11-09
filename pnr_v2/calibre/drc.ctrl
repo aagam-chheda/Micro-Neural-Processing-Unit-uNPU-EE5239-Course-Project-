@@ -1,0 +1,15 @@
+#define 4M1L
+#define BLOCK
+#define 3V
+LAYOUT PATH "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs/unpu_top_routed.gds"
+LAYOUT PRIMARY "unpu_top"
+LAYOUT SYSTEM GDSII
+DRC RESULTS DATABASE "unpu_top.drc.db" ASCII
+DRC MAXIMUM RESULTS ALL
+DRC MAXIMUM VERTEX ALL
+DRC CELL NAME NO
+DRC SUMMARY REPORT "unpu_top.drc.rpt" REPLACE HIER
+VIRTUAL CONNECT COLON NO
+VIRTUAL CONNECT REPORT NO
+DRC ICSTATION YES
+INCLUDE "/storage/EE5239G1/aagams_workspace/calibre_run/scr/DRC_TS18SL_SCL_CALIBRE"
