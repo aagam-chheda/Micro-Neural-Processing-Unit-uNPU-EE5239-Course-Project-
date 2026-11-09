@@ -135,7 +135,7 @@ What to read after each step:
 
 - **D1** BASE path `/storage/EE5239G1/aagams_workspace2/unpu` is right (no change to the scripts).
 - **D2** `HOLD_SLACK_GOAL` and `SETUP_SLACK_GOAL` are 0.0 in `cts.tcl` and `route.tcl` (task 065; the example had 0.70 and 0.3/0.30), so the optimiser sees exactly the course constraints (setup 1.5, hold 0.5). Lines marked `065`.
-- **D3** Pin ORDER (bits ascending, handoff 18.9 Q5) is not enforced by the example's commands; only sides, layers and spacing are. The tool's placement was accepted after the floorplan (handoff 18.32, `pins_floorplan.txt`). SUPERSEDED by task 067: the first pin positions (floorplan) are replaced by the ones of step 4b (`pin_replace.tcl`); the top-level team gets the positions written by 4b (`pnr_icc2/reports/pins_after_replace.txt`).
+- **D3** Pin ORDER (bits ascending, handoff 18.9 Q5) is not enforced by the example's commands; only sides, layers and spacing are. The tool's placement was accepted after the floorplan (handoff 18.32, `pins_floorplan.txt`). Task 067 (step 4b, `pin_replace.tcl`) was tried and PARKED (task 068), so the decided pin positions are the floorplan's (`pins_floorplan.txt`); that is what the top-level team gets.
 
 ## Open decisions (the user decides; NOT decided here)
 

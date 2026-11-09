@@ -359,6 +359,77 @@ check "legality: total 1,234 violations" {[ant_parse_legality "Total 1,234 viola
 check "legality: 3 violations" {[ant_parse_legality "found 3 legality violations"] eq "3"}
 check "legality: 'succeeded' alone is unreadable" {[ant_parse_legality "Legality check succeeded"] eq ""}
 
+
+# ------------------------------------------------------------------ 7. task 069: filler runs and site candidates
+# fillers {name x0 y0 x1 y1 orient}; site width 0.56 um, rows 5.6 um high. Row y=100.0 (N): feedth9 (5.04) + feedth3 (1.68) + feedth (0.56) + gap + feedth3.
+proc fl {name x0 y0 w ori} { return [list $name $x0 $y0 [expr {$x0 + $w}] [expr {$y0 + 5.6}] $ori] }
+set fillers [list \
+    [fl a1 800.00 100.0 5.04 N] [fl a2 805.04 100.0 1.68 N] [fl a3 806.72 100.0 0.56 N] [fl a4 808.40 100.0 1.68 N] \
+    [fl b1 800.00 105.6 5.04 FS] [fl b2 805.04 105.6 5.04 FS] \
+    [fl c1 850.00 100.0 2.24 N] \
+    [fl d1 800.00 111.2 1.68 N]]
+set runs [ant_filler_runs $fillers]
+check "runs: row 100 has 3 runs, 105.6 has 1, 111.2 has 1" {[llength $runs] == 5}
+proc run_at {runs y x0} { foreach r $runs { if {abs([dict get $r y0] - $y) < 1e-6 && abs([dict get $r x0] - $x0) < 1e-6} { return $r } }; error "no run $y $x0" }
+set r1 [run_at $runs 100.0 800.0]
+check "run 1 spans the three touching fillers" {[near [dict get $r1 x1] 807.28] && [llength [dict get $r1 fillers]] == 3}
+check "gap splits the row" {[near [dict get [run_at $runs 100.0 808.4] x1] 810.08]}
+check "orientation carried" {[dict get [run_at $runs 105.6 800.0] orient] eq "FS"}
+# buffer 2.24 wide = 4 sites. Pin at (810.0, 103.0) on a left-to-right row: nearest start inside run 1 is x=805.04.. clamped to the run end
+set bw 2.24
+set sw 0.56
+set c [ant_site_candidates $runs $bw $sw 810.0 103.0 40.0]
+check "two runs fit and are within 40 um (the 2.24 run at x=850 is farther, the 1.68 runs are too narrow)" {[llength $c] == 2}
+set c0 [lindex $c 0]
+check "nearest candidate is in row 100 or 105.6" {[dict get $c0 y] == 100.0 || [near [dict get $c0 y] 105.6]}
+# run too narrow: the 1.68 wide run at 808.4 (row 100), 800..801.68 (row 111.2) and the 2.24 run at 850 (fits exactly) -> 850 fits, 808.4 does not
+set far [ant_site_candidates $runs $bw $sw 850.0 103.0 40.0]
+check "2.24 wide run fits a 2.24 buffer exactly" {[llength $far] >= 1 && [near [dict get [lindex $far 0] x] 850.0]}
+check "narrow runs are not offered" {![llength [lmap x $far {expr {[dict get $x run_x0] == 808.4 ? 1 : [continue]}}]]}
+# start site is on the run's site grid and the buffer stays in the run
+foreach x $c {
+    set off [expr {([dict get $x x] - [dict get $x run_x0]) / $sw}]
+    check "start on the site grid ([dict get $x x])" {[near $off [expr {round($off)}] 1e-6]}
+    check "buffer inside the run" {[dict get $x x] + [dict get $x w] <= [dict get $x run_x1] + 1e-6 && [dict get $x x] >= [dict get $x run_x0] - 1e-6}
+}
+# nearest start is chosen: pin to the right of run 1 -> buffer at the right end (807.28 - 2.24 = 805.04)
+set cr [ant_site_candidates [list $r1] $bw $sw 900.0 103.0 200.0]
+check "pin right of the run -> last start site" {[near [dict get [lindex $cr 0] x] 805.04]}
+set cl [ant_site_candidates [list $r1] $bw $sw 700.0 103.0 200.0]
+check "pin left of the run -> first start site" {[near [dict get [lindex $cl 0] x] 800.0]}
+set cm [ant_site_candidates [list $r1] $bw $sw 802.5 103.0 200.0]
+check "pin above the middle -> centred on the pin on the grid" {[near [dict get [lindex $cm 0] x] 801.12 0.57]}
+# fillers to remove are exactly those overlapping the buffer box
+check "start at 805.04 removes a2 and a3 only (a2 805.04..806.72, a3 806.72..807.28)" {[lsort [dict get [lindex $cr 0] names]] eq "a2 a3"}
+check "start at 800.0 removes a1 only partly: a1 (800..805.04) overlaps 800..802.24" {[dict get [lindex $cl 0] names] eq "a1"}
+# a wider filler than needed is listed as a whole (the leftover gap is refilled by the script)
+set w1 [ant_filler_runs [list [fl w 900.0 100.0 5.04 N]]]
+set cw [ant_site_candidates $w1 $bw $sw 900.0 103.0 50.0]
+check "wide filler: one candidate, the filler is removed whole" {[llength $cw] == 1 && [dict get [lindex $cw 0] names] eq "w"}
+# distance limit
+check "limit excludes far runs" {[llength [ant_site_candidates $runs $bw $sw 810.0 103.0 3.0]] < [llength $c]}
+check "no candidate when every run is farther than the limit" {[llength [ant_site_candidates $runs $bw $sw 5.0 5.0 40.0]] == 0}
+# two rows: the closer row comes first; ties go to the lower y, then lower x
+set rows2 [ant_filler_runs [list [fl p 800.0 100.0 2.24 N] [fl q 800.0 105.6 2.24 FS]]]
+set c2 [ant_site_candidates $rows2 $bw $sw 801.0 108.0 40.0]
+check "row 105.6 is closer to y=108" {[near [dict get [lindex $c2 0] y] 105.6]}
+check "the other row is second" {[near [dict get [lindex $c2 1] y] 100.0]}
+set c3 [ant_site_candidates $rows2 $bw $sw 801.0 105.6 40.0]
+check "equal distance -> lower row first" {[near [dict get [lindex $c3 0] y] 100.0]}
+# retry order = list order, all distinct sites
+set pos [lmap x $c {list [dict get $x x] [dict get $x y]}]
+check "retry list has distinct sites" {[llength [lsort -unique $pos]] == [llength $pos]}
+set ds [lmap x $c {dict get $x dist}]
+check "retry list is sorted by distance" {$ds eq [lsort -real $ds]}
+# a filler list with a different row height is not merged
+set odd [ant_filler_runs [list [list u 800.0 100.0 802.0 105.6 N] [list v 802.0 100.0 804.0 104.0 N]]]
+check "different heights are separate runs" {[llength $odd] == 2}
+# tier 2: largest distance for a predicted ratio of 360 with buffd1 (gate 0.194)
+set d2 [ant_max_dist_for_ratio 0.194 0.28 0.54 360.0]
+check "tier 2 distance for buffd1 is about 64 um" {$d2 > 63.5 && $d2 < 65.0}
+check "ratio at the tier 2 distance is 360" {[near [ant_ratio 0.194 $d2 0.28 0.54] 360.0 0.01]}
+check "tier 1 limit 40 um gives a ratio below 400 for buffd1" {[ant_ratio 0.194 40.0 0.28 0.54] < 400.0}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

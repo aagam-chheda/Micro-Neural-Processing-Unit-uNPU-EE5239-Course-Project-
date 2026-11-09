@@ -46,6 +46,9 @@ set DIODE_MIN_AREA     0.202  ;# 068: the deck counts only diffusion of at least
 set PIN_WIRE_UM        30.0   ;# 068: wire length the buffer input must tolerate; the core offset is 20 um so the pin cannot be closer than about 20 um to a row
 set GATE_SAFETY        1.0    ;# 068: factor on the needed gate area (LEF area vs layout area may differ); 1.0 = none, the predicted ratio is re-checked after placement
 set MAX_PIN_BUF_DIST   40.0   ;# 068: hard limit (um, Manhattan) from the pin to the buffer input pin after legalisation
+set MAX_SITE_TRIES     5          ;# 069: candidate filler runs tried per tier and net (closest first)
+set TIER2_RATIO        360.0      ;# 069: tier 2 (only for a net with no usable run within MAX_PIN_BUF_DIST): predicted M2/M3 ratio must stay at or below this (10 percent under ANT_RATIO_LIMIT)
+set TIER2_MAX_LAYER    "M3"       ;# 069: tier 2 nets: the pin-to-buffer route may not go above this layer (TOP_M has weight 0.84)
 set DONT_USE_PATTERNS {slnht* skbrb* slbhb* slnhn* slnln* mx08d* adiode bh01d1 cload1}   ;# 068: handoff 18.15 (15 pattern cells + the library's own three); ICC2 has no don't-use list set in this flow, so the names are checked here
 set BUF_PREFIX         "antbuf"   ;# 068: instance name base of the new buffers
 set POWER_PORT_NAMES   {VDD VSS}   ;# 068: as pin_replace.tcl
@@ -381,6 +384,63 @@ proc ant_parse_legality {text} {
     }
     return ""
 }
+# 069: group filler instances into contiguous runs per row. fillers: list of {name x0 y0 x1 y1 orient}. Returns a list of dicts:
+# 069: y0 y1 x0 x1 orient fillers {{name x0 x1} ...} (fillers sorted by x). Two fillers are in one run when they touch (gap <= tol) in the same row.
+proc ant_filler_runs {fillers {tol 0.001}} {
+    set rows [dict create]
+    foreach f $fillers { dict lappend rows [format %.3f [lindex $f 2]] $f }
+    set runs {}
+    foreach key [lsort -real [dict keys $rows]] {
+        set cur {}
+        foreach f [lsort -real -index 1 [dict get $rows $key]] {
+            lassign $f name x0 y0 x1 y1 ori
+            if {[llength $cur] > 0 && $x0 <= [dict get $cur x1] + $tol && abs($y1 - [dict get $cur y1]) <= $tol} {
+                dict set cur x1 [expr {max([dict get $cur x1], $x1)}]
+                dict lappend cur fillers [list $name $x0 $x1]
+            } else {
+                if {[llength $cur] > 0} { lappend runs $cur }
+                set cur [dict create y0 $y0 y1 $y1 x0 $x0 x1 $x1 orient $ori fillers [list [list $name $x0 $x1]]]
+            }
+        }
+        if {[llength $cur] > 0} { lappend runs $cur }
+    }
+    return $runs
+}
+
+# 069: candidate sites for a buffer of width bw: in every run at least as wide as the buffer (rounded up to whole sites) take the start site
+# 069: nearest to the pin (px,py), on the site grid of the run. Keep the candidates whose box centre is within `limit` (Manhattan) of the pin, closest first
+# 069: (ties: lower y, lower x). A candidate is a dict: x y w h dist orient names (the fillers to remove: those overlapping the buffer box) run_x0 run_x1.
+proc ant_site_candidates {runs bw site_w px py limit {tol 0.001}} {
+    set span [expr {ceil($bw / $site_w - 1e-6) * $site_w}]
+    set list_ {}
+    foreach r $runs {
+        set x0 [dict get $r x0]; set x1 [dict get $r x1]
+        set y0 [dict get $r y0]; set y1 [dict get $r y1]
+        if {$x1 - $x0 < $span - $tol} continue
+        set nsteps [expr {int(floor(($x1 - $x0 - $span) / $site_w + 1e-6))}]
+        set k [expr {int(floor(($px - $span / 2.0 - $x0) / $site_w + 0.5))}]
+        if {$k < 0} { set k 0 }
+        if {$k > $nsteps} { set k $nsteps }
+        set xs [expr {$x0 + $k * $site_w}]
+        set dist [ant_manhattan $px $py [expr {$xs + $bw / 2.0}] [expr {($y0 + $y1) / 2.0}]]
+        if {$dist > $limit} continue
+        set names {}
+        foreach f [dict get $r fillers] {
+            lassign $f fname fx0 fx1
+            if {min($fx1, $xs + $span) - max($fx0, $xs) > $tol} { lappend names $fname }
+        }
+        lappend list_ [list $dist $y0 $xs [dict create x $xs y $y0 w $span h [expr {$y1 - $y0}] dist $dist orient [dict get $r orient] names $names run_x0 $x0 run_x1 $x1]]
+    }
+    set list_ [lsort -real -index 2 $list_]
+    set list_ [lsort -real -index 1 $list_]
+    set list_ [lsort -real -index 0 $list_]
+    return [lmap e $list_ {lindex $e 3}]
+}
+
+# 069: longest pin-to-buffer Manhattan distance (um) whose predicted antenna ratio stays at or below `ratio` for this gate area
+proc ant_max_dist_for_ratio {gate_area width_um weight ratio} {
+    return [expr {$ratio * $gate_area / (2.0 * $weight) - $width_um}]
+}
 # ---- END PURE TCL 068 ----
 
 # 068: ICC2 side helpers (use ICC2 commands, not tested locally)
@@ -398,11 +458,26 @@ proc ant068_net_shapes {netname layer} {   ;# 068: shapes of one net on one laye
     return $out
 }
 proc ant068_slack {port scen type} {   ;# 068: worst slack of the paths starting at a port; VERIFY get_timing_paths ... and the `slack` attribute
+    # 069: get_timing_paths rejects -quiet in this ICC2 (CMD-010); the real option list is in ~/server_pull/rpt/help/get_timing_paths.txt. A failure is printed ONCE, not per net.
+    global ab_timing_err
     if {[catch {
-        set p [get_timing_paths -quiet -scenarios $scen -from [get_ports -quiet -exact $port] -delay_type $type -max_paths 1]
+        set p [get_timing_paths -scenarios $scen -from [get_ports -quiet -exact $port] -delay_type $type -max_paths 1]
         if {[sizeof_collection $p] == 0} { set r "n/a" } else { set r [get_attribute $p slack] }
-    } err]} { return "error:$err" }
+    } err]} {
+        if {![info exists ab_timing_err]} {
+            set ab_timing_err $err
+            puts ">>> 069 per-net timing unavailable: $err"
+        }
+        return "unavailable"
+    }
     return $r
+}
+proc ant069_filler_rows {win filter} {   ;# 069: fillers intersecting a window -> list of {name x0 y0 x1 y1 orientation}; VERIFY get_cells -intersect finds fillers, and the `orientation` attribute (N / FS)
+    set rows {}
+    foreach_in_collection f [get_cells -quiet -intersect $win -filter $filter] {
+        lappend rows [concat [list [get_object_name $f]] [ant068_bbox_of $f] [list [get_attribute -quiet $f orientation]]]
+    }
+    return $rows
 }
 proc ant068_net_leaf_pins {netname} {   ;# 068: names of the leaf pins on a net; VERIFY get_pins -leaf -of_objects <net>
     set out {}
@@ -662,7 +737,11 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
         set ab_pin_xy($n) [ant068_centre [index_collection $t 0]]
         set ab_loads_before($n) [llength [ant068_net_leaf_pins $n]]
         set ab_slack0($n) [list [ant068_slack $pn $SETUP_SCEN max] [ant068_slack $pn $HOLD_SCEN min]]
-        puts ">>> 068 BEFORE $n: pin ([format %.2f [lindex $ab_pin_xy($n) 0]], [format %.2f [lindex $ab_pin_xy($n) 1]]), leaf loads $ab_loads_before($n), worst slack from the port: setup [lindex $ab_slack0($n) 0] ($SETUP_SCEN), hold [lindex $ab_slack0($n) 1] ($HOLD_SCEN)"
+        if {[info exists ab_timing_err]} {   ;# 069: no error text as a result
+            puts ">>> 068 BEFORE $n: pin ([format %.2f [lindex $ab_pin_xy($n) 0]], [format %.2f [lindex $ab_pin_xy($n) 1]]), leaf loads $ab_loads_before($n)"
+        } else {
+            puts ">>> 068 BEFORE $n: pin ([format %.2f [lindex $ab_pin_xy($n) 0]], [format %.2f [lindex $ab_pin_xy($n) 1]]), leaf loads $ab_loads_before($n), worst slack from the port: setup [lindex $ab_slack0($n) 0] ($SETUP_SCEN), hold [lindex $ab_slack0($n) 1] ($HOLD_SCEN)"
+        }
     }
     if {[llength $ab_failures] > 0} { error "ERROR 068: [join $ab_failures {; }]" }
     set ab_anti_before [ant068_check_routes_counts]
@@ -670,57 +749,119 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
     set ab_drc_before [lindex $ab_anti_before 0]
 
     # --------------------------------------------------------------------------
-    # 7. ECO: clear fillers, insert, place, legalise, refill, connect PG
+    # 7. ECO (069): pick a free run of FILLER sites per net, remove exactly those fillers, insert, place on the site, verify, undo and retry on failure
     # --------------------------------------------------------------------------
+    # 069: the first server run asked the legaliser to find a site in a cleared window; two buffers were moved 360 and 1080 um away (it never fails, it moves).
+    # 069: now the site is chosen here from the fillers that route.tcl created, and the result is verified (position and distance) before the next net.
     set ab_filter {}
     foreach f $FILLER_REFS { lappend ab_filter "ref_name == $f" }
     set ab_filter [join $ab_filter " || "]
-    array set ab_target_xy {}
-    set ab_removed 0
-    foreach n $ab_targets {
-        lassign $ab_pin_xy($n) px py
-        set tg [ant_target_xy $px $py $ab_bw $ab_bh $ab_core]
-        set ab_target_xy($n) $tg
-        lassign $tg tx ty
-        set win [list [list [expr {$tx - 2.0}] [expr {$ty + 0.05}]] [list [expr {$tx + $ab_bw + 2.0}] [expr {$ty + $ab_bh - 0.05}]]]
-        set fl [get_cells -quiet -intersect $win -filter $ab_filter]   ;# 068: VERIFY get_cells -intersect finds the fillers (physical-only cells) by ref_name
-        set nf [sizeof_collection $fl]
-        if {$nf > 0} { remove_cells $fl; incr ab_removed $nf }   ;# 068: VERIFY remove_cells on filler instances
-        puts ">>> 068 $n: target ([format %.2f $tx], [format %.2f $ty]) for the buffer, $nf filler cells removed in its window"
+    set ab_site_w 1e9
+    foreach f $FILLER_REFS {   ;# 069: the site width is the width of the narrowest filler master in the LEF (data, not typed)
+        if {[dict exists $ab_lef $f] && [dict get $ab_lef $f w] ne "" && [dict get $ab_lef $f w] < $ab_site_w} { set ab_site_w [dict get $ab_lef $f w] }
     }
-    puts ">>> 068 fillers removed: $ab_removed"
-
+    if {$ab_site_w > 1e8} { error "ERROR 069: none of the filler masters $FILLER_REFS is in the LEF, the site width is unknown" }
+    set ab_gate [dict get $ab_buf_row gate]
+    set ab_tier2_dist [ant_max_dist_for_ratio $ab_gate $WIRE_WIDTH_UM $ANT_WEIGHT_PINWIRE $TIER2_RATIO]
+    puts ">>> 069 site width $ab_site_w um (narrowest of $FILLER_REFS in the LEF), buffer $ab_buf is ${ab_bw} um wide = [expr {int(ceil($ab_bw / $ab_site_w - 1e-6))}] sites; tier 1 limit $MAX_PIN_BUF_DIST um; tier 2 limit [format %.1f $ab_tier2_dist] um (predicted M2/M3 ratio <= $TIER2_RATIO with gate [format %.3f $ab_gate])"
     array set ab_cell_of {}
     array set ab_newnet_of {}
-    set ab_touched_names {}
+    array set ab_tier {}
+    array set ab_lim {}
+    set ab_removed 0
+    set ab_failed {}
     set k 0
     foreach n $ab_targets {
         set pn $ab_port_of_net($n)
-        set base "${BUF_PREFIX}_[regsub -all {[^A-Za-z0-9]} $pn _]_${k}"
-        incr k
-        insert_buffer -lib_cell [get_lib_cells -exact $ab_buf_lc] -new_cell_names $base -new_net_names ${base}_n [get_ports -exact $pn]   ;# 068: VERIFY insert_buffer on a PORT puts the buffer between the port and all its loads (usage text: add_buffer ... object_list = nets, ports or pins)
-        set cc [get_cells -quiet -of_objects [get_nets -quiet -exact $n]]
+        lassign $ab_pin_xy($n) px py
         set ab_cell_of($n) ""
-        foreach_in_collection c $cc {
-            if {[get_attribute -quiet $c ref_name] eq $ab_buf} { set ab_cell_of($n) [get_object_name $c] }
+        set placed 0
+        set tried {}
+        foreach tier {1 2} {
+            if {$placed} break
+            set lim [expr {$tier == 1 ? $MAX_PIN_BUF_DIST : $ab_tier2_dist}]
+            if {$tier == 2 && $lim <= $MAX_PIN_BUF_DIST} continue
+            set L [expr {$lim + $ab_bw + $ab_bh}]
+            set win [list [list [expr {$px - $L}] [expr {$py - $L}]] [list [expr {$px + $L}] [expr {$py + $L}]]]
+            set frows [ant069_filler_rows $win $ab_filter]
+            set runs [ant_filler_runs $frows]
+            set cands {}
+            foreach c [ant_site_candidates $runs $ab_bw $ab_site_w $px $py $lim] {
+                if {[lsearch -exact $tried [list [dict get $c x] [dict get $c y]]] < 0} { lappend cands $c }
+            }
+            puts ">>> 069 $n tier $tier: limit [format %.1f $lim] um, [llength $frows] fillers in the search window, [llength $runs] runs, [llength $cands] usable candidate sites"
+            set ntry 0
+            foreach c $cands {
+                if {$ntry >= $MAX_SITE_TRIES} break
+                incr ntry
+                set cx [dict get $c x]; set cy [dict get $c y]
+                lappend tried [list $cx $cy]
+                set rm [dict get $c names]
+                set flc [get_cells -quiet -exact $rm]
+                if {[sizeof_collection $flc] != [llength $rm]} {
+                    puts ">>> 069 BUFFER $n tier $tier candidate ($cx, $cy): only [sizeof_collection $flc] of [llength $rm] filler names found, candidate skipped"
+                    continue
+                }
+                remove_cells $flc   ;# 069: VERIFY remove_cells on the filler instances (as in task 068)
+                incr ab_removed [llength $rm]
+                set base "${BUF_PREFIX}_[regsub -all {[^A-Za-z0-9]} $pn _]_${k}_t${tier}a${ntry}"
+                insert_buffer -lib_cell [get_lib_cells -exact $ab_buf_lc] -new_cell_names $base -new_net_names ${base}_n [get_ports -exact $pn]   ;# 068: VERIFY insert_buffer on a PORT puts the buffer between the port and all its loads (usage text: add_buffer ... object_list = nets, ports or pins)
+                set bname ""
+                foreach_in_collection c2 [get_cells -quiet -of_objects [get_nets -quiet -exact $n]] {
+                    if {[get_attribute -quiet $c2 ref_name] eq $ab_buf} { set bname [get_object_name $c2] }
+                }
+                if {$bname eq ""} { error "ERROR 069: net $n: no cell of type $ab_buf found on the port net after insert_buffer (nothing saved)" }
+                set bc [get_cells -exact $bname]
+                set op [get_pins -quiet -of_objects $bc -filter "direction == out"]   ;# 068: VERIFY pin attribute direction == out
+                if {[sizeof_collection $op] != 1} { error "ERROR 069: net $n: buffer $bname has [sizeof_collection $op] output pins (nothing saved)" }
+                set newnet [get_object_name [get_nets -quiet -of_objects $op]]
+                set sargs [list -coordinates [list $cx $cy]]
+                if {[dict get $c orient] ne ""} { lappend sargs -orientation [dict get $c orient] }   ;# 069: the row's orientation, read from the removed fillers
+                if {[catch {set_cell_location {*}$sargs $bc} err]} {   ;# 068: VERIFY set_cell_location (the first server run accepted -coordinates); 069: VERIFY -orientation
+                    puts ">>> 069 set_cell_location failed ($err), trying the origin attribute"
+                    if {[catch {set_attribute -objects $bc -name origin -value [list $cx $cy]} err2]} { error "ERROR 069: net $n: cannot move $bname: $err / $err2 (nothing saved)" }
+                }
+                legalize_placement -cells $bc   ;# 069: only this cell; at a free site it must not move
+                lassign [ant068_bbox_of $bc] bx0 by0 bx1 by1
+                set dpos [ant_manhattan $bx0 $by0 $cx $cy]
+                set inp [get_pins -quiet -of_objects $bc -filter "direction == in"]   ;# 068: VERIFY pin attribute direction == in
+                lassign [expr {[sizeof_collection $inp] == 1 ? [ant068_centre $inp] : [ant068_centre $bc]}] ix iy
+                set dist [ant_manhattan $px $py $ix $iy]
+                set ratio [ant_ratio $ab_gate $dist $WIRE_WIDTH_UM $ANT_WEIGHT_PINWIRE]
+                set why {}
+                if {$dpos > 0.001} { lappend why "buffer at ([format %.3f $bx0], [format %.3f $by0]) instead of the site ([format %.3f $cx], [format %.3f $cy])" }
+                if {$dist > $lim} { lappend why "distance [format %.1f $dist] > [format %.1f $lim]" }
+                puts [format ">>> 069 BUFFER %s tier %d pin=(%.2f, %.2f) run: row y=%.2f x=%.2f..%.2f fillers_removed=%d %s buffer=%s site=(%.3f, %.3f) final=(%.3f, %.3f) distance=%.1f um predicted_ratio=%.0f %s" \
+                    $n $tier $px $py $cy [dict get $c run_x0] [dict get $c run_x1] [llength $rm] $rm $bname $cx $cy $bx0 $by0 $dist $ratio [expr {[llength $why] ? "REJECTED: [join $why {; }]" : "OK"}]]
+                if {[llength $why] == 0} {
+                    set ab_cell_of($n) $bname
+                    set ab_newnet_of($n) $newnet
+                    set ab_tier($n) $tier
+                    set ab_lim($n) $lim
+                    set placed 1
+                    if {$tier == 2} {
+                        puts ">>> 069 $n: TIER 2: no usable filler run within $MAX_PIN_BUF_DIST um; buffer [format %.1f $dist] um from the pin, predicted M2/M3 ratio [format %.0f $ratio] (<= $TIER2_RATIO); the route of this port net is limited to layers up to $TIER2_MAX_LAYER"
+                        set_routing_rule -max_routing_layer $TIER2_MAX_LAYER -max_layer_mode hard [get_nets -quiet -exact $n]   ;# 069: VERIFY set_routing_rule on a signal net (usage text); 'hard' = the route may not use a layer above M3 (TOP_M weight 0.84 allows only about 45 um)
+                    }
+                    break
+                }
+                # undo this net and retry with the next candidate
+                if {[catch {remove_buffers $bc} err]} { error "ERROR 069: net $n: cannot remove the rejected buffer $bname: $err (nothing saved)" }   ;# 069: VERIFY remove_buffers restores the original net
+                set back [llength [ant068_net_leaf_pins $n]]
+                if {$back != $ab_loads_before($n)} { error "ERROR 069: net $n: $back leaf pins after removing the rejected buffer, $ab_loads_before($n) before (nothing saved)" }
+                puts ">>> 069 $n: rejected buffer $bname removed, net restored ($back leaf pins)"
+            }
         }
-        if {$ab_cell_of($n) eq ""} { lappend ab_failures "net $n: no cell of type $ab_buf found on the port net after insert_buffer"; continue }
-        set bc [get_cells -exact $ab_cell_of($n)]
-        set op [get_pins -quiet -of_objects $bc -filter "direction == out"]   ;# 068: VERIFY pin attribute direction == out
-        if {[sizeof_collection $op] != 1} { lappend ab_failures "net $n: buffer $ab_cell_of($n) has [sizeof_collection $op] output pins"; continue }
-        set nn [get_nets -quiet -of_objects $op]
-        set ab_newnet_of($n) [get_object_name $nn]
-        lassign $ab_target_xy($n) tx ty
-        if {[catch {set_cell_location -coordinates [list $tx $ty] $bc} err]} {   ;# 068: VERIFY set_cell_location (not in the probed help); fallback below
-            puts ">>> 068 set_cell_location failed ($err), trying the origin attribute"
-            if {[catch {set_attribute -objects $bc -name origin -value [list $tx $ty]} err2]} { lappend ab_failures "net $n: cannot move $ab_cell_of($n): $err / $err2"; continue }
+        if {!$placed} {
+            set wide [ant_site_candidates [ant_filler_runs [ant069_filler_rows [list [list [expr {$px - 300.0}] [expr {$py - 300.0}]] [list [expr {$px + 300.0}] [expr {$py + 300.0}]]] $ab_filter]] $ab_bw $ab_site_w $px $py 1e9]   ;# 069: only for the message: the nearest free run in a wider window
+            if {[llength $wide] > 0} { set nearest "nearest free filler run at [format %.1f [dict get [lindex $wide 0] dist]] um" } else { set nearest "no free filler run within 300 um" }
+            puts ">>> 069 BUFFER $n FAILED: no site within the tier 1 limit ($MAX_PIN_BUF_DIST um) or the tier 2 limit ([format %.1f $ab_tier2_dist] um); $nearest"
+            lappend ab_failed "$n ($nearest)"
         }
-        puts ">>> 068 $n: inserted $ab_cell_of($n) ($ab_buf), new net $ab_newnet_of($n), requested position ([format %.2f $tx], [format %.2f $ty])"
+        incr k
     }
-    if {[llength $ab_failures] > 0} { error "ERROR 068: insertion failed, nothing saved: [join $ab_failures {; }]" }
-
-    set ab_newcells [get_cells -quiet -exact [lmap n $ab_targets {set ab_cell_of($n)}]]
-    legalize_placement -cells $ab_newcells   ;# 068: only the new cells may move (no -moveable_distance)
+    puts ">>> 068 fillers removed: $ab_removed"
+    if {[llength $ab_failed] > 0} { error "ERROR 069: [llength $ab_failed] net(s) FAILED to get a buffer site, nothing saved (the design in memory is not saved): [join $ab_failed {; }]" }
 
     set fill_cells [get_lib_cells -quiet [lmap f $FILLER_REFS {string cat ${FILLER_LIB}/ $f}]]   ;# 068: the same selection as route.tcl
     if {[sizeof_collection $fill_cells] == 0} { set fill_cells [get_lib_cells -quiet {*/feedth9 */feedth3 */feedth}] }
@@ -823,8 +964,8 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
         set gate [dict get $ab_buf_row gate]
         set r1 [ant_ratio $gate $dist $WIRE_WIDTH_UM $ANT_WEIGHT_PINWIRE]
         set r2 [ant_ratio $gate $dist $WIRE_WIDTH_UM $ANT_WEIGHT_TOPM]
-        puts ">>> 068 CHECK $n: buffer $ab_cell_of($n) at ([format %.2f $bx], [format %.2f $by]), pin at ([format %.2f $px], [format %.2f $py]): Manhattan distance [format %.1f $dist] um (limit $MAX_PIN_BUF_DIST); predicted ratio on M2/M3 [format %.0f $r1], on TOP_M [format %.0f $r2] (limit $ANT_RATIO_LIMIT)"
-        if {$dist > $MAX_PIN_BUF_DIST} { lappend ab_failures "net $n: buffer is $dist um from the pin (limit $MAX_PIN_BUF_DIST)" }
+        puts ">>> 068 CHECK $n: buffer $ab_cell_of($n) at ([format %.2f $bx], [format %.2f $by]), pin at ([format %.2f $px], [format %.2f $py]): Manhattan distance [format %.1f $dist] um (limit $ab_lim($n), tier $ab_tier($n)); predicted ratio on M2/M3 [format %.0f $r1], on TOP_M [format %.0f $r2] (limit $ANT_RATIO_LIMIT)"
+        if {$dist > $ab_lim($n)} { lappend ab_failures "net $n: buffer is $dist um from the pin (limit $ab_lim($n), tier $ab_tier($n))" }   ;# 069: the limit of the tier the net was placed in
         if {$r1 > $ANT_RATIO_LIMIT} { lappend ab_failures "net $n: predicted antenna ratio [format %.0f $r1] on M2/M3 exceeds $ANT_RATIO_LIMIT" }
     }
 
@@ -837,6 +978,7 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
     foreach n $ab_targets {
         set pn $ab_port_of_net($n)
         set s1 [list [ant068_slack $pn $SETUP_SCEN max] [ant068_slack $pn $HOLD_SCEN min]]
+        if {[info exists ab_timing_err]} continue   ;# 069: the one message "per-net timing unavailable: <reason>" was printed once; no per-net line with error text
         set worse {}
         foreach i {0 1} {
             set a [lindex $ab_slack0($n) $i]
@@ -845,7 +987,7 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
         }
         puts ">>> 068 TIMING $n: setup [lindex $ab_slack0($n) 0] -> [lindex $s1 0], hold [lindex $ab_slack0($n) 1] -> [lindex $s1 1]  [expr {[llength $worse] ? "WORSE: $worse" : {not worse}}]"
     }
-
+    if {[info exists ab_timing_err]} { puts ">>> 069 per-net TIMING lines skipped (reason above); the report_global_timing tables before and after are printed" }
     if {[llength $ab_failures] > 0} {
         error "ERROR 068: [llength $ab_failures] check(s) failed, NOTHING SAVED: [join $ab_failures {; }]"
     }
