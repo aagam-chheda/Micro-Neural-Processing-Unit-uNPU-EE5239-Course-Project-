@@ -47,11 +47,13 @@ set PT_EXPECT_HOLD_UNC    0.5
 set PT_EXPECT_MAX_TRANSITION 3.0
 set PT_EXPECT_MAX_CAP        2.0
 
-# Unannotated nets: percent of all nets that may be without parasitics. 0.0 = any unannotated net is an error (task 074). After the printed list has been read and explained
+# Unannotated PIN-TO-PIN nets (the nets that carry timing arcs; driverless and loadless nets are information only): percent of the pin-to-pin nets that may be without parasitics. 0.0 = any unannotated net is an error (task 074). After the printed list has been read and explained
 # (for example nets that are constants or have no loads) the user may raise it here with the reason written in the line.
 set PT_MAX_UNANNOTATED_PCT 0.0
 # 0 = a report_annotated_parasitics text that cannot be parsed is an error. 1 = continue, print a warning (use only after reading the text in the log)
 set PT_ALLOW_UNREADABLE_ANNOTATION 0
+# PrimeTime (T-2022.03-SP2) writes the text of read_parasitics / report_annotated_parasitics to this file in the CURRENT directory (PARA-107): the runbook runs from pnr_icc2/pt
+set PT_PARA_LOG "parasitics_command.log"
 
 # Endpoints that are unconstrained by design and may be reported by check_timing (task 074: "known constants such as pready")
 set PT_KNOWN_UNCONSTRAINED {pready}
@@ -216,37 +218,138 @@ proc pt_parse_opcond {text} {
     return $out
 }
 
-# 074: report_annotated_parasitics text -> dict total annotated unannotated, from the lines of the net summary (VERIFY the wording on the server; the patterns accept
-# 074: "Total number of nets = N", "Number of nets: N", "Nets with (complete) parasitics annotated: N", "Fully annotated nets N", "Unannotated nets: N", "N nets (are) not annotated").
-# 074: A number that is absent is "". The policy is applied by pt_annotation_verdict.
-proc pt_parse_annotation {text} {
-    set total ""
-    set ann ""
-    set unann ""
-    foreach l [split $text "\n"] {
-        if {[regexp -nocase {total\s+(number\s+of\s+)?nets\s*[:=]?\s*([0-9][0-9,]*)} $l -> x n]} { set total [string map {, {}} $n] }
-        if {[regexp -nocase {^\s*number\s+of\s+nets\s*[:=]\s*([0-9][0-9,]*)} $l -> n] && $total eq ""} { set total [string map {, {}} $n] }
-        if {[regexp -nocase {(fully\s+annotated|annotated)\s+nets?\s*[:=]?\s*([0-9][0-9,]*)} $l -> x n] && ![regexp -nocase {un-?annotated} $l]} { set ann [string map {, {}} $n] }
-        if {[regexp -nocase {nets\s+with\s+(complete\s+)?parasitics\s+annotated\s*[:=]?\s*([0-9][0-9,]*)} $l -> x n]} { set ann [string map {, {}} $n] }
-        if {[regexp -nocase {un-?annotated\s+nets?\s*[:=]?\s*([0-9][0-9,]*)} $l -> n]} { set unann [string map {, {}} $n] }
-        if {[regexp -nocase {([0-9][0-9,]*)\s+nets?\s+(are\s+)?(not|un)\s*-?\s*annotated} $l -> n]} { set unann [string map {, {}} $n] }
-    }
-    if {$unann eq "" && $total ne "" && $ann ne ""} { set unann [expr {$total - $ann}] }
-    if {$total eq "" && $ann ne "" && $unann ne ""} { set total [expr {$ann + $unann}] }
-    return [dict create total $total annotated $ann unannotated $unann]
+# 074 (fix after the first server run): in this PrimeTime (T-2022.03-SP2) read_parasitics and report_annotated_parasitics do NOT print into the session. They print
+# 074: "Information: Log for '<command>' will be generated in 'parasitics_command.log'. (PARA-107)": the text is in a FILE of the current directory, APPENDED by both commands.
+# 074: size of a file in bytes, 0 when it does not exist
+proc pt_file_size0 {path} {
+    if {![file exists $path]} { return 0 }
+    return [file size $path]
 }
 
-# 074: policy for the annotation: returns {ok message}. Unreadable numbers are an error unless allow_unreadable (then a warning). Percent unannotated must not exceed max_pct.
-proc pt_annotation_verdict {info max_pct allow_unreadable} {
-    set total [dict get $info total]
-    set un [dict get $info unannotated]
-    if {![string is integer -strict $total] || ![string is integer -strict $un] || $total <= 0} {
-        if {$allow_unreadable} { return [list 1 "WARNING: the annotation summary could not be read (total '$total', unannotated '$un'); continuing because PT_ALLOW_UNREADABLE_ANNOTATION is 1"] }
-        return [list 0 "the annotation summary could not be read (total '$total', unannotated '$un'); read the text above, then either fix the parser or set PT_ALLOW_UNREADABLE_ANNOTATION"]
+# 074: the part of a file written after byte `offset` (the text of the command that ran after the size was taken); "" when the file is missing or nothing was added
+proc pt_file_tail {path offset} {
+    if {![file exists $path] || [file size $path] <= $offset} { return "" }
+    set fp [open $path r]
+    fconfigure $fp -translation binary
+    seek $fp $offset start
+    set t [read $fp]
+    close $fp
+    return $t
+}
+
+# 074: from the LAST "Report : annotated_parasitics" line to the end of the text ("" when there is none)
+proc pt_last_annotation_block {text} {
+    set last -1
+    set i [string first "Report : annotated_parasitics" $text]
+    while {$i >= 0} { set last $i; set i [string first "Report : annotated_parasitics" $text [expr {$i + 1}]] }
+    if {$last < 0} { return "" }
+    return [string range $text $last end]
+}
+
+# 074: the error count of a read_parasitics block: the largest N of the lines "N error(s)"; "" when no such line exists
+proc pt_parse_para_errors {text} {
+    set n ""
+    foreach l [split $text "\n"] {
+        if {[regexp -nocase {([0-9]+)\s+error\(s\)} $l -> v]} { if {$n eq "" || $v > $n} { set n $v } }
     }
-    set pct [expr {100.0 * $un / $total}]
-    if {$pct > $max_pct + 1e-12} { return [list 0 "$un of $total nets ([format %.3f $pct] percent) are not annotated; the limit is $max_pct percent (PT_MAX_UNANNOTATED_PCT)"] }
-    return [list 1 "$un of $total nets ([format %.3f $pct] percent) are not annotated (limit $max_pct percent)"]
+    return $n
+}
+
+# 074: the table of "Report : annotated_parasitics -check -internal_nets -boundary_nets" as printed by PrimeTime:
+#   Net Type | Total | Lumped | RC pi | RC network | Not Annotated     then the rows "  - Pin to pin nets | 16113 | 0 | 0 | 16113 | 0", "  - Driverless nets ...", "  - Loadless nets ..."
+#   for the internal nets and again under "Boundary/port nets", a total row "| 16688 | 0 | 0 | 16295 | 393 |", the line "Annotated nets : N", and numbered lines of the unannotated nets
+#   ("1.  csr_sel[2] (driver: <none>)").
+# 074: Returns a dict: found (1 when at least one row and the total row were read), rows (list of {section type total lumped rcpi rcnet notann}), total (list of the five numbers of the
+# 074: total row), annotated (the "Annotated nets" number or ""), names (list of {index name driver}).
+proc pt_parse_annotation_table {text} {
+    set rows {}
+    set total {}
+    set annotated ""
+    set names {}
+    set section internal
+    foreach l [split $text "\n"] {
+        if {[regexp -nocase {^\s*boundary} $l]} { set section boundary; continue }
+        if {[regexp -nocase {^\s*internal} $l]} { set section internal; continue }
+        if {[regexp -nocase {^\s*-\s*(pin\s+to\s+pin|driverless|loadless)\s+nets\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)} $l -> ty t lu pi rc na]} {
+            set ty [expr {[string match -nocase "pin*" $ty] ? "p2p" : ([string match -nocase "driver*" $ty] ? "driverless" : "loadless")}]
+            lappend rows [list $section $ty $t $lu $pi $rc $na]
+            continue
+        }
+        if {[regexp {^\s*\|?\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|?\s*$} $l -> a b c d e]} { set total [list $a $b $c $d $e]; continue }
+        if {[regexp -nocase {^\s*annotated\s+nets\s*:\s*([0-9]+)} $l -> n]} { set annotated $n; continue }
+        if {[regexp {^\s*([0-9]+)\.\s+(\S+)\s+\(driver:\s*(.*?)\)\s*$} $l -> idx nm drv]} { lappend names [list $idx $nm $drv] }
+    }
+    return [dict create found [expr {[llength $rows] > 0 && [llength $total] == 5}] rows $rows total $total annotated $annotated names $names]
+}
+
+# 074: policy for the table. errors = the read_parasitics error count ("" when none was printed). Returns {ok lines}; every line is for the log.
+# 074: ERROR (ok = 0) when: read_parasitics reported errors; the table was not found (unless allow_unreadable, then a WARNING line); the table is inconsistent (sum of the rows differs from the total
+# 074: row); a "Pin to pin nets" row (internal or boundary) has Not Annotated nets above max_pct percent of the pin-to-pin nets (max_pct 0 = any). The unannotated DRIVERLESS and LOADLESS nets
+# 074: are INFORMATION: counted per row, they carry no timing arc (no driver or no load); the first 10 names are listed.
+proc pt_annotation_policy {parsed errors max_pct allow_unreadable} {
+    set out {}
+    set ok 1
+    if {[string is integer -strict $errors] && $errors > 0} {
+        lappend out "read_parasitics reported $errors error(s): the parasitics are not trustworthy"
+        set ok 0
+    }
+    if {![dict get $parsed found]} {
+        if {$allow_unreadable} {
+            lappend out "WARNING: the annotation table could not be found or read; continuing because PT_ALLOW_UNREADABLE_ANNOTATION is 1"
+            return [list $ok $out]
+        }
+        lappend out "the annotation table of report_annotated_parasitics could not be found or read (no rows or no total row); read parasitics_command.log, then either fix the parser or set PT_ALLOW_UNREADABLE_ANNOTATION"
+        return [list 0 $out]
+    }
+    set rows [dict get $parsed rows]
+    set tot [dict get $parsed total]
+    # consistency of the table with its own total row
+    set st 0
+    set sna 0
+    foreach r $rows { incr st [lindex $r 2]; incr sna [lindex $r 6] }
+    if {$st != [lindex $tot 0] || $sna != [lindex $tot 4]} {
+        lappend out "the table is inconsistent: the rows add up to total $st / not annotated $sna, the total row says [lindex $tot 0] / [lindex $tot 4]"
+        set ok 0
+    }
+    # pin-to-pin rows: the nets that carry timing arcs
+    set p2p_total 0
+    set p2p_ann 0
+    set p2p_un 0
+    set detail {}
+    foreach r $rows {
+        lassign $r sec ty t lu pi rc na
+        if {$ty eq "p2p"} {
+            incr p2p_total $t
+            incr p2p_ann [expr {$lu + $pi + $rc}]
+            incr p2p_un $na
+            lappend detail "$sec $t (annotated [expr {$lu + $pi + $rc}], not annotated $na)"
+        }
+    }
+    if {$p2p_total == 0} {
+        lappend out "the table has no pin-to-pin net row with nets"
+        set ok 0
+    } else {
+        set pct [expr {100.0 * $p2p_un / $p2p_total}]
+        lappend out "pin-to-pin nets: $p2p_total in total ([join $detail {; }]); $p2p_un not annotated ([format %.3f $pct] percent, limit $max_pct percent)"
+        if {$pct > $max_pct + 1e-12} {
+            lappend out "ERROR: $p2p_un pin-to-pin nets ([format %.3f $pct] percent) are not annotated; the limit is $max_pct percent (PT_MAX_UNANNOTATED_PCT)"
+            set ok 0
+        }
+    }
+    # driverless / loadless: information
+    set info {}
+    foreach r $rows {
+        lassign $r sec ty t lu pi rc na
+        if {$ty ne "p2p"} { lappend info "$sec $ty nets: $t in total, $na not annotated" }
+    }
+    lappend out "information (not an error): [join $info {; }]. A driverless or loadless net has no driver or no load, so it carries no timing arc and its missing parasitics cannot change a path."
+    set names [dict get $parsed names]
+    lappend out "unannotated nets listed in the report: [llength $names]; the first 10: [join [lmap n [lrange $names 0 9] {format "%s (driver: %s)" [lindex $n 1] [lindex $n 2]}] {, }]"
+    set an [dict get $parsed annotated]
+    if {[string is integer -strict $an] && $an != ($p2p_ann + 0) && $an != ([lindex $tot 1] + [lindex $tot 2] + [lindex $tot 3])} {
+        lappend out "WARNING: 'Annotated nets : $an' differs from the annotated counts of the table ($p2p_ann pin-to-pin, [expr {[lindex $tot 1] + [lindex $tot 2] + [lindex $tot 3]}] in the total row)"
+    }
+    return [list $ok $out]
 }
 
 # 074: endpoints named in a check_timing text under an "unconstrained endpoints" heading (VERIFY the wording): the names are the tokens of the lines after a line that
@@ -435,25 +538,42 @@ proc pt_link {corner} {
     if {$missing > 0} { error "PT ERROR: $missing library cells are missing after link_design" }
 }
 
-# 074: read the SPEF and apply the annotation policy
+# 074: read the SPEF and apply the annotation policy. The text of read_parasitics and report_annotated_parasitics is in parasitics_command.log of the CURRENT directory
+# (PARA-107): the size of that file is taken before each command and only the text added by the command is read.
 proc pt_read_spef {corner spef} {
-    global PT_MAX_UNANNOTATED_PCT PT_ALLOW_UNREADABLE_ANNOTATION PT_SI_ENABLE
+    global PT_MAX_UNANNOTATED_PCT PT_ALLOW_UNREADABLE_ANNOTATION PT_SI_ENABLE PT_PARA_LOG
     pt_need_file $spef "SPEF file"
-    puts ">>> 074 reading parasitics $spef"
-    if {$PT_SI_ENABLE} {
-        read_parasitics -keep_capacitive_coupling -format spef $spef   ;# VERIFY -keep_capacitive_coupling / -format spef (needed only for crosstalk)
-    } else {
-        read_parasitics -format spef $spef   ;# VERIFY -format spef
+    set logf [file join [pwd] $PT_PARA_LOG]
+    puts ">>> 074 reading parasitics $spef (the command's text goes to $logf, PARA-107)"
+    set off0 [pt_file_size0 $logf]
+    redirect -variable pt_rp_txt {
+        if {$PT_SI_ENABLE} {
+            read_parasitics -keep_capacitive_coupling -format spef $spef   ;# VERIFY -keep_capacitive_coupling / -format spef (needed only for crosstalk)
+        } else {
+            read_parasitics -format spef $spef   ;# VERIFY -format spef
+        }
     }
-    redirect -variable pt_an_txt { report_annotated_parasitics -check }   ;# VERIFY report_annotated_parasitics -check
+    puts $pt_rp_txt
+    set rp_chunk [pt_file_tail $logf $off0]
+    puts ">>> 074 read_parasitics text from $PT_PARA_LOG ([string length $rp_chunk] bytes):\n$rp_chunk"
+    set errors [pt_parse_para_errors "$pt_rp_txt\n$rp_chunk"]
+    set off1 [pt_file_size0 $logf]
+    redirect -variable pt_an_txt { report_annotated_parasitics -check -internal_nets -boundary_nets }   ;# VERIFY: the options are the ones the report header of this PrimeTime printed
     puts $pt_an_txt
-    set info [pt_parse_annotation $pt_an_txt]
-    lassign [pt_annotation_verdict $info $PT_MAX_UNANNOTATED_PCT $PT_ALLOW_UNREADABLE_ANNOTATION] ok msg
-    puts ">>> 074 ANNOTATION: total [dict get $info total], annotated [dict get $info annotated], unannotated [dict get $info unannotated]: $msg"
-    if {!$ok} {
-        catch {report_annotated_parasitics -list_not_annotated -max_nets 30}   ;# VERIFY the options
-        error "PT ERROR: parasitics annotation: $msg"
+    set an_chunk [pt_file_tail $logf $off1]
+    puts ">>> 074 report_annotated_parasitics text from $PT_PARA_LOG ([string length $an_chunk] bytes):\n$an_chunk"
+    # the table: from the command's own part of the log file; else the session text; else the LAST report block of the whole file
+    set parsed ""
+    foreach {src txt} [list "the part of $PT_PARA_LOG written by report_annotated_parasitics" $an_chunk "the session text" $pt_an_txt "the last report block of $PT_PARA_LOG" [pt_last_annotation_block [pt_file_tail $logf 0]]] {
+        set p [pt_parse_annotation_table [pt_last_annotation_block $txt]]
+        if {![dict get $p found]} { set p [pt_parse_annotation_table $txt] }
+        if {[dict get $p found]} { set parsed $p; puts ">>> 074 annotation table read from $src"; break }
     }
+    if {$parsed eq ""} { set parsed [pt_parse_annotation_table ""] }
+    lassign [pt_annotation_policy $parsed $errors $PT_MAX_UNANNOTATED_PCT $PT_ALLOW_UNREADABLE_ANNOTATION] ok lines
+    puts ">>> 074 ANNOTATION: read_parasitics errors '[expr {$errors eq {} ? {none printed} : $errors}]'"
+    foreach l $lines { puts ">>> 074 ANNOTATION: $l" }
+    if {!$ok} { error "PT ERROR: parasitics annotation: [join $lines { | }]" }
 }
 
 # 074: read the per-scenario SDC, then check what the design says against the expected legacy values; returns the sdc values dict

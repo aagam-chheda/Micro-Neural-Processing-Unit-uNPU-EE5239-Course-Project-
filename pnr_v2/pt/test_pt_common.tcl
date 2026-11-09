@@ -122,26 +122,96 @@ check "both wrong gives two problems" {[llength [pt_check_constraints setup 10 0
 set rd "Design : unpu_top\nOperating Conditions: tsl18fs120_scl_ss   Library: tsl18fs120_scl_ss\nWire Load Model Mode: top\n"
 check "operating condition from report_design" {[pt_parse_opcond $rd] eq "{tsl18fs120_scl_ss tsl18fs120_scl_ss}"}
 check "no operating condition line" {[pt_parse_opcond "nothing"] eq ""}
-set an "Annotated Parasitics Summary:\n  Total number of nets = 14465\n  Fully annotated nets: 14465\n  Unannotated nets: 0\n"
-set i [pt_parse_annotation $an]
-check "annotation: total, annotated, unannotated" {[dict get $i total] == 14465 && [dict get $i annotated] == 14465 && [dict get $i unannotated] == 0}
-lassign [pt_annotation_verdict $i 0.0 0] ok msg
-check "annotation: all annotated -> ok" {$ok == 1 && [string match "0 of 14465 nets*" $msg]}
-set an2 "Total number of nets = 1000\nNets with parasitics annotated: 990\n"
-set i2 [pt_parse_annotation $an2]
-check "annotation: unannotated computed from total - annotated" {[dict get $i2 unannotated] == 10}
-lassign [pt_annotation_verdict $i2 0.0 0] ok msg
-check "annotation: 1 percent unannotated with limit 0 -> error" {$ok == 0 && [string match "*10 of 1000 nets (1.000 percent)*limit is 0.0*" $msg]}
-lassign [pt_annotation_verdict $i2 1.0 0] ok msg
-check "annotation: the same with limit 1.0 percent -> ok" {$ok == 1}
-set i3 [pt_parse_annotation "Unannotated nets: 5\nTotal number of nets = 100\n"]
-check "annotation: unannotated line before the total" {[dict get $i3 unannotated] == 5 && [dict get $i3 total] == 100}
-set i4 [pt_parse_annotation "12 nets are not annotated\nTotal nets: 400\n"]
-check "annotation: '12 nets are not annotated' form" {[dict get $i4 unannotated] == 12 && [dict get $i4 total] == 400}
-lassign [pt_annotation_verdict [pt_parse_annotation "no numbers here"] 0.0 0] ok msg
-check "annotation: unreadable text is an error by default" {$ok == 0 && [string match "*could not be read*" $msg]}
-lassign [pt_annotation_verdict [pt_parse_annotation "no numbers here"] 0.0 1] ok msg
-check "annotation: unreadable text is a warning when allowed" {$ok == 1 && [string match "WARNING*" $msg]}
+# ---- parasitics annotation (fix after the first server run: the text is in parasitics_command.log; the table below is the real one quoted by Planning)
+set tbl "Report : annotated_parasitics -check -internal_nets -boundary_nets
+Design : unpu_top
+
+Net Type                |   Total | Lumped | RC pi | RC network | Not Annotated
+--------------------------------------------------------------------------
+Internal nets
+  - Pin to pin nets     |   16113 |      0 |     0 |      16113 |             0
+  - Driverless nets     |     323 |      0 |     0 |          0 |           323
+  - Loadless nets       |      48 |      0 |     0 |          0 |            48
+Boundary/port nets
+  - Pin to pin nets     |     182 |      0 |     0 |        182 |             0
+  - Driverless nets     |       0 |      0 |     0 |          0 |             0
+  - Loadless nets       |      22 |      0 |     0 |          0 |            22
+--------------------------------------------------------------------------
+                        |   16688 |      0 |     0 |      16295 |           393 |
+
+Annotated nets : 16295
+
+Not annotated nets:
+1.  csr_sel\[2\] (driver: <none>)
+2.  u_x/n12 (driver: <none>)
+3.  u_dma/add_212_3/B\[29\] (driver: pin u_dma/add_212_3/B\[29\])
+"
+set rpok "Reading SPEF file ...\nSPEF parsing summary:\n  0 error(s)\n  3 warning(s)\n"
+set pa [pt_parse_annotation_table $tbl]
+check "table: found" {[dict get $pa found] == 1}
+check "table: six rows and the total row" {[llength [dict get $pa rows]] == 6 && [dict get $pa total] eq "16688 0 0 16295 393"}
+check "table: internal pin-to-pin row" {[lindex [dict get $pa rows] 0] eq "internal p2p 16113 0 0 16113 0"}
+check "table: driverless internal not annotated 323" {[lindex [dict get $pa rows] 1] eq "internal driverless 323 0 0 0 323"}
+check "table: boundary pin-to-pin row" {[lindex [dict get $pa rows] 3] eq "boundary p2p 182 0 0 182 0"}
+check "table: boundary loadless not annotated 22" {[lindex [dict get $pa rows] 5] eq "boundary loadless 22 0 0 0 22"}
+check "table: annotated nets line" {[dict get $pa annotated] == 16295}
+check "table: unannotated names (index, name, driver)" {[llength [dict get $pa names]] == 3 && [lindex [lindex [dict get $pa names] 0] 0] == 1 && [lindex [lindex [dict get $pa names] 0] 1] eq "csr_sel\[2\]" && [lindex [lindex [dict get $pa names] 0] 2] eq "<none>"}
+check "table: the driver text with a pin" {[lindex [lindex [dict get $pa names] 2] 2] eq "pin u_dma/add_212_3/B\[29\]"}
+check "errors: '0 error(s)' -> 0" {[pt_parse_para_errors $rpok] == 0}
+check "errors: none printed -> empty" {[pt_parse_para_errors "nothing"] eq ""}
+check "errors: the largest N is taken" {[pt_parse_para_errors "2 error(s)\n5 error(s)\n"] == 5}
+lassign [pt_annotation_policy $pa 0 0.0 0] ok lines
+check "policy: the real table is ACCEPTED (16113+182 annotated, 393 unannotated all driverless/loadless)" {$ok == 1}
+check "policy: pin-to-pin line counts 16295 nets, 0 not annotated" {[llength [lsearch -all -glob $lines "pin-to-pin nets: 16295 in total*0 not annotated*"]] == 1}
+check "policy: the driverless/loadless counts are printed as information with the explanation" {[llength [lsearch -all -glob $lines "information (not an error): internal driverless nets: 323 in total, 323 not annotated*boundary loadless nets: 22 in total, 22 not annotated*no timing arc*"]] == 1}
+check "policy: the first names are printed" {[llength [lsearch -all -glob $lines "unannotated nets listed in the report: 3; the first 10: csr_sel*u_dma/add_212_3/B*"]] == 1}
+check "policy: no warning for the real table" {[llength [lsearch -all -glob $lines "WARNING*"]] == 0}
+# a pin-to-pin row with unannotated nets -> error
+set bad [string map {"|   16113 |      0 |     0 |      16113 |             0" "|   16113 |      0 |     0 |      16100 |            13"} $tbl]
+set bad [string map {"|   16688 |      0 |     0 |      16295 |           393 |" "|   16688 |      0 |     0 |      16282 |           406 |"} $bad]
+lassign [pt_annotation_policy [pt_parse_annotation_table $bad] 0 0.0 0] ok lines
+check "policy: an internal pin-to-pin row with 13 unannotated nets is an ERROR" {$ok == 0 && [llength [lsearch -all -glob $lines "ERROR: 13 pin-to-pin nets*are not annotated*"]] == 1}
+lassign [pt_annotation_policy [pt_parse_annotation_table $bad] 0 1.0 0] ok lines
+check "policy: the same with a limit of 1 percent is accepted (13 of 16295 = 0.08 percent)" {$ok == 1}
+set bad2 [string map {"|     182 |      0 |     0 |        182 |             0" "|     182 |      0 |     0 |        180 |             2"} $tbl]
+set bad2 [string map {"|   16688 |      0 |     0 |      16295 |           393 |" "|   16688 |      0 |     0 |      16293 |           395 |"} $bad2]
+lassign [pt_annotation_policy [pt_parse_annotation_table $bad2] 0 0.0 0] ok lines
+check "policy: a BOUNDARY pin-to-pin row with unannotated nets is an ERROR too" {$ok == 0 && [llength [lsearch -all -glob $lines "ERROR: 2 pin-to-pin nets*"]] == 1}
+# inconsistent table
+set bad3 [string map {"|   16688 |      0 |     0 |      16295 |           393 |" "|   16689 |      0 |     0 |      16295 |           393 |"} $tbl]
+lassign [pt_annotation_policy [pt_parse_annotation_table $bad3] 0 0.0 0] ok lines
+check "policy: a table whose rows do not add up to its total row is an ERROR" {$ok == 0 && [llength [lsearch -all -glob $lines "the table is inconsistent*"]] == 1}
+# missing table
+lassign [pt_annotation_policy [pt_parse_annotation_table "Information: Log for 'report_annotated_parasitics command' will be generated in 'parasitics_command.log'. (PARA-107)\n"] 0 0.0 0] ok lines
+check "policy: a missing table is an ERROR" {$ok == 0 && [llength [lsearch -all -glob $lines "the annotation table*could not be found*"]] == 1}
+lassign [pt_annotation_policy [pt_parse_annotation_table ""] 0 0.0 1] ok lines
+check "policy: a missing table is a WARNING when PT_ALLOW_UNREADABLE_ANNOTATION is 1" {$ok == 1 && [llength [lsearch -all -glob $lines "WARNING*"]] == 1}
+# read_parasitics errors
+lassign [pt_annotation_policy $pa [pt_parse_para_errors "SPEF parsing summary:\n  4 error(s)\n"] 0.0 0] ok lines
+check "policy: 'N error(s)' non-zero is an ERROR even with a good table" {$ok == 0 && [llength [lsearch -all -glob $lines "read_parasitics reported 4 error(s)*"]] == 1}
+lassign [pt_annotation_policy [pt_parse_annotation_table ""] 3 0.0 1] ok lines
+check "policy: read_parasitics errors are an error even when unreadable tables are allowed" {$ok == 0}
+# a table with only driverless/loadless rows is not a table of nets with arcs
+set nop2p "Net Type | Total | Lumped | RC pi | RC network | Not Annotated\n  - Driverless nets | 3 | 0 | 0 | 0 | 3\n| 3 | 0 | 0 | 0 | 3 |\n"
+lassign [pt_annotation_policy [pt_parse_annotation_table $nop2p] 0 0.0 0] ok lines
+check "policy: no pin-to-pin nets at all is an ERROR" {$ok == 0}
+# the old summary wording is no longer accepted as a table
+check "the old one-line wording is not a table" {[dict get [pt_parse_annotation_table "Total number of nets = 100\nUnannotated nets: 0\n"] found] == 0}
+# the parasitics_command.log is APPENDED to: only the part written by the last command is read
+set lf [file tempfile lname]; close $lf
+set fp [open $lname w]; puts -nonewline $fp "first command text\n0 error(s)\n"; close $fp
+set o1 [pt_file_size0 $lname]
+check "file size of a missing file is 0" {[pt_file_size0 /nonexistent/parasitics_command.log] == 0}
+set fp [open $lname a]; puts -nonewline $fp $tbl; close $fp
+check "tail: only the text appended after the offset" {[pt_file_tail $lname $o1] eq $tbl && [string first "first command" [pt_file_tail $lname $o1]] < 0}
+check "tail: nothing appended -> empty" {[pt_file_tail $lname [pt_file_size0 $lname]] eq ""}
+check "tail: a missing file -> empty" {[pt_file_tail /nonexistent/x 0] eq ""}
+set fp [open $lname a]; puts -nonewline $fp "\nReport : annotated_parasitics -check\n[string map {16113 99999} [string range $tbl [string first Net $tbl] end]]"; close $fp
+set whole [pt_file_tail $lname 0]
+check "last block: the LAST 'Report : annotated_parasitics' block of the whole file" {[string match "Report : annotated_parasitics -check\n*99999*" [pt_last_annotation_block $whole]] && [string first "Internal nets" [pt_last_annotation_block $whole]] > 0 && [string first "16113" [pt_last_annotation_block $whole]] < 0}
+check "last block: none -> empty" {[pt_last_annotation_block "no report"] eq ""}
+file delete $lname
+check "the parasitics log name is a parameter" {$PT_PARA_LOG eq "parasitics_command.log"}
 set ct "Warning: There are 3 endpoints which are not constrained for maximum delay.\n  pready\n  u_x/reg_a/D\n  u_y/reg_b/D\n\nInformation: next section\n"
 lassign [pt_parse_unconstrained $ct] head names
 check "check_timing: heading and names" {$head == 1 && $names eq "pready u_x/reg_a/D u_y/reg_b/D"}
