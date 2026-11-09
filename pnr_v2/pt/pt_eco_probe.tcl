@@ -214,6 +214,14 @@ pt_main {
                 puts ">>> 078 per-endpoint slack after the ECO: ${rpt}_after_violators.rpt and ${rpt}_after_violations.csv (the first 40 lines of the report follow)"
                 foreach l [lrange [split $pt_after_txt "\n"] 0 39] { puts "      $l" }
                 lassign [pt_eco_change_number $last_pf [dict get $cc n]] nchg nsrc nnote
+                # 081: the count file for pt_eco_apply.tcl (the expectation comes from the PrimeTime side)
+                if {[string is integer -strict $nchg]} {
+                    set cfpath ${PT_RPT_DIR}/pt_eco_hold_expected_count.txt
+                    set fp [open $cfpath w]; puts -nonewline $fp [pt_eco_expected_text $nchg $nsrc [expr {[info exists wr(icc2tcl)] ? $wr(icc2tcl) : $countfile}]]; close $fp
+                    puts ">>> 081 expected command count $nchg written to $cfpath (pt_eco_apply.tcl compares the change file against it)"
+                } else {
+                    puts ">>> 081 WARNING: the number of proposed commands is unreadable ('$nchg'): NO count file is written; pt_eco_apply.tcl will fall back to its parameter EXPECT_HOLD_CMDS with a warning"
+                }
                 puts ">>> 079 changes proposed: $nchg (from: $nsrc)[expr {$nnote ne {} ? "; NOTE: $nnote" : {}}]; per command in the log: [dict get $last_pf commands]; area change [dict get $last_pf area] um^2; cells [dict get $last_pf cells]"
                 # 8. 080: remaining violators and WHY; the after-check of the change file against the cone
                 set rem [pt_cone_why_remaining $rows_after $cone_cells]

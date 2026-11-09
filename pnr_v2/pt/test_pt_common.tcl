@@ -574,6 +574,12 @@ check "sanity: an empty cone -> problem" {[pt_cone_sanity {} 0 {u_apb/}] eq {{th
 set cmp [pt_cone_compare [dict create c {a b c} a1 {a b}] {a b c}]
 check "compare: the smaller path-based method is reported as not covering the union; no BUG text for subsets" {[llength $cmp] == 2 && [string match "method c: 3 cells; equal to or covering*" [lindex $cmp 0]] && [string match "method a1: 2 cells; 1 cells of the final cone are not in it" [lindex $cmp 1]] && [string first BUG [join $cmp]] < 0}
 check "compare: a method with a cell outside the final cone is flagged (cannot happen with the union)" {[string match "*BUG*" [lindex [pt_cone_compare [dict create z {a q}] {a b}] 0]]}
+
+# ------------------------------------------------------------------ 081: the count file written by the probe is read by the apply script (round trip)
+set cft [pt_eco_expected_text 112 "Final ECO Summary: Total number of commands" /x/pt_eco_hold_changes_icc2.tcl]
+lassign [eco079_expect_decide 1 $cft 109 EXPECT_HOLD_CMDS] n src warn
+check "count file: written by the probe's formatter, read back by the apply parser (112)" {$n == 112 && $warn eq "" && [string match "commands 112*" [lindex [split $cft "\n"] 1]] && [string match "change_file /x/*" [lindex [split $cft "\n"] 3]]}
+check "count file: the default of PT_CONE_PROTECT_NETS is 1 (cells and nets), decided from the server runs" {$PT_CONE_PROTECT_NETS == 1}
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

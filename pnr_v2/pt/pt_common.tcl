@@ -110,7 +110,7 @@ set PT_ECO_FILE_TEXT "pt_eco_hold_changes.txt"
 # 080: combinational APB read path paddr -> ... -> prdata (path group **in2out_default**, budget 4.5 ns, met with about zero margin). ICC2 then reported setup WNS -0.589873 ns, 32 violating endpoints, ALL in
 # 080: that group. PrimeTime's hold ECO runs in ONE fast-corner session and cannot see the setup damage at ss. So during fix_eco_timing every cell and net on an input-to-output path is dont_touch.
 set PT_CONE_PROTECT       1        ;# 080: 1 = protect the cone during the hold ECO (the default and the only value that is safe for the read path); 0 = compute and report the cone only (for a comparison run)
-set PT_CONE_PROTECT_NETS  0        ;# 080 (decision of Planning): 0 = only the cone CELLS are dont_touch (default). A delay cell at the load pin of a flop that shares a net with the read mux affects only that branch; the after-check on the change file still rejects any insertion on a pin of a cone cell, on a cone port, or any resize of a cone cell, and the ICC2 gate (in2out and whole-design setup WNS not worse than 0.005 ns) is the second safety net. 1 = the cone NETS are dont_touch too (no buffer anywhere on a cone net, not even at a load pin of a non-cone flop; violators whose only fix point is on a shared net then remain)
+set PT_CONE_PROTECT_NETS  1        ;# 080 (decided from the server runs, commit 8b185fa): 1 = the cone CELLS and the cone NETS are dont_touch (default). With 0 (cells only) the probe ended with `ECO RAN BUT TOUCHES THE IN2OUT CONE: 2 of 109 proposed changes touch the cone; first: insert_buffer on pin U61/Z of the cone cell U61`: dont_touch on a cell stops a resize but PrimeTime still inserted a buffer on its OUTPUT NET. With 1 the run gave 0 hold violators remaining (WNS +0.0002 ns, before 263 / -0.3468 ns) and `ECO RAN: 112 changes proposed ... (none touches the in2out cone)`. 0 stays available for a comparison run; the after-check on the change file is the guard in both modes
 set PT_CONE_EXPECT_PREFIXES {u_apb/ u_csr/}   ;# 080 sanity: the cone must contain at least one cell whose name starts with one of these (the APB read mux lives in u_apb / u_csr); none = the cone is wrong, the ECO is NOT run
 set PT_CONE_REPORT_PATHS  20       ;# 080: method (b): number of paths of the report_timing cross-check
 set PT_CONE_MAX_NODES     200000   ;# 080: method (c): bound on the number of cells visited by the structural traversal (a runaway traversal is an ERROR, not a hang)
@@ -1060,6 +1060,11 @@ proc pt_cone_missing {a b} {   ;# elements of a that are not in b
     set out {}
     foreach x $a { if {![info exists inb($x)]} { lappend out $x } }
     return $out
+}
+
+# 081: the content of the count file read by pt_eco_apply.tcl: the number of commands PrimeTime proposed, where it came from and the change file it belongs to
+proc pt_eco_expected_text {n source change_file} {
+    return "# written by pt_eco_probe.tcl: the number of commands PrimeTime proposed in the run that wrote the change file below; pt_eco_apply.tcl compares the change file against THIS number\ncommands $n\nsource $source\nchange_file $change_file\n"
 }
 # ---- END PURE TCL 074 ----
 

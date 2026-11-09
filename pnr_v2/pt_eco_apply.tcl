@@ -4,7 +4,7 @@
 # Stage : Apply PrimeTime's own ECO (hold: insert_buffer; optional setup: size_cell) to the routed block
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
-# 079: THIS SCRIPT CHANGES THE NETLIST (an ECO): it inserts the delay/buffer cells that PrimeTime's fix_eco_timing proposed (109 insert_buffer commands for hold in the user's run:
+# 079: THIS SCRIPT CHANGES THE NETLIST (an ECO): it inserts the delay/buffer cells that PrimeTime's fix_eco_timing proposed (109 insert_buffer commands for hold in the first run, 112 in the run with the in2out cone protected; the expected count is read from the probe's count file:
 # 079: dl01d1 64, dl02d1 31, buffd1 12, dl01d2 2) and, if the optional setup change file exists, resizes the cells it names. The PM must be told: the netlist of pv.tcl differs again.
 # 079: why. PrimeTime is the sign-off and reads the I/O references at the clock PIN with zero latency (task 078 findings): hold -0.3468 ns on 263 endpoints (255 flop D pins fed by
 # 079: dma_rdata[*] / pwdata[*]) and setup -0.2423 ns on dma_addr[31]. The user decided on 2026-11-09 to fix the design to pass PrimeTime. PrimeTime's own ECO closed hold in its
@@ -36,7 +36,8 @@ set PT_DIR      "${PNR_DIR}/pt"   ;# 079: where PrimeTime wrote the change files
 # ---- parameters of THIS script ----
 set ECO_HOLD_FILE   "${PT_DIR}/pt_eco_hold_changes_icc2.tcl"    ;# 079: REQUIRED. The icc2tcl format of write_changes ("formatted for IC Compiler"); pt_eco_hold_changes.tcl has the same content
 set ECO_SETUP_FILE  "${PT_DIR}/pt_eco_setup_changes_icc2.tcl"   ;# 079: OPTIONAL (task 079 part 1 produces it); skipped with a printed line when it does not exist
-set EXPECT_HOLD_CMDS 109        ;# 079: the user's run: "Number of insert_buffer commands 109". An expectation to compare (count of the file), not an input: a different count is an error
+set ECO_COUNT_FILE  "${PT_DIR}/pt_eco_hold_expected_count.txt"   ;# 081: written by pt_eco_probe.tcl: the number of commands PrimeTime proposed (the expectation comes from the PrimeTime side, not from a typed number)
+set EXPECT_HOLD_CMDS 112        ;# 081: ONLY the fallback when ECO_COUNT_FILE does not exist (printed as a WARNING: an assumption). 109 was the first try (unprotected ECO), 112 the current one (in2out cone protected, commit 8b185fa); a different count in the change file is an error
 set EXPECT_ANTBUF   15          ;# 079: antenna_port_buffers.tcl made 15 port buffers; they must still be 15
 set BUF_PREFIX      "antbuf"    ;# 079: as antenna_port_buffers.tcl
 set CLK_PORT        "clk"       ;# 079: the clock port; its net's single leaf load is the CTS root (antenna_clk_root.tcl)
@@ -462,6 +463,15 @@ proc eco079_group_violators {groups pattern} {
     }
     return [list $w $n]
 }
+# 081: the expected number of hold commands. text = the content of the count file written by pt_eco_probe.tcl, or "" when the file does not exist (exists 0).
+# Returns {n source warning}: from the file when it exists (an unreadable file is an ERROR), else the parameter with a WARNING that it is an assumption.
+proc eco079_expect_decide {exists text param param_name} {
+    if {!$exists} {
+        return [list $param "the parameter $param_name (an ASSUMPTION)" "the count file written by pt_eco_probe.tcl does not exist: the expectation $param comes from the parameter $param_name, which is an assumption (the number of commands PrimeTime proposed in the run that made the change file)"]
+    }
+    if {![regexp -line {^commands\s+([0-9]+)\s*$} $text -> n]} { error "the count file has no line 'commands <N>' (content: '[string trim $text]')" }
+    return [list $n "the count file of the probe" ""]
+}
 # ---- END PURE TCL 079 ----
 
 # 079: take the helper procs from the text of antenna_port_buffers.tcl (pure block 068 and the ICC2 helpers) and of timing_closure.tcl (pure block 072 and its ICC2 helpers): same code, no copy
@@ -618,7 +628,13 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     puts ">>> 079 changes in total: $ea_nins insert_buffer, $ea_nsize size_cell"
     set ea_hold_n 0
     foreach c $ea_cmds { if {[dict get $c file] eq "hold"} { incr ea_hold_n } }
-    lassign [eco079_count_check "hold change file commands" $ea_hold_n $EXPECT_HOLD_CMDS] ok msg
+    set ea_cf_exists [expr {[file exists $ECO_COUNT_FILE] && [file size $ECO_COUNT_FILE] > 0}]
+    set ea_cf_text ""
+    if {$ea_cf_exists} { set ea_cf_text [eco079_read $ECO_COUNT_FILE] }
+    if {[catch {lassign [eco079_expect_decide $ea_cf_exists $ea_cf_text $EXPECT_HOLD_CMDS EXPECT_HOLD_CMDS] ea_expect ea_expect_src ea_expect_warn} err]} { error "ERROR 079: $ECO_COUNT_FILE: $err (nothing changed)" }
+    if {$ea_expect_warn ne ""} { puts ">>> 079 WARNING: $ea_expect_warn" }
+    puts ">>> 079 expected number of hold commands: $ea_expect (from $ea_expect_src[expr {$ea_cf_exists ? ", $ECO_COUNT_FILE" : {}}])"
+    lassign [eco079_count_check "hold change file commands" $ea_hold_n $ea_expect] ok msg
     puts ">>> 079 CHECK $msg"
     if {!$ok} { error "ERROR 079: $msg (nothing changed)" }
 

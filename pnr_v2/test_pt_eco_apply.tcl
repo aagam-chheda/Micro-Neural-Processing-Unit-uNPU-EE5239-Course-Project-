@@ -263,6 +263,18 @@ set gl {{**in2out_default** -0.5899 -12.2 32} {**reg2reg_default** -0.01 -0.01 1
 check "group violators: the in2out group of the server run: WNS -0.5899, 32 endpoints" {[eco079_group_violators $gl in2out] eq {-0.5899 32}}
 check "group violators: no matching group -> empty WNS and 0" {[eco079_group_violators {{reg2out -0.1 -0.1 1}} in2out] eq {{} 0}}
 
+# ---- 14. task 081: the expected number of commands comes from the PrimeTime side (count file), the parameter is only a fallback
+set cf "# written by pt_eco_probe.tcl: ...\ncommands 112\nsource Final ECO Summary: Total number of commands\nchange_file /x/pt_eco_hold_changes_icc2.tcl\n"
+lassign [eco079_expect_decide 1 $cf 109 EXPECT_HOLD_CMDS] n src warn
+check "count file with 112 -> expected 112 from the file, no warning (the parameter 109 is ignored)" {$n == 112 && $warn eq "" && [string match "*count file*" $src]}
+lassign [eco079_count_check "hold change file commands" 112 $n] ok msg
+check "change file with 112 commands against the file's 112 -> ok, both numbers printed" {$ok == 1 && [string match "*112 (expected 112)*" $msg]}
+lassign [eco079_count_check "hold change file commands" 109 $n] ok msg
+check "an OLD change file with 109 commands against the count file's 112 -> hard mismatch, both numbers" {$ok == 0 && [string match "*109 but 112 expected*" $msg]}
+lassign [eco079_expect_decide 0 "" 112 EXPECT_HOLD_CMDS] n src warn
+check "no count file -> the parameter, with a WARNING that names it and says it is an assumption" {$n == 112 && [string match "*ASSUMPTION*" $src] && [string match "*does not exist*EXPECT_HOLD_CMDS*assumption*" $warn]}
+check "a count file without a 'commands N' line is an ERROR (not silently the parameter)" {[catch {eco079_expect_decide 1 "garbage\n" 109 EXPECT_HOLD_CMDS} e] == 1 && [string match "*no line 'commands <N>'*" $e]}
+check "a count file with a non-numeric count is an ERROR" {[catch {eco079_expect_decide 1 "commands many\n" 109 EXPECT_HOLD_CMDS} e] == 1}
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0
