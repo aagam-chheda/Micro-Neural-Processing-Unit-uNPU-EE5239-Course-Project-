@@ -116,6 +116,11 @@ On 2026-11-02 the user decided on a clean slate: a new server folder `/storage/E
 - **Action:** the library was restored from `bak_pre_pteco` (the try is kept as `unpu_top.dlib.pteco_try1`). Task 080: protect the in2out cone with `set_dont_touch` during `fix_eco_timing` and add a hard gate in `pt_eco_apply.tcl` (stop before saving if the in2out or setup WNS gets worse by more than a tolerance).
 - **Lesson:** a sign-off ECO must be checked against the OTHER corner's constraint before it is applied; the gate in the apply script is the safety net.
 
+### 3.14 End of the day: the decision to restart (about 23:40)
+- **State at the end of 2026-11-09:** a complete, physically clean layout of run 1 (DRC 0, antenna 0, LVS CORRECT, LEF and SDF checks passed) that does NOT pass PrimeTime sign-off (setup -0.2423 ns at one endpoint, hold -0.3468 ns at 263 input-to-register endpoints). The cause is the I/O clock-latency convention (PrimeTime: zero latency at the clk pin; ICC2: the macro's insertion delay on the external reference), plus the 16 input-port antenna problems that came from pins placed before cells. PrimeTime's own ECO (112 delay-cell insertions + 1 resize, with the in2out cone protected) closes hold in PrimeTime's memory with none touching the read path; the ICC2 apply accepted all 113 changes but the gate stopped the save (1 DRC left; the in2out group eroded from +0.0209 to +0.0037 ns, tolerance 0.005; ICC2 hold view -0.0085). A DRC clean-up task is with Execution; the tolerance question (hard stop at in2out < 0 or loss > 25 ps, warning above 5 ps) was left open.
+- **DECISION (user):** redo the whole flow from synthesis on 2026-11-10 with the lessons built in; Planning stands by until then. Plan, lessons-to-changes table and the questions for the morning: `docs/planning/restart-plan-2026-11-10.md`. Run 1 stays as the fallback (copy `pnr_icc2` to `pnr_icc2_run1` before writing anything new).
+- **Commits of this evening** (all pushed): `35baff1` ... `0316327` (PrimeTime violation CSVs, ECO probe, apply script, cone protection, count file). Uncommitted: this log entry and the restart plan.
+
 ## 4. Tasks written today (Planning -> Execution)
 | Task | What | State |
 |---|---|---|

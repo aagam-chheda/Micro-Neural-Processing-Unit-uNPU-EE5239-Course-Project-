@@ -51,6 +51,9 @@ set ALLOW_PARTIAL   0           ;# 079 fix 3: 0 = strict: a change that cannot b
 set GATE_GROUP_PATTERN "in2out" ;# 080: the path group of the combinational APB read path (paddr -> prdata) is named **in2out_default** in ICC2; a group whose name contains this text is the in2out group. If no such group exists the worst setup path from an input port to an output port is used (VERIFY the option -groups and get_path_groups)
 set GATE_TOL_SETUP  0.005       ;# 080: ns. The ECO may make the setup WNS of the in2out group or of the whole design worse by at most this much (ICC2's numbers are repeatable to the picosecond; re-routing only the touched nets moves a path by a few ps at most; the in2out margin before the ECO is only +0.0143 ns, and the damage of the unprotected ECO was -0.59 ns). Worse by more: NOTHING IS SAVED.
 set GATE_TOL_HOLD   0.005       ;# 080: ns. Hold may get worse by at most this much in ICC2 before a WARNING is printed (not an error: PrimeTime is the sign-off for hold; ICC2's hold before the ECO is -0.0004 to -0.00258 ns depending on state)
+set DRC_ROUNDS      3           ;# 081: rounds of the DRC clean-up after routing when check_routes still reports DRCs (each: incremental detail route, then the error windows and their nets re-routed); DRCs left after the last round stop the script, nothing saved
+set DRC_WINDOW_MARGIN 5.0       ;# 081: um added around a DRC error box for the windowed re-route (the same margin antenna_port_buffers.tcl used for the Calibre markers)
+set DRC_ERR_NAME    "zroute.err" ;# 081: name of the error data check_routes writes (the message "The error data zroute.err is closed (ERRDM-043)" of antenna_port_buffers.tcl); VERIFY
 set SETUP_SCEN      "func_ss"   ;# 079: scenario names of cts.tcl / route.tcl
 set HOLD_SCEN       "func_ff"
 # 079 fix: insertions on an input PORT (get_ports): the pin-to-new-cell wire must stay short (antenna). Limits are READ from antenna_port_buffers.tcl into PORT_MAX_PIN_BUF_DIST, PORT_ANT_RATIO_LIMIT,
@@ -472,6 +475,53 @@ proc eco079_expect_decide {exists text param param_name} {
     if {![regexp -line {^commands\s+([0-9]+)\s*$} $text -> n]} { error "the count file has no line 'commands <N>' (content: '[string trim $text]')" }
     return [list $n "the count file of the probe" ""]
 }
+# 081: the DRC clean-up. Decision after a check: drc = the count of check_routes ("" = unreadable), round = rounds done, max_rounds. Returns done | retry | exhausted | unreadable.
+proc eco081_next_action {drc round max_rounds} {
+    if {![string is integer -strict $drc]} { return unreadable }
+    if {$drc == 0} { return done }
+    if {$round >= $max_rounds} { return exhausted }
+    return retry
+}
+# 081: history = list of {label count} -> "after routing: 1; round 1 (incremental route): 1; round 1 (windows + nets): 0"
+proc eco081_history_text {hist} {
+    return [join [lmap h $hist {string cat [lindex $h 0] ": " [lindex $h 1]}] "; "]
+}
+# 081: a DRC error box ("{x0 y0} {x1 y1}" or "x0 y0 x1 y1") widened by margin -> {{x0 y0} {x1 y1}}
+proc eco081_window {bbox margin} {
+    lassign [ant_bbox_nums $bbox] a b c d
+    return [list [list [expr {$a - $margin}] [expr {$b - $margin}]] [list [expr {$c + $margin}] [expr {$d + $margin}]]]
+}
+# 081: the windows of several error boxes without duplicates and without a window that lies inside another one
+proc eco081_windows {bboxes margin} {
+    set wins {}
+    foreach b $bboxes { set w [eco081_window $b $margin]; if {[lsearch -exact $wins $w] < 0} { lappend wins $w } }
+    set out {}
+    foreach w $wins {
+        set inside 0
+        foreach v $wins {
+            if {$v eq $w} continue
+            if {[lindex $v 0 0] <= [lindex $w 0 0] && [lindex $v 0 1] <= [lindex $w 0 1] && [lindex $v 1 0] >= [lindex $w 1 0] && [lindex $v 1 1] >= [lindex $w 1 1]} { set inside 1; break }
+        }
+        if {!$inside} { lappend out $w }
+    }
+    return $out
+}
+# 081: nets to re-route: those not protected; returns {use skipped}
+proc eco081_split_nets {nets protected} {
+    set use {}
+    set skipped {}
+    foreach n [lsort -unique $nets] { if {[lsearch -exact $protected $n] >= 0} { lappend skipped $n } else { lappend use $n } }
+    return [list $use $skipped]
+}
+# 081: one DRC error as a line: rec = dict with any of type_name layer bounding_box nets
+proc eco081_error_line {rec} {
+    set t "n/a"; set l "n/a"; set b "n/a"; set n "n/a"
+    if {[dict exists $rec type_name] && [dict get $rec type_name] ne ""} { set t [dict get $rec type_name] }
+    foreach k {layer layers} { if {[dict exists $rec $k] && [dict get $rec $k] ne ""} { set l [dict get $rec $k]; break } }
+    if {[dict exists $rec bounding_box] && [dict get $rec bounding_box] ne ""} { set b [dict get $rec bounding_box] }
+    if {[dict exists $rec nets] && [llength [dict get $rec nets]] > 0} { set n [join [dict get $rec nets] ,] }
+    return "rule $t, layer $l, box $b, nets $n"
+}
 # ---- END PURE TCL 079 ----
 
 # 079: take the helper procs from the text of antenna_port_buffers.tcl (pure block 068 and the ICC2 helpers) and of timing_closure.tcl (pure block 072 and its ICC2 helpers): same code, no copy
@@ -561,6 +611,105 @@ proc eco079_driver_info {netname} {   ;# {driver_cells has_input_port driver_xy}
     return [list $cells $hp $xy]
 }
 
+proc eco081_list_errors {label} {   ;# 081: the DRC errors of check_routes as a list of dicts {type_name layer(s) bounding_box nets}; every failure is printed raw, nothing is swallowed. VERIFY every command here.
+    global DRC_ERR_NAME eco081_info_done eco081_noattr
+    if {![info exists eco081_info_done]} {
+        set eco081_info_done 1
+        foreach pat {*drc_error*} { if {[catch {help $pat} herr]} { puts ">>> 081 help $pat failed: $herr" } }
+        foreach c {open_drc_error_data get_drc_error_data get_drc_errors write_drc_error_data close_drc_error_data} { puts ">>> 081 command $c: [expr {[llength [info commands $c]] ? {exists} : {NOT found}}]" }
+        if {[catch {redirect -variable la_txt { list_attributes -class drc_error }; puts ">>> 081 drc_error attributes: [join [lrange [split $la_txt "\n"] 0 40] { }]"} lerr]} { puts ">>> 081 list_attributes -class drc_error failed: $lerr" }
+    }
+    set coll ""
+    set got 0
+    foreach open_cmd [list "" "open_drc_error_data $DRC_ERR_NAME" "open_drc_error_data -name $DRC_ERR_NAME"] {
+        if {$open_cmd ne ""} { if {[catch {eval $open_cmd} oerr]} { puts ">>> 081 $label: $open_cmd failed: $oerr"; continue } else { puts ">>> 081 $label: $open_cmd ok" } }
+        if {[catch {set coll [get_drc_errors -error_data $DRC_ERR_NAME *]} gerr]} { puts ">>> 081 $label: get_drc_errors -error_data $DRC_ERR_NAME * failed: $gerr"; continue }
+        set got 1
+        break
+    }
+    set recs {}
+    if {!$got} {
+        puts ">>> 081 $label: the DRC errors could not be listed with get_drc_errors; trying write_drc_error_data"
+        set ef $::LOG_DIR/6g_drc_errors.txt
+        if {[catch {write_drc_error_data $ef} werr] && [catch {write_drc_error_data -file $ef} werr2]} { puts ">>> 081 $label: write_drc_error_data failed: $werr / $werr2" } elseif {[file exists $ef]} { puts ">>> 081 $label: error data written to $ef; first lines: [join [lrange [split [eco079_read $ef] "\n"] 0 15] { | }]" }
+        return $recs
+    }
+    puts ">>> 081 $label: [sizeof_collection $coll] DRC error object(s)"
+    foreach_in_collection e $coll {
+        set rec [dict create]
+        foreach a {type_name layer layers bounding_box} {
+            set v ""
+            catch {set v [get_attribute -quiet $e $a]}
+            if {$v ne ""} { dict set rec $a $v } else { set eco081_noattr($a) 1 }
+        }
+        set nets {}
+        catch { foreach_in_collection o [get_attribute -quiet $e objects] { if {[get_attribute -quiet $o object_class] eq "net"} { lappend nets [get_object_name $o] } } }   ;# VERIFY the attribute objects
+        dict set rec nets $nets
+        lappend recs $rec
+    }
+    if {[array exists eco081_noattr]} { puts ">>> 081 NOTE: attributes empty or not readable on the error objects: [lsort [array names eco081_noattr]]" }
+    return $recs
+}
+proc eco081_nets_in_window {w} {   ;# 081: signal net names whose shapes intersect the window; VERIFY get_nets -intersect and the attribute net_type
+    set out {}
+    if {[catch {
+        foreach_in_collection n [get_nets -quiet -intersect $w] {
+            set nt [get_attribute -quiet $n net_type]
+            if {$nt eq "power" || $nt eq "ground"} continue
+            lappend out [get_object_name $n]
+        }
+    } err]} { puts ">>> 081 get_nets -intersect $w failed: $err" }
+    return $out
+}
+proc eco081_cleanup {protected_nets} {   ;# 081: returns {drc open antenna history}; the DRC clean-up loop (rounds, windows, nets), prints everything
+    global DRC_ROUNDS DRC_WINDOW_MARGIN
+    set hist {}
+    lassign [ant068_check_routes_counts] d o a
+    lappend hist [list "after routing" $d]
+    puts ">>> 081 DRC clean-up: check_routes after routing: DRCs $d, open nets $o, ICC2 antenna violations $a"
+    set round 0
+    while {1} {
+        set act [eco081_next_action $d $round $DRC_ROUNDS]
+        if {$act ne "retry"} break
+        incr round
+        puts ">>> 081 DRC clean-up round $round of $DRC_ROUNDS: $d DRC(s) before"
+        set recs [eco081_list_errors "round $round"]
+        foreach r $recs { puts ">>> 081   DRC: [eco081_error_line $r]" }
+        if {[catch {route_detail -incremental true -max_number_iterations 40} err]} { puts ">>> 081 route_detail -incremental failed: $err" }
+        lassign [ant068_check_routes_counts] d o a
+        lappend hist [list "round $round (incremental route)" $d]
+        puts ">>> 081 round $round after route_detail -incremental: DRCs $d, open nets $o"
+        if {[eco081_next_action $d $round $DRC_ROUNDS] eq "done"} continue
+        set recs [eco081_list_errors "round $round remaining"]
+        set boxes {}
+        foreach r $recs { if {[dict exists $r bounding_box]} { lappend boxes [dict get $r bounding_box] } }
+        set wins [eco081_windows $boxes $DRC_WINDOW_MARGIN]
+        set nets {}
+        foreach w $wins {
+            set nw [eco081_nets_in_window $w]
+            puts ">>> 081 round $round window $w: [llength $nw] net(s)[expr {[llength $nw] ? " : [lrange $nw 0 7]" : {}}]"
+            lappend nets {*}$nw
+            if {[catch {route_detail -incremental true -max_number_iterations 40 -coordinates [list $w]} err]} { puts ">>> 081 route_detail -coordinates $w failed: $err" }
+        }
+        foreach r $recs { lappend nets {*}[dict get $r nets] }
+        lassign [eco081_split_nets $nets $protected_nets] use skipped
+        if {[llength $skipped]} { puts ">>> 081 round $round: [llength $skipped] protected net(s) (antenna buffers / clock root) are NOT re-routed: $skipped" }
+        if {[llength $use] > 0} {
+            set coll [get_nets -quiet -exact $use]
+            puts ">>> 081 round $round: route_eco -nets <[sizeof_collection $coll] nets> -reuse_existing_global_route false"
+            if {[catch {route_eco -nets $coll -reuse_existing_global_route false -reroute modified_nets_first_then_others -max_detail_route_iterations 60} err]} { puts ">>> 081 route_eco -nets failed: $err" }
+            if {[catch {route_detail -incremental true -max_number_iterations 40} err]} { puts ">>> 081 route_detail -incremental failed: $err" }
+        } else { puts ">>> 081 round $round: no net found for the error windows (the windowed route_detail above is all that was done)" }
+        lassign [ant068_check_routes_counts] d o a
+        lappend hist [list "round $round (windows + nets)" $d]
+        puts ">>> 081 round $round after the windows and nets: DRCs $d, open nets $o"
+    }
+    puts ">>> 081 DRC clean-up result: [eco081_next_action $d $round $DRC_ROUNDS]; DRC counts: [eco081_history_text $hist]"
+    if {[string is integer -strict $d] && $d > 0} {
+        foreach r [eco081_list_errors "REMAINING after $round round(s)"] { puts ">>> 081 REMAINING DRC: [eco081_error_line $r]" }
+    }
+    return [list $d $o $a $hist]
+}
 proc eco079_in2out_state {label} {   ;# 080: {wns num source}: setup WNS of the in2out group (even when it has no violator), its violating endpoints, and where the WNS came from
     global SETUP_SCEN GATE_GROUP_PATTERN CLK_PORT
     lassign [ant072_wns $SETUP_SCEN max] w t n groups
@@ -578,6 +727,15 @@ proc eco079_in2out_state {label} {   ;# 080: {wns num source}: setup WNS of the 
     set fw ""
     if {[catch {
         set ins [remove_from_collection [all_inputs] [get_ports -quiet -exact $CLK_PORT]]
+        # 081: only input ports whose net has loads: an unused port (the unused paddr bits) is "not a timing startpoint" (TIM-010) and made a warning per port
+        set used ""
+        set nunused 0
+        foreach_in_collection ip $ins {
+            set nt [get_nets -quiet -of_objects $ip]
+            if {[sizeof_collection $nt] > 0 && [sizeof_collection [get_pins -quiet -leaf -of_objects $nt -filter "direction == in"]] > 0} { append_to_collection used $ip } else { incr nunused }
+        }
+        puts ">>> 080 $label in2out: $nunused input port(s) without a loaded net are left out of the -from list (TIM-010 'not a timing startpoint' silenced)"
+        if {$used ne ""} { set ins $used }
         set p [get_timing_paths -scenarios $SETUP_SCEN -delay_type max -from $ins -to [all_outputs] -max_paths 1]   ;# VERIFY get_timing_paths -from <ports> -to <ports>
         if {[sizeof_collection $p] > 0} { set fw [get_attribute $p slack] }
     } err]} { puts ">>> 080 $label in2out: the worst input-to-output path could not be read: $err" }
@@ -1016,9 +1174,9 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     # --------------------------------------------------------------------------
     puts ">>> 079 ===== ANTENNA WATCH: [llength $ea_watch] inserted cell(s) on a port net or on the output net of an antenna buffer (Calibre decides afterwards; none is skipped) ====="
     foreach w $ea_watch { puts ">>> 079 ANTENNA WATCH $w" }
-    lassign [ant068_check_routes_counts] ea_drc ea_open ea_ant
-    puts ">>> 079 check_routes AFTER: DRCs $ea_drc, open nets $ea_open, ICC2 antenna violations $ea_ant"
-    if {$ea_drc eq "" || $ea_drc != 0} { lappend ea_failures "check_routes DRCs '$ea_drc' (0 required)" }
+    lassign [eco081_cleanup $ea_pnets] ea_drc ea_open ea_ant ea_drc_hist   ;# 081: check_routes plus the DRC clean-up loop (rounds); the counts are those of the last check
+    puts ">>> 079 check_routes AFTER: DRCs $ea_drc (before the ECO: $ea_drc0), open nets $ea_open, ICC2 antenna violations $ea_ant; DRC counts per step: [eco081_history_text $ea_drc_hist]"
+    if {$ea_drc eq "" || $ea_drc != 0} { lappend ea_failures "check_routes DRCs '$ea_drc' (0 required) after $DRC_ROUNDS clean-up round(s) (DRC counts per step: [eco081_history_text $ea_drc_hist]; the remaining errors are listed above as REMAINING DRC)" }
     if {$ea_open eq "" || $ea_open != 0} { lappend ea_failures "check_routes open nets '$ea_open' (0 required)" }
     redirect -variable ea_leg_txt { check_legality -verbose }
     puts $ea_leg_txt

@@ -275,6 +275,30 @@ lassign [eco079_expect_decide 0 "" 112 EXPECT_HOLD_CMDS] n src warn
 check "no count file -> the parameter, with a WARNING that names it and says it is an assumption" {$n == 112 && [string match "*ASSUMPTION*" $src] && [string match "*does not exist*EXPECT_HOLD_CMDS*assumption*" $warn]}
 check "a count file without a 'commands N' line is an ERROR (not silently the parameter)" {[catch {eco079_expect_decide 1 "garbage\n" 109 EXPECT_HOLD_CMDS} e] == 1 && [string match "*no line 'commands <N>'*" $e]}
 check "a count file with a non-numeric count is an ERROR" {[catch {eco079_expect_decide 1 "commands many\n" 109 EXPECT_HOLD_CMDS} e] == 1}
+# ---- 15. task 081: the DRC clean-up loop (pure parts)
+check "next action: 0 DRCs -> done" {[eco081_next_action 0 0 3] eq "done" && [eco081_next_action 0 2 3] eq "done"}
+check "next action: 1 DRC, rounds left -> retry (round 0, 1, 2 of 3)" {[eco081_next_action 1 0 3] eq "retry" && [eco081_next_action 1 1 3] eq "retry" && [eco081_next_action 1 2 3] eq "retry"}
+check "next action: 1 DRC after 3 rounds -> exhausted (the script stops, nothing saved)" {[eco081_next_action 1 3 3] eq "exhausted"}
+check "next action: an unreadable count -> unreadable (never 'done')" {[eco081_next_action "" 0 3] eq "unreadable" && [eco081_next_action UNKNOWN 1 3] eq "unreadable"}
+# a simulated run: counts 1 -> 1 -> 0 : two checks, done in round 2
+set d 1; set round 0; set seq {}
+set counts {1 0}
+while {[eco081_next_action $d $round 3] eq "retry"} { incr round; set d [lindex $counts [expr {$round - 1}]]; lappend seq $d }
+check "simulated rounds: DRCs 1 -> (round 1) 1 -> (round 2) 0 ends in round 2 with done" {$round == 2 && $seq eq {1 0} && [eco081_next_action $d $round 3] eq "done"}
+set d 1; set round 0
+while {[eco081_next_action $d $round 3] eq "retry"} { incr round }
+check "simulated rounds: a DRC that never goes away uses exactly 3 rounds, then exhausted" {$round == 3 && [eco081_next_action $d $round 3] eq "exhausted"}
+check "history text" {[eco081_history_text {{{after routing} 1} {{round 1 (incremental route)} 1} {{round 1 (windows + nets)} 0}}] eq "after routing: 1; round 1 (incremental route): 1; round 1 (windows + nets): 0"}
+check "window: the box widened by the margin, from the ICC2 text forms" {[eco081_window "{127.5 286.0} {128.1 287.4}" 5.0] eq {{122.5 281.0} {133.1 292.4}} && [eco081_window "127.5 286.0 128.1 287.4" 5.0] eq {{122.5 281.0} {133.1 292.4}}}
+check "window: a box without four numbers is an error" {[catch {eco081_window "garbage" 5.0}] == 1}
+check "windows: duplicates removed, a window inside another one dropped" {[llength [eco081_windows {{1 1 2 2} {1 1 2 2} {1.5 1.5 1.8 1.8} {50 50 51 51}} 1.0]] == 2}
+lassign [eco081_split_nets {n1 n2 antbuf_net n1} {antbuf_net clk_root_net}] use skipped
+check "split nets: protected nets are not re-routed and are reported; duplicates removed" {$use eq {n1 n2} && $skipped eq {antbuf_net}}
+check "error line: the five facts (rule, layer, box, nets)" {[eco081_error_line [dict create type_name M3.S.1 layer M3 bounding_box "{127.5 286.0} {128.1 287.4}" nets {net_a net_b}]] eq "rule M3.S.1, layer M3, box {127.5 286.0} {128.1 287.4}, nets net_a,net_b"}
+check "error line: unreadable parts are n/a, never missing" {[eco081_error_line [dict create nets {}]] eq "rule n/a, layer n/a, box n/a, nets n/a"}
+# the count line of check_routes (the real text of the server log) is understood by the existing parser
+set crt "Verify Summary:\n\nTotal number of nets = 16329, of which 0 are not extracted\nTotal number of open nets = 0, of which 0 are frozen\nTotal number of DRCs = 1\nTotal number of antenna violations = 72\n"
+check "check_routes text: DRCs 1, open nets 0, antenna 72" {[ant_parse_count $crt DRCs] == 1 && [ant_parse_count $crt "open nets"] == 0 && [ant_parse_count $crt "antenna violations"] == 72}
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0
