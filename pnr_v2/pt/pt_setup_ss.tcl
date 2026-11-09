@@ -50,7 +50,23 @@ pt_main {
     lassign [pt_violators max $PT_MAX_VIOLATED_DETAIL] wns tns num details
     foreach d $details { puts ">>> 074 SETUP violated endpoint [dict get $d endpoint]: slack [pt_fmt_ns [dict get $d slack]] ns, startpoint [dict get $d startpoint]" }
     if {[string is integer -strict $num] && [dict get $pv count] != $num} { puts ">>> 074 NOTE: the endpoint count of get_timing_paths ($num) differs from the VIOLATED lines of report_constraint ([dict get $pv count]); read both reports" }
+    # ---- 078: EVERY violated endpoint (no limit of PT_MAX_VIOLATED_DETAIL) in a ';' separated file: endpoints, startpoints, kinds, slack, group, the cells of the data path and their delays -----
+    set viol_err ""
+    set PT_SUMMARY_EXTRA {}
+    if {[catch {pt_write_violations max ${rpt}_violations.csv} vres]} {
+        set viol_err "the violations file could not be written: $vres"
+        puts ">>> 078 ERROR: $viol_err"
+        lappend PT_SUMMARY_EXTRA "violations file: NOT WRITTEN ($vres)"
+    } else {
+        lassign $vres nfile vrows
+        lassign [pt_viol_consistency $nfile $num] vok vmsg
+        puts ">>> 078 $vmsg"
+        lappend PT_SUMMARY_EXTRA "violations file: $nfile endpoints written to ${rpt}_violations.csv"
+        if {!$vok} { set viol_err $vmsg; lappend PT_SUMMARY_EXTRA "VIOLATIONS FILE INCONSISTENT: $vmsg" }
+    }
+
     set verdict [pt_print_summary setup $corner $wns $tns $num $PT_ICC2_SETUP_WNS]
+    if {$viol_err ne ""} { error "PT ERROR: $viol_err" }   ;# 078: raised after the SUMMARY block so that the summary is not lost
     puts "Reports in $PT_RPT_DIR. Log: pt_setup_ss.log (the tee of this run)."
 }
 exit 0

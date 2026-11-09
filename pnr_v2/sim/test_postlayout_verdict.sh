@@ -91,11 +91,11 @@ judge notviol checks; chk "an annotation line that mentions SETUPHOLD is not a v
 judge empty checks; chk "an empty log is FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'is empty' && echo 1 || echo 0)
 out=$(judge_log "$T/missing.log" checks 2>&1); rc=$?; chk "a missing log is FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'does not exist' && echo 1 || echo 0)
 
-# 8. SDF instance-not-found warnings
+# 8. SDF instance-not-found warnings (an SDFNEP that is NOT of the accepted IOPATH edge form is still a FAIL)
 mklog "$GOODBODY"'xmelab: *W,SDFNEP: unable to find the instance u_grid/g_row_0__g_col_0__pe/U1 in the SDF scope
 xmelab: *W,SDFNEP: unable to find the instance u_csr/U7 in the SDF scope
 ' sdfnf
-judge sdfnf checks; chk "SDF not-found warnings are FAIL, counted by message id" $([ $rc -eq 1 ] && echo "$out" | grep -q '2 SDF not-found warnings' && echo "$out" | grep -qE '^ +2 \*W,SDFNEP' && echo 1 || echo 0)
+judge sdfnf checks; chk "SDFNEP instance-not-found lines are FAIL, counted" $([ $rc -eq 1 ] && echo "$out" | grep -q '2 SDFNEP warnings outside the accepted class' && echo "$out" | grep -qE '^ +2 \*W,SDFNEP' && echo 1 || echo 0)
 mklog "$GOODBODY"'SDF: instance u_x/U1 not found in the design
 ' sdfnf2
 judge sdfnf2 nochecks; chk "a plain 'not found' SDF line is FAIL" $([ $rc -eq 1 ] && echo 1 || echo 0)
@@ -148,6 +148,81 @@ out=$(bash "$HERE/run_postlayout_sim.sh" xx checks 2>&1); rc=$?; chk "bad corner
 out=$(bash "$HERE/run_postlayout_sim.sh" ss foo 2>&1); rc=$?; chk "bad mode: exit 2" $([ $rc -eq 2 ] && echo 1 || echo 0)
 out=$(bash "$HERE/run_postlayout_sim.sh" 2>&1); rc=$?; chk "no argument: exit 2 and usage text" $([ $rc -eq 2 ] && echo "$out" | grep -q 'Usage' && echo 1 || echo 0)
 out=$(bash "$HERE/run_postlayout_sim.sh" ss checks 2>&1); rc=$?; chk "missing inputs (no DRY_RUN): exit 2" $([ $rc -eq 2 ] && echo "$out" | grep -q 'missing or empty' && echo 1 || echo 0)
+
+# 11. the bounded SDF acceptance (task 077; run A3, 2026-11-09, user approval): exact lines of the real run on top of a good log
+NCAP='xmelab: *W,SDFNCAP (unpu_top_ss.sdf,1234): The interconnect source unpu_top_tb.dut.n1 is separated by a unidirectional continuous assign from the destination unpu_top_tb.dut.u_a.U1.A. The port annotation will still occur.
+'
+NEP1='xmelab: *W,SDFNEP (unpu_top_ss.sdf,31510): Unable to annotate to non-existent path (IOPATH (posedge A) S) of instance unpu_top_tb.dut.u_dma.add_212_3.U3 of module ah01d1 <unpu_top_ss.sdf, line 31510>.
+'
+NEP2='xmelab: *W,SDFNEP (unpu_top_ss.sdf,40001): Unable to annotate to non-existent path (IOPATH (negedge S) Z) of instance unpu_top_tb.dut.u_grid.U77 of module mx02d0 <unpu_top_ss.sdf, line 40001>.
+xmelab: *W,SDFNEP (unpu_top_ss.sdf,40002): Unable to annotate to non-existent path (IOPATH (posedge S) Z) of instance unpu_top_tb.dut.u_grid.U78 of module mx02d0 <unpu_top_ss.sdf, line 40002>.
+'
+CAVEAT_RE='PASS \(with the documented SDF limitation: 3 SDFNEP warnings on mux-select, XOR/XNOR and adder-sum arcs ran at zero delay; the simulation is slightly optimistic on those arcs; timing sign-off is PrimeTime\)'
+mklog "$GOODBODY$NCAP$NEP1$NEP2" lim
+judge lim nochecks
+chk "SDFNCAP + SDFNEP (ah01d1, mx02d0) on a good log: PASS" $([ $rc -eq 0 ] && echo 1 || echo 0)
+chk "the verdict word carries the documented limitation with the count" $(echo "$out" | grep -qE -- "^--- $CAVEAT_RE" && echo 1 || echo 0)
+chk "table: count per cell type" $(echo "$out" | grep -qE '^ +2 mx02d0' && echo "$out" | grep -qE '^ +1 ah01d1' && echo 1 || echo 0)
+chk "table: count per arc form" $(echo "$out" | grep -qE '^ +1 \(posedge A\) S' && echo "$out" | grep -qE '^ +1 \(negedge S\) Z' && echo "$out" | grep -qE '^ +1 \(posedge S\) Z' && echo 1 || echo 0)
+chk "table: totals (3 accepted, 0 outside)" $(echo "$out" | grep -q 'SDFNEP: total 3; in the accepted class .*: 3; outside it: 0' && echo 1 || echo 0)
+chk "SDFNCAP is information with its own id line" $(echo "$out" | grep -q 'SDFNCAP (INFORMATION, not a failure.*): 1; the first 3' && echo "$out" | grep -qE '^ +1 \*W,SDFNCAP' && echo "$out" | grep -q 'port annotation will still occur' && echo 1 || echo 0)
+chk "no cap note without the MXWARN line" $(! echo "$out" | grep -q 'message cap of 1000' && echo 1 || echo 0)
+judge lim checks; chk "the same in checks mode is PASS with the caveat (no violation lines)" $([ $rc -eq 0 ] && echo "$out" | grep -qE -- "^--- $CAVEAT_RE" && echo 1 || echo 0)
+# the caveat is exported to main through JUDGE_CAVEAT (not in a subshell here)
+judge_log "$T/lim.log" nochecks >/dev/null 2>&1; chk "JUDGE_CAVEAT is set for the limited PASS" $(echo "$JUDGE_CAVEAT" | grep -q '^PASS (with the documented SDF limitation: 3 SDFNEP' && echo 1 || echo 0)
+judge_log "$T/good.log" nochecks >/dev/null 2>&1; chk "JUDGE_CAVEAT is empty for a clean PASS" $([ -z "$JUDGE_CAVEAT" ] && echo 1 || echo 0)
+judge good nochecks; chk "a clean PASS does not print the limitation" $(! echo "$out" | grep -q 'documented SDF limitation' && echo 1 || echo 0)
+# the cap line
+CAP="xmelab: *W,MXWARN: Reached maximum warning limit for 'SDFNEP'(1000)
+"
+mklog "$GOODBODY$NCAP$NEP1$CAP" limcap
+judge limcap nochecks; chk "the MXWARN cap line prints the NOTE and still PASSES with the caveat" $([ $rc -eq 0 ] && echo "$out" | grep -q 'NOTE: the message cap of 1000 was reached: the real count is higher' && echo 1 || echo 0)
+chk "the cap NOTE does not appear for the SDFNEP-less log" $(! judge_log "$T/good.log" nochecks 2>&1 | grep -q 'message cap' && echo 1 || echo 0)
+# a cell type not in the list
+NEPBAD='xmelab: *W,SDFNEP (unpu_top_ss.sdf,50000): Unable to annotate to non-existent path (IOPATH (posedge A) Z) of instance unpu_top_tb.dut.u_x.U9 of module nd02d1 <unpu_top_ss.sdf, line 50000>.
+'
+mklog "$GOODBODY$NCAP$NEP1$NEP2$NEPBAD" limbad
+judge limbad nochecks; chk "an SDFNEP on a cell type outside the list is FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'cell type nd02d1 is not in the allowed list' && echo "$out" | grep -q '1 SDFNEP warnings outside the accepted class' && echo 1 || echo 0)
+chk "no limited-PASS word on a FAIL" $(! echo "$out" | grep -q '^--- PASS (with' && echo 1 || echo 0)
+# a non-IOPATH form
+NEPFORM='xmelab: *W,SDFNEP (unpu_top_ss.sdf,50001): Unable to annotate to non-existent path (SETUPHOLD (posedge D) (posedge CP)) of instance unpu_top_tb.dut.u_x.U9 of module mx02d0 <unpu_top_ss.sdf, line 50001>.
+'
+mklog "$GOODBODY$NCAP$NEP1$NEPFORM" limform
+judge limform nochecks; chk "an SDFNEP that is not an IOPATH edge form is FAIL even on an allowed cell" $([ $rc -eq 1 ] && echo "$out" | grep -q 'not of the form IOPATH' && echo 1 || echo 0)
+NEPNOEDGE='xmelab: *W,SDFNEP (unpu_top_ss.sdf,50002): Unable to annotate to non-existent path (IOPATH A S) of instance unpu_top_tb.dut.u_x.U9 of module ah01d1 <unpu_top_ss.sdf, line 50002>.
+'
+mklog "$GOODBODY$NEPNOEDGE" limnoedge
+judge limnoedge nochecks; chk "an IOPATH without an edge qualifier is FAIL" $([ $rc -eq 1 ] && echo 1 || echo 0)
+# another SDF id
+mklog "$GOODBODY$NCAP$NEP1"'xmelab: *W,SDFINF: something else about the SDF
+' limid
+judge limid nochecks; chk "an unknown SDF id (*W,SDFINF) is FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q '1 SDF warnings of an id that is not accepted' && echo "$out" | grep -q 'SDFINF' && echo 1 || echo 0)
+# SDFCNC / SDFIRE together with an otherwise accepted log
+mklog "$GOODBODY$NCAP$NEP1"'xmelab: *W,SDFCNC: Cannot compile SDF file - skipping annotation
+' limcnc
+judge limcnc nochecks; chk "SDFCNC is FAIL even next to the accepted class" $([ $rc -eq 1 ] && echo "$out" | grep -q 'could not be compiled' && echo 1 || echo 0)
+# no annotation message at all, with the accepted warnings present: the warning lines are not annotation evidence
+mklog 'checked 343341 value(s)/assertion(s) total
+ALL CHECKS PASSED
+'"$NCAP$NEP1" limnoann
+judge limnoann nochecks; chk "no annotation message (only the SDFNCAP/SDFNEP lines mention annotate) is FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'no SDF annotation message' && echo 1 || echo 0)
+# only SDFNCAP
+mklog "$GOODBODY$NCAP" ncaponly
+judge ncaponly nochecks; chk "only SDFNCAP: PASS" $([ $rc -eq 0 ] && echo 1 || echo 0)
+chk "only SDFNCAP: the information line is printed and there is NO limitation caveat" $(echo "$out" | grep -q 'SDFNCAP (INFORMATION' && ! echo "$out" | grep -q 'documented SDF limitation' && echo 1 || echo 0)
+judge_log "$T/ncaponly.log" nochecks >/dev/null 2>&1; chk "only SDFNCAP: JUDGE_CAVEAT empty" $([ -z "$JUDGE_CAVEAT" ] && echo 1 || echo 0)
+# a cap on another SDF id hides the rest of that class
+mklog "$GOODBODY$NCAP$NEP1"$'xmelab: *W,MXWARN: Reached maximum warning limit for \'SDFXYZ\'(1000)\n' limcap2
+judge limcap2 nochecks; chk "a cap on another SDF id is FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'message cap was reached for an SDF message id other than' && echo 1 || echo 0)
+# other failures still fail next to the accepted class
+mklog "$GOODBODY$NCAP$NEP1"'xmelab: *E,CUVMUR: instance unresolved
+' limerr
+judge limerr nochecks; chk "an *E, line next to the accepted class is still FAIL" $([ $rc -eq 1 ] && echo 1 || echo 0)
+mklog "$ANN$NCAP$NEP1"'checked 343340 value(s)/assertion(s) total
+ALL CHECKS PASSED
+' limcnt
+judge limcnt nochecks; chk "a wrong check count next to the accepted class is still FAIL" $([ $rc -eq 1 ] && echo 1 || echo 0)
+chk "the allowed cell list is the one approved in run A3" $([ "$SDFNEP_ALLOWED_CELLS" = "mx02d0 mx02d1 mi02d0 mi02d1 ah01d1 ad01d0 xr02d1 xn02d1" ] && echo 1 || echo 0)
 
 echo "RESULT: $npass passed, $nfail failed"
 [ "$nfail" -eq 0 ]

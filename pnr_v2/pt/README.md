@@ -11,6 +11,7 @@ Nothing in PrimeTime changes a constraint: no uncertainty, limit, exception, cas
 | `pt_common.tcl` | paths and parameters in ONE place (top of the file), the procs; sourced by the two scripts; only `set` and `proc` at the top level, so `tclsh` can source it |
 | `pt_setup_ss.tcl` | setup at the slow corner: library `tsl18fs120_scl_ss`, SPEF of `corner_ss`, `unpu_top_pnr_ss.sdc` |
 | `pt_hold_ff.tcl` | hold at the fast corner: library `tsl18fs120_scl_ff`, SPEF of `corner_ff`, `unpu_top_pnr_ff.sdc` |
+| `pt_eco_probe.tcl` | task 078: read-only probe of PrimeTime's own ECO commands (hold, ff), see section 8; ends with one `PROBE RESULT` line |
 | `check_annotation.tcl` | the post-run annotation check (see 3b): `tclsh` on the finished `parasitics_command.log`, same parser and policy as the scripts; prints `ANNOTATION CHECK PASSED` or `FAILED` |
 | `test_pt_common.tcl` | local tests of the pure-Tcl procs (`tclsh pnr_v2/pt/test_pt_common.tcl`) |
 
@@ -101,7 +102,7 @@ SUMMARY
 
 and the same for `HOLD` with the ICC2 figure -0.0004 ns. For hold, every violated endpoint is listed (`HOLD violated endpoint ... slack ... startpoint ...`) with one report file per endpoint (`pt_hold_ff_violated_<endpoint>.rpt`): the full clock-expanded path shows the clock arrival of the launching and the capturing flop (their difference is the skew), so a one-path fix is possible.
 
-Reports (setup): `_global_timing.rpt`, `_violators.rpt` (`report_constraint -all_violators -max_delay`), `_paths_group_<group>.rpt` (worst 10 per path group, full clock expansion), `_paths_in2out_paddr_prdata.rpt` (the combinational `paddr` to `prdata` paths), `_design_rules.rpt` (max transition, max capacitance, minimum pulse width). Hold: the same with `-min_delay` and `_paths_worst20.rpt`.
+Every violated endpoint is also in a CSV (section 7). Reports (setup): `_global_timing.rpt`, `_violators.rpt` (`report_constraint -all_violators -max_delay`), `_paths_group_<group>.rpt` (worst 10 per path group, full clock expansion), `_paths_in2out_paddr_prdata.rpt` (the combinational `paddr` to `prdata` paths), `_design_rules.rpt` (max transition, max capacitance, minimum pulse width). Hold: the same with `-min_delay` and `_paths_worst20.rpt`.
 
 ## 5. Signal integrity (crosstalk) and why the numbers can differ from ICC2
 
@@ -122,6 +123,55 @@ scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outp
 ```
 
 Hold violators have their own files: copy `pt_hold_ff_violated_*.rpt` too (`scp ... pt_hold_ff_violated_*.rpt` needs the quotes escaped in csh; or copy the folder with `scp -r`).
+
+## 7. Every violated endpoint in a file (task 078)
+
+Both sign-off scripts now also write `pt_setup_ss_violations.csv` and `pt_hold_ff_violations.csv` into `pnr_icc2/pt/`: ONE line per violated endpoint (the worst path to it), no limit of 50 (`get_timing_paths -slack_lesser_than 0 -max_paths PT_VIOL_MAX_PATHS -nworst 1`; a list as long as the bound `PT_VIOL_MAX_PATHS` = 100000 is an error, because it could be truncated). Columns, separated by `;`, first line is the header:
+
+`endpoint;startpoint;startpoint_kind;endpoint_kind;slack_ns;path_group;n_cells;cells;incr_ns`
+
+- `startpoint_kind` / `endpoint_kind`: `port` or `pin`.
+- `cells`: the cells of the DATA path in order as `instance/pin(ref)` joined by `,` (a cell = an output pin of the path; the launching flop's `Q` is the first one for a register-to-register path); `incr_ns`: the incremental delay of each (same order, joined by `,`) = arrival at that pin minus the arrival at the previous path point (the `Incr` column of `report_timing`).
+- Example (hold, ff): `u_dma/stage_reg_1__14_/D;dma_rdata[14];port;pin;-0.3500;clk;2;copt_h_inst_3910/Z(buffd1),U588/Z(mx02d0);0.1700,0.1200`
+- A field that cannot be read is `n/a`; one `>>> 078 NOTE: <column> could not be read for N of M endpoints` line per such column.
+- The log has `>>> 078 violations file: N endpoints written to <file>`, the SUMMARY block repeats it, and the count is checked against the summary count (`violating endpoints n`): a difference is an error AFTER the SUMMARY block (the message says what to suspect). Nothing else the scripts do has changed.
+
+Copy back (laptop terminal, the user types the password):
+
+```
+scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_hold_ff_violations.csv ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_setup_ss_violations.csv ~/server_pull/pt/
+```
+
+## 8. ECO probe (`pt_eco_probe.tcl`): can PrimeTime's own ECO commands be used here?
+
+Read-only for the design: it proposes netlist changes in PrimeTime's memory, writes reports and change files into `pnr_icc2/pt/`, and ends with `exit 0` whatever the answer. Run (one command per line, in the PrimeTime terminal as for the other scripts):
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt
+pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe.log
+```
+
+What it does, in the log (`>>> 078`): the same preparation as `pt_hold_ff.tcl` (library, netlist, SPEF decision, SDC, annotation check, clock propagation PROVED) -> the hold violators BEFORE (CSV `pt_eco_hold_ff_before_violations.csv`) -> `help *eco*` and which of `fix_eco_timing`, `fix_eco_hold`, `write_changes` exist -> `list_licenses` lines that mention ECO and the answer of `get_license` for each name in `PT_ECO_LICENSE_TRIES` (a failure here is printed, but the ECO command is still tried, because it is the real test) -> the buffer candidates from the library (patterns `PT_ECO_LIB_PATTERNS`: name, `is_buffer`, area, delay if readable) and the list handed to `-buffer_list` (chosen by data: buffer cells only, largest delay first, ties by smaller area; by area when no delay is readable, and the line says so) -> `fix_eco_timing -type hold -methods {insert_buffer} -buffer_list ... -hold_margin 0.05` restricted to the hold violators fed by an input port (form 1: `-to <endpoints>`, form 2: `-from <input ports>`, form 3: no restriction with a NOTE; only an "unknown option" error moves to the next form) -> `write_changes` in three formats (`icctcl` -> `pt_eco_hold_changes.tcl` as the task asks, `icc2tcl` -> `pt_eco_hold_changes_icc2.tcl` because ICC2's own Tcl dialect is the one the next task would apply, `text` -> `pt_eco_hold_changes.txt`) -> the first 30 lines of the text file, the number of changes per command and per library cell -> `update_timing` and the violators AFTER (`pt_eco_hold_ff_after_violators.rpt`, `pt_eco_hold_ff_after_violations.csv`, the first 40 lines are printed).
+
+The hold margin 0.05 ns (`PT_ECO_HOLD_MARGIN`) is on top of the 0.5 ns hold uncertainty already in the constraints: the PrimeTime and ICC2 parasitic estimates (and the ICC2 re-route after the ECO) differ by picoseconds to tens of picoseconds, and a fix that closes with exactly 0.00 would not survive that.
+
+The LAST block of the log is the answer:
+
+```
+ ECO PROBE (hold, corner ff; hold margin 0.05 ns)
+   PROBE RESULT: ECO RAN: N changes proposed, change file <path>
+   PROBE RESULT: ECO NOT AVAILABLE: <message>
+```
+
+| Outcome | Meaning | Next step |
+|---|---|---|
+| `ECO RAN: N ...` with N close to the number of port-fed violators, and `AFTER` shows 0 hold violators | PrimeTime can propose the fix and thinks it closes hold | read `pt_eco_hold_changes_icc2.tcl` (is it ICC2 syntax? which cells?) and let the ICC2 task apply it (with the later ICC2 re-route and a new PrimeTime run) |
+| `ECO RAN` but `AFTER` still shows violators | the cells or the margin are not enough, or the restriction was not accepted (NOTE line) | read which endpoints remain; the buffer list / margin are parameters at the top of `pt_common.tcl` |
+| `ECO RAN: 0 changes` or the WARNING "no change line was recognised" | the change file format differs from the verbs the script counts | open the change file; the count is only a convenience, the file is the result |
+| `ECO NOT AVAILABLE: ... licence ...` (an `Unable to checkout` text) | no PrimeTime ECO licence | the hold fix has to be computed from the violation CSV in ICC2 (insert a delay buffer in front of each listed `/D` pin) |
+| `ECO NOT AVAILABLE: neither fix_eco_timing nor fix_eco_hold exists` | the command is not in this release | same as above |
+| `ECO NOT AVAILABLE: ... rejected every form of the command` | the options differ from what is written here | read the `that form failed:` lines and the `help` output printed first; fix the option names (VERIFY V22 to V26) |
 
 ## VERIFY table (nothing here has been run)
 
@@ -148,6 +198,12 @@ Hold violators have their own files: copy `pt_hold_ff_violated_*.rpt` too (`scp 
 | V19 | `parasitics_log_file`: `printvar` shows its value; `set_app_var parasitics_log_file ""` makes `read_parasitics` / `report_annotated_parasitics` print into the session | the lines `parasitics_log_file before:` / `after:` and `annotation table read from the session text` |
 | V20 | `report_timing -path_type full_clock_expanded` (and `full`) prints `clock network delay (propagated)` for a propagated clock | the `clock tag:` lines after `clock path of the worst ... path` (if only `full_clock_expanded` omits the tag, the `full` report supplies it) |
 | V21 | `get_attribute [get_clocks clk] sources` gives the clock source port (used to recognise the `clk` port in the no-driving-cell warning) | the line `NOTE: the clock source port could not be read ...` (then the clock name `clk` is used) |
+| V22 | `get_timing_paths -slack_lesser_than 0.0 -max_paths N -nworst 1` returns one path per violated endpoint, and the path attributes `endpoint`, `startpoint`, `slack`, `path_group`, `points`; the point attributes `object`, `arrival`; the pin attributes `object_class`, `direction` | the `>>> 078 NOTE: <column> could not be read` lines and the `cells` / `incr_ns` columns of the CSV (`n/a` = not readable); the CSV count against the summary count |
+| V23 | `help *eco*`, `info commands` list `fix_eco_timing` / `fix_eco_hold`, `set_eco_options`, `write_changes` | the `ECO commands known to this pt_shell` block and the `existing:` line of `pt_eco_probe.log` |
+| V24 | `list_licenses` and `get_license <feature>`; the feature name `PrimeTime-ECO` is only TRIED | the `get_license ...:` lines, `list_licenses lines that mention ECO` |
+| V25 | `get_lib_cells <lib>/dl*`, the lib cell attributes `is_buffer`, `area`, and the lib timing arc attributes `delay_max_rise/fall`, `delay_min_rise/fall` | the candidate table (delay `n/a` = not readable, then the list is by area and the line says so) |
+| V26 | `set_eco_options -log_file`; `fix_eco_timing -type hold -methods {insert_buffer} -buffer_list ... -hold_margin ...` and a restriction by `-to` or `-from` | the `trying:` and `that form failed:` lines |
+| V27 | `write_changes -format icctcl`, `icc2tcl` or `text` with `-output <file>`; the verbs of the change file (`insert_buffer`, `size_cell`, ...) | the `write_changes -format ...` lines, the first 30 lines of the text file, the per-command counts |
 
 ## Known messages (harmless unless stated)
 

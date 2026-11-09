@@ -336,6 +336,102 @@ check "unannotated limit is 0 by default" {$PT_MAX_UNANNOTATED_PCT == 0.0 && $PT
 check "the netlist is the one without PG pins" {[string match "*unpu_top_pnr_sim.v" $PT_NETLIST]}
 check "libraries are the ss and ff db files named in build_ndm_std.tcl" {[string match "*lib_flow_ss/tsl18fs120_scl_ss.db" $PT_CORNER(ss,db)] && [string match "*lib_flow_ff/tsl18fs120_scl_ff.db" $PT_CORNER(ff,db)]}
 
+
+# ------------------------------------------------------------------ 7. task 078: violation CSV, consistency, ECO probe helpers
+check "csv header: 9 columns separated by ;" {[pt_viol_header] eq "endpoint;startpoint;startpoint_kind;endpoint_kind;slack_ns;path_group;n_cells;cells;incr_ns"}
+# the real dma_rdata[14] hold path of the PrimeTime run (task 078): port 0.26, copt_h_inst_3910 (buffd1) 0.17, U588 (mx02d0) 0.12, D at 0.56
+set d1 [dict create endpoint u_dma/stage_reg_1__14_/D startpoint dma_rdata\[14\] sp_kind port ep_kind pin slack -0.35 group clk cells {copt_h_inst_3910/Z(buffd1) U588/Z(mx02d0)} delays {0.17 0.12}]
+set row1 [pt_viol_row $d1]
+check "csv row: the real example" {$row1 eq "u_dma/stage_reg_1__14_/D;dma_rdata\[14\];port;pin;-0.3500;clk;2;copt_h_inst_3910/Z(buffd1),U588/Z(mx02d0);0.1700,0.1200"}
+set back [pt_viol_parse_line $row1]
+check "csv parse: endpoint, startpoint, kinds, slack, group" {[dict get $back endpoint] eq "u_dma/stage_reg_1__14_/D" && [dict get $back startpoint] eq "dma_rdata\[14\]" && [dict get $back sp_kind] eq "port" && [dict get $back ep_kind] eq "pin" && [dict get $back slack] eq "-0.3500" && [dict get $back group] eq "clk"}
+check "csv parse: cells and incremental delays in order" {[dict get $back n_cells] == 2 && [dict get $back cells] eq {copt_h_inst_3910/Z(buffd1) U588/Z(mx02d0)} && [dict get $back delays] eq {0.1700 0.1200}}
+# a register-to-register path: the startpoint is a pin
+set d2 [dict create endpoint u_dma/stage_reg_0__3_/D startpoint u_csr/src_a_reg_reg_3_/CP sp_kind pin ep_kind pin slack -0.0004 group clk cells {u_csr/src_a_reg_reg_3_/Q(dfnrq1)} delays {0.2100}]
+set row2 [pt_viol_row $d2]
+check "csv row: a pin startpoint (register to register)" {[string match "u_dma/stage_reg_0__3_/D;u_csr/src_a_reg_reg_3_/CP;pin;pin;-0.0004;clk;1;u_csr/src_a_reg_reg_3_/Q(dfnrq1);0.2100" $row2]}
+check "csv parse: the pin startpoint comes back" {[dict get [pt_viol_parse_line $row2] sp_kind] eq "pin" && [dict get [pt_viol_parse_line $row2] n_cells] == 1}
+# n/a fields: slack unreadable, no cells, an unreadable incremental delay, an output port endpoint
+set d3 [dict create endpoint dma_addr\[31\] startpoint u_dma/beat_idx_reg_0_/CP sp_kind pin ep_kind "" slack "" group ""]
+set row3 [pt_viol_row $d3]
+check "csv row: unreadable fields and no cells are n/a" {$row3 eq "dma_addr\[31\];u_dma/beat_idx_reg_0_/CP;pin;n/a;n/a;n/a;n/a;n/a;n/a"}
+set b3 [pt_viol_parse_line $row3]
+check "csv parse: n/a stays n/a" {[dict get $b3 slack] eq "n/a" && [dict get $b3 cells] eq "n/a" && [dict get $b3 n_cells] eq "n/a" && [dict get $b3 ep_kind] eq "n/a"}
+set d4 [dict create endpoint a/D startpoint p sp_kind port ep_kind pin slack -0.1 group g cells {u1/Z(buffd1) u2/Z(inv0d1)} delays {0.1 ""}]
+check "csv row: one unreadable incremental delay is n/a" {[string match "*;0.1000,n/a" [pt_viol_row $d4]]}
+check "csv row: an empty cell list is none and parses to an empty list" {[dict get [pt_viol_parse_line [pt_viol_row [dict create endpoint a/D startpoint p sp_kind port ep_kind pin slack -0.1 group g cells {} delays {}]]] cells] eq ""}
+check "csv row: a ';' in a value is an error" {[must_error {pt_viol_row [dict create endpoint "a;b" startpoint p]}]}
+check "csv row: a ',' in a cell text is an error" {[must_error {pt_viol_row [dict create endpoint e startpoint p cells {a,b} delays {0.1}]}]}
+check "csv row: cells and delays of different length are an error" {[must_error {pt_viol_row [dict create endpoint e startpoint p cells {a b} delays {0.1}]}]}
+check "csv parse: wrong column count is an error" {[must_error {pt_viol_parse_line "a;b;c"}]}
+check "csv parse: n_cells that disagrees with the list is an error" {[must_error {pt_viol_parse_line "e;s;port;pin;-0.1000;g;3;a(x),b(y);0.1,0.2"}]}
+set csv "[pt_viol_header]\n$row1\n$row2\n\n$row3\n"
+set rows [pt_viol_parse_file $csv]
+check "csv file: three rows back, blank line ignored" {[llength $rows] == 3 && [dict get [lindex $rows 2] endpoint] eq "dma_addr\[31\]"}
+check "csv file: a wrong header is an error" {[must_error {pt_viol_parse_file "endpoint;x\n$row1\n"}]}
+check "csv file: header only is zero rows" {[llength [pt_viol_parse_file "[pt_viol_header]\n"]] == 0}
+# the path points -> cells and incremental delays, from the real dma_rdata[14] path
+set pts [list \
+  [dict create name clk class port dir in arrival 0.00 ref ""] \
+  [dict create name dma_rdata\[14\] class port dir in arrival 0.00 ref ""] \
+  [dict create name u_dma/copt_h_inst_3910/I class pin dir in arrival 0.26 ref buffd1] \
+  [dict create name u_dma/copt_h_inst_3910/Z class pin dir out arrival 0.43 ref buffd1] \
+  [dict create name u_dma/U588/I0 class pin dir in arrival 0.43 ref mx02d0] \
+  [dict create name u_dma/U588/Z class pin dir out arrival 0.55 ref mx02d0] \
+  [dict create name u_dma/stage_reg_1__14_/D class pin dir in arrival 0.56 ref dfnrq1]]
+lassign [pt_viol_path_cells $pts dma_rdata\[14\]] found cells delays
+check "path cells: start at the startpoint, output pins only" {$found == 1 && $cells eq {u_dma/copt_h_inst_3910/Z(buffd1) u_dma/U588/Z(mx02d0)}}
+check "path cells: incremental delays are the arrival differences (0.17, 0.12)" {abs([lindex $delays 0] - 0.17) < 1e-9 && abs([lindex $delays 1] - 0.12) < 1e-9}
+lassign [pt_viol_path_cells $pts nosuchstart] found cells delays
+check "path cells: a startpoint that is not among the points -> not found" {$found == 0 && $cells eq ""}
+set pts2 [list [dict create name u_x/CP class pin dir in arrival 0.92 ref dfnrq1] [dict create name u_x/Q class pin dir out arrival 1.10 ref dfnrq1] [dict create name u_y/D class pin dir in arrival 1.12 ref dfnrq1]]
+lassign [pt_viol_path_cells $pts2 u_x/CP] found cells delays
+check "path cells: a flop startpoint gives the clock-to-Q cell (0.18)" {$found == 1 && $cells eq {u_x/Q(dfnrq1)} && abs([lindex $delays 0] - 0.18) < 1e-9}
+set pts3 [list [dict create name u_x/CP class pin dir in arrival "" ref dfnrq1] [dict create name u_x/Q class pin dir out arrival 1.10 ref ""]]
+lassign [pt_viol_path_cells $pts3 u_x/CP] found cells delays
+check "path cells: unreadable arrival or ref -> n/a" {$cells eq {u_x/Q(n/a)} && $delays eq "n/a"}
+# consistency of the file count with the summary count
+check "consistency: equal counts are ok" {[lindex [pt_viol_consistency 263 263] 0] == 1 && [string match "violations file: 263 endpoints (equal to the summary count 263)" [lindex [pt_viol_consistency 263 263] 1]]}
+check "consistency: a difference is an error with an explanation" {[lindex [pt_viol_consistency 250 263] 0] == 0 && [string match "*250 endpoints but the summary counts 263*" [lindex [pt_viol_consistency 250 263] 1]]}
+check "consistency: zero and zero is ok" {[lindex [pt_viol_consistency 0 0] 0] == 1}
+check "consistency: an unreadable summary count is not ok" {[lindex [pt_viol_consistency 5 ""] 0] == 0 && [lindex [pt_viol_consistency 5 n/a] 0] == 0}
+check "na note: one line per column with the counts" {[pt_viol_na_note [dict create slack_ns 2 cells 5] 263] eq {{slack_ns could not be read for 2 of 263 endpoints (written as n/a; VERIFY the path attribute)} {cells could not be read for 5 of 263 endpoints (written as n/a; VERIFY the path attribute)}}}
+check "na note: nothing unreadable -> no lines" {[pt_viol_na_note [dict create] 10] eq ""}
+check "violation bound parameter is large and named" {$PT_VIOL_MAX_PATHS >= 100000}
+
+# the ECO probe helpers
+check "eco: fix_eco_timing is preferred" {[pt_eco_pick_cmd {write_changes fix_eco_hold fix_eco_timing}] eq "fix_eco_timing"}
+check "eco: fix_eco_hold is the fallback" {[pt_eco_pick_cmd {write_changes fix_eco_hold}] eq "fix_eco_hold"}
+check "eco: neither exists -> empty" {[pt_eco_pick_cmd {write_changes}] eq ""}
+check "eco licence lines: only the lines that mention ECO" {[pt_eco_license_lines "PrimeTime  ok\nPrimeTime-ECO  not available\n PrimeTime-SI x\n"] eq [list "PrimeTime-ECO  not available"]}
+set cands [list \
+  [dict create name dl01d1 is_buffer true area 20.0 delay 0.30] \
+  [dict create name dl02d1 is_buffer true area 25.0 delay 0.55] \
+  [dict create name buffd1 is_buffer true area 10.0 delay 0.17] \
+  [dict create name buffd2 is_buffer true area 12.0 delay 0.17] \
+  [dict create name inv0d1 is_buffer false area 5.0 delay 0.05] \
+  [dict create name dlx_nodata is_buffer true area 30.0 delay ""]]
+lassign [pt_eco_choose_buffers $cands 3] lst note
+check "eco choose: buffers only, the largest delay first, ties by smaller area" {$lst eq {dl02d1 dl01d1 buffd1}}
+check "eco choose: the maximum count is respected and the inverter is never chosen" {[llength [lindex [pt_eco_choose_buffers $cands 10] 0]] == 4 && [lsearch [lindex [pt_eco_choose_buffers $cands 10] 0] inv0d1] < 0}
+check "eco choose: the note says it was chosen by delay" {[string match "*chosen by delay*4 buffer cells*" $note]}
+set nod [list [dict create name dlA is_buffer true area 22.0 delay ""] [dict create name bufB is_buffer true area 9.0 delay ""] [dict create name invC is_buffer false area 3.0 delay ""]]
+lassign [pt_eco_choose_buffers $nod 5] lst2 note2
+check "eco choose: no readable delay -> by area, and the note says so" {$lst2 eq {bufB dlA} && [string match "NO delay was readable*" $note2]}
+check "eco choose: no buffer at all -> empty list" {[lindex [pt_eco_choose_buffers [list [dict create name x is_buffer false area 1 delay 1]] 3] 0] eq ""}
+set chg "# changes\ninsert_buffer \[get_pins u_dma/stage_reg_1__14_/D\] buffd1 -new_cell_names hfix_1\ninsert_buffer \[get_pins u_dma/stage_reg_1__13_/D\] dl01d1 -new_cell_names hfix_2\ninsert_buffer \[get_pins u_dma/stage_reg_1__12_/D\] dl01d1\nsize_cell U12 buffd2\nset x 1\n"
+set cc [pt_eco_count_changes $chg {buffd1 dl01d1 buffd2}]
+check "eco changes: total, per verb and per library cell" {[dict get $cc n] == 4 && [dict get [dict get $cc verbs] insert_buffer] == 3 && [dict get [dict get $cc verbs] size_cell] == 1 && [dict get [dict get $cc refs] dl01d1] == 2 && [dict get [dict get $cc refs] buffd1] == 1 && [dict get [dict get $cc refs] buffd2] == 1}
+check "eco changes: a text without any change line counts 0" {[dict get [pt_eco_count_changes "# nothing\n\n" {buffd1}] n] == 0}
+check "eco option error: unknown option" {[pt_eco_is_option_error "Error: unknown option '-to' (CMD-010)."] == 1}
+check "eco option error: licence error is not an option error" {[pt_eco_is_option_error "Error: Unable to checkout 'PrimeTime-ECO' license. (PT-110)"] == 0}
+check "eco option error: no such command is not an option error" {[pt_eco_is_option_error "Error: unknown command 'fix_eco_timing' (CMD-005)."] == 0}
+set prow [list [dict create endpoint a/D sp_kind port ep_kind pin] [dict create endpoint b/D sp_kind pin ep_kind pin] [dict create endpoint p sp_kind port ep_kind port] [dict create endpoint c/D sp_kind port ep_kind pin]]
+check "eco endpoints: only port-fed pins" {[pt_eco_port_fed_endpoints $prow] eq {a/D c/D}}
+check "eco result line: ran" {[pt_eco_result_line 1 "255 changes proposed, change file /x/pt_eco_hold_changes.tcl"] eq "PROBE RESULT: ECO RAN: 255 changes proposed, change file /x/pt_eco_hold_changes.tcl"}
+check "eco result line: not available" {[pt_eco_result_line 0 "no licence"] eq "PROBE RESULT: ECO NOT AVAILABLE: no licence"}
+check "eco parameters: margin 0.05, output files" {$PT_ECO_HOLD_MARGIN == 0.05 && $PT_ECO_FILE_ICCTCL eq "pt_eco_hold_changes.tcl" && $PT_ECO_FILE_TEXT eq "pt_eco_hold_changes.txt"}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

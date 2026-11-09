@@ -75,6 +75,25 @@ set PT_ICC2_HOLD_WNS  -0.0004
 # How many violated endpoints get a full path report in the hold script, and how many in the setup script
 set PT_MAX_VIOLATED_DETAIL 50
 
+# 078: extra lines of the SUMMARY block (the scripts append, pt_print_summary prints them)
+set PT_SUMMARY_EXTRA {}
+# 078: upper bound for get_timing_paths -max_paths when ALL violated endpoints are listed (the CSV files). It must be larger than the number of endpoints of the design (about 14,000 flop D pins
+# plus 204 ports); if a list reaches this number the script stops with an error (a truncated list would look complete).
+set PT_VIOL_MAX_PATHS 100000
+# 078 (ECO probe, pt_eco_probe.tcl). Hold margin handed to fix_eco_timing: 0.05 ns on top of the 0.5 ns hold uncertainty that is already in the constraints, because the PrimeTime and the ICC2
+# parasitic estimates (and the ICC2 re-route after the ECO) differ by picoseconds to tens of picoseconds; a fix that closes with exactly 0.00 would not survive that difference.
+set PT_ECO_HOLD_MARGIN 0.05
+# library cell name patterns for the buffer candidates (names relative to the library; the choice among them is made by DATA: is_buffer, delay, area -- see pt_eco_choose_buffers)
+set PT_ECO_LIB_PATTERNS {dl* buff*}
+# how many candidate cells are handed to -buffer_list (the delay cells with the largest delay first)
+set PT_ECO_MAX_BUFFERS 6
+# licence feature names that are TRIED (not assumed): the probe prints PrimeTime's own answer for each, and the ECO command itself is the final test
+set PT_ECO_LICENSE_TRIES {PrimeTime-ECO}
+# output files of the probe (in $PT_RPT_DIR)
+set PT_ECO_FILE_ICCTCL "pt_eco_hold_changes.tcl"
+set PT_ECO_FILE_ICC2TCL "pt_eco_hold_changes_icc2.tcl"
+set PT_ECO_FILE_TEXT "pt_eco_hold_changes.txt"
+
 # ---- BEGIN PURE TCL 074 ----
 # 074: everything between BEGIN and END is plain Tcl (no PrimeTime command); pnr_v2/pt/test_pt_common.tcl tests these procs.
 
@@ -572,6 +591,171 @@ proc pt_summary_caveat {unchecked} {
     if {!$unchecked} { return {} }
     return [list "ANNOTATION NOT CHECKED IN-SESSION: run check_annotation after the session (tclsh pnr_v2/pt/check_annotation.tcl parasitics_command.log); this result is valid only if that check prints ANNOTATION CHECK PASSED"]
 }
+
+# ---- 078: the violation lists (CSV) ---------------------------------------------------------------------------------------------------------------------
+# One line per violated endpoint (worst path to it), columns separated by ';'. cells = data-path cells in order as instance/pin(ref) joined by ',', incr_ns = the incremental delay of
+# each of them (same order, joined by ','): for a cell output pin the arrival time at the pin minus the arrival time of the previous path point (= the 'Incr' column of report_timing).
+set PT_VIOL_COLUMNS {endpoint startpoint startpoint_kind endpoint_kind slack_ns path_group n_cells cells incr_ns}
+proc pt_viol_header {} {
+    global PT_VIOL_COLUMNS
+    return [join $PT_VIOL_COLUMNS ";"]
+}
+# one field: empty -> n/a; a separator character inside a value is an ERROR (the file could not be read back correctly)
+proc pt_viol_field {v what} {
+    if {$v eq ""} { return "n/a" }
+    if {[regexp {[;\n\r]} $v]} { error "PT ERROR: the value '$v' of $what contains ';' or a line break and cannot be written to the CSV" }
+    return $v
+}
+# d: dict with endpoint startpoint sp_kind ep_kind slack group and optionally cells (list of "inst/pin(ref)") and delays (list of numbers or n/a). Missing/empty -> n/a.
+proc pt_viol_row {d} {
+    foreach k {endpoint startpoint sp_kind ep_kind slack group} { if {![dict exists $d $k]} { dict set d $k "" } }
+    set slack [dict get $d slack]
+    # (an if, not expr ?: -- expr would turn the formatted text back into a plain number and drop the trailing zeros)
+    if {[string is double -strict $slack]} { set slack_t [format %.4f $slack] } else { set slack_t "n/a" }
+    if {[dict exists $d cells] && [dict get $d cells] ne "n/a" && [dict exists $d delays]} {
+        set cells [dict get $d cells]
+        set delays {}
+        foreach x [dict get $d delays] { if {[string is double -strict $x]} { lappend delays [format %.4f $x] } else { lappend delays "n/a" } }
+        if {[llength $cells] != [llength $delays]} { error "PT ERROR: [llength $cells] cells but [llength $delays] incremental delays for endpoint [dict get $d endpoint]" }
+        foreach c $cells { if {[string first , $c] >= 0} { error "PT ERROR: the cell text '$c' contains ',' and cannot be joined into the CSV" } }
+        set n_t [llength $cells]
+        if {$n_t > 0} { set cells_t [join $cells ,]; set incr_t [join $delays ,] } else { set cells_t none; set incr_t none }   ;# (if, not expr ?: -- see slack_t)
+    } else {
+        set n_t n/a
+        set cells_t n/a
+        set incr_t n/a
+    }
+    return [join [list [pt_viol_field [dict get $d endpoint] endpoint] [pt_viol_field [dict get $d startpoint] startpoint] [pt_viol_field [dict get $d sp_kind] startpoint_kind] \
+        [pt_viol_field [dict get $d ep_kind] endpoint_kind] $slack_t [pt_viol_field [dict get $d group] path_group] $n_t $cells_t $incr_t] ";"]
+}
+# parse one data line back into a dict (cells and delays are lists, or n/a); an error for a wrong column count or a cell count that differs from n_cells
+proc pt_viol_parse_line {line} {
+    global PT_VIOL_COLUMNS
+    set f [split $line ";"]
+    if {[llength $f] != [llength $PT_VIOL_COLUMNS]} { error "PT ERROR: CSV line has [llength $f] columns, expected [llength $PT_VIOL_COLUMNS]: $line" }
+    lassign $f ep sp spk epk sl grp n cells incr
+    if {$cells eq "n/a" || $cells eq "none"} { set cl [expr {$cells eq "none" ? {} : "n/a"}]; set dl $cl } else { set cl [split $cells ,]; set dl [split $incr ,] }
+    if {$n ne "n/a" && $cl ne "n/a" && [llength $cl] != $n} { error "PT ERROR: CSV line says n_cells $n but lists [llength $cl] cells: $line" }
+    if {$cl ne "n/a" && [llength $cl] != [llength $dl]} { error "PT ERROR: CSV line has [llength $cl] cells but [llength $dl] incremental delays: $line" }
+    return [dict create endpoint $ep startpoint $sp sp_kind $spk ep_kind $epk slack $sl group $grp n_cells $n cells $cl delays $dl]
+}
+# the whole file text -> list of dicts; the first line must be the header
+proc pt_viol_parse_file {text} {
+    set lines [split $text "\n"]
+    if {[lindex $lines 0] ne [pt_viol_header]} { error "PT ERROR: CSV header is '[lindex $lines 0]', expected '[pt_viol_header]'" }
+    set out {}
+    foreach l [lrange $lines 1 end] { if {[string trim $l] ne ""} { lappend out [pt_viol_parse_line $l] } }
+    return $out
+}
+# from the points of a path (in order; a list of dicts: name class dir arrival ref) derive the cells and the incremental delays of the data path.
+# Collection starts at the point whose name is the startpoint (the clock network points before it are skipped); a cell is an output PIN point; the incremental delay is the arrival of
+# that point minus the arrival of the previous point. Returns {cells delays}; cells empty when the startpoint is not among the points (then the caller writes n/a).
+proc pt_viol_path_cells {points startpoint} {
+    set cells {}
+    set delays {}
+    set on 0
+    set prev ""
+    foreach p $points {
+        if {!$on} {
+            if {[dict get $p name] ne $startpoint} continue
+            set on 1
+        } elseif {[dict get $p class] eq "pin" && [dict get $p dir] eq "out"} {
+            set ref [dict get $p ref]
+            lappend cells "[dict get $p name]([expr {$ref eq {} ? {n/a} : $ref}])"
+            set a [dict get $p arrival]
+            lappend delays [expr {[string is double -strict $a] && [string is double -strict $prev] ? $a - $prev : "n/a"}]
+        }
+        set prev [dict get $p arrival]
+    }
+    return [list $on $cells $delays]
+}
+# the count in the file against the count of the summary (get_timing_paths without limit); equal = ok, otherwise an ERROR whose message explains. Returns {ok message}.
+proc pt_viol_consistency {file_n summary_n} {
+    if {![string is integer -strict $summary_n]} { return [list 0 "the summary count of violating endpoints is unreadable ('$summary_n'), so the $file_n endpoints written to the violations file cannot be cross-checked"] }
+    if {$file_n != $summary_n} { return [list 0 "the violations file has $file_n endpoints but the summary counts $summary_n: one of the two get_timing_paths calls was truncated or counted differently (the file uses -nworst 1 per endpoint, the summary the default); do not use the file until this is explained"] }
+    return [list 1 "violations file: $file_n endpoints (equal to the summary count $summary_n)"]
+}
+# the notes for columns that could not be read: counts is a dict column -> number of rows; one line per column
+proc pt_viol_na_note {counts total} {
+    set out {}
+    dict for {k n} $counts { lappend out "$k could not be read for $n of $total endpoints (written as n/a; VERIFY the path attribute)" }
+    return $out
+}
+
+# ---- 078: the ECO probe (pure parts) --------------------------------------------------------------------------------------------------------------------
+# which fix command exists: fix_eco_timing first, then fix_eco_hold; "" when neither is in the list of existing commands
+proc pt_eco_pick_cmd {existing} {
+    foreach c {fix_eco_timing fix_eco_hold} { if {[lsearch -exact $existing $c] >= 0} { return $c } }
+    return ""
+}
+# the licence-list lines that mention ECO (case-insensitive)
+proc pt_eco_license_lines {text} {
+    set out {}
+    foreach l [split $text "\n"] { if {[regexp -nocase {eco} $l]} { lappend out [string trim $l] } }
+    return $out
+}
+# candidates: list of dicts {name is_buffer area delay}; is_buffer true/1; delay a number or "" (unreadable). Chooses by DATA, never by name: only buffer cells; if delays are readable
+# the ones with the largest delay first (ties: smaller area first), else the smallest area first; at most max cells. Returns {list note}.
+proc pt_eco_choose_buffers {cands max} {
+    set bufs {}
+    foreach c $cands { if {[dict get $c is_buffer] in {true 1}} { lappend bufs $c } }
+    if {[llength $bufs] == 0} { return [list {} "no candidate is a buffer cell"] }
+    set withd {}
+    foreach c $bufs { if {[string is double -strict [dict get $c delay]]} { lappend withd $c } }
+    if {[llength $withd] > 0} {
+        set rows {}
+        foreach c $withd { lappend rows [list [dict get $c delay] [expr {[string is double -strict [dict get $c area]] ? [dict get $c area] : 1e30}] [dict get $c name]] }
+        set rows [lsort -real -index 1 -increasing $rows]
+        set rows [lsort -real -index 0 -decreasing $rows]   ;# lsort is stable: ties keep the area order
+        set names {}
+        foreach r $rows { lappend names [lindex $r 2] }
+        set note "chosen by delay (largest first, ties by smaller area) among [llength $withd] buffer cells with a readable delay"
+    } else {
+        set rows {}
+        foreach c $bufs { lappend rows [list [expr {[string is double -strict [dict get $c area]] ? [dict get $c area] : 1e30}] [dict get $c name]] }
+        set rows [lsort -real -index 0 -increasing $rows]
+        set names {}
+        foreach r $rows { lappend names [lindex $r 1] }
+        set note "NO delay was readable for any candidate: chosen by area (smallest first) among [llength $bufs] buffer cells"
+    }
+    return [list [lrange $names 0 [expr {$max - 1}]] $note]
+}
+# a change text (write_changes -format text/icctcl): count the lines whose first word is a netlist-changing command, per verb, and for insert-type lines the library cell (the first token
+# that is one of `known_refs`). Returns a dict: n (total), verbs (dict verb -> count), refs (dict ref -> count). VERIFY the verbs against the real change file.
+proc pt_eco_count_changes {text known_refs} {
+    set n 0
+    set verbs [dict create]
+    set refs [dict create]
+    foreach l [split $text "\n"] {
+        set t [string trim $l]
+        if {$t eq "" || [string match "#*" $t]} continue
+        set w [lindex [regexp -all -inline {\S+} $t] 0]
+        if {![regexp {^(insert_buffer|insert_buffer_at_load_pins|add_buffer|size_cell|remove_buffer|remove_cell|create_cell|replace_cell|swap_cell)$} $w]} continue
+        incr n
+        dict incr verbs $w
+        if {[regexp {^(insert_buffer|insert_buffer_at_load_pins|add_buffer|create_cell|size_cell|replace_cell|swap_cell)$} $w]} {
+            foreach tok [regexp -all -inline {[^\s\{\}\[\]"]+} $t] {
+                set base [lindex [split $tok /] end]
+                if {[lsearch -exact $known_refs $base] >= 0} { dict incr refs $base; break }
+            }
+        }
+    }
+    return [dict create n $n verbs $verbs refs $refs]
+}
+# is this error text an unknown/invalid option error (then the next form of the command is tried) -- anything else (licence, no such command ...) stops
+proc pt_eco_is_option_error {msg} {
+    return [regexp -nocase {(unknown|unrecognized|invalid|illegal|not\s+(a\s+)?valid)\s+(option|argument)|CMD-01[0-9]|option\s+.*\s+(is\s+)?(unknown|not\s+recognized)} $msg]
+}
+# the endpoints (pins) of the rows whose startpoint is a port: the hold violators that the ECO is restricted to
+proc pt_eco_port_fed_endpoints {rows} {
+    set out {}
+    foreach r $rows { if {[dict get $r sp_kind] eq "port" && [dict get $r ep_kind] eq "pin"} { lappend out [dict get $r endpoint] } }
+    return $out
+}
+# the one result line of the probe
+proc pt_eco_result_line {ok detail} {
+    return [expr {$ok ? "PROBE RESULT: ECO RAN: $detail" : "PROBE RESULT: ECO NOT AVAILABLE: $detail"}]
+}
 # ---- END PURE TCL 074 ----
 
 # ------------------------------------------------------------------------------
@@ -852,6 +1036,84 @@ proc pt_violators {delay_type limit} {
     return [list $wns $tns $num $details]
 }
 
+
+# 078: the points of a path as a list of dicts {name class dir arrival ref}; unreadable parts are "" (VERIFY the path-point attributes object / arrival and the pin attributes
+# object_class / direction, and ref_name of the cell)
+proc pt_path_points {path} {
+    set out {}
+    foreach_in_collection p [get_attribute $path points] {
+        set obj ""; set name ""; set cls ""; set dir ""; set arr ""; set ref ""
+        catch {set obj [get_attribute $p object]}
+        catch {set name [get_object_name $obj]}
+        catch {set cls [get_attribute $obj object_class]}
+        catch {set dir [get_attribute $obj direction]}
+        catch {set arr [get_attribute $p arrival]}
+        if {$cls eq "pin"} { catch {set ref [get_attribute [get_cells -of_objects $obj] ref_name]} }
+        lappend out [dict create name $name class $cls dir $dir arrival $arr ref $ref]
+    }
+    return $out
+}
+
+# 078: every violated endpoint of one delay type (min / max): rows (dicts for pt_viol_row) and the counts of the columns that could not be read. No limit of 50: all of them.
+# get_timing_paths ... -slack_lesser_than 0 -max_paths $PT_VIOL_MAX_PATHS -nworst 1 (VERIFY the options). A list as long as the bound is an ERROR (it may be truncated).
+proc pt_collect_violations {delay_type} {
+    global PT_VIOL_MAX_PATHS
+    set rows {}
+    set na [dict create]
+    set paths [get_timing_paths -delay_type $delay_type -slack_lesser_than 0.0 -max_paths $PT_VIOL_MAX_PATHS -nworst 1]
+    set total [sizeof_collection $paths]
+    if {$total >= $PT_VIOL_MAX_PATHS} { error "PT ERROR: the list of violated endpoints has $total entries, the bound PT_VIOL_MAX_PATHS is $PT_VIOL_MAX_PATHS: the list may be truncated; raise the parameter in pt_common.tcl" }
+    foreach_in_collection q $paths {
+        set ep ""; set sp ""; set spk ""; set epk ""; set sl ""; set grp ""
+        catch {set eo [get_attribute $q endpoint]; set ep [get_object_name $eo]; set epk [get_attribute $eo object_class]}
+        catch {set so [get_attribute $q startpoint]; set sp [get_object_name $so]; set spk [get_attribute $so object_class]}
+        catch {set sl [get_attribute $q slack]}
+        catch {set grp [get_object_name [get_attribute $q path_group]]}
+        set d [dict create endpoint $ep startpoint $sp sp_kind $spk ep_kind $epk slack $sl group $grp]
+        set cells {}
+        set pts {}
+        catch {set pts [pt_path_points $q]}
+        if {[llength $pts] > 0 && $sp ne ""} {
+            lassign [pt_viol_path_cells $pts $sp] found cells delays
+            if {$found} { dict set d cells $cells; dict set d delays $delays }
+        }
+        foreach {col val} [list endpoint $ep startpoint $sp startpoint_kind $spk endpoint_kind $epk slack_ns $sl path_group $grp cells [expr {[dict exists $d cells] ? "x" : ""}]] {
+            if {$val eq ""} { dict incr na $col }
+        }
+        lappend rows $d
+    }
+    return [list $rows $na]
+}
+
+# 078: write the CSV of all violated endpoints of one delay type to `file`; returns the number of rows. Prints the count line and the notes for unreadable columns.
+proc pt_write_violations {delay_type file} {
+    lassign [pt_collect_violations $delay_type] rows na
+    set fp [open $file w]
+    puts $fp [pt_viol_header]
+    foreach r $rows { puts $fp [pt_viol_row $r] }
+    close $fp
+    foreach l [pt_viol_na_note $na [llength $rows]] { puts ">>> 078 NOTE: $l" }
+    puts ">>> 078 violations file: [llength $rows] endpoints written to $file"
+    return [list [llength $rows] $rows]
+}
+
+# 078: the common preparation of pt_hold_ff.tcl for a script that must have the same environment (used by pt_eco_probe.tcl): banner, SI, link, parasitics, SDC check, operating
+# condition, limits, update_timing + check_timing + clock propagation proof. Returns the SDC value dict.
+proc pt_prepare_session {kind corner} {
+    global PT_CORNER PT_NETLIST PT_RPT_DIR PT_EXPECT_MAX_TRANSITION PT_EXPECT_MAX_CAP
+    file mkdir $PT_RPT_DIR
+    set spef [pt_choose_spef $corner]
+    pt_banner $kind $corner $PT_CORNER($corner,lib) $PT_CORNER($corner,db) $spef $PT_CORNER($corner,sdc) $PT_NETLIST
+    pt_si_setup
+    pt_link $corner
+    pt_read_spef $corner $spef
+    set sdcv [pt_read_sdc_and_check $kind $corner]
+    pt_check_opcond $corner
+    foreach l [pt_limit_report [pt_limit_entries [dict get $sdcv maxtran] [dict get $sdcv maxcap]] $PT_EXPECT_MAX_TRANSITION $PT_EXPECT_MAX_CAP] { puts ">>> 074 $l" }
+    pt_checks_and_clock $kind $corner
+    return $sdcv
+}
+
 # 074: the summary block and the comparison with ICC2, printed at the end of each script
 proc pt_print_summary {kind corner wns tns num icc2_wns} {
     set v [pt_verdict $wns]
@@ -860,6 +1122,8 @@ proc pt_print_summary {kind corner wns tns num icc2_wns} {
     puts "   [pt_summary_line $kind $corner $wns $tns $num]"
     puts "   [string toupper $kind]: $v[expr {$v eq {UNKNOWN} ? { (a number could not be read, see the log above)} : {}}]"
     puts "   [pt_compare_line $kind $wns $icc2_wns]"
+    global PT_SUMMARY_EXTRA
+    if {[info exists PT_SUMMARY_EXTRA]} { foreach l $PT_SUMMARY_EXTRA { puts "   $l" } }   ;# 078: e.g. the violations-file line
     global PT_ANNOTATION_UNCHECKED
     foreach cav [pt_summary_caveat [expr {[info exists PT_ANNOTATION_UNCHECKED] && $PT_ANNOTATION_UNCHECKED}]] { puts "   CAVEAT: $cav" }
     puts "=============================================================================="
