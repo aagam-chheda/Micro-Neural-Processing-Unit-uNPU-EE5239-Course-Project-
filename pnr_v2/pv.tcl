@@ -27,11 +27,29 @@ set PV_LEF_TOL      0.001      ;# 073: um, tolerance of the LEF SIZE against the
 # ---- BEGIN PURE TCL 073 ----
 # 073: plain Tcl (no ICC2 command) for the LEF export check; pnr_v2/test_pv_lef_check.tcl extracts and tests exactly this text.
 
+# 073: the MACRO entries of a LEF text as a list of {line_index name}. A MACRO entry is a line that STARTS at column 0 with "MACRO <name>" and has nothing else but optional trailing
+# 073: spaces. Lines between PROPERTYDEFINITIONS and END PROPERTYDEFINITIONS are ignored: the header of the real file holds the indented property definition "  MACRO expanded_util REAL ;"
+# 073: (first server run of this check, task 073 fix). This one proc decides what a MACRO line is for the check, the block extraction and the rename.
+proc pv_lef_macro_lines {text} {
+    set out {}
+    set inprop 0
+    set i 0
+    foreach l [split $text "\n"] {
+        if {[regexp {^\s*PROPERTYDEFINITIONS\s*$} $l]} {
+            set inprop 1
+        } elseif {$inprop && [regexp {^\s*END\s+PROPERTYDEFINITIONS\s*$} $l]} {
+            set inprop 0
+        } elseif {!$inprop && [regexp {^MACRO\s+(\S+)\s*$} $l -> m]} {
+            lappend out [list $i $m]
+        }
+        incr i
+    }
+    return $out
+}
+
 # 073: names of all MACRO entries of a LEF text, in order
 proc pv_lef_macros {text} {
-    set out {}
-    foreach l [split $text "\n"] { if {[regexp {^\s*MACRO\s+(\S+)} $l -> m]} { lappend out $m } }
-    return $out
+    return [lmap e [pv_lef_macro_lines $text] {lindex $e 1}]
 }
 
 # 073: number of lines "END <name>" for a macro name
@@ -43,33 +61,38 @@ proc pv_lef_end_count {text name} {
 
 # 073: text of one macro (from its MACRO line to its END line), "" when absent
 proc pv_lef_block {text name} {
-    set in 0
+    set lines [split $text "\n"]
+    set start -1
+    foreach e [pv_lef_macro_lines $text] { if {[lindex $e 1] eq $name} { set start [lindex $e 0]; break } }
+    if {$start < 0} { return "" }
     set out {}
-    foreach l [split $text "\n"] {
-        if {!$in && [regexp {^\s*MACRO\s+(\S+)} $l -> m] && $m eq $name} { set in 1 }
-        if {$in} {
-            lappend out $l
-            if {[regexp {^\s*END\s+(\S+)\s*$} $l -> m] && $m eq $name} { break }
-        }
+    for {set i $start} {$i < [llength $lines]} {incr i} {
+        set l [lindex $lines $i]
+        lappend out $l
+        if {$i > $start && [regexp {^\s*END\s+(\S+)\s*$} $l -> m] && $m eq $name} { break }
     }
     return [join $out "\n"]
 }
 
-# 073: rename a macro: the one "MACRO old" line and the one "END old" line. Returns {newtext changed_lines}; refuses (error) unless exactly one of each exists.
+# 073: rename a macro: the one "MACRO old" line (counted as pv_lef_macro_lines does) and the one "END old" line. Returns {newtext changed_lines}; refuses (error) unless exactly one of each exists.
 proc pv_lef_rename {text old new} {
     set lines [split $text "\n"]
-    set nm 0
+    set mlines {}
+    foreach e [pv_lef_macro_lines $text] { if {[lindex $e 1] eq $old} { lappend mlines [lindex $e 0] } }
+    set nm [llength $mlines]
     set ne 0
     set out {}
+    set i 0
     foreach l $lines {
-        if {[regexp {^(\s*)MACRO(\s+)(\S+)(.*)$} $l -> a b m c] && $m eq $old} {
-            set l "${a}MACRO${b}${new}${c}"
-            incr nm
+        if {[lsearch -exact $mlines $i] >= 0} {
+            regexp {^MACRO(\s+)(\S+)(\s*)$} $l -> b m c
+            set l "MACRO${b}${new}${c}"
         } elseif {[regexp {^(\s*)END(\s+)(\S+)(\s*)$} $l -> a b m c] && $m eq $old} {
             set l "${a}END${b}${new}${c}"
             incr ne
         }
         lappend out $l
+        incr i
     }
     if {$nm != 1 || $ne != 1} { error "pv_lef_rename: expected one 'MACRO $old' and one 'END $old' line, found $nm and $ne" }
     return [list [join $out "\n"] [expr {$nm + $ne}]]

@@ -100,6 +100,49 @@ set prefix "${hdr}[make_macro unpu_top_filled 2 1 1][make_macro unpu_top_filled2
 lassign [pv_lef_rename $prefix unpu_top_filled unpu_top] r2 n2
 check "a longer name with the same start is left alone" {$n2 == 2 && [lsort [pv_lef_macros $r2]] eq "unpu_top unpu_top_filled2"}
 
+
+# 9. task 073 fix: the real header of the file written by write_lef has an INDENTED property definition "  MACRO expanded_util REAL ;"
+#    between PROPERTYDEFINITIONS and END PROPERTYDEFINITIONS; it is not a macro. A MACRO entry starts at column 0 with "MACRO <name>" and nothing else but trailing spaces.
+set realhdr "VERSION 5.8 ;\nBUSBITCHARS \"\[\]\" ;\nDIVIDERCHAR \"/\" ;\n\nPROPERTYDEFINITIONS\n  MACRO expanded_util REAL ;\nEND PROPERTYDEFINITIONS\n\n"
+set realmac "MACRO unpu_top\n  CLASS BLOCK ;\n  ORIGIN 0 0 ;\n  SIZE 885.6 BY 885.6 ;\n  SYMMETRY X Y ;\n"
+for {set i 0} {$i < 204} {incr i} { append realmac "  PIN sig$i\n    DIRECTION INPUT ;\n    USE SIGNAL ;\n  END sig$i\n" }
+append realmac "  PIN VDD\n    DIRECTION INOUT ;\n    USE POWER ;\n  END VDD\n  PIN VSS\n    DIRECTION INOUT ;\n    USE GROUND ;\n  END VSS\n  OBS\n    LAYER M1 ;\n      RECT 0 0 885.6 885.6 ;\n  END\nEND unpu_top\n\nEND LIBRARY\n"
+set real "${realhdr}${realmac}"
+check "real header: the property definition is not a macro" {[pv_lef_macros $real] eq "unpu_top"}
+check "real header + macro (204 signal + 2 power pins, 885.6 x 885.6) is accepted" {[pv_lef_check $real unpu_top 206 885.6 885.6] eq ""}
+check "real header: one END unpu_top" {[pv_lef_end_count $real unpu_top] == 1}
+check "real header: the property line is outside the macro block" {[string first "expanded_util" [pv_lef_block $real unpu_top]] < 0}
+check "trailing spaces after the macro name are allowed" {[pv_lef_macros "MACRO unpu_top   \nEND unpu_top\n"] eq "unpu_top"}
+check "tab after the keyword is allowed" {[pv_lef_macros "MACRO\tunpu_top\nEND unpu_top\n"] eq "unpu_top"}
+check "an indented MACRO line is not a macro" {[pv_lef_macros "  MACRO unpu_top\nEND unpu_top\n"] eq ""}
+check "a column-0 'MACRO x REAL ;' line is not a macro (more than the name on the line)" {[pv_lef_macros "MACRO expanded_util REAL ;\n"] eq ""}
+check "MACRO lines inside PROPERTYDEFINITIONS are ignored even at column 0" {[pv_lef_macros "PROPERTYDEFINITIONS\nMACRO inside\nEND PROPERTYDEFINITIONS\nMACRO real\nEND real\n"] eq "real"}
+check "after END PROPERTYDEFINITIONS macros count again" {[pv_lef_macros "PROPERTYDEFINITIONS\n  MACRO a REAL ;\nEND PROPERTYDEFINITIONS\nMACRO b\nEND b\nMACRO c\nEND c\n"] eq "b c"}
+# the old bad cases, now with the real header in front
+set bad2 $realhdr
+foreach n $names { append bad2 [make_macro $n 2 1.12 5.6] }
+append bad2 "END LIBRARY\n"
+check "122 library macros without unpu_top are still rejected (with the real header)" {[llength [pv_lef_macros $bad2]] == 122 && [string match "*holds 0 'MACRO unpu_top' entries*122 MACRO entries in total*" [lindex [pv_lef_check $bad2 unpu_top 206 885.6 885.6] 0]]}
+set two2 "${realhdr}${realmac}${realmac}"
+set pr [pv_lef_check $two2 unpu_top 206 885.6 885.6]
+check "two real unpu_top macros are still rejected" {[llength $pr] >= 1 && [string match "*holds 2 'MACRO unpu_top' entries, 1 expected*" [lindex $pr 0]]}
+set lib2 "${realhdr}${realmac}MACRO inv0d4\n  SIZE 1.12 BY 5.6 ;\nEND inv0d4\n"
+set pr [pv_lef_check $lib2 unpu_top 206 885.6 885.6]
+check "a library macro at column 0 next to unpu_top is still rejected" {[llength $pr] == 1 && [string match "*2 MACRO entries, 1 expected (extra: inv0d4)*" [lindex $pr 0]]}
+set pr [pv_lef_check "${realhdr}[make_macro unpu_top 200 885.6 885.6]" unpu_top 206 885.6 885.6]
+check "wrong PIN count is still rejected with the real header" {[llength $pr] == 1 && [string match "*202 PIN entries, 206 expected*" [lindex $pr 0]]}
+set pr [pv_lef_check "${realhdr}[make_macro unpu_top 204 817.6 817.6]" unpu_top 206 885.6 885.6]
+check "wrong SIZE is still rejected with the real header" {[llength $pr] == 1 && [string match "*SIZE is 817.6 x 817.6*" [lindex $pr 0]]}
+# the rename helper counts the same way
+set filled2 "${realhdr}[make_macro unpu_top_filled 204 885.6 885.6]END LIBRARY\n"
+lassign [pv_lef_rename $filled2 unpu_top_filled unpu_top] ren n
+check "rename with the real header changes exactly the MACRO line and the END line" {$n == 2}
+check "rename leaves the property definition alone" {[string first "  MACRO expanded_util REAL ;" $ren] >= 0}
+check "renamed file is accepted" {[pv_lef_check $ren unpu_top 206 885.6 885.6] eq ""}
+check "renaming the name of the property definition is an error (it is not a macro)" {[catch {pv_lef_rename $real expanded_util other}]}
+check "rename counts the same macro lines as the check (macro_lines)" {[llength [pv_lef_macro_lines $filled2]] == 1 && [lindex [lindex [pv_lef_macro_lines $filled2] 0] 1] eq "unpu_top_filled"}
+check "rename keeps the length difference exactly the name difference" {[string length $ren] == [string length $filled2] - 2 * [string length _filled]}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

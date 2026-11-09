@@ -69,6 +69,16 @@ On 2026-11-02 the user decided on a clean slate: a new server folder `/storage/E
 - The kit CDL defines the fillers as empty subcircuits, so the source cannot carry the diode. The deck provides `FILTER_DWN2PSUB` (`LVS FILTER D(dwn2psub) OPEN`) for exactly this. USER APPROVED using it, with the written reason in handoff 18.34.
 - Third run: **`LVS completed. CORRECT.`**
 
+### 3.7 Timing closure pass, step 6e (about 16:50 to 17:10)
+- First attempt stopped at once: `Unknown attribute 'is_buffer'` (that attribute exists on library cells only). Execution fixed the cell counting and wrapped every unproven attribute so a missing one degrades a metric to UNKNOWN instead of killing the pass (commit `bae68fa`).
+- Second attempt, `timing_closure.tcl`: settings printed as 1.5 / 0.5 / 0.0 / 0.0 (identical to `route.tcl`). The 15 `antbuf_*` buffers and the clock root were protected (`dont_touch=true`, `physical_status=fixed`). Three `route_opt` passes; each improved a WNS, the loop stopped at the maximum of 3.
+- Result: **setup WNS -0.0975 -> +0.0143 ns (closed); hold WNS -0.0441 -> -0.0004 ns (0.4 ps short).** Verdict `IMPROVED`. Checks: legality 0, protected cells identical to the snapshot, `antbuf_*` count 15 before and after, clock root still `inv0d4` and the only load of `clk`, fillers 21,642 -> 21,498 (0.67 percent).
+- Limits of the report: the cell statistics count only the top-level hierarchical cells (198 cells, area UNKNOWN), so "ADDED: 2 cells" is not the number of hold buffers; and the per-group report printed `Nothing matched for path_group_list` (the group names differ). Neither affects the result.
+- DRC 0 and open nets 0 confirmed in the log (ICC2 antenna estimate 70, was 78).
+- `metal_fill` + `pv` on that layout (final numbers, after fill): NO setup violations; hold: one reg-to-reg violation of about -0.0004 ns. The LEF now holds the `unpu_top` macro (204 signal + 2 power pins, 885.6 x 885.6 um), but the new check wrongly rejected the file: the "second macro" `expanded_util` is a property-definition line in the LEF header (`  MACRO expanded_util REAL ;`), not a cell. Check fixed (counts only column-0 `MACRO <name>` lines outside the property block), 48 tests. The `UIC-057` message is gone (it only appears in the script's comments).
+- A second 6e run (3 more `route_opt` passes) made things slightly worse: setup +0.0143 -> +0.0081, hold -0.00043 -> -0.00258 ns. The optimiser reached hold -0.0007 after its third pass, then the filler re-insertion and the two `route_eco` steps gave a little back. Verdict `UNCHANGED` (the script's worse-tolerance is 5 ps). DECISION: restore the first 6e result from the backup `bak_post_closure1` (the worse one is kept as `unpu_top.dlib.closure3_worse`), stop iterating, and let PrimeTime sign-off judge the 0.4 ps residual.
+- Still to do on that layout: `metal_fill`, `pv` (with the fixed LEF check), and all three Calibre checks (DRC, antenna, `v2lvs` + LVS; antenna must be 0 and LVS CORRECT).
+
 ## 4. Tasks written today (Planning -> Execution)
 | Task | What | State |
 |---|---|---|
