@@ -261,14 +261,56 @@ cd $cdir; file copy -force good.log parasitics_command.log
 set rc [catch {exec tclsh $here/check_annotation.tcl 2>@1} out]; cd $cwd
 check "check_annotation: the default file is parasitics_command.log of the current directory" {$rc == 0 && [string match "*ANNOTATION CHECK PASSED*" $out]}
 file delete -force $cdir
-set ct "Warning: There are 3 endpoints which are not constrained for maximum delay.\n  pready\n  u_x/reg_a/D\n  u_y/reg_b/D\n\nInformation: next section\n"
-lassign [pt_parse_unconstrained $ct] head names
-check "check_timing: heading and names" {$head == 1 && $names eq "pready u_x/reg_a/D u_y/reg_b/D"}
 check "check_timing: only the known constant is accepted" {[pt_unexpected_endpoints {pready} {pready}] eq ""}
-check "check_timing: other endpoints are unexpected" {[pt_unexpected_endpoints $names {pready}] eq "u_x/reg_a/D u_y/reg_b/D"}
+check "check_timing: other endpoints are unexpected" {[pt_unexpected_endpoints {u_x/reg_a/D u_y/reg_b/D} {pready}] eq "u_x/reg_a/D u_y/reg_b/D"}
 check "check_timing: known constant with a path prefix" {[pt_unexpected_endpoints {top/pready} {pready}] eq ""}
-lassign [pt_parse_unconstrained "Information: Checking 'no_clock'.\nInformation: Checking 'unconstrained_endpoints'.\n"] head names
-check "check_timing: no problem text -> no names" {$names eq ""}
+
+# the real check_timing text of the third server run (abbreviated): the 'Checking' lines are headings, the only finding is the clk port without a driving cell
+set real "Information: Checking 'no_input_delay'.\nInformation: Checking 'no_driving_cell'.\nWarning: There is 1 port with parasitics but with no driving cell.\n\nPorts\n------\nclk\n\nInformation: Checking 'unconstrained_endpoints'.\nInformation: Checking 'unexpandable_clocks'.\n\nFailed clocks set  Related clocks  Original Period\n---------------------------------------------\n\nInformation: Checking 'latch_fanout'.\nInformation: Checking 'no_clock'.\nInformation: Checking 'voltage_level'.\nCheck cell voltage level related issues including rail voltages\nCell Name   min/max issues found\n---------------------------------\n"
+set pc [pt_parse_check_timing $real]
+check "check_timing real: the checks run are read as headings" {[lrange [dict get $pc checks] 0 2] eq "no_input_delay no_driving_cell unconstrained_endpoints" && [llength [dict get $pc checks]] == 7}
+check "check_timing real: exactly one finding, the clk port" {[llength [dict get $pc findings]] == 1 && [dict get [lindex [dict get $pc findings] 0] names] eq "clk" && [dict get [lindex [dict get $pc findings] 0] count] == 1}
+set dc [pt_check_timing_decide $pc {pready} {clk}]
+check "check_timing real: ACCEPTED (no error, no warning)" {[llength [dict get $dc errors]] == 0 && [llength [dict get $dc warnings]] == 0}
+check "check_timing real: the clk port is printed as information" {[llength [dict get $dc infos]] == 1 && [string match "*clock source*clk*" [lindex [dict get $dc infos] 0]]}
+set dc2 [pt_check_timing_decide $pc {pready} {other_clk}]
+check "check_timing: a driverless port that is NOT the clock source is a warning" {[llength [dict get $dc2 warnings]] == 1 && [llength [dict get $dc2 errors]] == 0}
+set pc3 [pt_parse_check_timing "Warning: There are 2 ports with parasitics but with no driving cell.\nPorts\n-----\nclk\npaddr\\\[3\\\]\n"]
+set dc3 [pt_check_timing_decide $pc3 {pready} {clk}]
+check "check_timing: clk plus another port -> warning naming the other port" {[llength [dict get $dc3 warnings]] == 1 && [string match "*paddr*3*" [lindex [dict get $dc3 warnings] 0]]}
+check "check_timing: the old false positive (heading line only) is gone" {[llength [dict get [pt_check_timing_decide [pt_parse_check_timing "Information: Checking 'unconstrained_endpoints'.\nInformation: Checking 'unexpandable_clocks'.\n"] {pready} {clk}] errors]] == 0}
+# a real unconstrained list
+set ct2 "Information: Checking 'unconstrained_endpoints'.\nWarning: There are 2 unconstrained endpoints.\n\nEndpoints\n---------\nu_x/reg_a/D\nu_y/reg_b/D\n\nInformation: Checking 'no_clock'.\n"
+set d4 [pt_check_timing_decide [pt_parse_check_timing $ct2] {pready} {clk}]
+check "check_timing: 2 unconstrained endpoints -> ERROR naming both" {[llength [dict get $d4 errors]] == 1 && [string match "*u_x/reg_a/D*u_y/reg_b/D*" [lindex [dict get $d4 errors] 0]]}
+set ct3 "Warning: There is 1 unconstrained endpoint.\nEndpoints\n---------\npready\n"
+set d5 [pt_check_timing_decide [pt_parse_check_timing $ct3] {pready} {clk}]
+check "check_timing: only the known constant pready -> accepted as information" {[llength [dict get $d5 errors]] == 0 && [llength [dict get $d5 infos]] == 1}
+set ct4 "Warning: There are 3 endpoints which are not constrained for maximum delay.\n  pready\n  u_x/reg_a/D\n  u_y/reg_b/D\n"
+set d6 [pt_check_timing_decide [pt_parse_check_timing $ct4] {pready} {clk}]
+check "check_timing: 'not constrained for maximum delay' wording, unknown endpoints -> ERROR" {[llength [dict get $d6 errors]] == 1}
+set ct5 "Warning: There are 3 unconstrained endpoints.\nEndpoints\n---------\npready\n"
+set d7 [pt_check_timing_decide [pt_parse_check_timing $ct5] {pready} {clk}]
+check "check_timing: names fewer than the count -> ERROR (cannot read all names)" {[llength [dict get $d7 errors]] == 1 && [string match "*read 1 names for a count of '3'*" [lindex [dict get $d7 errors] 0]]}
+set d8 [pt_check_timing_decide [pt_parse_check_timing "Warning: There is 1 unconstrained endpoint.\n"] {pready} {clk}]
+check "check_timing: heading without any name -> ERROR" {[llength [dict get $d8 errors]] == 1}
+set d9 [pt_check_timing_decide [pt_parse_check_timing "Warning: There are 4 generated clocks with no master.\nClocks\n------\ngclk\n"] {pready} {clk}]
+check "check_timing: any other warning is printed, not dropped" {[llength [dict get $d9 warnings]] == 1 && [string match "*generated clocks*gclk*" [lindex [dict get $d9 warnings] 0]]}
+
+# clock propagation proof from a report text
+set rp "  clock clk (rise edge)                   0.0000    0.0000\n  clock network delay (propagated)        0.5900    0.5900\n  u_a/reg/CP (dfnrq1)                              0.5900 r\n  clock clk (rise edge)                  20.0000   20.0000\n  clock network delay (propagated)        0.5800   20.5800\n"
+set cp [pt_clock_propagation $rp]
+check "propagation: propagated tags are accepted" {[dict get $cp status] eq "propagated" && [dict get $cp propagated] == 2 && [dict get $cp ideal] == 0}
+check "propagation: latency values are read" {[dict get $cp delays] eq "{propagated 0.5900} {propagated 0.5800}"}
+set ri "  clock clk (rise edge)                   0.0000    0.0000\n  clock network delay (ideal)             0.0000    0.0000\n  u_a/reg/CP (dfnrq1)                              0.0000 r\n"
+check "propagation: ideal is rejected" {[dict get [pt_clock_propagation $ri] status] eq "ideal"}
+check "propagation: one ideal end among propagated ones is rejected" {[dict get [pt_clock_propagation "$rp\n  clock network delay (ideal)  0.0000 0.0000\n"] status] eq "ideal"}
+check "propagation: no tag at all is rejected (cannot be proved)" {[dict get [pt_clock_propagation "  Startpoint: a\n  Endpoint: b\n  slack (MET) 1.0\n"] status] eq "none"}
+check "propagation: empty text is rejected" {[dict get [pt_clock_propagation ""] status] eq "none"}
+# the SDC messages of this run
+set sm [pt_sdc_known_messages "Warning: Converting a propagated clock 'clk' to an ideal clock. (UITE-305)\nWarning: Setting input delay on clock port (clk) relative to a clock (clk) defined at the same port. Command is ignored. (UITE-489)\n"]
+check "sdc messages: UITE-305 and UITE-489 are recognised" {[llength $sm] == 2 && [string match "*UITE-305*IDEAL*" [lindex $sm 0]] && [string match "*UITE-489*harmless*" [lindex $sm 1]]}
+check "sdc messages: none -> nothing printed" {[llength [pt_sdc_known_messages "Information: ok\n"]] == 0}
 set vt "  Endpoint              Required    Actual    Slack\n  ----------------------------------------------\n  u_a/reg/D (dfnrq1)     10.0000     10.0004   -0.0004 (VIOLATED)\n  u_b/reg/D (dfnrq1)     10.0000     10.0100   -0.0100 (VIOLATED)\n  u_c/reg/D (dfnrq1)     10.0000      9.0000    1.0000 (MET)\n"
 set pv [pt_parse_violators $vt]
 check "violators: count, worst, total" {[dict get $pv count] == 2 && [dict get $pv wns] == -0.01 && abs([dict get $pv tns] + 0.0104) < 1e-9}

@@ -2,7 +2,7 @@
 
 PrimeTime is the authority. ICC2 says: setup WNS +0.0143 ns (`func_ss`), hold WNS about -0.0004 ns (`func_ff`, one reg-to-reg path). These scripts read what ICC2 wrote and say whether PrimeTime confirms it. Nothing has been run: the user runs it on the server. csh only, one command per line, no sentence-ending period after a command.
 
-Nothing in PrimeTime changes a constraint: no uncertainty, limit, exception, case analysis. The only action that is not a pure read is `set_propagated_clock [all_clocks]` when the SDC did not already propagate the clocks (the script prints which case it was).
+Nothing in PrimeTime changes a constraint: no uncertainty, limit, exception, case analysis. The only action that is not a pure read is `set_propagated_clock [all_clocks]`, applied ALWAYS after `read_sdc` (the SDC text is not trusted: UITE-305 resets the clock to ideal) and then proved from a timing report.
 
 ## Files
 
@@ -84,10 +84,11 @@ Lines that start with `>>> 074`, in this order:
 2. The banner (corner, library, netlist, SPEF, SDC, SI on/off).
 3. `linked unpu_top: N leaf cells ... library cells missing 0`; any `PT ERROR` about unresolved references.
 4. `ANNOTATION:` lines. In this PrimeTime `read_parasitics` and `report_annotated_parasitics` write their text to the file `parasitics_command.log` of the CURRENT directory (message `PARA-107`), appended by both commands; the script reads only the part each command added and prints it (`read_parasitics text from parasitics_command.log`). The table (`Net Type | Total | Lumped | RC pi | RC network | Not Annotated`) is parsed: it is an ERROR if `read_parasitics` printed `N error(s)` with N > 0, if the table cannot be found, if the rows do not add up to the total row, or if a `Pin to pin nets` row (internal or boundary) has not-annotated nets above `PT_MAX_UNANNOTATED_PCT` (0 = any). Unannotated driverless and loadless nets are INFORMATION (printed per row with the first 10 names): they have no driver or no load, so they carry no timing arc.
-5. `SDC text values` and `DESIGN values`, then `clock clk: period 20.0 ns, setup uncertainty 1.5 ns, hold uncertainty 0.5 ns (expected 20.0 / 1.5 / 0.5 ...)`. A different value stops the script. `clocks are propagated: the SDC already carries ...` or the line saying that `set_propagated_clock` was applied.
+5. `SDC text values` and `DESIGN values`, then `clock clk: period 20.0 ns, setup uncertainty 1.5 ns, hold uncertainty 0.5 ns (expected 20.0 / 1.5 / 0.5 ...)`. A different value stops the script. The messages `UITE-305` / `UITE-489` of `read_sdc` as information, then `APPLIED: set_propagated_clock [all_clocks]`.
 6. `operating conditions read from report_design`: must be the library of the corner.
 7. `limit read:` lines: every `set_max_transition` / `set_max_capacitance` that PrimeTime read, and `a CLOCK-PATH limit of 0.4 ... is part of the constraints that are signed off` if the 0.40 ns clock-path limit of the example `cts.tcl` is in the SDC. The design-wide values must be 3.0 ns and 2.0 pF.
-8. `check_timing: ... not in the known list`: only `pready` may be unconstrained.
+8. `check_timing: checks run: ...; findings (Warning/Error blocks): N`. The `Information: Checking 'x'.` lines are only the names of the checks and are NOT findings. Only a `Warning:`/`Error:` block is a finding: unconstrained endpoints are an ERROR unless all are in the known list (`pready`; the names are read and their number must equal the count in the message); a port without driving cell is information when it is the clock source (`clk`) and a WARNING otherwise; any other warning is printed as `WARNING check_timing:`.
+8b. `PROVED: the clock is propagated`: the worst path (`report_timing -path_type full_clock_expanded`, and the default `full` form; `-delay_type max` in the setup script, `min` in the hold one) must carry `(propagated)` tags and no `(ideal)` tag. The lines `clock tag:` and `clock network delay values` show the latency. Only `ideal` or no tag at all stops the script (`PT ERROR: the clock is not proved propagated`).
 9. `CTS values to compare with` and the clock reports `pt_<kind>_<corner>_clock.rpt` (min and max latency and global skew; ICC2 after CTS: about 0.59 ns latency, 0.31 ns skew).
 10. The SUMMARY block at the end:
 
@@ -132,9 +133,9 @@ Hold violators have their own files: copy `pt_hold_ff_violated_*.rpt` too (`scp 
 | V4 | The wording of `unpu_top_spef.spef_scenario` is what `pt_spef_decide` expects (or the stop prints it) | `content of ...spef_scenario`, the decision line |
 | V5 | `read_parasitics -format spef` (and `-keep_capacitive_coupling` with SI) are accepted | the lines after `reading parasitics` |
 | V6 | `report_annotated_parasitics -check -internal_nets -boundary_nets` and the text in `parasitics_command.log` (PARA-107); the table wording the parser reads | the `ANNOTATION:` lines; `parasitics_command.log` in `pnr_icc2/pt/` (a failure to find the table stops the script unless `PT_ALLOW_UNREADABLE_ANNOTATION` is 1) |
-| V7 | The clock attributes `period`, `setup_uncertainty`, `hold_uncertainty`, `is_propagated` exist | `DESIGN values` line (a missing one is noted and the SDC text value is used) |
+| V7 | The clock attributes `period`, `setup_uncertainty`, `hold_uncertainty` exist (`is_propagated` is no longer read) | `DESIGN values` line (a missing one is noted and the SDC text value is used) |
 | V8 | `report_design` prints `Operating Conditions: ... Library: ...` | `operating conditions read from report_design` |
-| V9 | `check_timing -verbose` wording for unconstrained endpoints | `check_timing:` line (heading found, names) |
+| V9 | The wording of the `Warning:` block for unconstrained endpoints (`There are N unconstrained endpoints` followed by a list; the real text of the no-driving-cell warning is tested) | `check_timing:` lines (a count that differs from the names read stops the script) |
 | V10 | `report_clock -skew`, `report_clock_timing -type latency|skew` | `pt_<kind>_<corner>_clock.rpt` (empty section = not available) |
 | V11 | `report_global_timing` exists in this release | `_global_timing.rpt` |
 | V12 | `report_constraint -all_violators -max_delay|-min_delay` and the `(VIOLATED)` wording the cross-check reads | `report_constraint text: N lines marked VIOLATED` against the endpoint count |
@@ -145,3 +146,12 @@ Hold violators have their own files: copy `pt_hold_ff_violated_*.rpt` too (`scp 
 | V17 | `get_cells -hierarchical -filter "is_hierarchical == false"` and `get_lib_cells -filter "is_black_box == true"` | the `linked` line |
 | V18 | The per-endpoint `report_timing -from <startpoint> -to <endpoint>` finds the objects by name | the `pt_hold_ff_violated_*.rpt` files |
 | V19 | `parasitics_log_file`: `printvar` shows its value; `set_app_var parasitics_log_file ""` makes `read_parasitics` / `report_annotated_parasitics` print into the session | the lines `parasitics_log_file before:` / `after:` and `annotation table read from the session text` |
+| V20 | `report_timing -path_type full_clock_expanded` (and `full`) prints `clock network delay (propagated)` for a propagated clock | the `clock tag:` lines after `clock path of the worst ... path` (if only `full_clock_expanded` omits the tag, the `full` report supplies it) |
+| V21 | `get_attribute [get_clocks clk] sources` gives the clock source port (used to recognise the `clk` port in the no-driving-cell warning) | the line `NOTE: the clock source port could not be read ...` (then the clock name `clk` is used) |
+
+## Known messages (harmless unless stated)
+
+- At the start: optional-licence errors for `Synopsys-Release`, `PrimeTime-New-Technology`, `PT-063` (Library Compiler path) and `PrimeTime-C-Interface`: features that are not used; harmless.
+- `UITE-305` `Converting a propagated clock 'clk' to an ideal clock`: the order of the SDC makes a later `create_clock` reset the clock; this is why the script applies `set_propagated_clock [all_clocks]` itself after `read_sdc` and proves it (step 8b).
+- `UITE-489` `Setting input delay on clock port (clk) relative to a clock (clk) defined at the same port. Command is ignored`: harmless, the input delay on the clock port itself has no meaning.
+- `Warning: There is 1 port with parasitics but with no driving cell. Ports clk`: the clock source port, expected; printed as information.

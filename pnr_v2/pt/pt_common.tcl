@@ -357,23 +357,101 @@ proc pt_annotation_policy {parsed errors max_pct allow_unreadable} {
     return [list $ok $out]
 }
 
-# 074: endpoints named in a check_timing text under an "unconstrained endpoints" heading (VERIFY the wording): the names are the tokens of the lines after a line that
-# 074: mentions "unconstrained"/"not constrained" and "endpoint", up to the next blank line. Returns {found_heading names}.
-proc pt_parse_unconstrained {text} {
-    set head 0
-    set names {}
-    set in 0
+# 074 (fix 2): parse a check_timing -verbose text. "Information: Checking 'x'." lines are only the NAME of the check being run (they are NOT findings, third server run).
+# A finding is a block that starts with a "Warning:" or "Error:" line; the lines after it, up to the next Warning:/Error:/Information: line, hold its list (header words such
+# as Endpoints/Ports and dashed lines are skipped, the first token of every other line is a name). Returns a dict: checks (names of the checks that were run),
+# findings (list of dicts: level, msg, count (N of "There is/are N ..." or ""), names).
+proc pt_parse_check_timing {text} {
+    set checks {}
+    set findings {}
+    set cur ""
+    set lines {}
+    set flush {
+        if {$cur ne ""} { lappend findings $cur }
+        set cur ""
+    }
     foreach l [split $text "\n"] {
-        if {[regexp -nocase {(unconstrained|not\s+constrained).*endpoint|endpoint.*(unconstrained|not\s+constrained)} $l]} { set head 1; set in 1; continue }
-        if {$in} {
-            if {[string trim $l] eq ""} { set in 0; continue }
-            foreach tok [regexp -all -inline {\S+} $l] {
-                if {[regexp {^(Warning|Information|Error|-+|=+)} $tok]} { set in 0; break }
-                if {[regexp {^[A-Za-z_][A-Za-z0-9_./\[\]$-]*$} $tok]} { lappend names $tok }
+        if {[regexp {^\s*(Warning|Error|Information):\s*(.*)$} $l -> level msg]} {
+            eval $flush
+            if {$level eq "Information"} {
+                if {[regexp {^Checking '([^']*)'} $msg -> cn]} { lappend checks $cn }
+                continue
             }
+            set cnt ""
+            regexp {There (?:is|are) ([0-9]+)} $msg -> cnt
+            set cur [dict create level $level msg [string trim $msg] count $cnt names {}]
+            continue
+        }
+        if {$cur eq ""} continue
+        set t [string trim $l]
+        if {$t eq "" || [regexp {^[-=_ ]+$} $t]} continue
+        set tok [lindex [regexp -all -inline {\S+} $t] 0]
+        if {[regexp -nocase {^(endpoints?|ports?|pins?|name|names)$} $tok]} continue
+        dict lappend cur names $tok
+    }
+    eval $flush
+    return [dict create checks $checks findings $findings]
+}
+
+# 074 (fix 2): decide what the findings of check_timing mean. clock_ports: the source port(s) of the clock; known: glob patterns of the endpoints that may be unconstrained.
+# Returns a dict: errors (stop), warnings (printed with WARNING), infos (printed as information).
+proc pt_check_timing_decide {parsed known clock_ports} {
+    set errors {}
+    set warnings {}
+    set infos {}
+    foreach f [dict get $parsed findings] {
+        set msg [dict get $f msg]
+        set names [dict get $f names]
+        set cnt [dict get $f count]
+        if {[regexp -nocase {unconstrained\s+endpoint|endpoints?\s+(?:which\s+)?(?:is|are)\s+not\s+constrained|not\s+constrained\s+for} $msg]} {
+            if {[llength $names] == 0 || ($cnt ne "" && [llength $names] != $cnt)} {
+                lappend errors "check_timing reports unconstrained endpoints ('$msg') but read [llength $names] names for a count of '$cnt' (VERIFY the wording); read the text above"
+                continue
+            }
+            set bad [pt_unexpected_endpoints $names $known]
+            if {[llength $bad] > 0} { lappend errors "unconstrained endpoints other than the known constants ($known): $bad" } else { lappend infos "unconstrained endpoints, all in the known list ($known): $names" }
+        } elseif {[regexp -nocase {no\s+driving\s+cell} $msg]} {
+            set other {}
+            foreach n $names { if {[lsearch -exact $clock_ports $n] < 0} { lappend other $n } }
+            if {[llength $names] > 0 && [llength $other] == 0} {
+                lappend infos "port(s) with no driving cell: $names; these are the clock source port(s) ($clock_ports), expected (the clock input has no driving cell in the SDC)"
+            } else {
+                lappend warnings "port(s) with no driving cell that are not the clock source ($clock_ports): [expr {[llength $other] ? $other : {names could not be read}}]  ('$msg')"
+            }
+        } else {
+            lappend warnings "check_timing [dict get $f level]: '$msg'[expr {[llength $names] ? " names: $names" : {}}]"
         }
     }
-    return [list $head [lsort -unique $names]]
+    return [dict create errors $errors warnings $warnings infos $infos]
+}
+
+# 074 (fix 2): is the clock of a timing report propagated? Reads the "(propagated)" / "(ideal)" tags of the clock path (the "clock network delay (propagated)" lines).
+# status: propagated (at least one propagated tag and NO ideal tag), ideal (any ideal tag), none (no tag at all: cannot be proved). lines: the tagged lines.
+proc pt_clock_propagation {text} {
+    set np 0
+    set ni 0
+    set lines {}
+    set delays {}
+    foreach l [split $text "\n"] {
+        if {[regexp {\((propagated|ideal)\)} $l -> tag]} {
+            if {$tag eq "propagated"} { incr np } else { incr ni }
+            lappend lines [string trim $l]
+            if {[regexp {clock network delay \((?:propagated|ideal)\)\s+(-?[0-9.]+)} $l -> v]} { lappend delays [list $tag $v] }
+        }
+    }
+    set status [expr {$ni > 0 ? "ideal" : ($np > 0 ? "propagated" : "none")}]
+    return [dict create status $status propagated $np ideal $ni lines $lines delays $delays]
+}
+
+# 074 (fix 2): the known messages of read_sdc: UITE-305 (a propagated clock converted to ideal by a later create_clock) and UITE-489 (input delay on the clock port itself ignored).
+# Returns a list of information lines (counts of each); other warnings are not touched here.
+proc pt_sdc_known_messages {text} {
+    set out {}
+    set n305 [llength [regexp -all -inline {UITE-305} $text]]
+    set n489 [llength [regexp -all -inline {UITE-489} $text]]
+    if {$n305} { lappend out "read_sdc printed UITE-305 $n305 time(s): the SDC order resets the clock to IDEAL after its set_propagated_clock, so this script applies set_propagated_clock itself and proves it" }
+    if {$n489} { lappend out "read_sdc printed UITE-489 $n489 time(s): an input delay on the clock port itself is ignored by PrimeTime; harmless" }
+    return $out
 }
 
 # 074: the names that are not covered by the known list (glob patterns, also matched against the last path component)
@@ -642,9 +720,9 @@ proc pt_read_sdc_and_check {kind corner} {
     redirect -variable pt_sdc_txt { read_sdc $sdc }
     puts $pt_sdc_txt
     if {[regexp {(^|\n)Error:} $pt_sdc_txt]} { error "PT ERROR: errors while reading $sdc (text above)" }
-    puts ">>> 074 SDC text values: period [dict get $v period], setup uncertainty [dict get $v setup_unc], hold uncertainty [dict get $v hold_unc], set_propagated_clock in the SDC: [dict get $v propagated]"
+    puts ">>> 074 SDC text values: period [dict get $v period], setup uncertainty [dict get $v setup_unc], hold uncertainty [dict get $v hold_unc]"
     puts ">>> 074 SDC set_operating_conditions lines: [expr {[llength [dict get $v opcond]] ? [dict get $v opcond] : {none}}]"
-    # read back from the design (VERIFY the attribute names period / setup_uncertainty / hold_uncertainty / is_propagated of a clock)
+    # read back from the design (VERIFY the attribute names period / setup_uncertainty / hold_uncertainty of a clock)
     set clk [get_clocks -quiet $PT_CLOCK]
     if {[sizeof_collection $clk] != 1} { error "PT ERROR: clock $PT_CLOCK not found in the design after read_sdc" }
     set dp ""
@@ -667,15 +745,12 @@ proc pt_read_sdc_and_check {kind corner} {
     set other [expr {$kind eq "setup" ? [pt_compare_value "hold uncertainty" $hu $PT_EXPECT_HOLD_UNC] : [pt_compare_value "setup uncertainty" $su $PT_EXPECT_SETUP_UNC]}]
     if {$other ne ""} { puts ">>> 074 NOTE (not an error for this script): $other" }
     if {[llength $problems]} { error "PT ERROR: the constraints read from $sdc differ from the legacy constraints: [join $problems {; }]" }
-    # propagated clock
-    set isprop ""
-    catch {set isprop [get_attribute $clk is_propagated]}   ;# VERIFY the clock attribute is_propagated
-    if {[dict get $v propagated] || $isprop eq "true" || $isprop == 1} {
-        puts ">>> 074 clocks are propagated: the SDC already carries set_propagated_clock (design attribute is_propagated '$isprop')"
-    } else {
-        set_propagated_clock [all_clocks]
-        puts ">>> 074 clocks were NOT propagated in the SDC: set_propagated_clock [all_clocks] applied for the analysis (the CTS tree is real). This is the only change PrimeTime makes to what ICC2 wrote."
-    }
+    # propagated clock (third server run: UITE-305 converts the propagated clock to ideal, so the text of the SDC is NOT trusted and no attribute is read):
+    # the clocks are ALWAYS made propagated here, and pt_checks_and_clock proves it from a timing report.
+    foreach l [pt_sdc_known_messages $pt_sdc_txt] { puts ">>> 074 $l" }
+    puts ">>> 074 (the SDC text contains set_propagated_clock: [dict get $v propagated]; this is not used as evidence)"
+    set_propagated_clock [all_clocks]
+    puts ">>> 074 APPLIED: set_propagated_clock \[all_clocks\] -- the CTS tree is real. This is the only change PrimeTime makes to what ICC2 wrote."
     return $v
 }
 
@@ -708,11 +783,30 @@ proc pt_checks_and_clock {kind corner} {
     update_timing -full
     redirect -variable pt_ct_txt { check_timing -verbose }   ;# VERIFY check_timing -verbose
     puts $pt_ct_txt
-    lassign [pt_parse_unconstrained $pt_ct_txt] head names
-    set bad [pt_unexpected_endpoints $names $PT_KNOWN_UNCONSTRAINED]
-    puts ">>> 074 check_timing: unconstrained-endpoint heading found: $head; endpoints named: $names; not in the known list ($PT_KNOWN_UNCONSTRAINED): $bad"
-    if {$head && [llength $bad] > 0} { error "PT ERROR: unconstrained endpoints other than the known constants: $bad" }
-    if {$head && [llength $names] == 0} { error "PT ERROR: check_timing reports unconstrained endpoints but their names could not be read (VERIFY the wording); read the text above" }
+    # the clock source port(s): from the clock, else the clock name (VERIFY the attribute sources)
+    set cports {}
+    catch {foreach_in_collection s [get_attribute [get_clocks $PT_CLOCK] sources] { lappend cports [get_object_name $s] }}
+    if {[llength $cports] == 0} { set cports [list $PT_CLOCK]; puts ">>> 074 NOTE: the clock source port could not be read from the clock; the clock name $PT_CLOCK is used as the port name" }
+    set parsed [pt_parse_check_timing $pt_ct_txt]
+    puts ">>> 074 check_timing: checks run: [dict get $parsed checks]; findings (Warning/Error blocks): [llength [dict get $parsed findings]]"
+    set dec [pt_check_timing_decide $parsed $PT_KNOWN_UNCONSTRAINED $cports]
+    foreach m [dict get $dec infos] { puts ">>> 074 check_timing information: $m" }
+    foreach m [dict get $dec warnings] { puts ">>> 074 WARNING check_timing: $m" }
+    foreach m [dict get $dec errors] { puts ">>> 074 ERROR check_timing: $m" }
+    if {[llength [dict get $dec errors]]} { error "PT ERROR: check_timing: [join [dict get $dec errors] { | }]" }
+    # PROOF that the clock is propagated (the setup script reads max paths, the hold script min paths)
+    set dt [expr {$kind eq "hold" ? "min" : "max"}]
+    set prop_txt ""
+    foreach pt {full_clock_expanded full} {
+        if {[catch {redirect -variable pt_prop_one { report_timing -delay_type $dt -path_type $pt -max_paths 1 }} err]} { error "PT ERROR: clock propagation could not be proved: report_timing -delay_type $dt -path_type $pt failed: $err" }
+        append prop_txt "\n$pt_prop_one"
+        if {$pt eq "full_clock_expanded"} { puts ">>> 074 clock path of the worst $dt path (full_clock_expanded), first lines:"; foreach l [lrange [split $pt_prop_one "\n"] 0 29] { puts "      $l" } }
+    }
+    set pr [pt_clock_propagation $prop_txt]
+    foreach l [dict get $pr lines] { puts ">>> 074 clock tag: $l" }
+    puts ">>> 074 clock network delay values ((tag value) per path end): [dict get $pr delays]"
+    if {[dict get $pr status] ne "propagated"} { error "PT ERROR: the clock is not proved propagated: status [dict get $pr status] ([dict get $pr ideal] ideal tag(s), [dict get $pr propagated] propagated tag(s)) in the worst $dt timing path; read the lines above" }
+    puts ">>> 074 PROVED: the clock is propagated ([dict get $pr propagated] '(propagated)' tag(s), 0 '(ideal)' tag(s) in the worst $dt path)"
     redirect -tee -file ${PT_RPT_DIR}/pt_${kind}_${corner}_design.rpt { report_design }
     redirect -tee -file ${PT_RPT_DIR}/pt_${kind}_${corner}_clock.rpt {
         report_clock
