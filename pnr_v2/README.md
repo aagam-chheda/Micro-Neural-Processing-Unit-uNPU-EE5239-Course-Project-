@@ -17,13 +17,53 @@ If the folder differs: `sed -i 's#/storage/EE5239G1/aagams_workspace2/unpu#<real
 | 2 | `floorplanning.tcl` | `icc2_shell` |
 | 3 | `powerplanning.tcl` | `icc2_shell` |
 | 4 | `placement.tcl` | `icc2_shell` |
-| 5 | `cts.tcl` | `icc2_shell` |
+| 4b | `pin_replace.tcl` | `icc2_shell` (task 067: re-places the pins after the cells are placed; reads `_placement`, writes `_pinplace`) |
+| 5 | `cts.tcl` | `icc2_shell` (reads `_pinplace` since task 067) |
 | 6 | `route.tcl` | `icc2_shell` |
 | 6b | `fix_antenna.tcl` | `icc2_shell` (after the first Calibre antenna run; needs `<BASE>/pv/drc/unpu_top_antenna_bkp.db`) |
 | 7 | `metal_fill.tcl` | `icc2_shell` |
 | 8 | `pv.tcl` | `icc2_shell` |
 
-Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_cts` -> `_route` -> `_filled` -> `_pv`.
+Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_pinplace` -> `_cts` -> `_route` -> `_filled` -> `_pv`.
+
+## Why step 4b (task 067)
+
+In the clean-slate run `floorplanning.tcl` places the 204 pins once, before any cell exists (`place_pins -self`); the tool filled each edge from both ends in alternating pairs, so for example `clk` is at offset 7.33 um (bottom of the right edge) and `rst_n` at 869.87 um (top) while the logic they drive sits near the middle.
+After route, Calibre antenna reported 55 results and one round of `fix_antenna.tcl` left 50 and made setup worse; the nets it names are mostly input port nets (`pwdata[*]`, `psel`, `clk`, `rst_n`, `dma_rdata[9]`, `dma_rdata[11]`), which have no diode inside the macro, so the whole pin-to-gate wire counts against a gate area of about 0.19 um^2 (about 144 um of M3 or about 92 um of TOP_M per net).
+Routing cannot shorten a net whose pin is far from its load, but pin position can: placing the pins after the cells are placed is the standard way to put each pin near its load.
+
+`pin_replace.tcl` keeps the pin constraints of the floorplan untouched (same ports, sides, layers, spacing) and only lets the tool choose new positions along the same edges. Then it runs `place_opt` again with the same options as `placement.tcl`, `legalize_placement` and the same checks, and saves `_pinplace`. Pin-release method (plan A `place_pins -self` again, plan B `remove_terminals -force` on the 204 signal terminals only) and every check are in the script header and log.
+
+### Run sequence for step 4b (csh, from the server; one command per line)
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_pinplace
+icc2_shell -f ../pnr_v2/pin_replace.tcl |& tee pin_replace_console.log
+```
+
+Type `exit` at the `icc2_shell` prompt (the scripts do not call it). The steps after it must be run again, because the blocks `_cts`, `_route`, `_filled`, `_pv` of an earlier run were built from `_placement` (`cts.tcl` removes the old `_cts` itself):
+
+```
+icc2_shell -f ../pnr_v2/cts.tcl |& tee cts_console.log
+icc2_shell -f ../pnr_v2/route.tcl |& tee route_console.log
+icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
+icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
+```
+
+If step 4b fails or the result is not wanted: `rm -r blocks/unpu_top.dlib` and `mv blocks/unpu_top.dlib.bak_pre_pinplace blocks/unpu_top.dlib` restores the library as it was before 4b (the script saves nothing when a check fails, but `place_opt` has changed the open block in memory only).
+
+### What to read after step 4b
+
+In `pin_replace_console.log` (also `logs/4b_pin_replace.log`), lines that start with `>>> 067`:
+
+- `signal ports 204, top group 102, right group 102` and `terminals in the block before` / `after` (equal).
+- `plan A ... moved pins N of 204`: N must be above 0. If plan A did not release the pins, `plan B` lines follow. `statuses seen` lists the `physical_status` values of the terminals before the move.
+- `BEFORE clk` / `BEFORE rst_n` offsets: compare with `pins_floorplan.txt` (7.33 and 869.87 um in the first run) to confirm that the offset in the pin list means the same thing; `AFTER clk` / `AFTER rst_n` are the new ones.
+- `CHECK` lines: legality violations 0, pins moved by `place_opt` 0, pins on side 2 / M2 = 102 and side 3 / M3 = 102, smallest centre pitch per edge at least 8 um, `check_pin_placement -self` no problem line. Any failed check stops the script with `ERROR 067` and nothing is saved.
+- `EVIDENCE` lines: for `clk rst_n psel pwdata[0] pwdata[10] pwdata[26] dma_rdata[9] dma_rdata[11]` the nearest and farthest load distance from the pin before and after. The experiment worked if these distances got shorter.
+- Timing in the `report_qor` / `report_global_timing` output of this step: compare setup and hold with the end of `placement.tcl` (the pins moved, the cells were optimised again).
+- `STAGE 4b COMPLETE`. New files: `pnr_icc2/reports/pins_before_replace.txt`, `pins_after_replace.txt` (the pin list for the top-level team, format `block unpu_top pin <name> layer <L> side <S> offset <um>`) and `pins_after_replace_report.txt` (the tool's own `report_pin_placement -self`).
 
 ## Edits
 
@@ -47,9 +87,9 @@ Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_cts` 
 
 - **D1** BASE path `/storage/EE5239G1/aagams_workspace2/unpu` is right (no change to the scripts).
 - **D2** `HOLD_SLACK_GOAL` and `SETUP_SLACK_GOAL` are 0.0 in `cts.tcl` and `route.tcl` (task 065; the example had 0.70 and 0.3/0.30), so the optimiser sees exactly the course constraints (setup 1.5, hold 0.5). Lines marked `065`.
+- **D3** Pin ORDER (bits ascending, handoff 18.9 Q5) is not enforced by the example's commands; only sides, layers and spacing are. The tool's placement was accepted after the floorplan (handoff 18.32, `pins_floorplan.txt`). SUPERSEDED by task 067: the first pin positions (floorplan) are replaced by the ones of step 4b (`pin_replace.tcl`); the top-level team gets the positions written by 4b (`pnr_icc2/reports/pins_after_replace.txt`).
 
 ## Open decisions (the user decides; NOT decided here)
 
-- **D3** Pin ORDER (bits ascending, top edge bit 0 at the left, right edge bit 0 at the bottom, handoff 18.9 Q5) is not enforced by the example's commands; only sides, layers and spacing are. Check `report_pin_placement` after `floorplanning.tcl`.
 - **D4** Power pins: one terminal per net on an interior `TOP_M` stripe (example behaviour), not the bottom-edge pins of handoff 18.21. Revisit after the first layout.
 - **D5** Start utilisation 0.60 instead of the example's 0.85 (E6).
