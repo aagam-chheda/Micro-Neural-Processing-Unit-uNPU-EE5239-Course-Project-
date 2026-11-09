@@ -23,6 +23,7 @@ If the folder differs: `sed -i 's#/storage/EE5239G1/aagams_workspace2/unpu#<real
 | 6b | `fix_antenna.tcl` | `icc2_shell` (after the first Calibre antenna run; needs `<BASE>/pv/drc/unpu_top_antenna_bkp.db`) |
 | 6c | `antenna_port_buffers.tcl` | `icc2_shell` (task 068: after `fix_antenna.tcl`, before `metal_fill.tcl`; a buffer next to the pin of each long INPUT PORT net, an ECO on the netlist; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place; `clk` is never buffered) |
 | 6d | `antenna_clk_root.tcl` | `icc2_shell` (task 071: after `antenna_port_buffers.tcl`, before `metal_fill.tcl`; replaces the CTS root inverter on the `clk` port net by a larger inverter, a size-only ECO on one clock-tree cell; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place) |
+| 6e | `timing_closure.tcl` | `icc2_shell` (task 072: after `antenna_clk_root.tcl`, before `metal_fill.tcl`; `route_opt` again with the same goals and options as `route.tcl`, the 15 `antbuf_*` buffers and the clock root protected, fillers removed during the pass and re-created; can resize cells and add hold buffers, so it changes the netlist; overwrites `_route` in place) |
 | 7 | `metal_fill.tcl` | `icc2_shell` |
 | 8 | `pv.tcl` | `icc2_shell` |
 
@@ -142,6 +143,34 @@ What to read in `antenna_clk_root_console.log` (also `logs/6d_antenna_clk_root.l
 - `CHECK` lines: DRC 0, open nets 0, legality 0, every pin of the root on the same net as before, reference as chosen, `clk` still has the root as its only load. Any failure ends with `ERROR 071` and nothing is saved.
 - `VERDICT OK`, `WORSE` or `UNKNOWN`. `WORSE`: the global skew grew by more than 0.05 ns, the setup or hold WNS got worse by more than 0.02 ns, or a transition or capacitance violation appeared. The script still saves; to undo, restore the backup (`rm -r blocks/unpu_top.dlib` then `mv blocks/unpu_top.dlib.bak_pre_clkroot blocks/unpu_top.dlib`) and tell Planning. `UNKNOWN`: a number could not be read from a report; read the BEFORE and AFTER texts by hand.
 - `STAGE 6d COMPLETE`, then after `metal_fill.tcl`, `pv.tcl` and the new Calibre run the antenna result count should be 0.
+
+### Step 6e: timing closure after the antenna ECOs (task 072)
+
+The exported layout is DRC 0 and antenna 0 in Calibre but setup WNS is -0.10 ns (2 in-to-out paths) and hold has 53 violations (worst -0.04 ns). `route.tcl` ended with setup 0.00 and 15 hold violations; the fillers, the `route_eco` steps and the antenna ECOs moved both. `timing_closure.tcl` gives `route_opt` the SAME settings as `route.tcl` once more (uncertainties 1.5 / 0.5, goals 0.0, the same app options and antenna rules, copied line by line; `pnr_v2/test_timing_closure.tcl` compares them with `route.tcl`). The antenna cells exist only for the antenna rule, so they are protected (`set_dont_touch` on the 15 `antbuf_*` buffers, the clock root and their nets, fixed placement), the fillers are removed during the pass (they occupy every free site) and re-created as `route.tcl` does, and a snapshot of every protected cell (reference, origin, orientation, pin connections) is compared afterwards. Up to 3 `route_opt` passes; the loop stops when both WNS are >= 0, when a pass improves neither WNS by more than 0.001 ns, or at the maximum.
+
+One command per line (csh, from the server):
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_closure
+icc2_shell -f ../pnr_v2/timing_closure.tcl |& tee timing_closure_console.log
+icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
+icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
+```
+
+Then the two Calibre runs in a NEW run folder (the commands of the 6d block above with `run4`: `mkdir -p pnr_icc2/calibre/run4/drc pnr_icc2/calibre/run4/ant`, the two `cp` of the control files, `cd` into each folder, `calibre -drc -hier drc.ctrl |& tee drc.log` and `calibre -drc -hier ant.ctrl |& tee ant.log`). Type `exit` at each `icc2_shell` prompt.
+
+What to read in `timing_closure_console.log` (also `logs/6e_timing_closure.log`), lines that start with `>>> 072`:
+
+- `SETTINGS used`: 1.5 / 0.5 / 0.0 / 0.0, as `route.tcl`.
+- `BEFORE` and `AFTER` blocks: `CELLS` (cells, area, buffers, inverters, fillers), `SETUP` / `HOLD` lines with WNS, TNS and the number of violating endpoints, the same per path group, the worst `in2out` setup path and the worst `reg2out` hold path in full (which cells are on them), `report_clock_qor`, `check_routes`.
+- `PROTECTED` and `PROTECTION` lines: the cells that were protected, with `dont_touch=true` expected.
+- `PASS DECISION` lines: why the loop went on or stopped. `PROTECTED CELL CHANGED` means a pass changed an antenna cell: the script then fails and saves nothing.
+- `CHECK` lines: DRC 0, open nets 0, legality 0, protected cells identical to the snapshot, `antbuf_*` count unchanged, `clk` root unchanged, fillers (count within 1 percent, or explained by the site balance). Any failure ends with `ERROR 072` and nothing is saved.
+- `ADDED by the pass`: cells, area, buffers, inverters added (hold buffers, resizing). The netlist changed by this much; tell the PM.
+- `timing after route_opt and legalisation, before the fillers / route_eco steps` against `AFTER`: the difference is what the filler and `route_eco` steps of `route.tcl` cost.
+- `VERDICT`: `CLOSED` (both WNS >= 0), `IMPROVED`, `UNCHANGED`, `WORSE` (a WNS dropped by more than 0.005 ns) or `UNKNOWN` (a number could not be read, never printed as CLOSED). The script saves in all four cases (only a failed check stops it). If `WORSE`: restore the backup (`rm -r blocks/unpu_top.dlib`, then `mv blocks/unpu_top.dlib.bak_pre_closure blocks/unpu_top.dlib`) and tell Planning.
+- After `metal_fill.tcl`, `pv.tcl` and the new Calibre runs: DRC and antenna must both be 0 again. If antenna is not 0, compare the `PROTECTED` lines and the `CHECK protected cells` line to see which antenna cell changed.
 
 ## Edits
 
