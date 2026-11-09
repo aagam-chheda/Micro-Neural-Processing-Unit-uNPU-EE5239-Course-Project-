@@ -95,6 +95,12 @@ set PT_ECO_MAX_BUFFERS 20
 # licence feature names that are TRIED (not assumed): the probe prints PrimeTime's own answer for each, and the ECO command itself is the final test
 set PT_ECO_LICENSE_TRIES {PrimeTime-ECO}
 # output files of the probe (in $PT_RPT_DIR)
+# 078 fix: 0 = the ECO is LOGICAL only (no physical data; tried first). 1 = also hand the physical data to set_eco_options (the kit standard-cell LEF, an optional technology LEF, the DEF
+# written by pv.tcl) and use -physical_mode occupied_site; use only after the logical form was answered with PTECO-099/017 (VERIFY the option names, README V28).
+set PT_ECO_PHYSICAL 0
+set PT_ECO_STD_LEF  "${PT_KIT}/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef"    ;# the same file as CELL_LEF in build_ndm_std.tcl
+set PT_ECO_TECH_LEF ""                                                        ;# EMPTY = not passed (a separate technology LEF is not known here)
+set PT_ECO_DEF      "${PT_OUT_DIR}/${PT_DESIGN}.def"                          ;# written by pv.tcl
 set PT_ECO_FILE_ICCTCL "pt_eco_hold_changes.tcl"
 set PT_ECO_FILE_ICC2TCL "pt_eco_hold_changes_icc2.tcl"
 set PT_ECO_FILE_TEXT "pt_eco_hold_changes.txt"
@@ -805,9 +811,64 @@ proc pt_eco_count_changes {text known_refs} {
 proc pt_eco_is_option_error {msg} {
     return [regexp -nocase {(unknown|unrecognized|invalid|illegal|not\s+(a\s+)?valid)\s+(option|argument)|CMD-01[0-9]|option\s+.*\s+(is\s+)?(unknown|not\s+recognized)} $msg]
 }
+
+# 078 fix: what fix_eco_timing printed. Returns a dict: ncmd (the number after "Total number of commands", or "" if absent), n099 (lines with PTECO-099), nofix (1 if "No more fixes"),
+# msgs (the Error:/Warning: lines, in order), ids (dict message id -> count over those lines).
+proc pt_eco_parse_fix_text {text} {
+    set ncmd ""
+    regexp {Total number of commands\s+([0-9]+)} $text -> ncmd
+    set n099 0
+    set msgs {}
+    set ids [dict create]
+    foreach l [split $text "\n"] {
+        set t [string trim $l]
+        if {![regexp {^(Error|Warning):} $t]} continue
+        lappend msgs $t
+        set id ""
+        regexp {\(([A-Z]+-[0-9]+)\)\s*\.?\s*$} $t -> id
+        if {$id ne ""} { dict incr ids $id }
+        if {$id eq "PTECO-099"} { incr n099 }
+    }
+    return [dict create ncmd $ncmd n099 $n099 nofix [regexp {No more fixes} $text] msgs $msgs ids $ids]
+}
+# 078 fix: the first messages, one line per distinct id (errors first, then warnings), at most n: "<id> (<count>x): <first line>"
+proc pt_eco_first_messages {parsed n} {
+    set seen {}
+    set out {}
+    foreach kind {Error Warning} {
+        foreach m [dict get $parsed msgs] {
+            if {![string match "$kind:*" $m]} continue
+            set id ""
+            regexp {\(([A-Z]+-[0-9]+)\)\s*\.?\s*$} $m -> id
+            set key [expr {$id ne "" ? $id : $m}]
+            if {[lsearch -exact $seen $key] >= 0} continue
+            lappend seen $key
+            set cnt [expr {$id ne "" ? [dict get [dict get $parsed ids] $id] : 1}]
+            lappend out "[expr {$id ne {} ? $id : {no id}}] (${cnt}x): $m"
+            if {[llength $out] >= $n} { return $out }
+        }
+    }
+    return $out
+}
+# 078 fix: did fix_eco_timing propose something? By the parsed "Total number of commands" when present; when that line is absent, yes unless an Error: line was printed.
+proc pt_eco_fix_proposed {parsed} {
+    set n [dict get $parsed ncmd]
+    if {[string is integer -strict $n]} { return [expr {$n > 0}] }
+    foreach m [dict get $parsed msgs] { if {[string match "Error:*" $m]} { return 0 } }
+    return 1
+}
+# 078 fix: write_changes printed "No changes to write." (nothing was written)
+proc pt_eco_write_empty {text} {
+    return [regexp -nocase {No changes to write} $text]
+}
+
 # the one result line of the probe
 proc pt_eco_result_line {ok detail} {
-    return [expr {$ok ? "PROBE RESULT: ECO RAN: $detail" : "PROBE RESULT: ECO NOT AVAILABLE: $detail"}]
+    switch -- $ok {
+        1 { return "PROBE RESULT: ECO RAN: $detail" }
+        nochanges { return "PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: $detail" }
+        default { return "PROBE RESULT: ECO NOT AVAILABLE: $detail" }
+    }
 }
 # ---- END PURE TCL 074 ----
 

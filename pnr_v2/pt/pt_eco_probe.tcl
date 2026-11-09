@@ -3,7 +3,8 @@
 # Run   : cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe.log
 # Does  : the same preparation as pt_hold_ff.tcl (pt_prepare_session), then asks: does fix_eco_timing / fix_eco_hold + write_changes work here (licence, behaviour, output format)?
 #         It proposes netlist changes IN MEMORY only. It writes reports and the change files into pnr_icc2/pt/; no design file, SDC, SPEF or netlist is written or changed.
-# Ends  : with ONE line  `PROBE RESULT: ECO NOT AVAILABLE: <message>`  or  `PROBE RESULT: ECO RAN: N changes proposed, change file <path>`  and `exit 0` in both cases (a failed probe is an
+# Ends  : with ONE line  `PROBE RESULT: ECO NOT AVAILABLE: <message>`, `PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: <PrimeTime's first messages>` or
+#         `PROBE RESULT: ECO RAN: N changes proposed, change file <path>`  and `exit 0` in all cases (a failed probe is an
 #         answer). Errors of the PREPARATION (link, parasitics, SDC, clock proof) stop the script with a PT ERROR and exit 1, as in pt_hold_ff.tcl.
 # Every PrimeTime ECO command and option below is from knowledge of PrimeTime, not from a usage text: each is marked VERIFY.
 # ==============================================================================
@@ -12,6 +13,9 @@ source ${PT_SCRIPT_DIR}/pt_common.tcl
 
 pt_main {
     set corner ff
+    # PTE-077: fix_eco_timing recommends that this variable is set BEFORE the initial timing update of the session (otherwise it updates timing again itself). Only the probe sets it.
+    set_app_var timing_save_pin_arrival_and_slack true   ;# VERIFY the variable name (taken from the message PTE-076/PTE-077 of the second server run)
+    puts ">>> 078 timing_save_pin_arrival_and_slack set to true before the first update_timing (PTE-077 recommendation)"
     set sdcv [pt_prepare_session hold $corner]
     set rpt ${PT_RPT_DIR}/pt_eco_hold_${corner}
     set probe_line ""
@@ -30,6 +34,9 @@ pt_main {
         # 1. what exists
         puts ">>> 078 ECO commands known to this pt_shell (help output):"
         foreach pat {*eco* write_changes} { if {[catch {help $pat} herr]} { puts ">>> 078 help $pat failed: $herr" } }   ;# VERIFY help <pattern>
+        foreach c {fix_eco_timing set_eco_options} {
+            if {[catch {help -verbose $c} herr]} { if {[catch {help $c} herr2]} { puts ">>> 078 help $c failed: $herr2" } }   ;# VERIFY help -verbose <command>
+        }
         set existing {}
         foreach c {fix_eco_timing fix_eco_hold fix_eco_drc fix_eco_power set_eco_options write_changes} {
             if {[llength [info commands $c]] > 0} { lappend existing $c } else { puts ">>> 078 command not found by 'info commands': $c" }
@@ -96,46 +103,97 @@ pt_main {
         set libblist {}
         foreach b $blist { lappend libblist ${lib}/$b }
 
-        # 4. ECO options (logical ECO: no physical data)
-        if {[catch {set_eco_options -log_file ${rpt}_eco.log} oerr]} { puts ">>> 078 set_eco_options -log_file failed (not fatal): $oerr" }   ;# VERIFY set_eco_options and -log_file
-
-        # 5. the fix for ALL hold violators (no -to / -from restriction: the first server run showed 26 pin endpoints with other startpoints and about 8 port endpoints besides the 229 port-fed pins)
-        set text "$cmd -type hold -methods {insert_buffer} -buffer_list {$libblist} -hold_margin $PT_ECO_HOLD_MARGIN"   ;# VERIFY -type -methods -buffer_list -hold_margin
-        puts ">>> 078 trying: $text"
-        if {[catch {eval $text} ferr]} { error "PROBE: $cmd failed: $ferr" }
-
-        # 6. the changes: three formats are tried; icc2tcl is the one the ICC2 side of the next task would read (VERIFY the format names)
-        set outs [list icctcl $PT_ECO_FILE_ICCTCL icc2tcl $PT_ECO_FILE_ICC2TCL text $PT_ECO_FILE_TEXT]
-        set written {}
-        foreach {fmt fn} $outs {
-            set path ${PT_RPT_DIR}/$fn
-            if {[catch {write_changes -format $fmt -output $path} werr]} { puts ">>> 078 write_changes -format $fmt FAILED: $werr" } else { puts ">>> 078 write_changes -format $fmt -> $path"; lappend written $fmt $path }   ;# VERIFY write_changes -format -output
+        # 4. ECO options. LOGICAL ECO (no physical data) unless PT_ECO_PHYSICAL is 1
+        set eopts [list -log_file ${rpt}_eco.log]
+        if {$PT_ECO_PHYSICAL} {
+            lappend eopts -physical_lib_path $PT_ECO_STD_LEF -physical_design_path $PT_ECO_DEF
+            if {$PT_ECO_TECH_LEF ne ""} { lappend eopts -physical_tech_lib_path $PT_ECO_TECH_LEF }
+            puts ">>> 078 PHYSICAL ECO requested (PT_ECO_PHYSICAL 1): std LEF $PT_ECO_STD_LEF, tech LEF '$PT_ECO_TECH_LEF', DEF $PT_ECO_DEF"   ;# VERIFY the option names
+        } else {
+            puts ">>> 078 the ECO is LOGICAL only (PT_ECO_PHYSICAL 0): no physical data is given to set_eco_options"
         }
-        if {[llength $written] == 0} { error "PROBE: $cmd ran but write_changes failed in every format" }
-        # the count from the text file (else from the first file that was written)
-        array set wr $written
-        set countfile [expr {[info exists wr(text)] ? $wr(text) : [lindex $written 1]}]
-        set fp [open $countfile r]; set ctext [read $fp]; close $fp
-        set known {}
-        foreach c $cands { lappend known [dict get $c name] }
-        set cc [pt_eco_count_changes $ctext $known]
-        puts ">>> 078 first 30 lines of $countfile:"
-        foreach l [lrange [split $ctext "\n"] 0 29] { puts "      $l" }
-        puts ">>> 078 changes proposed (lines starting with a netlist-changing command; VERIFY the verbs against the file): [dict get $cc n]; per command: [dict get $cc verbs]; per library cell: [dict get $cc refs]"
-        if {[dict get $cc n] == 0} { puts ">>> 078 WARNING: no change line was recognised in $countfile although $cmd returned without error: read the file (the format may differ from the verbs expected)" }
+        puts ">>> 078 set_eco_options $eopts"
+        if {[catch {set_eco_options {*}$eopts} oerr]} { puts ">>> 078 set_eco_options failed (not fatal): $oerr" }   ;# VERIFY set_eco_options -log_file / -physical_lib_path / -physical_design_path / -physical_tech_lib_path
 
-        # 7. does PrimeTime think the ECO closes hold?
-        update_timing -full
-        redirect -variable pt_after_txt { report_constraint -all_violators -min_delay }   ;# VERIFY report_constraint -min_delay
-        set fp [open ${rpt}_after_violators.rpt w]; puts $fp $pt_after_txt; close $fp
-        set pva [pt_parse_violators $pt_after_txt]
-        lassign [pt_write_violations min ${rpt}_after_violations.csv] n_after rows_after
-        set wns_after ""
-        catch {set wns_after [get_attribute [get_timing_paths -delay_type min -max_paths 1] slack]}
-        puts ">>> 078 AFTER the ECO (in PrimeTime's memory): $n_after hold-violating endpoints (report_constraint: [dict get $pva count] lines marked VIOLATED), WNS [pt_fmt_ns $wns_after] ns (before: $n_before, WNS [pt_fmt_ns $wns_before] ns)"
-        puts ">>> 078 per-endpoint slack after the ECO: ${rpt}_after_violators.rpt and ${rpt}_after_violations.csv (the first 40 lines of the report follow)"
-        foreach l [lrange [split $pt_after_txt "\n"] 0 39] { puts "      $l" }
-        set probe_line [pt_eco_result_line 1 "[dict get $cc n] changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}]"]
+        # 5. the fix for ALL hold violators (no -to / -from restriction). The first form hands -buffer_list a COLLECTION of library cells (the second server run: a list of name strings gave
+        #    PTECO-099 "corresponding library cell definition does not exist" for every cell and PTECO-017 "buffer list is empty or doesn't have any valid buffer"); the second form a list of bare names.
+        set proposed 0
+        set last_pf ""
+        set tried {}
+        foreach att {collection bare_names} {
+            if {$att eq "collection"} { set bl [get_lib_cells $libblist]; set desc "-buffer_list is a collection of [sizeof_collection $bl] library cells (get_lib_cells)" } else { set bl $blist; set desc "-buffer_list is a Tcl list of bare cell names" }
+            set text "$cmd -type hold -methods {insert_buffer} -buffer_list \$bl -hold_margin $PT_ECO_HOLD_MARGIN[expr {$PT_ECO_PHYSICAL ? { -physical_mode occupied_site} : {}}]"   ;# VERIFY -type -methods -buffer_list -hold_margin -physical_mode
+            puts ">>> 078 trying ($desc): $text"
+            set fx_txt ""
+            set ferr ""
+            set rc [catch {redirect -variable fx_txt { eval $text }} ferr]
+            puts $fx_txt
+            if {$rc} {
+                lappend tried "$att: $ferr"
+                puts ">>> 078 that form failed: $ferr"
+                if {[pt_eco_is_option_error $ferr]} { continue }
+                error "PROBE: $cmd failed: $ferr"
+            }
+            set last_pf [pt_eco_parse_fix_text $fx_txt]
+            set nmsg [pt_eco_first_messages $last_pf 4]
+            puts ">>> 078 $att form: commands proposed '[dict get $last_pf ncmd]', PTECO-099 warnings [dict get $last_pf n099], messages: [expr {[llength $nmsg] ? [join $nmsg { || }] : {none}}]"
+            if {[pt_eco_fix_proposed $last_pf]} { set proposed 1; break }
+            lappend tried "$att: [join $nmsg { || }]"
+        }
+
+        if {!$proposed} {
+            # what is "missing" about the library cell? one cell, all the ways that may work (VERIFY each)
+            set one [lindex $libblist 0]
+            puts ">>> 078 DIAGNOSTIC for ONE library cell ($one): object name, attributes, report"
+            catch {puts ">>> 078   get_lib_cells -> [get_object_name [get_lib_cells $one]]"}
+            catch {foreach a {base_name full_name is_buffer is_inverter area is_sequential dont_use dont_touch} { set v "<unreadable>"; catch {set v [get_attribute [get_lib_cells $one] $a]}; puts ">>> 078   attribute $a = $v" }}
+            catch {redirect -variable lc_txt { report_lib -cell [list [lindex $blist 0]] $lib }; foreach l [lrange [split $lc_txt "\n"] 0 40] { puts "      $l" }}   ;# VERIFY report_lib -cell
+            catch {redirect -variable la_txt { list_attributes -class lib_cell -application }; puts ">>> 078   lib_cell attributes: [join [lrange [split $la_txt "\n"] 0 60] { }]"}   ;# VERIFY list_attributes
+            set why "[expr {$last_pf eq {} ? {the command was not accepted in any form} : "$cmd ran"}] but proposed no change. [join $tried { | }]"
+            set probe_line [pt_eco_result_line nochanges $why]
+        } else {
+            # 6. the changes: three formats are tried; icc2tcl is the one the ICC2 side of the next task would read (VERIFY the format names). A format counts only if the file exists.
+            set outs [list icctcl $PT_ECO_FILE_ICCTCL icc2tcl $PT_ECO_FILE_ICC2TCL text $PT_ECO_FILE_TEXT]
+            set written {}
+            set n_empty 0
+            foreach {fmt fn} $outs {
+                set path ${PT_RPT_DIR}/$fn
+                file delete -force $path
+                set wtxt ""
+                if {[catch {redirect -variable wtxt { write_changes -format $fmt -output $path }} werr]} { puts ">>> 078 write_changes -format $fmt FAILED: $werr"; continue }   ;# VERIFY write_changes -format -output
+                puts $wtxt
+                if {[pt_eco_write_empty $wtxt]} { incr n_empty; puts ">>> 078 write_changes -format $fmt: 'No changes to write.'"; continue }
+                if {![file exists $path]} { puts ">>> 078 write_changes -format $fmt printed no error but $path does not exist"; continue }
+                puts ">>> 078 write_changes -format $fmt -> $path"
+                lappend written $fmt $path
+            }
+            if {[llength $written] == 0} {
+                set probe_line [pt_eco_result_line nochanges "$cmd reported [dict get $last_pf ncmd] commands but write_changes wrote no file ($n_empty of 3 formats said 'No changes to write.'): [join [pt_eco_first_messages $last_pf 4] { || }]"]
+            } else {
+                array set wr $written
+                set countfile [expr {[info exists wr(text)] ? $wr(text) : [lindex $written 1]}]
+                set fp [open $countfile r]; set ctext [read $fp]; close $fp
+                set known {}
+                foreach c $cands { lappend known [dict get $c name] }
+                set cc [pt_eco_count_changes $ctext $known]
+                puts ">>> 078 first 30 lines of $countfile:"
+                foreach l [lrange [split $ctext "\n"] 0 29] { puts "      $l" }
+                puts ">>> 078 changes proposed (lines starting with a netlist-changing command; VERIFY the verbs against the file): [dict get $cc n]; per command: [dict get $cc verbs]; per library cell: [dict get $cc refs]"
+                if {[dict get $cc n] == 0} { puts ">>> 078 WARNING: no change line was recognised in $countfile although $cmd returned without error: read the file (the format may differ from the verbs expected)" }
+                # 7. does PrimeTime think the ECO closes hold?
+                update_timing -full
+                redirect -variable pt_after_txt { report_constraint -all_violators -min_delay }   ;# VERIFY report_constraint -min_delay
+                set fp [open ${rpt}_after_violators.rpt w]; puts $fp $pt_after_txt; close $fp
+                set pva [pt_parse_violators $pt_after_txt]
+                lassign [pt_write_violations min ${rpt}_after_violations.csv] n_after rows_after
+                set wns_after ""
+                catch {set wns_after [get_attribute [get_timing_paths -delay_type min -max_paths 1] slack]}
+                puts ">>> 078 AFTER the ECO (in PrimeTime's memory): $n_after hold-violating endpoints (report_constraint: [dict get $pva count] lines marked VIOLATED), WNS [pt_fmt_ns $wns_after] ns (before: $n_before, WNS [pt_fmt_ns $wns_before] ns)"
+                puts ">>> 078 per-endpoint slack after the ECO: ${rpt}_after_violators.rpt and ${rpt}_after_violations.csv (the first 40 lines of the report follow)"
+                foreach l [lrange [split $pt_after_txt "\n"] 0 39] { puts "      $l" }
+                set probe_line [pt_eco_result_line 1 "[dict get $cc n] changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}]"]
+            }
+        }
     } perr]} {
         regsub {^PROBE: } $perr {} perr
         set probe_line [pt_eco_result_line 0 $perr]

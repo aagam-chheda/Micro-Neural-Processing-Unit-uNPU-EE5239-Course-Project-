@@ -465,6 +465,31 @@ check "eco result line: ran" {[pt_eco_result_line 1 "255 changes proposed, chang
 check "eco result line: not available" {[pt_eco_result_line 0 "no licence"] eq "PROBE RESULT: ECO NOT AVAILABLE: no licence"}
 check "eco parameters: margin 0.05, output files" {$PT_ECO_HOLD_MARGIN == 0.05 && $PT_ECO_FILE_ICCTCL eq "pt_eco_hold_changes.tcl" && $PT_ECO_FILE_TEXT eq "pt_eco_hold_changes.txt"}
 
+
+# ---- the real fix_eco_timing excerpt of the second server run (13 cells, PTECO-099 x13, PTECO-017, no commands)
+set cells13 {dl04d4 dl04d2 dl02d4 dl03d4 dl01d4 dl04d1 dl03d1 dl02d2 dl02d1 dl01d2 dl03d2 dl01d1 buffd1}
+set fx "Information: Setting timing_save_pin_arrival_and_slack to TRUE and updating timing. (PTE-076)\nIt is recommended that the variable timing_save_pin_arrival_and_slack be set before the initial timing update for optimal performance of this command. (PTE-077)\n"
+foreach c $cells13 { append fx "Warning: Ignoring lib cell tsl18fs120_scl_ff/$c as corresponding library cell definition does not exist. (PTECO-099)\n" }
+append fx "Error: The buffer list specified by -buffer_list is empty or doesn't have any valid buffer. (PTECO-017)\nInformation: No more fixes are available.\n\nInserted buffers:\n  No buffer\n  0 TOTAL\n\nFinal ECO Summary: Total number of commands 0\n"
+set pf [pt_eco_parse_fix_text $fx]
+check "fix text: 13 PTECO-099 warnings counted" {[dict get $pf n099] == 13}
+check "fix text: the PTECO-017 error is read, with its id counted once" {[dict get [dict get $pf ids] PTECO-017] == 1 && [dict get [dict get $pf ids] PTECO-099] == 13}
+check "fix text: 0 commands and 'No more fixes'" {[dict get $pf ncmd] == 0 && [dict get $pf nofix] == 1}
+check "fix text: 14 Error/Warning lines (the Information lines are not messages)" {[llength [dict get $pf msgs]] == 14}
+check "fix text: nothing proposed" {[pt_eco_fix_proposed $pf] == 0}
+set fm [pt_eco_first_messages $pf 4]
+check "first messages: error first, then the warning, one line per id, with counts" {[llength $fm] == 2 && [string match "PTECO-017 (1x): Error: The buffer list specified by -buffer_list is empty*" [lindex $fm 0]] && [string match "PTECO-099 (13x): Warning: Ignoring lib cell tsl18fs120_scl_ff/dl04d4 *" [lindex $fm 1]]}
+check "first messages: the limit is respected" {[llength [pt_eco_first_messages $pf 1]] == 1}
+set fxok "Information: Inserting buffers\nInserted buffers:\n  dl04d4  12\n  229 TOTAL\n\nFinal ECO Summary: Total number of commands 229\n"
+set pfok [pt_eco_parse_fix_text $fxok]
+check "fix text: 229 commands -> proposed" {[dict get $pfok ncmd] == 229 && [pt_eco_fix_proposed $pfok] == 1}
+check "fix text: no 'Total number' line and no Error -> assumed proposed" {[pt_eco_fix_proposed [pt_eco_parse_fix_text "Information: done\n"]] == 1}
+check "fix text: no 'Total number' line but an Error -> not proposed" {[pt_eco_fix_proposed [pt_eco_parse_fix_text "Error: something (PTECO-001)\n"]] == 0}
+check "write_changes: 'No changes to write.' is recognised" {[pt_eco_write_empty "No changes to write.\n"] == 1 && [pt_eco_write_empty "Writing 229 changes\n"] == 0}
+check "result line: ran but no changes carries the first messages" {[pt_eco_result_line nochanges "pt ran but proposed no change. [lindex $fm 0]"] eq "PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: pt ran but proposed no change. [lindex $fm 0]"}
+check "result line: the old not-available form is unchanged" {[pt_eco_result_line 0 "x"] eq "PROBE RESULT: ECO NOT AVAILABLE: x"}
+check "physical ECO is off by default and the std LEF is the kit file of build_ndm_std.tcl" {$PT_ECO_PHYSICAL == 0 && [string match "*/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef" $PT_ECO_STD_LEF] && [string match "*/unpu_top.def" $PT_ECO_DEF] && $PT_ECO_TECH_LEF eq ""}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0
