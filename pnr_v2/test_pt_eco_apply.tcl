@@ -159,6 +159,35 @@ set dsplit2 [eco079_diff_split {{antbuf_x: pin I net pwdata[0] -> some_other_net
 check "diff split: a move to a net that is NOT a PrimeTime net is not excused" {[llength [lindex $dsplit2 0]] == 1}
 set wk [eco079_words " \x7bHFSINV_13_284\x7d  inv0d7 \[get_cells \x7bx\x7d\] "]
 check "words: braced, bare and bracketed" {$wk eq {1 {HFSINV_13_284 inv0d7 {[get_cells {x}]}}}}
+# ---- 11. fix 2: topology from SIGNAL pins only (first server run: every candidate was REJECTED because the new cell's VDD / VSS entered the expected set, nested as one list element)
+set lefb "MACRO dl02d1\n SIZE 5.6 BY 5.04 ;\n PIN VDD\n  DIRECTION INOUT ;\n  USE POWER ;\n END VDD\n PIN VSS\n  DIRECTION INOUT ;\n  USE GROUND ;\n END VSS\n PIN I\n  DIRECTION INPUT ;\n  USE SIGNAL ;\n  ANTENNAGATEAREA 0.3 ;\n END I\n PIN Z\n  DIRECTION OUTPUT ;\n  USE SIGNAL ;\n  ANTENNADIFFAREA 0.5 ;\n END Z\nEND dl02d1\nMACRO mx02d0\n SIZE 5 BY 5.04 ;\n PIN VDD\n  DIRECTION INOUT ;\n  USE POWER ;\n END VDD\n PIN VSS\n  DIRECTION INOUT ;\n  USE GROUND ;\n END VSS\n PIN S\n  DIRECTION INPUT ;\n  USE SIGNAL ;\n END S\n PIN I0\n  DIRECTION INPUT ;\n  USE SIGNAL ;\n END I0\n PIN Z\n  DIRECTION OUTPUT ;\n  USE SIGNAL ;\n END Z\nEND mx02d0\n"
+set lefb [ant_parse_lef $lefb]
+check "signal pins of a delay cell: I and Z, no VDD / VSS" {[eco079_signal_pins dl02d1 [dict get $lefb dl02d1]] eq {I Z}}
+check "signal pins of a cell with 2 signal inputs -> error with the counts" {[catch {eco079_signal_pins mx02d0 [dict get $lefb mx02d0]} err] == 1 && [string match "cell mx02d0 has 2 signal inputs*" $err]}
+set pgn [eco079_pg_names $lefb]
+check "pg names from the LEF: VDD and VSS" {$pgn eq {VDD VSS}}
+check "drop_pg: removes pins whose library pin name is VDD / VSS" {[eco079_drop_pg {u_apb/U46/Z u_apb/B/VDD u_apb/B/VSS u_apb/B/I} $pgn] eq {u_apb/U46/Z u_apb/B/I}}
+# 1. DRIVER pin, the REAL shapes of the first server run (CHANGE 1, hold line 9): actual = {u_apb/U46/Z u_apb/U_PTECO_HOLD_BUF1/I}
+set bc u_apb/U_PTECO_HOLD_BUF1
+set before {u_apb/U46/Z u_apb/U7/A1 u_apb/U8/B}
+# the OLD call: buf_i was the result of a direction filter on the new cell = the list "I VDD VSS" (full names); the old code reported a problem on a correct net
+set old_bi "$bc/I $bc/VDD $bc/VSS"
+set oldprob [eco079_topology_problems out u_apb/U46/Z $before {u_apb/U46/Z u_apb/U_PTECO_HOLD_BUF1/I} [list $bc/Z u_apb/U7/A1 u_apb/U8/B] $old_bi $bc/Z]
+check "OLD shape (buf_i = I VDD VSS): the old call rejects the correct net, with the nested expected list of the server message" {[llength $oldprob] >= 1 && [string match "*expected*u_apb/U_PTECO_HOLD_BUF1/I u_apb/U_PTECO_HOLD_BUF1/VDD u_apb/U_PTECO_HOLD_BUF1/VSS*" [lindex $oldprob 0]]}
+check "driver pin, NEW check: the correct net is accepted" {[eco079_topology_check out u_apb/U46/Z $before {u_apb/U46/Z u_apb/U_PTECO_HOLD_BUF1/I} [list $bc/Z u_apb/U7/A1 u_apb/U8/B] $bc I Z $pgn] eq ""}
+check "driver pin, PG pins in the actual leaf-pin lists (before, buffer input net, buffer output net) are filtered" {[eco079_topology_check out u_apb/U46/Z [concat $before {u_apb/U46/VDD u_apb/U7/VSS}] [list u_apb/U46/Z $bc/I $bc/VDD u_apb/U46/VSS] [list $bc/Z u_apb/U7/A1 u_apb/U8/B u_apb/U8/VDD $bc/VSS] $bc I Z $pgn] eq ""}
+check "driver pin, NEW check still rejects a real difference (one load left on the driver net)" {[llength [eco079_topology_check out u_apb/U46/Z $before [list u_apb/U46/Z $bc/I u_apb/U7/A1] [list $bc/Z u_apb/U8/B] $bc I Z $pgn]] == 2}
+# 2. LOAD pin (server message: {u_csr/U95/ZN {BUF46/I BUF46/VDD BUF46/VSS}} in the expected list)
+set bc2 u_csr/U_PTECO_HOLD_BUF46
+check "load pin, NEW check: the load isolated behind the buffer, PG pins present everywhere -> accepted" {[eco079_topology_check in u_csr/dest_c_reg_reg_2_/D {u_csr/U95/ZN u_csr/dest_c_reg_reg_2_/D u_csr/U9/A u_csr/U95/VDD} [list u_csr/U95/ZN u_csr/U9/A $bc2/I $bc2/VDD $bc2/VSS] [list $bc2/Z u_csr/dest_c_reg_reg_2_/D u_csr/dest_c_reg_reg_2_/VDD] $bc2 I Z $pgn] eq ""}
+check "load pin, NEW check rejects the driver-pin behaviour (every load behind the buffer)" {[llength [eco079_topology_check in u_csr/dest_c_reg_reg_2_/D {u_csr/U95/ZN u_csr/dest_c_reg_reg_2_/D u_csr/U9/A} [list u_csr/U95/ZN $bc2/I] [list $bc2/Z u_csr/dest_c_reg_reg_2_/D u_csr/U9/A] $bc2 I Z $pgn]] == 2}
+# 3. PORT
+set bc3 U_PTECO_HOLD_BUF4
+check "port, NEW check: loads behind the buffer, PG pins in the lists -> accepted" {[eco079_topology_check port dma_rdata\[14\] {u_dma/U1/A u_dma/U2/B u_dma/U1/VDD} [list $bc3/I $bc3/VDD $bc3/VSS] [list $bc3/Z u_dma/U1/A u_dma/U2/B u_dma/U2/VSS] $bc3 I Z $pgn] eq ""}
+check "port, NEW check rejects a load left on the port net" {[llength [eco079_topology_check port dma_rdata\[14\] {u_dma/U1/A u_dma/U2/B} [list $bc3/I u_dma/U1/A] [list $bc3/Z u_dma/U2/B] $bc3 I Z $pgn]] == 2}
+check "port with an antenna buffer, PG pins present -> accepted" {[eco079_topology_check port pwdata\[0\] {antbuf_pwdata_0_/I antbuf_pwdata_0_/VDD} [list U_PTECO_HOLD_BUF9/I] [list U_PTECO_HOLD_BUF9/Z antbuf_pwdata_0_/I antbuf_pwdata_0_/VSS] U_PTECO_HOLD_BUF9 I Z $pgn] eq ""}
+# progress line
+check "progress: a line only at multiples of 10" {[eco079_progress 9 109 9 0 10] eq "" && [eco079_progress 10 109 10 0 10] eq "10 of 109 changes processed, 10 OK so far, 0 failed" && [eco079_progress 0 109 0 0 10] eq "" && [eco079_progress 20 109 18 2 10] eq "20 of 109 changes processed, 18 OK so far, 2 failed"}
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

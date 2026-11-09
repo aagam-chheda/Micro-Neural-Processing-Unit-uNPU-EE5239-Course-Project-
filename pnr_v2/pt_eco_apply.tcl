@@ -318,6 +318,45 @@ proc eco079_diff_split {diff moves mark} {
     }
     return [list $un $ex]
 }
+# 079 fix 2: the signal pins of a LEF cell: {input_name output_name}. Exactly one signal input and one signal output (a buffer / delay cell); otherwise an error with the counts.
+# Power and ground pins (USE POWER / GROUND) and INOUT pins are not signal pins.
+proc eco079_signal_pins {name lefcell} {
+    set ins {}
+    set outs {}
+    dict for {pn pd} [dict get $lefcell pins] {
+        if {[dict get $pd use] eq "POWER" || [dict get $pd use] eq "GROUND" || [dict get $pd dir] eq "INOUT"} continue
+        if {[dict get $pd dir] eq "INPUT"} { lappend ins $pn }
+        if {[dict get $pd dir] eq "OUTPUT"} { lappend outs $pn }
+    }
+    if {[llength $ins] != 1 || [llength $outs] != 1} { error "cell $name has [llength $ins] signal inputs ($ins) and [llength $outs] signal outputs ($outs), 1 and 1 expected" }
+    return [list [lindex $ins 0] [lindex $outs 0]]
+}
+# 079 fix 2: the names of all power / ground pins in the LEF (dict of ant_parse_lef): they are never on a signal net, but some ICC2 queries return them
+proc eco079_pg_names {lef} {
+    set out {}
+    dict for {m cd} $lef {
+        dict for {pn pd} [dict get $cd pins] {
+            if {[dict get $pd use] eq "POWER" || [dict get $pd use] eq "GROUND"} { if {[lsearch -exact $out $pn] < 0} { lappend out $pn } }
+        }
+    }
+    return [lsort $out]
+}
+# 079 fix 2: remove from a list of full pin names those whose last part (the library pin name) is a power / ground pin name
+proc eco079_drop_pg {pins pgnames} {
+    set out {}
+    foreach p $pins { if {[lsearch -exact $pgnames [lindex [split $p /] end]] < 0} { lappend out $p } }
+    return $out
+}
+# 079 fix 2: the topology check of one insertion. The expected sets are built from the SIGNAL pins of the new cell only (input pin sigin = "I", output pin sigout = "Z", full names
+# "<bcell>/<pin>"), and power / ground pins are removed from `before` and from both actual sets before comparing. Returns a list of problems (empty = as PrimeTime assumed).
+proc eco079_topology_check {dir pin before after_in after_out bcell sigin sigout pgnames} {
+    return [eco079_topology_problems $dir $pin [eco079_drop_pg $before $pgnames] [eco079_drop_pg $after_in $pgnames] [eco079_drop_pg $after_out $pgnames] "$bcell/$sigin" "$bcell/$sigout"]
+}
+# 079 fix 2: the progress line printed every `every` changes (after `done` changes were processed); "" when no line is due
+proc eco079_progress {done total ok failed every} {
+    if {$done <= 0 || $done % $every != 0} { return "" }
+    return "$done of $total changes processed, $ok OK so far, $failed failed"
+}
 # ---- END PURE TCL 079 ----
 
 # 079: take the helper procs from the text of antenna_port_buffers.tcl (pure block 068 and the ICC2 helpers) and of timing_closure.tcl (pure block 072 and its ICC2 helpers): same code, no copy
@@ -389,6 +428,8 @@ proc eco079_net_of_pin {pinname} {   ;# the net object name of a pin, "" if none
 proc eco079_net_leaf_pins {netname} {
     set out {}
     foreach_in_collection p [get_pins -quiet -leaf -of_objects [get_nets -quiet -exact $netname]] { lappend out [get_object_name $p] }
+    upvar #0 ea_pgnames pgn   ;# 079 fix 2: power / ground pins never belong to the signal topology (set from the LEF in step 3)
+    if {[info exists pgn]} { return [eco079_drop_pg $out $pgn] }
     return $out
 }
 proc eco079_driver_info {netname} {   ;# {driver_cells has_input_port driver_xy}: the cells of the output leaf pins of the net, an input port on it, a point to measure from
@@ -513,6 +554,17 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     if {$ea_site_w > 1e8} { error "ERROR 079: none of the filler masters $FILLER_REFS is in the LEF, the site width is unknown" }
     puts ">>> 079 site width $ea_site_w um; cell widths (um): [lmap r [lsort [dict keys $ea_rtab]] {list $r [dict get $ea_lef $r w]}]"
 
+    set ea_pgnames [eco079_pg_names $ea_lef]
+    puts ">>> 079 power / ground pin names (from the LEF, removed from every pin set of the topology check): $ea_pgnames"
+    if {[llength $ea_pgnames] == 0} { error "ERROR 079: no power/ground pin found in the LEF (USE POWER / GROUND): the topology check cannot filter them (nothing changed)" }
+    set ea_sig [dict create]
+    foreach c $ea_cmds {
+        if {[dict get $c type] ne "insert_buffer"} continue
+        set r [dict get $c ref]
+        if {[dict exists $ea_sig $r]} continue
+        if {[catch {dict set ea_sig $r [eco079_signal_pins $r [dict get $ea_lef $r]]} err]} { error "ERROR 079: reference $r cannot be inserted as a buffer: $err (nothing changed)" }
+        puts ">>> 079 reference $r: signal input [lindex [dict get $ea_sig $r] 0], signal output [lindex [dict get $ea_sig $r] 1]"
+    }
     set ea_gate [dict create]
     foreach c $ea_cmds {
         if {[dict get $c type] eq "insert_buffer" && [dict get $c objkind] eq "port"} {
@@ -562,8 +614,11 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_touched {}
     set ea_moves {}
     set ea_removed 0
+    set ea_ins_err_shown 0
     foreach c $ea_cmds {
         set idx [dict get $c idx]
+        set pl [eco079_progress [expr {$idx - 1}] [llength $ea_cmds] [llength $ea_done] [llength $ea_failed] 10]
+        if {$pl ne ""} { puts ">>> 079 PROGRESS $pl" }
         set ref [dict get $c ref]
         set lcname ${STD_LIB}/$ref
         set lc [get_lib_cells -quiet -exact $lcname]
@@ -664,8 +719,11 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                 incr ea_removed [llength $rmn]
                 # PrimeTime's new names are kept; the full hierarchical name is tried first, then the leaf name
                 set cell_full [dict get $c cell]; set net_full [dict get $c net]
-                if {[catch {insert_buffer -lib_cell $lc -new_cell_names $cell_full -new_net_names $net_full $pobj} err]} {   ;# VERIFY insert_buffer on a pin (driver or load) with hierarchical new names
-                    puts ">>> 079 insert_buffer with the full names failed ($err), trying the leaf names"
+                if {[catch {insert_buffer -lib_cell $lc -new_cell_names $cell_full -new_net_names $net_full $pobj} err ierr]} {   ;# VERIFY insert_buffer on a pin (driver or load) with hierarchical new names
+                    if {!$ea_ins_err_shown} {
+                        set ea_ins_err_shown 1
+                        puts ">>> 079 insert_buffer with the full hierarchical names returned an error (shown once; every later change uses the same fallback silently if it recurs): message '$err', code [dict get $ierr -code]; the leaf names are tried. First lines of the error info: [join [lrange [split [dict get $ierr -errorinfo] "\n"] 0 4] { | }]"
+                    }
                     if {[catch {insert_buffer -lib_cell $lc -new_cell_names [lindex [split $cell_full /] end] -new_net_names [lindex [split $net_full /] end] $pobj} err2]} { set last_why "insert_buffer failed: $err / $err2"; continue }
                 }
                 set bname [eco079_lookup_cell $cell_full]
@@ -679,9 +737,11 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                 legalize_placement -cells $bc
                 lassign [ant068_bbox_of $bc] bx0 by0 bx1 by1
                 set dpos [ant_manhattan $bx0 $by0 $cx $cy]
-                set inp [get_pins -quiet -of_objects $bc -filter "direction == in"]
-                set outp [get_pins -quiet -of_objects $bc -filter "direction == out"]
-                lassign [expr {[sizeof_collection $inp] == 1 ? [ant068_centre $inp] : [ant068_centre $bc]}] ix iy
+                lassign [dict get $ea_sig $ref] sigin sigout   ;# 079 fix 2: the SIGNAL pins from the LEF (a direction filter also returned VDD / VSS)
+                set inp [get_pins -quiet -exact "$bname/$sigin"]
+                set outp [get_pins -quiet -exact "$bname/$sigout"]
+                if {[sizeof_collection $inp] != 1 || [sizeof_collection $outp] != 1} { error "ERROR 079: change $idx: the new cell $bname has no pins $sigin / $sigout (found [sizeof_collection $inp] / [sizeof_collection $outp]) (nothing saved)" }
+                lassign [ant068_centre $inp] ix iy
                 set dist [ant_manhattan $px $py $ix $iy]
                 set why {}
                 if {$dpos > $POS_TOL} { lappend why "cell at ([format %.3f $bx0], [format %.3f $by0]) instead of the site ([format %.3f $cx], [format %.3f $cy])" }
@@ -690,7 +750,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                 if {$isport} { set ratio [ant_ratio $gate $dist $PORT_WIRE_WIDTH_UM $PORT_ANT_WEIGHT_PINWIRE]; if {$ratio > $PORT_ANT_RATIO_LIMIT} { lappend why "predicted antenna ratio [format %.0f $ratio] > $PORT_ANT_RATIO_LIMIT" } }
                 set bi [get_object_name $inp]; set bz [get_object_name $outp]
                 set netin [eco079_net_of_pin $bi]; set netout [eco079_net_of_pin $bz]
-                set tprob [eco079_topology_problems $dir $pinname $before [eco079_net_leaf_pins $netin] [eco079_net_leaf_pins $netout] $bi $bz]
+                set tprob [eco079_topology_check $dir $pinname $before [eco079_net_leaf_pins $netin] [eco079_net_leaf_pins $netout] $bname $sigin $sigout $ea_pgnames]
                 foreach tp $tprob { lappend why "topology: $tp" }
                 puts [format ">>> 079 CHANGE %d (%s line %d) %s %s ref %s tier %d site (%.3f, %.3f) distance %.1f um cell %s %s" $idx [dict get $c file] [dict get $c line] [switch -- $dir { out {string cat {driver pin}} port {string cat {input port}} default {string cat {load pin}} }] $pinname $ref $tier $cx $cy $dist $bname [expr {[llength $why] ? "REJECTED: [join $why {; }]" : "OK"}]]
                 if {[llength $why] == 0} {
@@ -714,6 +774,9 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                         lappend ea_watch [format "change %d: kind=%s cell %s ref %s on %s, net %s (%s); pin-to-buffer %.1f um, driver-to-buffer %s um%s" $idx [dict get $c objkind] $bname $ref $pinname $netb $wr $dist $ddist $extra]
                     }
                     break
+                }
+                if {[llength $tprob] > 0} {   ;# 079 fix 2: a topology problem does not depend on the site: no other candidate is tried
+                    error "ERROR 079: change $idx ([dict get $c file] line [dict get $c line]): the topology after insert_buffer on $pinname ($dir) differs from what PrimeTime assumed (independent of the site, so no other candidate is tried): [join $tprob {; }]. Nothing saved. Net before (signal pins): {$before}; buffer input net $netin: {[eco079_net_leaf_pins $netin]}; buffer output net $netout: {[eco079_net_leaf_pins $netout]}"
                 }
                 set last_why [join $why {; }]
                 if {[catch {remove_buffers $bc} err]} { error "ERROR 079: change $idx: cannot remove the rejected cell $bname: $err (nothing saved)" }   ;# VERIFY remove_buffers restores the net
