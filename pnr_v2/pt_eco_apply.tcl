@@ -48,6 +48,8 @@ set POS_TOL         0.001       ;# 079: um: the final origin must equal the requ
 set UNPROTECT_DURING 1          ;# 079: 1 = dont_touch of the protected cells/nets is switched off while the changes are applied (insert_buffer on a dont_touch net may be refused) and switched on again; the snapshot comparison is the guard. 0 = leave it as it is.
 set SETUP_SCEN      "func_ss"   ;# 079: scenario names of cts.tcl / route.tcl
 set HOLD_SCEN       "func_ff"
+# 079 fix: insertions on an input PORT (get_ports): the pin-to-new-cell wire must stay short (antenna). Limits are READ from antenna_port_buffers.tcl into PORT_MAX_PIN_BUF_DIST, PORT_ANT_RATIO_LIMIT,
+# 079 fix: PORT_ANT_WEIGHT_PINWIRE, PORT_WIRE_WIDTH_UM (hard distance limit of step 6c, Calibre ratio limit, M2/M3 weight, wire width); there is no tier 2 for ports (a delay cell far from the pin is an antenna risk)
 set DONT_USE_PATTERNS {slnht* skbrb* slbhb* slnhn* slnln* mx08d* adiode bh01d1 cload1}   ;# 079: handoff 18.15 (as antenna_port_buffers.tcl); the delay cells dl* are normal library cells
 
 # ---- BEGIN PURE TCL 079 ----
@@ -65,8 +67,38 @@ proc eco079_pin_cell {full} {
     if {$i < 0} { return "" }
     return [string range $full 0 [expr {$i - 1}]]
 }
+# 079 fix: split the arguments of a command into words. A word is a braced group {..} (braces removed), a bracketed group [..] (kept with the brackets) or a bare run.
+# Returns {ok words}; ok 0 when a brace or bracket is not closed (words then holds the text from there).
+proc eco079_words {s} {
+    set out {}
+    set i 0
+    set n [string length $s]
+    while {$i < $n} {
+        set ch [string index $s $i]
+        if {[string is space $ch]} { incr i; continue }
+        if {$ch eq "\x7b"} {
+            set j [string first "\x7d" $s $i]
+            if {$j < 0} { return [list 0 [list [string range $s $i end]]] }
+            lappend out [string range $s [expr {$i + 1}] [expr {$j - 1}]]
+            set i [expr {$j + 1}]
+        } elseif {$ch eq "\["} {
+            set j [string first "\]" $s $i]
+            if {$j < 0} { return [list 0 [list [string range $s $i end]]] }
+            lappend out [string range $s $i $j]
+            set i [expr {$j + 1}]
+        } else {
+            set j $i
+            while {$j < $n && ![string is space [string index $s $j]]} { incr j }
+            lappend out [string range $s $i [expr {$j - 1}]]
+            set i $j
+        }
+    }
+    return [list 1 $out]
+}
 # 079: parse a PrimeTime change file (write_changes -format icc2tcl). Returns a dict: cmds (list of dicts), errors (list of texts).
-# cmd: idx (1-based among the changes), line (number in the file), type (insert_buffer | size_cell), hier, pin (as written), full_pin, ref, cell, net (new names, full) | inst, full_inst (size_cell)
+# cmd: idx (1-based among the changes), line (number in the file), type (insert_buffer | size_cell), hier, pin (as written), objkind (pin | port), full_pin (for a port: the port name), ref, cell, net (new names, full) | inst, full_inst (size_cell)
+# `insert_buffer [get_pins {P}] REF ...` (P relative to current_instance) and `insert_buffer [get_ports {PORT}] REF ...` (a top-level port: only valid with an empty current_instance);
+# `size_cell {INST} {REF}` (braces optional, `[get_cells {INST}]` accepted). Everything else is an error listed with its line number.
 proc eco079_parse {text} {
     set cmds {}
     set errors {}
@@ -82,7 +114,11 @@ proc eco079_parse {text} {
             set hier [string trim $hier]
             continue
         }
-        if {[regexp {^insert_buffer\s+\[get_pins\s+\{?([^\}\]\s]+)\}?\]\s+(\S+)(.*)$} $l -> pin ref rest]} {
+        if {[regexp {^insert_buffer\s+\[(get_pins|get_ports)\s+(?:\{([^\}]+)\}|([^\]\s]+))\]\s+(\S+)(.*)$} $l -> kw braced bare ref rest]} {
+            set pin [expr {$braced ne "" ? $braced : $bare}]
+            set objkind [expr {$kw eq "get_ports" ? "port" : "pin"}]
+            set ref [string trim $ref "\x7b\x7d"]
+            if {$objkind eq "port" && $hier ne ""} { lappend errors "line $ln: get_ports under current_instance {$hier}: a port of a hierarchical cell is not supported: $l"; continue }
             set net ""
             set cell ""
             foreach {opt var} {new_net_names net new_cell_names cell} {
@@ -96,13 +132,25 @@ proc eco079_parse {text} {
             if {$rest ne ""} { lappend errors "line $ln: insert_buffer has options this script does not understand: '$rest'"; continue }
             if {$net eq "" || $cell eq ""} { lappend errors "line $ln: insert_buffer without both -new_net_names and -new_cell_names: $l"; continue }
             incr n
-            lappend cmds [dict create idx $n line $ln type insert_buffer hier $hier pin $pin full_pin [eco079_full $hier $pin] ref $ref cell [eco079_full $hier $cell] net [eco079_full $hier $net]]
+            lappend cmds [dict create idx $n line $ln type insert_buffer hier $hier objkind $objkind pin $pin full_pin [expr {$objkind eq "port" ? $pin : [eco079_full $hier $pin]}] ref $ref cell [eco079_full $hier $cell] net [eco079_full $hier $net]]
             continue
         }
-        if {[regexp {^size_cell\s+(?:\[get_cells\s+\{?([^\}\]\s]+)\}?\]|\{?([^\s\}]+)\}?)\s+(\S+)\s*$} $l -> i1 i2 ref]} {
-            set inst [expr {$i1 ne "" ? $i1 : $i2}]
+        if {[regexp {^size_cell(\s.*)$} $l -> args]} {
+            lassign [eco079_words $args] wok words
+            set inst ""
+            set ref ""
+            if {$wok && [llength $words] == 2} {
+                lassign $words w0 ref
+                if {[string index $w0 0] eq "\["} {
+                    lassign [eco079_words [string range $w0 1 end-1]] iok iw
+                    if {$iok && [llength $iw] == 2 && [lindex $iw 0] eq "get_cells"} { set inst [lindex $iw 1] }
+                } else {
+                    set inst $w0
+                }
+            }
+            if {$inst eq "" || $ref eq ""} { lappend errors "line $ln: size_cell form not understood (expected: size_cell {INSTANCE} {REFERENCE}): $l"; continue }
             incr n
-            lappend cmds [dict create idx $n line $ln type size_cell hier $hier inst $inst full_inst [eco079_full $hier $inst] ref $ref]
+            lappend cmds [dict create idx $n line $ln type size_cell hier $hier objkind cell inst $inst full_inst [eco079_full $hier $inst] ref $ref]
             continue
         }
         lappend errors "line $ln: command not understood: $l"
@@ -157,18 +205,23 @@ proc eco079_is_deferred {cmds idx full_pin_or_inst isinst} {
 #   dir out (a DRIVER pin): the buffer input is on the driver's net together with the driver: after_in = {pin buf_i}; the buffer output net has the buffer output and every other
 #     load the net had: after_out = {buf_z} + (before - pin).
 #   dir in (a LOAD pin): the load is isolated behind the buffer: after_out = {buf_z pin}; the net keeps every other pin and gets the buffer input: after_in = (before - pin) + {buf_i}.
-# before = leaf pins of the pin's net before the insertion (including the pin); all arguments are lists of leaf pin names. Returns a list of problems (empty = as assumed).
+#   dir port (an input PORT, `pin` is the port name and is not a leaf pin): after_in = {buf_i}; after_out = {buf_z} + every load the net had (before).
+# before = leaf pins of the pin's net before the insertion (including the pin, except for a port); all arguments are lists of leaf pin names. Returns a list of problems (empty = as assumed).
 proc eco079_topology_problems {dir pin before after_in after_out buf_i buf_z} {
     set rest {}
     foreach p $before { if {$p ne $pin} { lappend rest $p } }
     if {$dir eq "out"} {
         set want_in [list $pin $buf_i]
         set want_out [concat [list $buf_z] $rest]
+    } elseif {$dir eq "port"} {
+        # an INPUT PORT (not a leaf pin: it is not in `before`): the port stays on the net with the buffer input; every load moves behind the buffer (like the antenna buffers of step 6c)
+        set want_in [list $buf_i]
+        set want_out [concat [list $buf_z] $before]
     } elseif {$dir eq "in"} {
         set want_in [concat $rest [list $buf_i]]
         set want_out [list $buf_z $pin]
     } else {
-        return [list "pin direction '$dir' is neither out nor in"]
+        return [list "pin direction '$dir' is neither out, in nor port"]
     }
     set out {}
     if {[lsort $after_in] ne [lsort $want_in]} { lappend out "buffer input net has pins {[lsort $after_in]}, expected {[lsort $want_in]}" }
@@ -206,6 +259,65 @@ proc eco079_grow_plan {runs y0 x1 extra site_w {tol 0.001}} {
     }
     return [list 0 {} "no free filler run starts at the right edge of the cell"]
 }
+# 079 fix: the value of `set NAME value ;# ...` in another script's text (so a limit used in step 6c is read, not retyped); error when absent or not a number
+proc eco079_param_from_text {text name} {
+    if {![regexp -line "^set\\s+$name\\s+(\\S+)" $text -> v]} { error "parameter $name not found in the text" }
+    set v [string trim $v "\""]
+    if {![string is double -strict $v]} { error "parameter $name is '$v', not a number" }
+    return $v
+}
+# 079 fix: the input gate area (um^2, ANTENNAGATEAREA) of a LEF cell with exactly one signal input; 0.0 when the cell has no or several signal inputs or the gate area is not given. lefcell = a value of ant_parse_lef.
+proc eco079_in_gate {lefcell} {
+    set ins {}
+    dict for {pn pd} [dict get $lefcell pins] {
+        if {[dict get $pd use] eq "POWER" || [dict get $pd use] eq "GROUND" || [dict get $pd dir] eq "INOUT"} continue
+        if {[dict get $pd dir] eq "INPUT"} { lappend ins $pn }
+    }
+    if {[llength $ins] != 1} { return 0.0 }
+    return [ant_min_or_zero [dict get $lefcell pins [lindex $ins 0] gate]]
+}
+# 079 fix: the largest distance (um) from a PORT pin to the input pin of a new cell: the tier-1 limit of step 6c, and no larger than the distance at which the predicted antenna ratio
+# (ant_ratio, M2/M3 weight) of the port wire reaches the Calibre limit for this cell's input gate area. Returns {limit text}; limit <= 0 means the cell cannot be placed on a port.
+proc eco079_port_limit {gate tier1 ratio_limit weight width} {
+    if {$gate <= 0} { return [list 0.0 "the input gate area of the cell is unknown"] }
+    set dmax [ant_max_dist_for_ratio $gate $width $weight $ratio_limit]
+    if {$dmax < $tier1} { return [list $dmax "limited by the predicted antenna ratio $ratio_limit with the input gate [format %.3f $gate] um^2"] }
+    return [list $tier1 "the tier-1 limit of step 6c"]
+}
+# 079 fix: the leaf pins of a port net that belong to an antenna buffer (cell name ${prefix}_*): the antbuf loads that an insertion on the port moves behind the new cell
+proc eco079_antbuf_pins {leaf_pins prefix} {
+    set out {}
+    foreach p $leaf_pins {
+        set c [eco079_pin_cell $p]
+        if {$c ne "" && [string match "${prefix}_*" [lindex [split $c /] end]]} { lappend out $p }
+    }
+    return $out
+}
+# 079 fix: the pins of protected cells (names in `protected`) among `leaf_pins` as expectation records {cell leafpin oldnet}: an insertion on their net may legitimately move them to a PrimeTime net.
+proc eco079_protected_moves {leaf_pins protected oldnet} {
+    set out {}
+    foreach p $leaf_pins {
+        set c [eco079_pin_cell $p]
+        if {$c ne "" && [lsearch -exact $protected $c] >= 0} { lappend out [list $c [lindex [split $p /] end] $oldnet] }
+    }
+    return $out
+}
+# 079 fix: split the differences of the protected-cell snapshot into the expected net moves (pin P of a protected cell went from the net it had to a PrimeTime net, whose name contains `mark`;
+# the topology of that insertion was verified at the time) and the rest. Returns {unexpected expected}.
+proc eco079_diff_split {diff moves mark} {
+    set un {}
+    set ex {}
+    foreach d $diff {
+        set hit 0
+        foreach m $moves {
+            lassign $m c pn old
+            set prefix "$c: pin $pn net $old -> "   ;# (exact text compare: net names such as pwdata[0] contain glob characters)
+            if {[string first $prefix $d] == 0 && [string first $mark $d [string length $prefix]] >= 0} { set hit 1; break }
+        }
+        if {$hit} { lappend ex $d } else { lappend un $d }
+    }
+    return [list $un $ex]
+}
 # ---- END PURE TCL 079 ----
 
 # 079: take the helper procs from the text of antenna_port_buffers.tcl (pure block 068 and the ICC2 helpers) and of timing_closure.tcl (pure block 072 and its ICC2 helpers): same code, no copy
@@ -218,6 +330,10 @@ set ec_f [string first "file mkdir \$LOG_DIR" $ec_src]
 if {$ec_b < 0 || $ec_e < 0 || $ec_h < 0 || $ec_f < 0 || $ec_f <= $ec_h} { error "ERROR 079: markers not found in ${SCRIPT_DIR}/antenna_port_buffers.tcl" }
 eval [string range $ec_src $ec_b $ec_e]
 eval [string range $ec_src $ec_h [expr {$ec_f - 1}]]
+# 079 fix: the antenna numbers used for insertions on a PORT are read from antenna_port_buffers.tcl (one source), printed below
+foreach ec_n {MAX_PIN_BUF_DIST ANT_RATIO_LIMIT ANT_WEIGHT_PINWIRE WIRE_WIDTH_UM} {
+    if {[catch {set PORT_$ec_n [eco079_param_from_text $ec_src $ec_n]} ec_err]} { error "ERROR 079: ${SCRIPT_DIR}/antenna_port_buffers.tcl: $ec_err" }
+}
 set ec_src2 [eco079_read ${SCRIPT_DIR}/timing_closure.tcl]
 set ec_b [string first "# ---- BEGIN PURE TCL 072 ----" $ec_src2]
 set ec_e [string first "# ---- END PURE TCL 072 ----" $ec_src2]
@@ -226,7 +342,7 @@ set ec_f [string first "file mkdir \$LOG_DIR" $ec_src2]
 if {$ec_b < 0 || $ec_e < 0 || $ec_h < 0 || $ec_f < 0 || $ec_f <= $ec_h} { error "ERROR 079: markers not found in ${SCRIPT_DIR}/timing_closure.tcl" }
 eval [string range $ec_src2 $ec_b $ec_e]
 eval [string range $ec_src2 $ec_h [expr {$ec_f - 1}]]
-unset ec_src ec_src2 ec_b ec_e ec_h ec_f
+unset ec_src ec_src2 ec_b ec_e ec_h ec_f ec_n
 
 # 079: ICC2 side helpers of this script (not tested locally)
 proc eco079_lookup_pin {full} {   ;# 079: the pin object name, or "" ; VERIFY get_pins -exact with a hierarchical leaf pin name
@@ -248,6 +364,21 @@ proc eco079_lookup_net {full} {
     if {[sizeof_collection $n] == 1} { return [get_object_name $n] }
     set n [get_nets -quiet -hierarchical -filter "full_name == $full"]
     if {[sizeof_collection $n] == 1} { return [get_object_name $n] }
+    return ""
+}
+proc eco079_lookup_port {name} {   ;# 079 fix: the port object name or "" ; -exact as antenna_port_buffers.tcl (names with brackets such as dma_rdata[14])
+    set p [get_ports -quiet -exact $name]
+    if {[sizeof_collection $p] == 1} { return [get_object_name $p] }
+    return ""
+}
+proc eco079_port_xy {name} {   ;# 079 fix: the centre of the first terminal of the port (the pin location, as antenna_port_buffers.tcl); "" if none
+    set t [get_terminals -quiet -of_objects [get_ports -quiet -exact $name]]
+    if {[sizeof_collection $t] == 0} { return "" }
+    return [ant068_centre [index_collection $t 0]]
+}
+proc eco079_net_of_port {name} {   ;# 079 fix: the net object name of a port, "" if none
+    set n [get_nets -quiet -of_objects [get_ports -quiet -exact $name]]
+    if {[sizeof_collection $n] >= 1} { return [get_object_name [index_collection $n 0]] }
     return ""
 }
 proc eco079_net_of_pin {pinname} {   ;# the net object name of a pin, "" if none
@@ -325,9 +456,21 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     # --------------------------------------------------------------------------
     set ea_prob {}
     set ea_deferred 0
+    set ea_nport 0
     foreach c $ea_cmds {
         set idx [dict get $c idx]
-        if {[dict get $c type] eq "insert_buffer"} {
+        if {[dict get $c type] eq "insert_buffer" && [dict get $c objkind] eq "port"} {
+            set pn [dict get $c full_pin]
+            if {[eco079_lookup_port $pn] eq ""} {
+                lappend ea_prob "change $idx (line [dict get $c line]): port $pn not found in the design"
+            } else {
+                incr ea_nport
+                set pdir [get_attribute -quiet [get_ports -exact $pn] direction]   ;# VERIFY port attribute direction (in / out / inout)
+                if {$pdir ne "in"} { lappend ea_prob "change $idx (line [dict get $c line]): port $pn has direction '$pdir', only input ports are supported (the loads move behind the new cell)" }
+                if {[eco079_port_xy $pn] eq ""} { lappend ea_prob "change $idx (line [dict get $c line]): port $pn has no terminal (no pin location)" }
+                if {[eco079_net_of_port $pn] eq ""} { lappend ea_prob "change $idx (line [dict get $c line]): port $pn has no net" }
+            }
+        } elseif {[dict get $c type] eq "insert_buffer"} {
             if {[eco079_is_deferred $ea_cmds $idx [dict get $c full_pin] 0]} { incr ea_deferred; continue }
             if {[eco079_lookup_pin [dict get $c full_pin]] eq ""} { lappend ea_prob "change $idx (line [dict get $c line]): pin [dict get $c full_pin] not found" }
         } else {
@@ -335,7 +478,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
             if {[eco079_lookup_cell [dict get $c full_inst]] eq ""} { lappend ea_prob "change $idx (line [dict get $c line]): cell [dict get $c full_inst] not found" }
         }
     }
-    puts ">>> 079 pins/cells checked: [llength $ea_cmds] changes, $ea_deferred refer to a cell that an earlier insertion creates (looked up when applied), [llength $ea_prob] not found"
+    puts ">>> 079 pins/ports/cells checked: [llength $ea_cmds] changes ($ea_nport on a top-level port), $ea_deferred refer to a cell that an earlier insertion creates (looked up when applied), [llength $ea_prob] not found"
     foreach p $ea_prob { puts ">>> 079 ERROR $p" }
 
     set ea_libnames {}
@@ -370,6 +513,18 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     if {$ea_site_w > 1e8} { error "ERROR 079: none of the filler masters $FILLER_REFS is in the LEF, the site width is unknown" }
     puts ">>> 079 site width $ea_site_w um; cell widths (um): [lmap r [lsort [dict keys $ea_rtab]] {list $r [dict get $ea_lef $r w]}]"
 
+    set ea_gate [dict create]
+    foreach c $ea_cmds {
+        if {[dict get $c type] eq "insert_buffer" && [dict get $c objkind] eq "port"} {
+            set r [dict get $c ref]
+            if {![dict exists $ea_gate $r]} {
+                dict set ea_gate $r [eco079_in_gate [dict get $ea_lef $r]]
+                lassign [eco079_port_limit [dict get $ea_gate $r] $PORT_MAX_PIN_BUF_DIST $PORT_ANT_RATIO_LIMIT $PORT_ANT_WEIGHT_PINWIRE $PORT_WIRE_WIDTH_UM] pl ptxt
+                puts ">>> 079 port insertions with $r: input gate [format %.3f [dict get $ea_gate $r]] um^2, distance limit pin-to-cell [format %.1f $pl] um ($ptxt; ratio limit $PORT_ANT_RATIO_LIMIT, weight $PORT_ANT_WEIGHT_PINWIRE, wire width $PORT_WIRE_WIDTH_UM, all read from antenna_port_buffers.tcl)"
+                if {$pl <= 0} { error "ERROR 079: reference $r cannot be placed on a port: $ptxt (nothing changed)" }
+            }
+        }
+    }
     set ea_m0 [ant072_metrics "079 BEFORE"]
     lassign [ant068_check_routes_counts] ea_drc0 ea_open0 ea_ant0
     puts ">>> 079 check_routes BEFORE: DRCs $ea_drc0, open nets $ea_open0, ICC2 antenna violations $ea_ant0"
@@ -405,6 +560,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_failed {}
     set ea_watch {}
     set ea_touched {}
+    set ea_moves {}
     set ea_removed 0
     foreach c $ea_cmds {
         set idx [dict get $c idx]
@@ -443,22 +599,50 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
             continue
         }
         # ---- insert_buffer ----
-        set pinname [eco079_lookup_pin [dict get $c full_pin]]
-        if {$pinname eq ""} { lappend ea_failed "change $idx: pin [dict get $c full_pin] not found (it should exist now)"; continue }
-        set pobj [get_pins -exact $pinname]
-        set dir [get_attribute -quiet $pobj direction]   ;# VERIFY pin attribute direction
-        set netb [eco079_net_of_pin $pinname]
-        if {$netb eq ""} { lappend ea_failed "change $idx: pin $pinname has no net"; continue }
-        set before [eco079_net_leaf_pins $netb]
-        lassign [eco079_driver_info $netb] drv_cells has_port drv_xy
-        set dkind [eco079_driver_kind $drv_cells $has_port $BUF_PREFIX]
-        lassign [ant068_centre $pobj] px py
+        set isport [expr {[dict get $c objkind] eq "port"}]
+        set abpins {}
+        set gate 0.0
+        set portlim 0.0
+        if {$isport} {
+            # 079 fix: an input PORT: the loads move behind the new cell; the pin location is the port terminal (as antenna_port_buffers.tcl)
+            set pinname [eco079_lookup_port [dict get $c full_pin]]
+            if {$pinname eq ""} { lappend ea_failed "change $idx: port [dict get $c full_pin] not found"; continue }
+            set pobj [get_ports -exact $pinname]
+            set dir port
+            set netb [eco079_net_of_port $pinname]
+            if {$netb eq ""} { lappend ea_failed "change $idx: port $pinname has no net"; continue }
+            set before [eco079_net_leaf_pins $netb]
+            lassign [eco079_port_xy $pinname] px py
+            set drv_cells {}; set has_port 1; set drv_xy [list $px $py]
+            set dkind port
+            set gate [dict get $ea_gate $ref]
+            lassign [eco079_port_limit $gate $PORT_MAX_PIN_BUF_DIST $PORT_ANT_RATIO_LIMIT $PORT_ANT_WEIGHT_PINWIRE $PORT_WIRE_WIDTH_UM] portlim portwhy
+            set abpins [eco079_antbuf_pins $before $BUF_PREFIX]
+            if {[llength $abpins] > 0} {
+                set abinfo {}
+                foreach ap $abpins { lassign [ant068_centre [get_pins -exact $ap]] ax ay; lappend abinfo [format "%s (input pin %.1f um from the port pin)" $ap [ant_manhattan $px $py $ax $ay]] }
+                puts ">>> 079 CASE change $idx: port $pinname already has an antenna buffer: [join $abinfo {, }]. The new cell goes BETWEEN the port and the antenna buffer (which is not touched); it must be within [format %.1f $portlim] um of the port pin ($portwhy)"
+            }
+        } else {
+            set pinname [eco079_lookup_pin [dict get $c full_pin]]
+            if {$pinname eq ""} { lappend ea_failed "change $idx: pin [dict get $c full_pin] not found (it should exist now)"; continue }
+            set pobj [get_pins -exact $pinname]
+            set dir [get_attribute -quiet $pobj direction]   ;# VERIFY pin attribute direction
+            set netb [eco079_net_of_pin $pinname]
+            if {$netb eq ""} { lappend ea_failed "change $idx: pin $pinname has no net"; continue }
+            set before [eco079_net_leaf_pins $netb]
+            lassign [eco079_driver_info $netb] drv_cells has_port drv_xy
+            set dkind [eco079_driver_kind $drv_cells $has_port $BUF_PREFIX]
+            lassign [ant068_centre $pobj] px py
+        }
         set placed 0
         set tried {}
         set last_why "no usable filler run"
-        foreach tier {1 2} {
+        set tiers {1 2}
+        if {$isport} { set tiers {1} }   ;# no tier 2 for ports (antenna)
+        foreach tier $tiers {
             if {$placed} break
-            set lim [expr {$tier == 1 ? $DIST_TIER1 : $DIST_TIER2}]
+            if {$isport} { set lim $portlim } else { set lim [expr {$tier == 1 ? $DIST_TIER1 : $DIST_TIER2}] }
             set L [expr {$lim + $bw + $bh}]
             set frows [ant_rows_in_window $ea_ftable [expr {$px - $L}] [expr {$py - $L}] [expr {$px + $L}] [expr {$py + $L}]]
             set cands {}
@@ -502,26 +686,38 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                 set why {}
                 if {$dpos > $POS_TOL} { lappend why "cell at ([format %.3f $bx0], [format %.3f $by0]) instead of the site ([format %.3f $cx], [format %.3f $cy])" }
                 if {$dist > $lim} { lappend why "distance [format %.1f $dist] > [format %.1f $lim]" }
+                set ratio 0.0
+                if {$isport} { set ratio [ant_ratio $gate $dist $PORT_WIRE_WIDTH_UM $PORT_ANT_WEIGHT_PINWIRE]; if {$ratio > $PORT_ANT_RATIO_LIMIT} { lappend why "predicted antenna ratio [format %.0f $ratio] > $PORT_ANT_RATIO_LIMIT" } }
                 set bi [get_object_name $inp]; set bz [get_object_name $outp]
                 set netin [eco079_net_of_pin $bi]; set netout [eco079_net_of_pin $bz]
                 set tprob [eco079_topology_problems $dir $pinname $before [eco079_net_leaf_pins $netin] [eco079_net_leaf_pins $netout] $bi $bz]
                 foreach tp $tprob { lappend why "topology: $tp" }
-                puts [format ">>> 079 CHANGE %d (%s line %d) %s %s ref %s tier %d site (%.3f, %.3f) distance %.1f um cell %s %s" $idx [dict get $c file] [dict get $c line] [expr {$dir eq {out} ? {driver pin} : {load pin}}] $pinname $ref $tier $cx $cy $dist $bname [expr {[llength $why] ? "REJECTED: [join $why {; }]" : "OK"}]]
+                puts [format ">>> 079 CHANGE %d (%s line %d) %s %s ref %s tier %d site (%.3f, %.3f) distance %.1f um cell %s %s" $idx [dict get $c file] [dict get $c line] [switch -- $dir { out {string cat {driver pin}} port {string cat {input port}} default {string cat {load pin}} }] $pinname $ref $tier $cx $cy $dist $bname [expr {[llength $why] ? "REJECTED: [join $why {; }]" : "OK"}]]
                 if {[llength $why] == 0} {
                     set placed 1
                     lappend ea_done [dict create idx $idx type insert_buffer cell $bname ref $ref pin $pinname dir $dir net_in $netin net_out $netout site [list $cx $cy] dist $dist]
                     lappend ea_touched $netin $netout
+                    foreach mv [eco079_protected_moves $before $ea_names $netb] { lappend ea_moves $mv }
                     set wr [eco079_watch_reason $dkind]
                     if {$wr ne ""} {
                         set ddist "n/a"
                         if {$drv_xy ne ""} { set ddist [format %.1f [ant_manhattan [lindex $drv_xy 0] [lindex $drv_xy 1] $ix $iy]] }
-                        lappend ea_watch [format "change %d: cell %s ref %s on pin %s, net %s (%s); pin-to-buffer %.1f um, driver-to-buffer %s um" $idx $bname $ref $pinname $netb $wr $dist $ddist]
+                        set extra ""
+                        if {$isport} {
+                            set extra [format "; input gate %.3f um^2, predicted antenna ratio %.0f (limit %s), distance limit %.1f um" $gate $ratio $PORT_ANT_RATIO_LIMIT $portlim]
+                            if {[llength $abpins] > 0} {
+                                set closer {}
+                                foreach ap $abpins { lassign [ant068_centre [get_pins -exact $ap]] ax ay; lappend closer [format "%s is %.1f um from the port pin: the new cell is %s" $ap [ant_manhattan $px $py $ax $ay] [expr {$dist <= [ant_manhattan $px $py $ax $ay] ? {CLOSER} : {not closer, but within the limit}}]] }
+                                append extra "; ANTBUF CASE (new cell between the port and the antenna buffer): [join $closer {; }]"
+                            }
+                        }
+                        lappend ea_watch [format "change %d: kind=%s cell %s ref %s on %s, net %s (%s); pin-to-buffer %.1f um, driver-to-buffer %s um%s" $idx [dict get $c objkind] $bname $ref $pinname $netb $wr $dist $ddist $extra]
                     }
                     break
                 }
                 set last_why [join $why {; }]
                 if {[catch {remove_buffers $bc} err]} { error "ERROR 079: change $idx: cannot remove the rejected cell $bname: $err (nothing saved)" }   ;# VERIFY remove_buffers restores the net
-                set after_back [eco079_net_leaf_pins [eco079_net_of_pin $pinname]]
+                set after_back [eco079_net_leaf_pins [expr {$isport ? [eco079_net_of_port $pinname] : [eco079_net_of_pin $pinname]}]]   ;# 079 fix: a port has no pin object
                 if {[lsort $after_back] ne [lsort $before]} { error "ERROR 079: change $idx: after removing the rejected cell the net of $pinname has {[lsort $after_back]}, expected {[lsort $before]} (nothing saved)" }
             }
         }
@@ -583,7 +779,9 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     # protected cells
     set ea_snap1 [lmap nm $ea_names {ant072_snapshot $nm}]
     set ea_diff [ant072_snapshot_diff $ea_snap0 $ea_snap1]
-    puts ">>> 079 CHECK protected cells ([llength $ea_names]): [expr {[llength $ea_diff] ? $ea_diff : {reference, origin, orientation and every pin connection are identical to the snapshot}}]"
+    lassign [eco079_diff_split $ea_diff $ea_moves $NEW_CELL_MARK] ea_diff ea_exp
+    foreach d $ea_exp { puts ">>> 079 EXPECTED protected pin move (an insertion put a PrimeTime cell in front of the antenna buffer / on its net; the topology was verified): $d" }
+    puts ">>> 079 CHECK protected cells ([llength $ea_names]): [expr {[llength $ea_diff] ? $ea_diff : {reference, origin and orientation identical; every pin on the same net except the [llength $ea_exp] expected move(s) listed above}}]"
     foreach d $ea_diff { lappend ea_failures "protected cell: $d" }
     set ea_nant1 [sizeof_collection [get_cells -quiet ${BUF_PREFIX}_*]]
     puts ">>> 079 CHECK ${BUF_PREFIX}_* count: $ea_nant1 (expected $EXPECT_ANTBUF)"
