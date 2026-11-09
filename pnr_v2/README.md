@@ -22,6 +22,7 @@ If the folder differs: `sed -i 's#/storage/EE5239G1/aagams_workspace2/unpu#<real
 | 6 | `route.tcl` | `icc2_shell` |
 | 6b | `fix_antenna.tcl` | `icc2_shell` (after the first Calibre antenna run; needs `<BASE>/pv/drc/unpu_top_antenna_bkp.db`) |
 | 6c | `antenna_port_buffers.tcl` | `icc2_shell` (task 068: after `fix_antenna.tcl`, before `metal_fill.tcl`; a buffer next to the pin of each long INPUT PORT net, an ECO on the netlist; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place; `clk` is never buffered) |
+| 6d | `antenna_clk_root.tcl` | `icc2_shell` (task 071: after `antenna_port_buffers.tcl`, before `metal_fill.tcl`; replaces the CTS root inverter on the `clk` port net by a larger inverter, a size-only ECO on one clock-tree cell; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place) |
 | 7 | `metal_fill.tcl` | `icc2_shell` |
 | 8 | `pv.tcl` | `icc2_shell` |
 
@@ -114,6 +115,33 @@ What to read after each step:
 - Calibre: `drc.log` 0 results, `ant.log` the number of results per rule and which nets remain. A net that remains after its buffer is a new finding, not a reason to repeat the script on the old database.
 
 If `antenna_port_buffers.tcl` reports `0 usable candidates` or a net FAILED: run the read-only diagnostic `pnr_v2/diag_filler_runs.tcl` (task 070; net = `DIAG_NET` at its top, nothing is saved): `cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2`, then `icc2_shell -f ../pnr_v2/diag_filler_runs.tcl |& tee diag_filler_runs_console.log`, then `exit`.
+
+### Step 6d: the `clk` antenna result (task 071)
+
+After step 6c the only Calibre antenna result left is the `clk` port net (rule `AN.MTL.1.M3`): about 490 um of M3 from the pin to the CTS root inverter, whose input gate is only about 0.19 um^2 (ratio about 2,670 against 400). `antenna_clk_root.tcl` replaces that root inverter by a larger inverter of the same function and pins (a size-only ECO on one clock-tree cell; tell the PM): the gate area needed is perimeter x 0.54 / 400 x 1.10 (about 1.43 um^2 for the polygon of the last run), and the cell is the inverter with the smallest gate area that reaches it, chosen from the kit LEF. A buffer at the pin was rejected for the first try (it delays the whole clock tree). The script maps the polygon of the database to its net with the same functions as 6c and stops if the database holds anything but the clock-source port net.
+
+One command per line (csh, from the server). The database is the one of the last Calibre antenna run (here `run2`; take the folder of the run that reported the `clk` result):
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_clkroot
+cp calibre/run2/ant/unpu_top.ant.db ../pv/drc/unpu_top_antenna_bkp.db
+icc2_shell -f ../pnr_v2/antenna_clk_root.tcl |& tee antenna_clk_root_console.log
+icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
+icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
+```
+
+Then the two Calibre runs in a NEW run folder (the same commands as above with `run3`: `mkdir -p pnr_icc2/calibre/run3/drc pnr_icc2/calibre/run3/ant`, the two `cp` of the control files, `cd` into each folder, `calibre -drc -hier drc.ctrl |& tee drc.log` and `calibre -drc -hier ant.ctrl |& tee ant.log`). Type `exit` at each `icc2_shell` prompt.
+
+What to read in `antenna_clk_root_console.log` (also `logs/6d_antenna_clk_root.log`), lines that start with `>>> 071`:
+
+- `POLY` line: the polygon, its perimeter (about 960.86 um) and the chosen net `clk`. `ROOT cell`: reference, box, orientation, distance to the pin. `NEED`: the gate area needed, also for the TOP_M weight.
+- `candidate table` and `CHOSEN`: the inverter, why, its width against the old one. If no inverter reaches the need the script stops with the five largest gate areas: then the choice is between a buffer at the pin and a waiver (not made by the script).
+- `PLAN`: how the extra width is taken (fillers on the right or the left). An error that a real cell is in the way stops the script before any change.
+- `BEFORE METRICS` and `AFTER METRICS` lines (global skew, setup and hold WNS, transition and capacitance violations) and the raw `report_clock_qor` / `report_global_timing` texts between them.
+- `CHECK` lines: DRC 0, open nets 0, legality 0, every pin of the root on the same net as before, reference as chosen, `clk` still has the root as its only load. Any failure ends with `ERROR 071` and nothing is saved.
+- `VERDICT OK`, `WORSE` or `UNKNOWN`. `WORSE`: the global skew grew by more than 0.05 ns, the setup or hold WNS got worse by more than 0.02 ns, or a transition or capacitance violation appeared. The script still saves; to undo, restore the backup (`rm -r blocks/unpu_top.dlib` then `mv blocks/unpu_top.dlib.bak_pre_clkroot blocks/unpu_top.dlib`) and tell Planning. `UNKNOWN`: a number could not be read from a report; read the BEFORE and AFTER texts by hand.
+- `STAGE 6d COMPLETE`, then after `metal_fill.tcl`, `pv.tcl` and the new Calibre run the antenna result count should be 0.
 
 ## Edits
 
