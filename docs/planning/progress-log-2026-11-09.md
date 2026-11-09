@@ -104,6 +104,12 @@ On 2026-11-02 the user decided on a clean slate: a new server folder `/storage/E
 - **Post-layout simulation verdict** (task 077): the bounded acceptance of the `SDFNEP`/`SDFNCAP` warnings (user option 1) is implemented in `run_postlayout_sim.sh`; the 73-check test passes; the A3 run itself has not been re-judged (no judge-only mode; the simulation is rerun after the ECO anyway).
 - **Task 078** (written): PrimeTime CSV lists of all violators + a probe of PrimeTime's own ECO commands; the ICC2-side ECO script follows, depending on the probe result.
 
+### 3.12 PrimeTime ECO probe: it works (about 21:40)
+- First two probe runs failed in the probe itself (selector compared the raw `is_buffer` text wrongly; then PTECO-099 "Ignoring lib cell ... definition does not exist" because the buffer list was given as bare names). Third run (buffer list as a COLLECTION of library cells, logical ECO): `fix_eco_timing -type hold -methods {insert_buffer} -buffer_list <collection> -hold_margin 0.05` proposed 109 `insert_buffer` commands (`dl01d1` 64, `dl02d1` 31, `buffd1` 12, `dl01d2` 2; area +2687.50 um2, about 0.6 percent of the cell area) and PrimeTime's memory then showed 0 hold violators, WNS +0.0002 ns (before: 263, -0.3468 ns). Insertion points are shared driver pins (e.g. `copt_h_inst_3080/Z`, `U46/Z`) and load pins (`dest_c_reg_reg_2_/D`); one delay cell fixes several endpoints.
+- The probe's closing line said "0 changes proposed" (counter bug: it did not know the verb format); fix is part of task 079.
+- Change files in `pnr_icc2/pt/`: `pt_eco_hold_changes.tcl` and `_icc2.tcl` (identical, "formatted for IC Compiler": `current_instance {x}` + `insert_buffer [get_pins {P}] <ref> -new_net_names {N} -new_cell_names {C}`), `pt_eco_hold_changes.txt`. PrimeTime-SI licence is available.
+- Next: task 079 (a PrimeTime setup-ECO probe for `dma_addr[31]`, and the ICC2 script that applies the change lists with legal placement, protection of the antenna cells, an antenna-watch list and hard checks), then the whole chain again (fill, `pv`, DRC / antenna / LVS, PrimeTime setup + hold, post-layout simulation).
+
 ## 4. Tasks written today (Planning -> Execution)
 | Task | What | State |
 |---|---|---|

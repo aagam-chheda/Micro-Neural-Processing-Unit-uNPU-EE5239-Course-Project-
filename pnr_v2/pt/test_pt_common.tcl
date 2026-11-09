@@ -490,6 +490,31 @@ check "result line: ran but no changes carries the first messages" {[pt_eco_resu
 check "result line: the old not-available form is unchanged" {[pt_eco_result_line 0 "x"] eq "PROBE RESULT: ECO NOT AVAILABLE: x"}
 check "physical ECO is off by default and the std LEF is the kit file of build_ndm_std.tcl" {$PT_ECO_PHYSICAL == 0 && [string match "*/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef" $PT_ECO_STD_LEF] && [string match "*/unpu_top.def" $PT_ECO_DEF] && $PT_ECO_TECH_LEF eq ""}
 
+
+# ---- task 079 part 1: the hold ECO excerpt of the user's second server run (the numbers 109 / 2687.50 / the four cells are from the run; the LAYOUT of the lines is a reconstruction -- VERIFY)
+set hx "Information: Inserting hold buffers\nNumber of insert_buffer commands 109\nTotal area increased 2687.50 um^2\nInserted buffers:\n  dl01d1  64  25.09\n  dl02d1  31  28.22\n  buffd1  12  12.54\n  dl01d2   2  28.22\n  109 TOTAL\n\nFinal ECO Summary: Total number of commands 109\n"
+set hp [pt_eco_parse_fix_text $hx]
+check "hold excerpt: 109 commands" {[dict get $hp ncmd] == 109 && [dict get [dict get $hp commands] insert_buffer] == 109}
+check "hold excerpt: area 2687.50" {[dict get $hp area] == 2687.50}
+check "hold excerpt: the cell table (cell -> count, area each)" {[dict get [dict get $hp cells] dl01d1] eq {64 25.09} && [dict get [dict get $hp cells] dl02d1] eq {31 28.22} && [dict get [dict get $hp cells] buffd1] eq {12 12.54} && [dict get [dict get $hp cells] dl01d2] eq {2 28.22} && [dict size [dict get $hp cells]] == 4}
+check "hold excerpt: the table sums to 109 cells and 2687.50 um^2" {abs(64*25.09 + 31*28.22 + 12*12.54 + 2*28.22 - 2687.50) < 0.5}
+check "hold excerpt: proposed" {[pt_eco_fix_proposed $hp] == 1}
+# the sample lines of the change files
+set chg "current_instance\ncurrent_instance {u_apb}\ninsert_buffer \[get_pins {U46/Z}\] dl02d1 -new_net_names {net_PTECO_HOLD_NET1} -new_cell_names {U_PTECO_HOLD_BUF1}\ncurrent_instance\ninsert_buffer \[get_pins {U61/Z}\] dl01d2 -new_net_names {net_PTECO_HOLD_NET2} -new_cell_names {U_PTECO_HOLD_BUF2}\ncurrent_instance\n"
+set cc [pt_eco_count_changes $chg {dl02d1 dl01d2 dl01d1 buffd1}]
+check "change file (tcl): the two insert_buffer lines are counted with their references" {[dict get $cc n] == 2 && [dict get [dict get $cc refs] dl02d1] == 1 && [dict get [dict get $cc refs] dl01d2] == 1}
+set txtl "16. insert_buffer in u_dma: added one 'dl02d1' 'I' to 'Z' on pin 'copt_h_inst_3080/Z' named 'net_PTECO_HOLD_NET16' 'U_PTECO_HOLD_BUF16'\n17. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'dest_c_reg_reg_2_/D' named 'net_PTECO_HOLD_NET17' 'U_PTECO_HOLD_BUF17'\n"
+set ct [pt_eco_count_changes $txtl {dl02d1 buffd1}]
+check "change file (txt): numbered lines are counted (the bug: the first word was '16.')" {[dict get $ct n] == 2 && [dict get [dict get $ct verbs] insert_buffer] == 2 && [dict get [dict get $ct refs] dl02d1] == 1 && [dict get [dict get $ct refs] buffd1] == 1}
+check "size_cell lines are counted" {[dict get [pt_eco_count_changes "size_cell {HFSINV_13_284} inv0d8\n" {inv0d8}] n] == 1 && [dict get [dict get [pt_eco_count_changes "size_cell {HFSINV_13_284} inv0d8\n" {inv0d8}] refs] inv0d8] == 1}
+# the number reported: the summary first
+check "change number: the summary wins (109), source named" {[lindex [pt_eco_change_number $hp 0] 0] == 109 && [string match "Final ECO Summary*" [lindex [pt_eco_change_number $hp 0] 1]]}
+check "change number: a different file count adds a NOTE" {[string match "*lists 111 change lines but PrimeTime's summary says 109*" [lindex [pt_eco_change_number $hp 111] 2]]}
+check "change number: equal counts, no note" {[lindex [pt_eco_change_number $hp 109] 2] eq ""}
+check "change number: no summary line -> the file count" {[lindex [pt_eco_change_number [pt_eco_parse_fix_text "Information: done\n"] 7] 0] == 7}
+check "change number: nothing -> empty, the note says so" {[lindex [pt_eco_change_number [pt_eco_parse_fix_text ""] ""] 0] eq "" && [string match "neither*" [lindex [pt_eco_change_number [pt_eco_parse_fix_text ""] ""] 2]]}
+check "closing line for the hold run" {[pt_eco_result_line 1 "[lindex [pt_eco_change_number $hp 0] 0] changes proposed, change file /x/pt_eco_hold_changes.tcl"] eq "PROBE RESULT: ECO RAN: 109 changes proposed, change file /x/pt_eco_hold_changes.tcl"}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

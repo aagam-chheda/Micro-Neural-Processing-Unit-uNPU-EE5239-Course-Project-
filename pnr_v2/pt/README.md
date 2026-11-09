@@ -174,6 +174,19 @@ The LAST block of the log is the answer:
 | `ECO NOT AVAILABLE: neither fix_eco_timing nor fix_eco_hold exists` | the command is not in this release | same as above |
 | `ECO NOT AVAILABLE: fix_eco_timing failed: ...` | the options differ from what is written here, or the licence is missing | read the message, the `trying:` line and the `help` output printed first; fix the option names (VERIFY V22 to V26) |
 
+## 9. Setup ECO probe (`pt_eco_setup_probe.tcl`, task 079) and the ECO change counter
+
+`pt_eco_setup_probe.tcl` is the setup twin of the hold probe, at the slow corner (`pt_prepare_session setup ss`): the same help and licence printing, then `fix_eco_timing -type setup -methods {size_cell}` for all setup violators (one is expected: `dma_addr[31]`, -0.2423 ns, last stage `HFSINV_13_284 (inv0d4)` into the 1.0 pF load), `write_changes` into `pt_eco_setup_changes.tcl` / `pt_eco_setup_changes_icc2.tcl` / `pt_eco_setup_changes.txt`, the AFTER setup status in PrimeTime's memory, and the same three-way `PROBE RESULT` line. It reuses the log parser, the outcome classes and the write loop of `pt_common.tcl`.
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt
+pt_shell -f ../../pnr_v2/pt/pt_eco_setup_probe.tcl |& tee pt_eco_setup_probe.log
+```
+
+Read first: the `help` text printed for `fix_eco_timing` (does `-methods {size_cell}` need a list of cells or `-cell_type` for setup?), then the `PROBE RESULT` line, then the first 30 lines of the change file (the real syntax of `size_cell`; `pnr_v2/pt_eco_apply.tcl` understands `size_cell {instance} REF` and `size_cell [get_cells {instance}] REF` and stops with a list on anything else).
+
+The number of changes in the closing line (fix of task 079): the hold probe printed `0 changes proposed` because its counter read the `.txt` file, whose lines are numbered (`16. insert_buffer in u_dma: added one ...`). Now the number comes from PrimeTime's own `Final ECO Summary: Total number of commands N` first (109 for the hold run), then from the change file (numbered lines and `insert_buffer` / `size_cell` verbs are understood); a difference between the two is printed as a NOTE. The log also prints the commands per verb, the area change and the cell table when the text has them (VERIFY the line layout, V29).
+
 ## VERIFY table (nothing here has been run)
 
 | # | Item | Look at |
@@ -206,6 +219,7 @@ The LAST block of the log is the answer:
 | V26 | `set_eco_options -log_file`; `fix_eco_timing -type hold -methods {insert_buffer} -buffer_list ... -hold_margin ...` (no `-to` / `-from`) | the `trying:` and `that form failed:` lines |
 | V27 | `write_changes -format icctcl`, `icc2tcl` or `text` with `-output <file>`; the verbs of the change file (`insert_buffer`, `size_cell`, ...) | the `write_changes -format ...` lines, the first 30 lines of the text file, the per-command counts |
 | V28 | `set_app_var timing_save_pin_arrival_and_slack true`; `help -verbose fix_eco_timing`; `get_lib_cells` handed to `-buffer_list`; `set_eco_options -physical_lib_path / -physical_design_path / -physical_tech_lib_path` and `fix_eco_timing -physical_mode occupied_site` (only with `PT_ECO_PHYSICAL 1`); `report_lib -cell`, `list_attributes -class lib_cell -application` (diagnostic) | the `help` output, the `trying (...)` lines, `<form> form: commands proposed ... PTECO-099 warnings ...`, and the DIAGNOSTIC block |
+| V29 | The lines `Number of insert_buffer commands N`, `... area increased ... X`, the cell table (`cell count area_each`) in the `fix_eco_timing` text; `fix_eco_timing -type setup -methods {size_cell}`; the `size_cell` line syntax in the change file | the `>>> 079 commands proposed` line (per verb, area, cells), the help text, the first 30 lines of `pt_eco_setup_changes.txt` |
 
 ## Observation: PrimeTime-SI is licensed
 

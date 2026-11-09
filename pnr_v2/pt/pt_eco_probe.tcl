@@ -191,7 +191,9 @@ pt_main {
                 puts ">>> 078 AFTER the ECO (in PrimeTime's memory): $n_after hold-violating endpoints (report_constraint: [dict get $pva count] lines marked VIOLATED), WNS [pt_fmt_ns $wns_after] ns (before: $n_before, WNS [pt_fmt_ns $wns_before] ns)"
                 puts ">>> 078 per-endpoint slack after the ECO: ${rpt}_after_violators.rpt and ${rpt}_after_violations.csv (the first 40 lines of the report follow)"
                 foreach l [lrange [split $pt_after_txt "\n"] 0 39] { puts "      $l" }
-                set probe_line [pt_eco_result_line 1 "[dict get $cc n] changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}]"]
+                lassign [pt_eco_change_number $last_pf [dict get $cc n]] nchg nsrc nnote
+                puts ">>> 079 changes proposed: $nchg (from: $nsrc)[expr {$nnote ne {} ? "; NOTE: $nnote" : {}}]; per command in the log: [dict get $last_pf commands]; area change [dict get $last_pf area] um^2; cells [dict get $last_pf cells]"
+                set probe_line [pt_eco_result_line 1 "$nchg changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}]"]
             }
         }
     } perr]} {

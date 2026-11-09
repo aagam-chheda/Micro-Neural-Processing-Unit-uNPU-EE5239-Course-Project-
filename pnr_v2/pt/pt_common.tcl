@@ -794,12 +794,13 @@ proc pt_eco_count_changes {text known_refs} {
     foreach l [split $text "\n"] {
         set t [string trim $l]
         if {$t eq "" || [string match "#*" $t]} continue
+        regsub {^[0-9]+\.\s+} $t {} t   ;# 079: the .txt format numbers its lines: "16. insert_buffer in u_dma: added one 'dl02d1' ..."
         set w [lindex [regexp -all -inline {\S+} $t] 0]
         if {![regexp {^(insert_buffer|insert_buffer_at_load_pins|add_buffer|size_cell|remove_buffer|remove_cell|create_cell|replace_cell|swap_cell)$} $w]} continue
         incr n
         dict incr verbs $w
         if {[regexp {^(insert_buffer|insert_buffer_at_load_pins|add_buffer|create_cell|size_cell|replace_cell|swap_cell)$} $w]} {
-            foreach tok [regexp -all -inline {[^\s\{\}\[\]"]+} $t] {
+            foreach tok [regexp -all -inline {[^\s\{\}\[\]"']+} $t] {
                 set base [lindex [split $tok /] end]
                 if {[lsearch -exact $known_refs $base] >= 0} { dict incr refs $base; break }
             }
@@ -829,8 +830,19 @@ proc pt_eco_parse_fix_text {text} {
         if {$id ne ""} { dict incr ids $id }
         if {$id eq "PTECO-099"} { incr n099 }
     }
-    return [dict create ncmd $ncmd n099 $n099 nofix [regexp {No more fixes} $text] msgs $msgs ids $ids]
+    # 079: the commands per verb ("Number of insert_buffer commands 109"), the area change ("area increased ... 2687.50"), the cell table ("dl01d1  64  25.09": cell, count, area each)
+    # 079: VERIFY the wording of these three against the real log (the numbers 109 / 2687.50 / the four cells are from the user's second server run, the layout of the lines is not)
+    set cmds [dict create]
+    foreach {m verb n} [regexp -all -inline {Number of ([a-z_]+) commands\s+([0-9]+)} $text] { dict set cmds $verb $n }
+    set area ""
+    regexp -nocase {area\s+(?:increased|increase|changed)[^0-9\n]*([0-9]+\.?[0-9]*)} $text -> area
+    set table [dict create]
+    foreach l [split $text "\n"] {
+        if {[regexp {^\s*([a-z][a-z0-9_]*)\s+([0-9]+)\s+([0-9]+\.[0-9]+)\s*$} $l -> c n ar]} { dict set table $c [list $n $ar] }
+    }
+    return [dict create ncmd $ncmd n099 $n099 nofix [regexp {No more fixes} $text] msgs $msgs ids $ids commands $cmds area $area cells $table]
 }
+
 # 078 fix: the first messages, one line per distinct id (errors first, then warnings), at most n: "<id> (<count>x): <first line>"
 proc pt_eco_first_messages {parsed n} {
     set seen {}
@@ -860,6 +872,20 @@ proc pt_eco_fix_proposed {parsed} {
 # 078 fix: write_changes printed "No changes to write." (nothing was written)
 proc pt_eco_write_empty {text} {
     return [regexp -nocase {No changes to write} $text]
+}
+
+
+# 079: the number of changes to report: PrimeTime's "Total number of commands N" first, then the count from the change file; also says where the number came from and whether the two differ.
+# Returns {n source note}.
+proc pt_eco_change_number {parsed file_n} {
+    set n [dict get $parsed ncmd]
+    if {[string is integer -strict $n]} {
+        set note ""
+        if {[string is integer -strict $file_n] && $file_n != $n} { set note "the change file lists $file_n change lines but PrimeTime's summary says $n (the summary is used; read the change file)" }
+        return [list $n "Final ECO Summary: Total number of commands" $note]
+    }
+    if {[string is integer -strict $file_n]} { return [list $file_n "count of change lines in the change file (no 'Total number of commands' line in the log)" ""] }
+    return [list "" "none" "neither the summary nor the change file gave a number"]
 }
 
 # the one result line of the probe
@@ -1209,6 +1235,27 @@ proc pt_write_violations {delay_type file} {
     foreach l [pt_viol_na_note $na [llength $rows]] { puts ">>> 078 NOTE: $l" }
     puts ">>> 078 violations file: [llength $rows] endpoints written to $file"
     return [list [llength $rows] $rows]
+}
+
+
+# 079: write_changes in the three formats into $PT_RPT_DIR; a format counts only if the file exists and PrimeTime did not say "No changes to write". Returns {written n_empty}
+# 079: where written is a dict fmt -> path. `base` is the file name stem without extension, e.g. pt_eco_hold_changes.
+proc pt_eco_write_changes_all {base} {
+    global PT_RPT_DIR
+    set written [dict create]
+    set n_empty 0
+    foreach {fmt ext} {icctcl .tcl icc2tcl _icc2.tcl text .txt} {
+        set path ${PT_RPT_DIR}/${base}${ext}
+        file delete -force $path
+        set wtxt ""
+        if {[catch {redirect -variable wtxt { write_changes -format $fmt -output $path }} werr]} { puts ">>> 079 write_changes -format $fmt FAILED: $werr"; continue }   ;# VERIFY write_changes -format -output
+        puts $wtxt
+        if {[pt_eco_write_empty $wtxt]} { incr n_empty; puts ">>> 079 write_changes -format $fmt: 'No changes to write.'"; continue }
+        if {![file exists $path]} { puts ">>> 079 write_changes -format $fmt printed no error but $path does not exist"; continue }
+        puts ">>> 079 write_changes -format $fmt -> $path"
+        dict set written $fmt $path
+    }
+    return [list $written $n_empty]
 }
 
 # 078: the common preparation of pt_hold_ff.tcl for a script that must have the same environment (used by pt_eco_probe.tcl): banner, SI, link, parasitics, SDC check, operating

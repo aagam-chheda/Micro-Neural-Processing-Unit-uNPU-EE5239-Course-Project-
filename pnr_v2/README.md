@@ -24,6 +24,7 @@ If the folder differs: `sed -i 's#/storage/EE5239G1/aagams_workspace2/unpu#<real
 | 6c | `antenna_port_buffers.tcl` | `icc2_shell` (task 068: after `fix_antenna.tcl`, before `metal_fill.tcl`; a buffer next to the pin of each long INPUT PORT net, an ECO on the netlist; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place; `clk` is never buffered) |
 | 6d | `antenna_clk_root.tcl` | `icc2_shell` (task 071: after `antenna_port_buffers.tcl`, before `metal_fill.tcl`; replaces the CTS root inverter on the `clk` port net by a larger inverter, a size-only ECO on one clock-tree cell; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place) |
 | 6e | `timing_closure.tcl` | `icc2_shell` (task 072: after `antenna_clk_root.tcl`, before `metal_fill.tcl`; `route_opt` again with the same goals and options as `route.tcl`, the 15 `antbuf_*` buffers and the clock root protected, fillers removed during the pass and re-created; can resize cells and add hold buffers, so it changes the netlist; overwrites `_route` in place) |
+| 6g | `pt_eco_apply.tcl` | `icc2_shell` (task 079: after `timing_closure.tcl`, before `metal_fill.tcl`; applies PrimeTime's own hold ECO (109 `insert_buffer` commands of `pt_eco_hold_changes_icc2.tcl`) and, if present, the setup ECO (`size_cell`), each new cell placed on a filler run next to its pin; the 15 `antbuf_*` buffers and the clock root protected; changes the netlist; overwrites `_route` in place) |
 | 7 | `metal_fill.tcl` | `icc2_shell` |
 | 8 | `pv.tcl` | `icc2_shell` (task 073: the LEF is the macro `unpu_top` only, from `create_frame` + `write_lef -include cell`, with hard checks; read the `>>> 073 LEF CHECK PASSED` line in the log, a `FAILED` line makes the run end with `ERROR 073`) |
 
@@ -171,6 +172,35 @@ What to read in `timing_closure_console.log` (also `logs/6e_timing_closure.log`)
 - `timing after route_opt and legalisation, before the fillers / route_eco steps` against `AFTER`: the difference is what the filler and `route_eco` steps of `route.tcl` cost.
 - `VERDICT`: `CLOSED` (both WNS >= 0), `IMPROVED`, `UNCHANGED`, `WORSE` (a WNS dropped by more than 0.005 ns) or `UNKNOWN` (a number could not be read, never printed as CLOSED). The script saves in all four cases (only a failed check stops it). If `WORSE`: restore the backup (`rm -r blocks/unpu_top.dlib`, then `mv blocks/unpu_top.dlib.bak_pre_closure blocks/unpu_top.dlib`) and tell Planning.
 - After `metal_fill.tcl`, `pv.tcl` and the new Calibre runs: DRC and antenna must both be 0 again. If antenna is not 0, compare the `PROTECTED` lines and the `CHECK protected cells` line to see which antenna cell changed.
+
+### Step 6g: apply PrimeTime's ECO in ICC2 (task 079)
+
+Why: PrimeTime is the sign-off and reads the I/O references at the clock pin with zero latency, so it found hold -0.3468 ns on 263 endpoints (255 flop D pins fed by `dma_rdata[*]` / `pwdata[*]`) and setup -0.2423 ns on `dma_addr[31]`. The user decided (2026-11-09) to fix the design to pass PrimeTime. PrimeTime's `fix_eco_timing -type hold` closed hold in its memory (263 -> 0, WNS +0.0002 ns) with 109 `insert_buffer` commands (`dl01d1` 64, `dl02d1` 31, `buffd1` 12, `dl01d2` 2; 2687.50 um^2). `pt_eco_apply.tcl` applies the same change list to `unpu_top_route`:
+
+- the change file is parsed in Tcl (`current_instance {x}` sets the hierarchy of the following pins; an empty one resets to the top; `insert_buffer [get_pins {P}] REF -new_net_names {N} -new_cell_names {C}`; `size_cell {I} REF`); any other line stops the script and is listed; nothing is changed before all pins, references (in `scl180_std`, not don't-use) and names (PrimeTime's `U_PTECO_HOLD_BUF<n>` / `net_PTECO_HOLD_NET<n>` are kept, a clash stops) are checked;
+- DRIVER pin versus LOAD pin: a buffer on a driver pin (`U46/Z`, `U81/ZN`) takes ALL loads of that net, on a load pin (`dest_c_reg_reg_2_/D`, `copt_h_inst_3971/I`) it isolates that one load. After every insertion the leaf pins of both nets are compared with exactly that rule; any difference stops the script (nothing saved);
+- every new cell is placed on a free filler run NEXT TO the pin (tier 1 within 30 um, tier 2 within 120 um; the cell width is read from the LEF, the delay cells are wider than `buffd1`), verified at that site and retried with the next candidate (up to 5); a change that cannot be placed is listed as FAILED and the script ends with an error BEFORE routing;
+- only the touched nets are re-routed (`route_eco -nets`, `route_detail -incremental`), fillers and `connect_pg_net` as in 6c;
+- the hard checks (nothing is saved if one fails): `check_routes` DRC 0 and open nets 0, `check_legality` 0, the inserted cells equal the insertions of the change file (109 expected for the hold file; a file with another number stops at the start), every inserted cell has the reference PrimeTime wrote, the protected cells (15 `antbuf_*` + the clock root) are identical to their snapshot, 15 `antbuf_*` cells;
+- ANTENNA WATCH: every inserted cell whose net is driven by an input port or by the output of an `antbuf_*` is listed with the net and the distances. Calibre decides afterwards; none is skipped;
+- timing is REPORTED before and after (`report_global_timing`, WNS/TNS/violations per scenario), not tuned. ICC2's view of the I/O paths is more lenient than PrimeTime's; PrimeTime is the sign-off.
+
+Order on the server (the setup probe first, because its change file is the optional second input):
+
+1. PrimeTime, `pnr_icc2/pt` (see `pnr_v2/pt/README.md` sections 8 and 9): `pt_shell -f ../../pnr_v2/pt/pt_eco_setup_probe.tcl |& tee pt_eco_setup_probe.log` produces `pt_eco_setup_changes_icc2.tcl`; `pt_eco_hold_changes_icc2.tcl` exists from the hold probe. Both files stay in `pnr_icc2/pt/`.
+2. ICC2, one command per line (csh):
+
+```
+cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_pteco
+icc2_shell -f ../pnr_v2/pt_eco_apply.tcl |& tee pt_eco_apply_console.log
+icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
+icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
+```
+
+3. Then: the three Calibre runs in a NEW run folder (DRC, antenna, LVS: the commands of the 6e block above with `run5`; the LVS commands are in `pnr_v2/calibre/README.md`), the two PrimeTime runs (`pt_setup_ss.tcl`, `pt_hold_ff.tcl`, in `pnr_icc2/pt`) and the post-layout simulation (`pnr_v2/sim/README.md`).
+
+What to read after each: `pt_eco_apply_console.log` (lines `>>> 079`): `reference table` (counts as above, all in library, none don't-use); every `CHANGE n ... OK`; `ANTENNA WATCH`; `CHECK` lines; `STAGE 6g COMPLETE`. After `pv.tcl`: the LEF and SDF checks pass. Calibre: DRC 0, antenna 0 (if not, look at the ANTENNA WATCH cells first), LVS CORRECT. PrimeTime: `SETUP: MET` and `HOLD: MET` with zero violating endpoints in the SUMMARY and the CSV files. The simulation: PASS (with the documented SDF limitation).
 
 ## Edits
 
