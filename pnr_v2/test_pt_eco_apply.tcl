@@ -241,6 +241,28 @@ check "count with skipped: 107 applied but 106 expected -> error" {$ok == 0}
 # final line
 check "final line, strict / nothing skipped: plain STAGE 6g COMPLETE" {[eco079_final_line 0 109 {} 109 0 12 unpu_top_route /l/6g.log] eq "STAGE 6g COMPLETE: 109 cells inserted, 0 cells resized, 12 on the ANTENNA WATCH list, unpu_top_route overwritten in place. Log: /l/6g.log"}
 check "final line, partial: STAGE 6g COMPLETE (PARTIAL: N of 109 changes skipped: <numbers>)" {[string match "STAGE 6g COMPLETE (PARTIAL: 3 of 109 changes skipped: 4, 30, 106): 106 cells inserted*" [eco079_final_line 3 109 {106 4 30} 106 0 12 unpu_top_route /l/6g.log]]}
+# ---- 13. task 080: the gate on the in2out group and on the whole setup WNS
+lassign [eco079_gate_check "the in2out group" 0.0143 0.0143 0.005] st msg
+check "gate: equal -> ok" {$st eq "ok" && [string match "*change +0.0000 ns*" $msg]}
+lassign [eco079_gate_check "the in2out group" 0.0143 0.0120 0.005] st msg
+check "gate: slightly worse, inside the tolerance (2.3 ps < 5 ps) -> ok" {$st eq "ok"}
+lassign [eco079_gate_check "the in2out group" 0.0143 0.0093 0.005] st msg
+check "gate: worse by exactly the tolerance -> ok (only MORE than the tolerance fails)" {$st eq "ok"}
+lassign [eco079_gate_check "the in2out group" 0.0143 0.0050 0.005] st msg
+check "gate: worse by 9.3 ps, outside the tolerance -> worse" {$st eq "worse"}
+lassign [eco079_gate_check "the in2out group" 0.0143 -0.589873 0.005] st msg
+check "gate: the real numbers of the server run (before +0.0143, after -0.5899) -> worse, message with both numbers and the tolerance" {$st eq "worse" && $msg eq "the ECO made the in2out group worse (before +0.0143, after -0.5899, tolerance 0.0050)"}
+lassign [eco079_gate_check "the in2out group" -0.2 0.1 0.005] st msg
+check "gate: better -> ok" {$st eq "ok"}
+lassign [eco079_gate_check "the in2out group" "" 0.0143 0.005] st msg
+check "gate: before unreadable -> unreadable (an error in the script), the message says which values" {$st eq "unreadable" && [string match "*before '', after '0.0143'*" $msg]}
+lassign [eco079_gate_check "the whole-design setup WNS" 0.0143 UNKNOWN 0.005] st msg
+check "gate: after unreadable (UNKNOWN) -> unreadable" {$st eq "unreadable"}
+check "group match: the ICC2 name **in2out_default** contains in2out; reg2out does not" {[eco079_group_match {**in2out_default** **reg2reg_default** reg2out} in2out] eq {**in2out_default**}}
+set gl {{**in2out_default** -0.5899 -12.2 32} {**reg2reg_default** -0.01 -0.01 1}}
+check "group violators: the in2out group of the server run: WNS -0.5899, 32 endpoints" {[eco079_group_violators $gl in2out] eq {-0.5899 32}}
+check "group violators: no matching group -> empty WNS and 0" {[eco079_group_violators {{reg2out -0.1 -0.1 1}} in2out] eq {{} 0}}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

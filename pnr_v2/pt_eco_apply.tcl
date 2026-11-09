@@ -47,6 +47,9 @@ set MAX_SITE_TRIES  5           ;# 079: candidate filler runs tried per tier and
 set POS_TOL         0.001       ;# 079: um: the final origin must equal the requested site to this tolerance
 set UNPROTECT_DURING 1          ;# 079: 1 = dont_touch of the protected cells/nets is switched off while the changes are applied (insert_buffer on a dont_touch net may be refused) and switched on again; the snapshot comparison is the guard. 0 = leave it as it is.
 set ALLOW_PARTIAL   0           ;# 079 fix 3: 0 = strict: a change that cannot be placed after all tiers stops the script (nothing saved). 1 = that change is SKIPPED together with every later change that uses a pin of the cell it should have created; the script continues, prints a SKIPPED CHANGES block and ends with STAGE 6g COMPLETE (PARTIAL: ...). PrimeTime must then be re-run (a second ECO round may be needed).
+set GATE_GROUP_PATTERN "in2out" ;# 080: the path group of the combinational APB read path (paddr -> prdata) is named **in2out_default** in ICC2; a group whose name contains this text is the in2out group. If no such group exists the worst setup path from an input port to an output port is used (VERIFY the option -groups and get_path_groups)
+set GATE_TOL_SETUP  0.005       ;# 080: ns. The ECO may make the setup WNS of the in2out group or of the whole design worse by at most this much (ICC2's numbers are repeatable to the picosecond; re-routing only the touched nets moves a path by a few ps at most; the in2out margin before the ECO is only +0.0143 ns, and the damage of the unprotected ECO was -0.59 ns). Worse by more: NOTHING IS SAVED.
+set GATE_TOL_HOLD   0.005       ;# 080: ns. Hold may get worse by at most this much in ICC2 before a WARNING is printed (not an error: PrimeTime is the sign-off for hold; ICC2's hold before the ECO is -0.0004 to -0.00258 ns depending on state)
 set SETUP_SCEN      "func_ss"   ;# 079: scenario names of cts.tcl / route.tcl
 set HOLD_SCEN       "func_ff"
 # 079 fix: insertions on an input PORT (get_ports): the pin-to-new-cell wire must stay short (antenna). Limits are READ from antenna_port_buffers.tcl into PORT_MAX_PIN_BUF_DIST, PORT_ANT_RATIO_LIMIT,
@@ -432,6 +435,33 @@ proc eco079_final_line {nskipped total skipped_nums ninserted nresized nwatch bl
     if {$nskipped > 0} { set head "STAGE 6g COMPLETE (PARTIAL: $nskipped of $total changes skipped: [join [lsort -integer $skipped_nums] {, }])" }
     return "$head: $ninserted cells inserted, $nresized cells resized, $nwatch on the ANTENNA WATCH list, $block overwritten in place. Log: $logfile"
 }
+# 080: the gate decision on one WNS (ns): before / after / tolerance. Returns {status message}: status ok | worse | unreadable. worse = after < before - tolerance.
+proc eco079_gate_check {label before after tol} {
+    if {![string is double -strict $before] || ![string is double -strict $after]} {
+        return [list unreadable "the ECO gate on $label cannot be decided: before '$before', after '$after' (a value is unreadable)"]
+    }
+    if {$after < $before - $tol} {
+        return [list worse "the ECO made $label worse (before [format %+.4f $before], after [format %+.4f $after], tolerance [format %.4f $tol])"]
+    }
+    return [list ok "$label: before [format %+.4f $before] ns, after [format %+.4f $after] ns, change [format %+.4f [expr {$after - $before}]] ns (tolerance [format %.4f $tol])"]
+}
+# 080: the path groups whose name contains `pattern`
+proc eco079_group_match {names pattern} {
+    set out {}
+    foreach n $names { if {[string first $pattern $n] >= 0} { lappend out $n } }
+    return $out
+}
+# 080: the violators of the groups that match `pattern`: groups = list of {name wns tns num} (ant072_wns). Returns {wns num}: the worst wns among them and the sum of the numbers; {"" 0} when none matches.
+proc eco079_group_violators {groups pattern} {
+    set w ""
+    set n 0
+    foreach g $groups {
+        if {[string first $pattern [lindex $g 0]] < 0} continue
+        if {$w eq "" || [lindex $g 1] < $w} { set w [lindex $g 1] }
+        incr n [lindex $g 3]
+    }
+    return [list $w $n]
+}
 # ---- END PURE TCL 079 ----
 
 # 079: take the helper procs from the text of antenna_port_buffers.tcl (pure block 068 and the ICC2 helpers) and of timing_closure.tcl (pure block 072 and its ICC2 helpers): same code, no copy
@@ -519,6 +549,31 @@ proc eco079_driver_info {netname} {   ;# {driver_cells has_input_port driver_xy}
         if {[get_attribute -quiet $po direction] eq "in"} { set hp 1; if {$xy eq ""} { set xy [ant068_centre $po] } }
     }
     return [list $cells $hp $xy]
+}
+
+proc eco079_in2out_state {label} {   ;# 080: {wns num source}: setup WNS of the in2out group (even when it has no violator), its violating endpoints, and where the WNS came from
+    global SETUP_SCEN GATE_GROUP_PATTERN CLK_PORT
+    lassign [ant072_wns $SETUP_SCEN max] w t n groups
+    lassign [eco079_group_violators $groups $GATE_GROUP_PATTERN] gv_w gv_n
+    set gnames {}
+    catch { foreach_in_collection g [get_path_groups -quiet *] { lappend gnames [get_object_name $g] } }   ;# VERIFY get_path_groups
+    set match [eco079_group_match $gnames $GATE_GROUP_PATTERN]
+    set gw ""
+    foreach g $match {
+        if {[catch {
+            set p [get_timing_paths -scenarios $SETUP_SCEN -delay_type max -groups $g -max_paths 1]   ;# VERIFY get_timing_paths -groups
+            if {[sizeof_collection $p] > 0} { set sl [get_attribute $p slack]; if {$gw eq "" || $sl < $gw} { set gw $sl } }
+        } err]} { puts ">>> 080 $label in2out: the WNS of path group $g could not be read: $err" }
+    }
+    set fw ""
+    if {[catch {
+        set ins [remove_from_collection [all_inputs] [get_ports -quiet -exact $CLK_PORT]]
+        set p [get_timing_paths -scenarios $SETUP_SCEN -delay_type max -from $ins -to [all_outputs] -max_paths 1]   ;# VERIFY get_timing_paths -from <ports> -to <ports>
+        if {[sizeof_collection $p] > 0} { set fw [get_attribute $p slack] }
+    } err]} { puts ">>> 080 $label in2out: the worst input-to-output path could not be read: $err" }
+    if {$gw ne ""} { set src "path group(s) $match" } elseif {$fw ne ""} { set src "worst setup path from an input port to an output port (no path group named *$GATE_GROUP_PATTERN* was readable; groups seen: $gnames)"; set gw $fw } else { set src "UNREADABLE (groups seen: $gnames)" }
+    puts ">>> 080 $label in2out: WNS [expr {$gw eq {} ? {UNKNOWN} : $gw}] ns from $src; worst input-to-output path [expr {$fw eq {} ? {UNKNOWN} : $fw}] ns; violating endpoints in the group: $gv_n"
+    return [list $gw $gv_n $src]
 }
 
 file mkdir $LOG_DIR
@@ -655,6 +710,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
         }
     }
     set ea_m0 [ant072_metrics "079 BEFORE"]
+    set ea_g0 [eco079_in2out_state "079 BEFORE"]
     lassign [ant068_check_routes_counts] ea_drc0 ea_open0 ea_ant0
     puts ">>> 079 check_routes BEFORE: DRCs $ea_drc0, open nets $ea_open0, ICC2 antenna violations $ea_ant0"
 
@@ -979,6 +1035,20 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     puts ">>> 079 CHECK ${BUF_PREFIX}_* count: $ea_nant1 (expected $EXPECT_ANTBUF)"
     if {$ea_nant1 != $EXPECT_ANTBUF} { lappend ea_failures "${BUF_PREFIX}_* count $ea_nant1 != $EXPECT_ANTBUF" }
     set ea_m1 [ant072_metrics "079 AFTER"]
+    set ea_g1 [eco079_in2out_state "079 AFTER"]
+    # 080: the GATE. The in2out group and the whole setup WNS must not be worse than before by more than the tolerance; hold only gives a warning (PrimeTime is the sign-off for hold).
+    puts ">>> 079 GATE setup violating endpoints: whole design before [dict get $ea_m0 setup_num], after [dict get $ea_m1 setup_num]; in2out group before [lindex $ea_g0 1], after [lindex $ea_g1 1]; hold before [dict get $ea_m0 hold_num], after [dict get $ea_m1 hold_num]"
+    foreach {glabel gb ga gtol} [list "the in2out group" [lindex $ea_g0 0] [lindex $ea_g1 0] $GATE_TOL_SETUP "the whole-design setup WNS" [dict get $ea_m0 setup] [dict get $ea_m1 setup] $GATE_TOL_SETUP] {
+        lassign [eco079_gate_check $glabel $gb $ga $gtol] gst gmsg
+        puts ">>> 079 GATE $gst: $gmsg"
+        if {$gst ne "ok"} {
+            puts ">>> 079 ERROR 079: $gmsg: nothing saved"
+            lappend ea_failures "$gmsg: nothing saved"
+        }
+    }
+    lassign [eco079_gate_check "the whole-design hold WNS" [dict get $ea_m0 hold] [dict get $ea_m1 hold] $GATE_TOL_HOLD] ghst ghmsg
+    puts ">>> 079 GATE hold $ghst: $ghmsg"
+    if {$ghst ne "ok"} { puts ">>> 079 WARNING: $ghmsg. ICC2's hold view is not the sign-off: PrimeTime (pt_hold_ff.tcl) decides." }
     puts ">>> 079 NOTE: ICC2's view of the I/O paths is more lenient than PrimeTime's (ICC2 gives the external clock the macro's insertion delay; PrimeTime launches/captures at the clock pin with zero latency). The numbers above are REPORTED, not tuned; PrimeTime (pt_setup_ss.tcl / pt_hold_ff.tcl) is the sign-off."
     if {[llength $ea_failures] > 0} { error "ERROR 079: [llength $ea_failures] check(s) failed, NOTHING SAVED: [join $ea_failures {; }]" }
 

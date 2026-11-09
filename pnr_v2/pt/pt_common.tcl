@@ -105,6 +105,17 @@ set PT_ECO_FILE_ICCTCL "pt_eco_hold_changes.tcl"
 set PT_ECO_FILE_ICC2TCL "pt_eco_hold_changes_icc2.tcl"
 set PT_ECO_FILE_TEXT "pt_eco_hold_changes.txt"
 
+# ---- 080: the in2out cone (keep PrimeTime's ECO out of the input-to-output paths) ----
+# 080: why. The first ICC2 apply of the hold ECO (commit 31427af) put hold delay cells (dl01d1, dl02d1: 0.4 to 0.9 ns at ss) at shared points of u_apb / u_csr (u_apb/U46/Z, U61/Z, U29/Z ...) that also feed the
+# 080: combinational APB read path paddr -> ... -> prdata (path group **in2out_default**, budget 4.5 ns, met with about zero margin). ICC2 then reported setup WNS -0.589873 ns, 32 violating endpoints, ALL in
+# 080: that group. PrimeTime's hold ECO runs in ONE fast-corner session and cannot see the setup damage at ss. So during fix_eco_timing every cell and net on an input-to-output path is dont_touch.
+set PT_CONE_PROTECT       1        ;# 080: 1 = protect the cone during the hold ECO (the default and the only value that is safe for the read path); 0 = compute and report the cone only (for a comparison run)
+set PT_CONE_PROTECT_NETS  0        ;# 080 (decision of Planning): 0 = only the cone CELLS are dont_touch (default). A delay cell at the load pin of a flop that shares a net with the read mux affects only that branch; the after-check on the change file still rejects any insertion on a pin of a cone cell, on a cone port, or any resize of a cone cell, and the ICC2 gate (in2out and whole-design setup WNS not worse than 0.005 ns) is the second safety net. 1 = the cone NETS are dont_touch too (no buffer anywhere on a cone net, not even at a load pin of a non-cone flop; violators whose only fix point is on a shared net then remain)
+set PT_CONE_MAX_PATHS     100000   ;# 080: bound of get_timing_paths -unique_pins for the input-to-output paths; a list as long as the bound is an ERROR (the cone may be truncated). Same size and reason as PT_VIOL_MAX_PATHS
+set PT_CONE_PRINT_NAMES   20       ;# 080: how many cone names are printed (the full lists are written to the cone files)
+set PT_CONE_SAMPLE        3        ;# 080: how many protected objects get the dont_touch attribute read back (proof that it is in effect)
+set PT_CONE_TOUCH_PRINT   10       ;# 080: how many remaining violators are printed with their reason after the ECO (all of them are in the CSV)
+
 # ---- BEGIN PURE TCL 074 ----
 # 074: everything between BEGIN and END is plain Tcl (no PrimeTime command); pnr_v2/pt/test_pt_common.tcl tests these procs.
 
@@ -893,8 +904,75 @@ proc pt_eco_result_line {ok detail} {
     switch -- $ok {
         1 { return "PROBE RESULT: ECO RAN: $detail" }
         nochanges { return "PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: $detail" }
+        touches { return "PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE: $detail" }
+        cone { return "PROBE RESULT: ECO NOT RUN, IN2OUT CONE NOT COMPUTED: $detail" }
+        unchecked { return "PROBE RESULT: ECO RAN BUT THE IN2OUT CONE CHECK COULD NOT BE COMPLETED: $detail" }
         default { return "PROBE RESULT: ECO NOT AVAILABLE: $detail" }
     }
+}
+
+# ---- 080: the in2out cone (pure parts). Cell names are those of PrimeTime (hierarchical: u_apb/U46); a pin name is <cell>/<pin>. The change-file parser eco079_parse of pt_eco_apply.tcl is loaded by pt_load_eco_parser.
+# 080: the cells of a violation row (pt_collect_violations): the "inst/pin(ref)" texts of the data path -> the cell names; {} when the row has no cells (n/a)
+proc pt_cone_row_cells {row} {
+    if {![dict exists $row cells]} { return {} }
+    set cl [dict get $row cells]
+    if {$cl eq "n/a"} { return {} }
+    set out {}
+    foreach c $cl {
+        regsub {\([^()]*\)$} $c {} pin
+        set i [string last / $pin]
+        if {$i > 0} { lappend out [string range $pin 0 [expr {$i - 1}]] }
+    }
+    return $out
+}
+# 080: the rows whose data path has at least one cell in the cone: a list of {endpoint cone_cells_on_the_path}
+proc pt_cone_touching {rows cone_cells} {
+    set out {}
+    foreach r $rows {
+        set hit {}
+        foreach c [pt_cone_row_cells $r] { if {[lsearch -exact $cone_cells $c] >= 0} { lappend hit $c } }
+        if {[llength $hit] > 0} { lappend out [list [dict get $r endpoint] $hit] }
+    }
+    return $out
+}
+# 080: why a violator REMAINS after the ECO: a list of text lines, one per row. A path with a cone cell: "its path crosses the protected cone at ..." (the fix points there were not allowed);
+# 080: a path without a cone cell: "no cone cell on its data path: PrimeTime found no fix (see the fix_eco_timing messages)"; a row without cells: "path cells unreadable".
+proc pt_cone_why_remaining {rows cone_cells} {
+    set out {}
+    foreach r $rows {
+        set ep [dict get $r endpoint]
+        set pc [pt_cone_row_cells $r]
+        if {[llength $pc] == 0} { lappend out "$ep (slack [dict get $r slack]): path cells unreadable, cannot say whether the cone blocked the fix"; continue }
+        set hit {}
+        foreach c $pc { if {[lsearch -exact $cone_cells $c] >= 0} { lappend hit $c } }
+        if {[llength $hit] > 0} { lappend out "$ep (slack [dict get $r slack]): its data path crosses the protected cone at [join [lrange $hit 0 3] {, }][expr {[llength $hit] > 4 ? { ...} : {}}]: fix points there were not allowed" } else { lappend out "$ep (slack [dict get $r slack]): no cone cell on its data path, PrimeTime found no fix for it (see the fix_eco_timing messages)" }
+    }
+    return $out
+}
+# 080: the changes of a parsed change file (list of dicts of eco079_parse) that touch the cone: insert_buffer on a PIN of a cone cell, insert_buffer on a cone PORT, size_cell of a cone cell.
+# Returns a list of dicts {idx line what name}; empty = clean.
+proc pt_cone_hits {cmds cone_cells cone_ports} {
+    set out {}
+    foreach c $cmds {
+        if {[dict get $c type] eq "insert_buffer"} {
+            if {[dict get $c objkind] eq "port"} {
+                if {[lsearch -exact $cone_ports [dict get $c full_pin]] >= 0} { lappend out [dict create idx [dict get $c idx] line [dict get $c line] what "insert_buffer on the cone port" name [dict get $c full_pin]] }
+            } else {
+                set cell [eco079_pin_cell [dict get $c full_pin]]
+                if {$cell ne "" && [lsearch -exact $cone_cells $cell] >= 0} { lappend out [dict create idx [dict get $c idx] line [dict get $c line] what "insert_buffer on pin [dict get $c full_pin] of the cone cell" name $cell] }
+            }
+        } elseif {[dict get $c type] eq "size_cell"} {
+            if {[lsearch -exact $cone_cells [dict get $c full_inst]] >= 0} { lappend out [dict create idx [dict get $c idx] line [dict get $c line] what "size_cell of the cone cell to [dict get $c ref]" name [dict get $c full_inst]] }
+        }
+    }
+    return $out
+}
+# 080: the first n names of a list, sorted, as text ("... (and N more)" when longer)
+proc pt_cone_head {names n} {
+    set s [lsort $names]
+    set t [join [lrange $s 0 [expr {$n - 1}]] {, }]
+    if {[llength $s] > $n} { append t " ... (and [expr {[llength $s] - $n}] more)" }
+    return $t
 }
 # ---- END PURE TCL 074 ----
 
@@ -1256,6 +1334,131 @@ proc pt_eco_write_changes_all {base} {
         dict set written $fmt $path
     }
     return [list $written $n_empty]
+}
+
+
+# 080: load the change-file parser (eco079_parse and its helpers) from the pure block of pnr_v2/pt_eco_apply.tcl: ONE parser for the PrimeTime side and the ICC2 side, not a copy.
+set PT_COMMON_DIR [file dirname [file normalize [info script]]]
+proc pt_load_eco_parser {} {
+    global PT_COMMON_DIR
+    set f [file normalize ${PT_COMMON_DIR}/../pt_eco_apply.tcl]
+    if {![file exists $f]} { error "PT ERROR: the change-file parser source $f does not exist" }
+    set fp [open $f r]; set src [read $fp]; close $fp
+    set b [string first "# ---- BEGIN PURE TCL 079 ----" $src]
+    set e [string first "# ---- END PURE TCL 079 ----" $src]
+    if {$b < 0 || $e < $b} { error "PT ERROR: the markers of the pure block 079 are not in $f" }
+    uplevel #0 [string range $src $b $e]
+    if {[llength [info commands eco079_parse]] == 0} { error "PT ERROR: eco079_parse was not defined by the pure block of $f" }
+}
+
+# 080: the input-to-output cone from the timing graph of this session. Method (exact): every timing path from an input port (clock source ports excluded) to an output port, enumerated with
+# 080: get_timing_paths -unique_pins (each reported path adds at least one pin that no earlier path had, so with a bound that is not reached the UNION of the pins is every pin on any such path);
+# 080: the data-path points from the startpoint on give the pins and ports; the cells and nets are those of the pins. Cost: one path enumeration of the combinational read logic (small).
+# 080: Returns a dict: cells nets ports (name lists, sorted, unique), cells_c nets_c ports_c (collections), npaths, nstart_missing (paths whose startpoint was not among the points: all their points are used).
+# 080: VERIFY: get_timing_paths -from -to -unique_pins -max_paths; the path attributes startpoint and points; the point attribute object; get_cells / get_nets -of_objects <pins>; append_to_collection -unique.
+proc pt_in2out_cone {} {
+    global PT_CONE_MAX_PATHS
+    set ins [all_inputs]
+    set nin0 [sizeof_collection $ins]
+    set nclk 0
+    foreach_in_collection clk [get_clocks -quiet *] {
+        set src ""
+        catch {set src [get_attribute $clk sources]}   ;# VERIFY the clock attribute sources
+        if {$src ne "" && [sizeof_collection $src] > 0} { set ins [remove_from_collection $ins $src]; incr nclk }
+    }
+    puts ">>> 080 in2out cone: [sizeof_collection $ins] input ports ($nin0 inputs, the sources of $nclk clock(s) removed), [sizeof_collection [all_outputs]] output ports"
+    set paths [get_timing_paths -from $ins -to [all_outputs] -delay_type max -max_paths $PT_CONE_MAX_PATHS -unique_pins]
+    set n [sizeof_collection $paths]
+    if {$n >= $PT_CONE_MAX_PATHS} { error "PT ERROR: $n input-to-output paths, the bound PT_CONE_MAX_PATHS is $PT_CONE_MAX_PATHS: the cone may be truncated; raise the parameter in pt_common.tcl" }
+    if {$n == 0} { error "PT ERROR: no timing path from an input port to an output port was found, but the design has a combinational read path (paddr -> prdata): the cone cannot be computed" }
+    set cpins ""
+    set cports ""
+    set nmiss 0
+    foreach_in_collection path $paths {
+        set sp ""
+        catch {set sp [get_object_name [get_attribute $path startpoint]]}
+        set on [expr {$sp eq ""}]
+        set got 0
+        foreach_in_collection pt [get_attribute $path points] {
+            set obj [get_attribute $pt object]
+            if {!$on} { if {[get_object_name $obj] ne $sp} continue; set on 1 }
+            set cls [get_attribute $obj object_class]
+            if {$cls eq "pin"} { append_to_collection -unique cpins $obj; set got 1 } elseif {$cls eq "port"} { append_to_collection -unique cports $obj; set got 1 }
+        }
+        if {!$on} {
+            incr nmiss
+            foreach_in_collection pt [get_attribute $path points] {
+                set obj [get_attribute $pt object]
+                set cls [get_attribute $obj object_class]
+                if {$cls eq "pin"} { append_to_collection -unique cpins $obj } elseif {$cls eq "port"} { append_to_collection -unique cports $obj }
+            }
+        }
+    }
+    if {$cpins eq "" && $cports eq ""} { error "PT ERROR: the $n input-to-output paths gave no pin and no port (the path points could not be read)" }
+    set cells_c [get_cells -quiet -of_objects $cpins]
+    set nets_c [get_nets -quiet -of_objects $cpins]
+    if {$cports ne ""} { set nets_c [add_to_collection $nets_c [get_nets -quiet -of_objects $cports]] }
+    set cn {}; foreach_in_collection c $cells_c { lappend cn [get_object_name $c] }
+    set nn {}; foreach_in_collection c $nets_c { lappend nn [get_object_name $c] }
+    set pn {}; if {$cports ne ""} { foreach_in_collection c $cports { lappend pn [get_object_name $c] } }
+    return [dict create cells [lsort -unique $cn] nets [lsort -unique $nn] ports [lsort -unique $pn] cells_c $cells_c nets_c $nets_c ports_c $cports npaths $n nstart_missing $nmiss]
+}
+
+# 080: print the cone (counts, the first PT_CONE_PRINT_NAMES names) and write the full lists to <base>_cells.txt / _nets.txt / _ports.txt
+proc pt_cone_print {cone base} {
+    global PT_CONE_PRINT_NAMES
+    puts ">>> 080 in2out cone: [dict get $cone npaths] input-to-output paths (unique pins), [llength [dict get $cone cells]] cells, [llength [dict get $cone nets]] nets, [llength [dict get $cone ports]] ports"
+    if {[dict get $cone nstart_missing] > 0} { puts ">>> 080 NOTE: [dict get $cone nstart_missing] path(s) did not show their startpoint among the points: all their points were used (the cone is larger, never smaller)" }
+    puts ">>> 080   first cells: [pt_cone_head [dict get $cone cells] $PT_CONE_PRINT_NAMES]"
+    puts ">>> 080   first nets:  [pt_cone_head [dict get $cone nets] $PT_CONE_PRINT_NAMES]"
+    puts ">>> 080   ports:       [pt_cone_head [dict get $cone ports] $PT_CONE_PRINT_NAMES]"
+    foreach {k ext} {cells _cone_cells.txt nets _cone_nets.txt ports _cone_ports.txt} {
+        set fp [open ${base}${ext} w]
+        foreach x [dict get $cone $k] { puts $fp $x }
+        close $fp
+    }
+    puts ">>> 080 the full lists are in ${base}_cone_cells.txt / _cone_nets.txt / _cone_ports.txt"
+}
+
+# 080: dont_touch on the cone cells (and nets when PT_CONE_PROTECT_NETS), only on objects that did not have it already; reads the attribute back for PT_CONE_SAMPLE objects.
+# Returns a dict cells_c nets_c (the collections that were changed, for pt_cone_unprotect). VERIFY: set_dont_touch <objects> true|false; the dont_touch attribute of cells and nets; filter_collection.
+proc pt_cone_protect {cone} {
+    global PT_CONE_PROTECT_NETS PT_CONE_SAMPLE
+    set cells_c [dict get $cone cells_c]
+    set pre_c [filter_collection $cells_c "dont_touch == true"]
+    set todo_c [remove_from_collection $cells_c $pre_c]
+    set todo_n ""
+    set pre_n 0
+    if {$PT_CONE_PROTECT_NETS} {
+        set nets_c [dict get $cone nets_c]
+        set pre_nc [filter_collection $nets_c "dont_touch == true"]
+        set pre_n [sizeof_collection $pre_nc]
+        set todo_n [remove_from_collection $nets_c $pre_nc]
+    }
+    if {[sizeof_collection $todo_c] > 0} { set_dont_touch $todo_c true }
+    if {$todo_n ne "" && [sizeof_collection $todo_n] > 0} { set_dont_touch $todo_n true }
+    puts ">>> 080 dont_touch applied with: set_dont_touch <[sizeof_collection $todo_c] cone cells> true[expr {$PT_CONE_PROTECT_NETS ? "; set_dont_touch <[expr {$todo_n eq {} ? 0 : [sizeof_collection $todo_n]}] cone nets> true" : {; nets NOT protected (PT_CONE_PROTECT_NETS 0)}}] ([sizeof_collection $pre_c] cells and $pre_n nets had it already and are left alone)"
+    set k 0
+    foreach_in_collection c $todo_c {
+        if {$k >= $PT_CONE_SAMPLE} break
+        incr k
+        set v "<unreadable>"
+        catch {set v [get_attribute $c dont_touch]}
+        puts ">>> 080   read back: cell [get_object_name $c] dont_touch = $v"
+        if {$v ne "true"} { error "PT ERROR: the dont_touch attribute of the cone cell [get_object_name $c] reads '$v' after set_dont_touch: the protection is not in effect; the ECO is NOT run" }
+    }
+    if {$k == 0 && [sizeof_collection $pre_c] == 0} { error "PT ERROR: the cone has no cell to protect" }
+    return [dict create cells_c $todo_c nets_c $todo_n]
+}
+# 080: remove the dont_touch that pt_cone_protect set (objects that had it before are not in the collections)
+proc pt_cone_unprotect {prot} {
+    set c [dict get $prot cells_c]
+    set n [dict get $prot nets_c]
+    if {$c ne "" && [sizeof_collection $c] > 0} { set_dont_touch $c false }
+    if {$n ne "" && [sizeof_collection $n] > 0} { set_dont_touch $n false }
+    set v "<unreadable>"
+    if {$c ne "" && [sizeof_collection $c] > 0} { catch {set v [get_attribute [index_collection $c 0] dont_touch]} }
+    puts ">>> 080 dont_touch REMOVED again from the cone objects (read back of the first cell: $v)"
 }
 
 # 078: the common preparation of pt_hold_ff.tcl for a script that must have the same environment (used by pt_eco_probe.tcl): banner, SI, link, parasitics, SDC check, operating

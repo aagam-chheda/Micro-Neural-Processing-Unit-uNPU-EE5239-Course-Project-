@@ -6,6 +6,9 @@
 # Ends  : with ONE line  `PROBE RESULT: ECO NOT AVAILABLE: <message>`, `PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: <PrimeTime's first messages>` or
 #         `PROBE RESULT: ECO RAN: N changes proposed, change file <path>`  and `exit 0` in all cases (a failed probe is an
 #         answer). Errors of the PREPARATION (link, parasitics, SDC, clock proof) stop the script with a PT ERROR and exit 1, as in pt_hold_ff.tcl.
+# 080: the cells and nets on any input-to-output path (the "in2out cone", e.g. the combinational APB read path paddr -> prdata) are dont_touch DURING fix_eco_timing only, and the change file is checked afterwards:
+#      the first ICC2 apply of the unprotected ECO put delay cells on shared points of u_apb / u_csr and broke the read path (setup WNS -0.5899 ns in group **in2out_default**). Two more PROBE RESULT forms:
+#      `ECO RAN BUT TOUCHES THE IN2OUT CONE: ...` and `ECO NOT RUN, IN2OUT CONE NOT COMPUTED: ...`.
 # Every PrimeTime ECO command and option below is from knowledge of PrimeTime, not from a usage text: each is marked VERIFY.
 # ==============================================================================
 set PT_SCRIPT_DIR [file dirname [file normalize [info script]]]
@@ -117,9 +120,25 @@ pt_main {
 
         # 5. the fix for ALL hold violators (no -to / -from restriction). The first form hands -buffer_list a COLLECTION of library cells (the second server run: a list of name strings gave
         #    PTECO-099 "corresponding library cell definition does not exist" for every cell and PTECO-017 "buffer list is empty or doesn't have any valid buffer"); the second form a list of bare names.
+        # 5a. 080: the in2out cone, protected during the ECO only
+        pt_load_eco_parser
+        if {[catch {set cone [pt_in2out_cone]} cerr]} { error "CONE: $cerr" }
+        pt_cone_print $cone ${rpt}
+        set cone_cells [dict get $cone cells]
+        set cone_ports [dict get $cone ports]
+        set touching [pt_cone_touching $rows_before $cone_cells]
+        puts ">>> 080 hold violators whose worst path touches the cone: [llength $touching] of $n_before (the others do not cross it)"
+        foreach t [lrange $touching 0 [expr {$PT_CONE_TOUCH_PRINT - 1}]] { puts ">>> 080   [lindex $t 0]: cone cells on its path [lindex $t 1]" }
+        set prot ""
+        if {$PT_CONE_PROTECT} {
+            if {[catch {set prot [pt_cone_protect $cone]} perr2]} { error "CONE: $perr2" }
+        } else {
+            puts ">>> 080 PT_CONE_PROTECT is 0: the cone is computed and checked but NOT protected (comparison run)"
+        }
         set proposed 0
         set last_pf ""
         set tried {}
+        set rcx [catch {
         foreach att {collection bare_names} {
             if {$att eq "collection"} { set bl [get_lib_cells $libblist]; set desc "-buffer_list is a collection of [sizeof_collection $bl] library cells (get_lib_cells)" } else { set bl $blist; set desc "-buffer_list is a Tcl list of bare cell names" }
             set text "$cmd -type hold -methods {insert_buffer} -buffer_list \$bl -hold_margin $PT_ECO_HOLD_MARGIN[expr {$PT_ECO_PHYSICAL ? { -physical_mode occupied_site} : {}}]"   ;# VERIFY -type -methods -buffer_list -hold_margin -physical_mode
@@ -140,6 +159,9 @@ pt_main {
             if {[pt_eco_fix_proposed $last_pf]} { set proposed 1; break }
             lappend tried "$att: [join $nmsg { || }]"
         }
+        } lemsg]
+        if {$prot ne ""} { pt_cone_unprotect $prot }   ;# 080: the dont_touch is in effect during fix_eco_timing only
+        if {$rcx} { error $lemsg }
 
         if {!$proposed} {
             # what is "missing" about the library cell? one cell, all the ways that may work (VERIFY each)
@@ -193,12 +215,38 @@ pt_main {
                 foreach l [lrange [split $pt_after_txt "\n"] 0 39] { puts "      $l" }
                 lassign [pt_eco_change_number $last_pf [dict get $cc n]] nchg nsrc nnote
                 puts ">>> 079 changes proposed: $nchg (from: $nsrc)[expr {$nnote ne {} ? "; NOTE: $nnote" : {}}]; per command in the log: [dict get $last_pf commands]; area change [dict get $last_pf area] um^2; cells [dict get $last_pf cells]"
-                set probe_line [pt_eco_result_line 1 "$nchg changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}]"]
+                # 8. 080: remaining violators and WHY; the after-check of the change file against the cone
+                set rem [pt_cone_why_remaining $rows_after $cone_cells]
+                set fp [open ${rpt}_after_remaining.txt w]; foreach l $rem { puts $fp $l }; close $fp
+                set rem_touch [llength [pt_cone_touching $rows_after $cone_cells]]
+                puts ">>> 080 AFTER the ECO: $n_after hold violators remain, [llength [pt_cone_touching $rows_after $cone_cells]] of them cross the protected cone on their data path (reasons for all in ${rpt}_after_remaining.txt; the first $PT_CONE_TOUCH_PRINT follow)"
+                foreach l [lrange $rem 0 [expr {$PT_CONE_TOUCH_PRINT - 1}]] { puts ">>> 080   remaining: $l" }
+                if {$n_after > 0 && $rem_touch == $n_after} { puts ">>> 080 every remaining violator crosses the cone: the fix points PrimeTime needed are in the protected cone. This is the expected cost of the protection (the read path has no margin); see README section 8 for the options" }
+                set chk_file ""
+                foreach f {icc2tcl icctcl} { if {$chk_file eq "" && [info exists wr($f)]} { set chk_file $wr($f) } }
+                if {$chk_file eq ""} { error "CHECK: no Tcl-format change file was written, the proposed changes cannot be checked against the cone" }
+                set fp [open $chk_file r]; set chk_txt [read $fp]; close $fp
+                set chk [eco079_parse $chk_txt]
+                if {[llength [dict get $chk errors]] > 0} { error "CHECK: [llength [dict get $chk errors]] line(s) of $chk_file are not understood by the change-file parser, the cone check is incomplete: [join [lrange [dict get $chk errors] 0 2] { | }]" }
+                set hits [pt_cone_hits [dict get $chk cmds] $cone_cells $cone_ports]
+                puts ">>> 080 AFTER-CHECK of $chk_file: [llength [dict get $chk cmds]] changes parsed, [llength $hits] touch the cone"
+                foreach h $hits { puts ">>> 080   HIT change [dict get $h idx] (line [dict get $h line]): [dict get $h what] [dict get $h name]" }
+                if {[llength $hits] > 0} {
+                    set probe_line [pt_eco_result_line touches "[llength $hits] of [llength [dict get $chk cmds]] proposed changes touch the cone; first: [dict get [lindex $hits 0] what] [dict get [lindex $hits 0] name] (change [dict get [lindex $hits 0] idx], line [dict get [lindex $hits 0] line]); change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}] must NOT be applied"]
+                } else {
+                    set probe_line [pt_eco_result_line 1 "$nchg changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}] (none touches the in2out cone)"]
+                }
             }
         }
     } perr]} {
-        regsub {^PROBE: } $perr {} perr
-        set probe_line [pt_eco_result_line 0 $perr]
+        if {[regsub {^CONE: } $perr {} perr]} {
+            set probe_line [pt_eco_result_line cone $perr]
+        } elseif {[regsub {^CHECK: } $perr {} perr]} {
+            set probe_line [pt_eco_result_line unchecked $perr]
+        } else {
+            regsub {^PROBE: } $perr {} perr
+            set probe_line [pt_eco_result_line 0 $perr]
+        }
     }
     puts "\n=============================================================================="
     puts " ECO PROBE (hold, corner $corner; hold margin $PT_ECO_HOLD_MARGIN ns)"

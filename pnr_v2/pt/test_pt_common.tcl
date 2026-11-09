@@ -6,6 +6,7 @@
 # ==============================================================================
 set here [file dirname [file normalize [info script]]]
 source $here/pt_common.tcl
+proc read_file_080 {f} { set fp [open $f r]; set s [read $fp]; close $fp; return $s }
 
 set nfail 0
 set npass 0
@@ -515,6 +516,35 @@ check "change number: no summary line -> the file count" {[lindex [pt_eco_change
 check "change number: nothing -> empty, the note says so" {[lindex [pt_eco_change_number [pt_eco_parse_fix_text ""] ""] 0] eq "" && [string match "neither*" [lindex [pt_eco_change_number [pt_eco_parse_fix_text ""] ""] 2]]}
 check "closing line for the hold run" {[pt_eco_result_line 1 "[lindex [pt_eco_change_number $hp 0] 0] changes proposed, change file /x/pt_eco_hold_changes.tcl"] eq "PROBE RESULT: ECO RAN: 109 changes proposed, change file /x/pt_eco_hold_changes.tcl"}
 
+
+# ------------------------------------------------------------------ 080: the in2out cone (pure parts)
+pt_load_eco_parser
+check "the change-file parser of pt_eco_apply.tcl is loaded (one parser for both sides)" {[llength [info commands eco079_parse]] == 1 && [llength [info commands eco079_pin_cell]] == 1}
+# rows of violators (the real dma_rdata[14] path of task 078, with the hierarchy of the cells)
+set rowA [dict create endpoint u_dma/stage_reg_1__14_/D startpoint dma_rdata\[14\] sp_kind port ep_kind pin slack -0.3468 group clk cells {u_dma/copt_h_inst_3910/Z(buffd1) u_dma/U588/Z(mx02d0)} delays {0.17 0.12}]
+set rowB [dict create endpoint u_csr/src_a_reg_reg_3_/D startpoint pwdata\[3\] sp_kind port ep_kind pin slack -0.1 group clk cells {u_csr/U7/ZN(nd02d1) u_apb/U46/Z(buffd1)} delays {0.1 0.2}]
+set rowC [dict create endpoint x/D startpoint y sp_kind pin ep_kind pin slack -0.1 group clk cells n/a delays n/a]
+check "row cells: instance names without the pin and the reference" {[pt_cone_row_cells $rowA] eq {u_dma/copt_h_inst_3910 u_dma/U588} && [pt_cone_row_cells $rowC] eq {}}
+set cone_cells {u_apb/U46 u_apb/U61 u_apb/U29 u_csr/U55}
+set tc [pt_cone_touching [list $rowA $rowB $rowC] $cone_cells]
+check "touching: only the row that crosses a cone cell (u_apb/U46), with the cell" {[llength $tc] == 1 && [lindex $tc 0 0] eq "u_csr/src_a_reg_reg_3_/D" && [lindex $tc 0 1] eq "u_apb/U46"}
+set why [pt_cone_why_remaining [list $rowA $rowB $rowC] $cone_cells]
+check "why remaining: cone crossing / no cone cell / unreadable, one line per row" {[llength $why] == 3 && [string match "*crosses the protected cone at u_apb/U46*" [lindex $why 1]] && [string match "*no cone cell on its data path*" [lindex $why 0]] && [string match "*path cells unreadable*" [lindex $why 2]]}
+# the change file: the REAL first 20 lines (hold) and the real setup lines
+set hp [eco079_parse [read_file_080 $here/../testdata/pt_eco_hold_changes_head.tcl]]
+set hc [dict get $hp cmds]
+check "cone hits: a change on pin u_apb/U46/Z when u_apb/U46 is a cone cell -> reported with its change number and line" {[llength [pt_cone_hits $hc {u_apb/U46} {}]] == 1 && [dict get [lindex [pt_cone_hits $hc {u_apb/U46} {}] 0] idx] == 1 && [dict get [lindex [pt_cone_hits $hc {u_apb/U46} {}] 0] line] == 9 && [string match "insert_buffer on pin u_apb/U46/Z of the cone cell" [dict get [lindex [pt_cone_hits $hc {u_apb/U46} {}] 0] what]]}
+check "cone hits: no change touches a cone of other cells -> clean" {[pt_cone_hits $hc {u_apb/U99 u_csr/U1} {}] eq ""}
+check "cone hits: three cone cells (u_apb/U46, the TOP-level U61 (empty current_instance in the real file), u_apb/U29) -> three hits; u_apb/U61 would be none" {[llength [pt_cone_hits $hc {u_apb/U46 U61 u_apb/U29} {}]] == 3 && [llength [pt_cone_hits $hc {u_apb/U61} {}]] == 0}
+check "cone hits: an insertion on a cone PORT is a hit, on another port not" {[llength [pt_cone_hits $hc {} {dma_rdata[14]}]] == 1 && [pt_cone_hits $hc {} {paddr[2]}] eq ""}
+set sp [eco079_parse "current_instance\nsize_cell {HFSINV_13_284} {inv0d7}\n"]
+check "cone hits: size_cell of a cone cell is reported (the setup probe prints it as information), of another cell not" {[llength [pt_cone_hits [dict get $sp cmds] {HFSINV_13_284} {}]] == 1 && [pt_cone_hits [dict get $sp cmds] {u_apb/U46} {}] eq ""}
+check "cone hits: a pin of a NON-cone cell on a hierarchy with the same leaf name is not a hit (full names compared)" {[pt_cone_hits $hc {U46} {}] eq ""}
+check "cone head: sorted, truncated with the number of the rest" {[pt_cone_head {c b a d} 2] eq "a, b ... (and 2 more)" && [pt_cone_head {a} 5] eq "a"}
+# the new PROBE RESULT lines
+check "PROBE RESULT touches" {[pt_eco_result_line touches "3 of 109 proposed changes touch the cone"] eq "PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE: 3 of 109 proposed changes touch the cone"}
+check "PROBE RESULT cone not computed / check not completed" {[pt_eco_result_line cone "m"] eq "PROBE RESULT: ECO NOT RUN, IN2OUT CONE NOT COMPUTED: m" && [pt_eco_result_line unchecked "m"] eq "PROBE RESULT: ECO RAN BUT THE IN2OUT CONE CHECK COULD NOT BE COMPLETED: m"}
+check "the old three PROBE RESULT lines are unchanged" {[pt_eco_result_line 1 "109 changes proposed, change file f"] eq "PROBE RESULT: ECO RAN: 109 changes proposed, change file f" && [string match "PROBE RESULT: ECO NOT AVAILABLE: x" [pt_eco_result_line 0 x]] && [string match "PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: x" [pt_eco_result_line nochanges x]]}
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

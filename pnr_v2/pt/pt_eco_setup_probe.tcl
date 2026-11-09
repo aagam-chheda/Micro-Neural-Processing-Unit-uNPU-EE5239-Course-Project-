@@ -36,6 +36,14 @@ pt_main {
             if {[catch {get_license $f} lres]} { puts ">>> 079 get_license $f: FAILED: $lres" } else { puts ">>> 079 get_license $f: ok ($lres)" }   ;# VERIFY get_license <feature>
         }
         if {$n_before == 0} { error "PROBE: there is no setup violator before the ECO: nothing to fix" }
+        # 080: the in2out cone is COMPUTED (information) but NOT protected: a resize of a cone cell is a speed-up and is fine. The proposed changes that touch it are only printed.
+        pt_load_eco_parser
+        set cone ""
+        if {[catch {set cone [pt_in2out_cone]} cerr]} { puts ">>> 080 the in2out cone could not be computed ($cerr): the information below is skipped" } else {
+            pt_cone_print $cone ${rpt}
+            set touching [pt_cone_touching $rows_before [dict get $cone cells]]
+            puts ">>> 080 setup violators whose worst path touches the cone: [llength $touching] of $n_before"
+        }
         puts ">>> 079 the ECO is LOGICAL only (no physical data)"
         if {[catch {set_eco_options -log_file ${rpt}_eco.log} oerr]} { puts ">>> 079 set_eco_options failed (not fatal): $oerr" }   ;# VERIFY set_eco_options -log_file
 
@@ -67,6 +75,19 @@ pt_main {
                 puts ">>> 079 AFTER the setup ECO (in PrimeTime's memory): $n_after setup-violating endpoints, WNS [pt_fmt_ns $wns_after] ns (before: $n_before, WNS [pt_fmt_ns $wns_before] ns)"
                 lassign [pt_eco_change_number $pf [dict get $cc n]] nchg nsrc nnote
                 puts ">>> 079 changes proposed: $nchg (from: $nsrc)[expr {$nnote ne {} ? "; NOTE: $nnote" : {}}]"
+                # 080: which proposed changes touch the cone (information; a resize of a cone cell is fine, an insertion there would slow the read path)
+                if {$cone ne ""} {
+                    set chk_file ""
+                    foreach f {icc2tcl icctcl} { if {$chk_file eq "" && [dict exists $written $f]} { set chk_file [dict get $written $f] } }
+                    if {$chk_file eq ""} { puts ">>> 080 no Tcl-format change file: the cone check is skipped" } else {
+                        set fp [open $chk_file r]; set chk_txt [read $fp]; close $fp
+                        set chk [eco079_parse $chk_txt]
+                        foreach e [dict get $chk errors] { puts ">>> 080 change file line not understood (cone check incomplete): $e" }
+                        set hits [pt_cone_hits [dict get $chk cmds] [dict get $cone cells] [dict get $cone ports]]
+                        puts ">>> 080 setup change file $chk_file: [llength [dict get $chk cmds]] changes parsed, [llength $hits] touch the in2out cone (information only for the setup ECO)"
+                        foreach h $hits { puts ">>> 080   change [dict get $h idx] (line [dict get $h line]): [dict get $h what] [dict get $h name]" }
+                    }
+                }
                 set probe_line [pt_eco_result_line 1 "$nchg changes proposed, change file [expr {[dict exists $written icctcl] ? [dict get $written icctcl] : $countfile}]"]
             }
         }
