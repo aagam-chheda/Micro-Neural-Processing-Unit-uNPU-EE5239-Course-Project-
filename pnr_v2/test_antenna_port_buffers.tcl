@@ -430,6 +430,53 @@ check "tier 2 distance for buffd1 is about 64 um" {$d2 > 63.5 && $d2 < 65.0}
 check "ratio at the tier 2 distance is 360" {[near [ant_ratio 0.194 $d2 0.28 0.54] 360.0 0.01]}
 check "tier 1 limit 40 um gives a ratio below 400 for buffd1" {[ant_ratio 0.194 40.0 0.28 0.54] < 400.0}
 
+
+# ------------------------------------------------------------------ 8. task 070: rejection reasons, window selection, real filler rows of the design
+# the fillers quoted in task 070 (block unpu_top_route, user's read-only query), orientation MX; names are short
+set real {
+    {r1a 847.12 154.4 852.16 160.0 MX} {r1b 852.16 154.4 857.20 160.0 MX} {r1c 857.20 154.4 862.24 160.0 MX} {r1d 862.24 154.4 863.92 160.0 MX} {r1e 863.92 154.4 865.60 160.0 MX}
+    {r2a 846.0 165.6 851.04 171.2 MX} {r2b 851.04 165.6 856.08 171.2 MX} {r2c 856.08 165.6 861.12 171.2 MX} {r2d 861.12 165.6 862.80 171.2 MX} {r2e 862.80 165.6 864.48 171.2 MX} {r2f 864.48 165.6 865.04 171.2 MX} {r2g 865.04 165.6 865.60 171.2 MX}
+}
+set rr [ant_filler_runs $real]
+check "real rows: 2 runs" {[llength $rr] == 2}
+check "real rows: widths 18.48 and 19.6" {[near [expr {[dict get [lindex $rr 0] x1] - [dict get [lindex $rr 0] x0]}] 18.48] && [near [expr {[dict get [lindex $rr 1] x1] - [dict get [lindex $rr 1] x0]}] 19.6]}
+set rc [ant_site_candidates $rr 2.24 0.56 885.24 160.91 40.0]
+check "real rows: first candidate at (863.36, 154.4), distance 24.47" {[near [dict get [lindex $rc 0] x] 863.36] && [near [dict get [lindex $rc 0] y] 154.4] && [near [dict get [lindex $rc 0] dist] 24.47 0.005]}
+check "real rows: it removes the last two fillers r1d r1e" {[dict get [lindex $rc 0] names] eq "r1d r1e"}
+check "real rows: second candidate in row 165.6" {[llength $rc] == 2 && [near [dict get [lindex $rc 1] y] 165.6]}
+# rejection lines
+set rep [ant_run_report $rr 2.24 0.56 885.24 160.91 40.0 3]
+check "report: one line per run (2 runs)" {[llength $rep] == 2}
+check "report: usable run says usable with the site" {[string match "*usable (site x=863.36*" [lindex $rep 0]]}
+check "report: row, x range, width, needed, distance are printed" {[string match "row y=154.40 x=847.12..865.60 width=18.48 needed=2.24 nearest-point distance=20.\[56\]:*" [lindex $rep 0]]}
+set rep2 [ant_run_report $rr 2.24 0.56 885.24 160.91 20.0 3]
+check "report: too far" {[string match "*too far: dist 24.47 > limit 20.00" [lindex $rep2 0]]}
+check "report: too far also for the second row" {[string match "*too far: dist 28.25 > limit 20.00" [lindex $rep2 1]]}
+set narrow [ant_filler_runs [list {n1 800.0 100.0 801.68 105.6 FS} {n2 810.0 100.0 810.56 105.6 FS} {n3 810.56 100.0 811.12 105.6 FS}]]
+set rep3 [ant_run_report $narrow 2.24 0.56 805.0 103.0 40.0 3]
+check "report: too narrow (1.68 and 1.12 against 2.24)" {[string match "*too narrow: width 1.68 < needed 2.24" [lindex $rep3 0]] && [string match "*too narrow: width 1.12 < needed 2.24" [lindex $rep3 1]]}
+check "report: runs are listed nearest first" {[string match "row y=100.00 x=800.00..801.68*" [lindex $rep3 0]]}
+check "report: at most n lines" {[llength [ant_run_report $rr 2.24 0.56 885.24 160.91 40.0 1]] == 1}
+check "report: no runs -> no lines" {[llength [ant_run_report {} 2.24 0.56 885.24 160.91 40.0 3]] == 0}
+set ev [ant_run_eval [lindex $rr 0] 2.24 0.56 885.24 160.91 40.0]
+check "run_eval: ok" {[dict get $ev ok] == 1 && [dict get $ev reason] eq ""}
+check "run_eval: nearest point distance is 885.24-865.6 + 160.91-160 = 20.55" {[near [dict get $ev near] 20.55 0.001]}
+check "run_eval: a pin inside the run has distance 0" {[near [dict get [ant_run_eval [lindex $rr 0] 2.24 0.56 850.0 157.0 40.0] near] 0.0]}
+# window selection in Tcl: the interior is included (the old geometric query returned the border only), touching is not overlap
+set tab [concat $real [list {far1 100.0 500.0 105.04 505.6 N} {far2 300.0 300.0 305.04 305.6 N}]]
+set w [ant_rows_in_window $tab 837.4 113.07 933.08 208.75]
+check "window: the 12 real fillers, not the far ones" {[llength $w] == 12}
+check "window: a filler strictly inside is returned" {[lsearch -index 0 $w r2c] >= 0}
+check "window: a filler only touching the border is not returned" {[llength [ant_rows_in_window $tab 865.6 100.0 900.0 200.0]] == 0}
+check "window: empty when nothing overlaps" {[llength [ant_rows_in_window $tab 0 0 10 10]] == 0}
+check "window: extent of the result" {[bbox_near [ant_rows_extent $w] {846.0 154.4 865.6 171.2}]}
+check "extent of no rows" {[ant_rows_extent {}] eq ""}
+set rem [ant_rows_remove $tab {r1d r1e far1}]
+check "remove: 3 rows fewer" {[llength $rem] == [expr {[llength $tab] - 3}]}
+check "remove: the others stay" {[lsearch -index 0 $rem r1c] >= 0 && [lsearch -index 0 $rem far2] >= 0 && [lsearch -index 0 $rem r1d] < 0}
+set rc2 [ant_site_candidates [ant_filler_runs [ant_rows_in_window $rem 837.4 113.07 933.08 208.75]] 2.24 0.56 885.24 160.91 40.0]
+check "after removing the two fillers the row-154.4 run ends at 862.24: the site moves to x=860.0" {[near [dict get [lindex $rc2 0] x] 860.0] && [near [dict get [lindex $rc2 0] y] 154.4]}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

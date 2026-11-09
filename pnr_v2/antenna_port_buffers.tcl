@@ -407,6 +407,35 @@ proc ant_filler_runs {fillers {tol 0.001}} {
     return $runs
 }
 
+# 070: evaluate ONE run for a buffer of width bw: returns a dict ok (0/1), reason ("" when ok), x (start site on the run's site grid, nearest to the pin),
+# 070: dist (Manhattan from the pin to the buffer box centre), need (width needed in whole sites), width (of the run), near (Manhattan from the pin to the run's nearest point)
+proc ant_run_eval {r bw site_w px py limit {tol 0.001}} {
+    set span [expr {ceil($bw / $site_w - 1e-6) * $site_w}]
+    set x0 [dict get $r x0]; set x1 [dict get $r x1]
+    set y0 [dict get $r y0]; set y1 [dict get $r y1]
+    set dx [expr {max($x0 - $px, 0.0, $px - $x1)}]
+    set dy [expr {max($y0 - $py, 0.0, $py - $y1)}]
+    set res [dict create ok 0 reason "" x $x0 dist 0.0 need $span width [expr {$x1 - $x0}] near [expr {$dx + $dy}]]
+    if {$x1 - $x0 < $span - $tol} {
+        dict set res reason "too narrow: width [format %.2f [expr {$x1 - $x0}]] < needed [format %.2f $span]"
+        return $res
+    }
+    set nsteps [expr {int(floor(($x1 - $x0 - $span) / $site_w + 1e-6))}]
+    set k [expr {int(floor(($px - $span / 2.0 - $x0) / $site_w + 0.5))}]
+    if {$k < 0} { set k 0 }
+    if {$k > $nsteps} { set k $nsteps }
+    set xs [expr {$x0 + $k * $site_w}]
+    set dist [ant_manhattan $px $py [expr {$xs + $bw / 2.0}] [expr {($y0 + $y1) / 2.0}]]
+    dict set res x $xs
+    dict set res dist $dist
+    if {$dist > $limit} {
+        dict set res reason "too far: dist [format %.2f $dist] > limit [format %.2f $limit]"
+        return $res
+    }
+    dict set res ok 1
+    return $res
+}
+
 # 069: candidate sites for a buffer of width bw: in every run at least as wide as the buffer (rounded up to whole sites) take the start site
 # 069: nearest to the pin (px,py), on the site grid of the run. Keep the candidates whose box centre is within `limit` (Manhattan) of the pin, closest first
 # 069: (ties: lower y, lower x). A candidate is a dict: x y w h dist orient names (the fillers to remove: those overlapping the buffer box) run_x0 run_x1.
@@ -414,27 +443,68 @@ proc ant_site_candidates {runs bw site_w px py limit {tol 0.001}} {
     set span [expr {ceil($bw / $site_w - 1e-6) * $site_w}]
     set list_ {}
     foreach r $runs {
+        set ev [ant_run_eval $r $bw $site_w $px $py $limit $tol]
+        if {![dict get $ev ok]} continue
+        set xs [dict get $ev x]
         set x0 [dict get $r x0]; set x1 [dict get $r x1]
         set y0 [dict get $r y0]; set y1 [dict get $r y1]
-        if {$x1 - $x0 < $span - $tol} continue
-        set nsteps [expr {int(floor(($x1 - $x0 - $span) / $site_w + 1e-6))}]
-        set k [expr {int(floor(($px - $span / 2.0 - $x0) / $site_w + 0.5))}]
-        if {$k < 0} { set k 0 }
-        if {$k > $nsteps} { set k $nsteps }
-        set xs [expr {$x0 + $k * $site_w}]
-        set dist [ant_manhattan $px $py [expr {$xs + $bw / 2.0}] [expr {($y0 + $y1) / 2.0}]]
-        if {$dist > $limit} continue
         set names {}
         foreach f [dict get $r fillers] {
             lassign $f fname fx0 fx1
             if {min($fx1, $xs + $span) - max($fx0, $xs) > $tol} { lappend names $fname }
         }
-        lappend list_ [list $dist $y0 $xs [dict create x $xs y $y0 w $span h [expr {$y1 - $y0}] dist $dist orient [dict get $r orient] names $names run_x0 $x0 run_x1 $x1]]
+        lappend list_ [list [dict get $ev dist] $y0 $xs [dict create x $xs y $y0 w $span h [expr {$y1 - $y0}] dist [dict get $ev dist] orient [dict get $r orient] names $names run_x0 $x0 run_x1 $x1]]
     }
     set list_ [lsort -real -index 2 $list_]
     set list_ [lsort -real -index 1 $list_]
     set list_ [lsort -real -index 0 $list_]
     return [lmap e $list_ {lindex $e 3}]
+}
+
+# 070: the nearest `n` runs (by Manhattan distance from the pin to the run's nearest point) with the reason each one is rejected ("" = usable). Lines of text.
+proc ant_run_report {runs bw site_w px py limit {n 3} {tol 0.001}} {
+    set evs {}
+    foreach r $runs {
+        set ev [ant_run_eval $r $bw $site_w $px $py $limit $tol]
+        lappend evs [list [dict get $ev near] $r $ev]
+    }
+    set out {}
+    foreach e [lrange [lsort -real -index 0 $evs] 0 [expr {$n - 1}]] {
+        lassign $e near r ev
+        lappend out [format "row y=%.2f x=%.2f..%.2f width=%.2f needed=%.2f nearest-point distance=%.1f: %s" [dict get $r y0] [dict get $r x0] [dict get $r x1] [dict get $ev width] [dict get $ev need] $near [expr {[dict get $ev ok] ? "usable (site x=[format %.2f [dict get $ev x]], centre distance [format %.1f [dict get $ev dist]])" : [dict get $ev reason]}]]
+    }
+    return $out
+}
+
+# 070: rows {name x0 y0 x1 y1 orient} that overlap the window (positive overlap in x and y); the window is given as four numbers
+proc ant_rows_in_window {rows wx0 wy0 wx1 wy1} {
+    set out {}
+    foreach r $rows {
+        lassign $r name x0 y0 x1 y1
+        if {$x1 > $wx0 && $x0 < $wx1 && $y1 > $wy0 && $y0 < $wy1} { lappend out $r }
+    }
+    return $out
+}
+
+# 070: the table without the rows whose name is in `names`
+proc ant_rows_remove {rows names} {
+    array set gone {}
+    foreach nm $names { set gone($nm) 1 }
+    set out {}
+    foreach r $rows { if {![info exists gone([lindex $r 0])]} { lappend out $r } }
+    return $out
+}
+
+# 070: {xmin ymin xmax ymax} over the rows, "" for no row
+proc ant_rows_extent {rows} {
+    if {[llength $rows] == 0} { return "" }
+    set xa 1e18; set ya 1e18; set xb -1e18; set yb -1e18
+    foreach r $rows {
+        lassign $r name x0 y0 x1 y1
+        set xa [expr {min($xa, $x0)}]; set ya [expr {min($ya, $y0)}]
+        set xb [expr {max($xb, $x1)}]; set yb [expr {max($yb, $y1)}]
+    }
+    return [list $xa $ya $xb $yb]
 }
 
 # 069: longest pin-to-buffer Manhattan distance (um) whose predicted antenna ratio stays at or below `ratio` for this gate area
@@ -472,10 +542,18 @@ proc ant068_slack {port scen type} {   ;# 068: worst slack of the paths starting
     }
     return $r
 }
-proc ant069_filler_rows {win filter} {   ;# 069: fillers intersecting a window -> list of {name x0 y0 x1 y1 orientation}; VERIFY get_cells -intersect finds fillers, and the `orientation` attribute (N / FS)
+proc ant069_filler_rows {win filter} {   ;# 069: fillers intersecting a window -> list of {name x0 y0 x1 y1 orientation}; VERIFY get_cells -intersect finds fillers, and the `orientation` attribute
+    # 070: NOT used by the ECO any more (see ant070_all_fillers); kept for pnr_v2/diag_filler_runs.tcl, which compares it with the table
     set rows {}
     foreach_in_collection f [get_cells -quiet -intersect $win -filter $filter] {
         lappend rows [concat [list [get_object_name $f]] [ant068_bbox_of $f] [list [get_attribute -quiet $f orientation]]]
+    }
+    return $rows
+}
+proc ant070_all_fillers {filter} {   ;# 070: ALL filler instances once, with no geometric query: {name x0 y0 x1 y1 {}} (orientation is read only for the fillers that are removed)
+    set rows {}
+    foreach_in_collection f [get_cells -quiet -filter $filter] {
+        lappend rows [concat [list [get_object_name $f]] [ant068_bbox_of $f] [list {}]]
     }
     return $rows
 }
@@ -761,6 +839,14 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
         if {[dict exists $ab_lef $f] && [dict get $ab_lef $f w] ne "" && [dict get $ab_lef $f w] < $ab_site_w} { set ab_site_w [dict get $ab_lef $f w] }
     }
     if {$ab_site_w > 1e8} { error "ERROR 069: none of the filler masters $FILLER_REFS is in the LEF, the site width is unknown" }
+    # 070: the first server run of 069 found 0 usable sites for all nets and "the nearest free run" about 300 um away (the half size of the wide window) for every pin:
+    # 070: the candidates were all at the border of the search window, so get_cells -intersect with a rectangle returned the cells at the window border, not the interior (cause
+    # 070: inferred from the numbers, to be confirmed by pnr_v2/diag_filler_runs.tcl). The ECO therefore reads every filler ONCE without a geometric query and selects the
+    # 070: window in Tcl (ant_rows_in_window). Removed fillers are deleted from the table (they are refilled at the end).
+    set ab_t0 [clock seconds]
+    set ab_ftable [ant070_all_fillers $ab_filter]
+    puts ">>> 070 filler table: [llength $ab_ftable] filler instances read in [expr {[clock seconds] - $ab_t0}] s, extent [ant_rows_extent $ab_ftable]"
+    if {[llength $ab_ftable] == 0} { error "ERROR 070: no filler instance found with the filter '$ab_filter' (the design has fillers: route.tcl creates them)" }
     set ab_gate [dict get $ab_buf_row gate]
     set ab_tier2_dist [ant_max_dist_for_ratio $ab_gate $WIRE_WIDTH_UM $ANT_WEIGHT_PINWIRE $TIER2_RATIO]
     puts ">>> 069 site width $ab_site_w um (narrowest of $FILLER_REFS in the LEF), buffer $ab_buf is ${ab_bw} um wide = [expr {int(ceil($ab_bw / $ab_site_w - 1e-6))}] sites; tier 1 limit $MAX_PIN_BUF_DIST um; tier 2 limit [format %.1f $ab_tier2_dist] um (predicted M2/M3 ratio <= $TIER2_RATIO with gate [format %.3f $ab_gate])"
@@ -783,13 +869,23 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
             if {$tier == 2 && $lim <= $MAX_PIN_BUF_DIST} continue
             set L [expr {$lim + $ab_bw + $ab_bh}]
             set win [list [list [expr {$px - $L}] [expr {$py - $L}]] [list [expr {$px + $L}] [expr {$py + $L}]]]
-            set frows [ant069_filler_rows $win $ab_filter]
+            set frows [ant_rows_in_window $ab_ftable [expr {$px - $L}] [expr {$py - $L}] [expr {$px + $L}] [expr {$py + $L}]]   ;# 070: window selection in Tcl
             set runs [ant_filler_runs $frows]
             set cands {}
             foreach c [ant_site_candidates $runs $ab_bw $ab_site_w $px $py $lim] {
                 if {[lsearch -exact $tried [list [dict get $c x] [dict get $c y]]] < 0} { lappend cands $c }
             }
             puts ">>> 069 $n tier $tier: limit [format %.1f $lim] um, [llength $frows] fillers in the search window, [llength $runs] runs, [llength $cands] usable candidate sites"
+            if {[llength $cands] == 0} {   ;# 070: nothing fails silently: say why, run by run
+                puts ">>> 070 $n tier $tier: 0 usable candidates. pin=([format %.3f $px], [format %.3f $py]) window=({[format %.3f [expr {$px - $L}]] [format %.3f [expr {$py - $L}]]} {[format %.3f [expr {$px + $L}]] [format %.3f [expr {$py + $L}]]}) buffer width $ab_bw needs [format %.2f [expr {ceil($ab_bw / $ab_site_w - 1e-6) * $ab_site_w}]] um of contiguous filler, site width $ab_site_w"
+                if {[llength $runs] == 0} { puts ">>> 070 $n tier $tier:   no filler run in the window" }
+                foreach ln [ant_run_report $runs $ab_bw $ab_site_w $px $py $lim 3] { puts ">>> 070 $n tier $tier:   nearest run: $ln" }
+            }
+            if {![info exists ab_070_first]} {   ;# 070: for the FIRST net only: the raw rows and the extent, so a wrong query is visible
+                set ab_070_first 1
+                puts ">>> 070 first net $n: first 3 filler rows of the window {name x0 y0 x1 y1 orient}: [lrange $frows 0 2]"
+                puts ">>> 070 first net $n: extent of the [llength $frows] window fillers [ant_rows_extent $frows] (window $win)"
+            }
             set ntry 0
             foreach c $cands {
                 if {$ntry >= $MAX_SITE_TRIES} break
@@ -802,7 +898,9 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
                     puts ">>> 069 BUFFER $n tier $tier candidate ($cx, $cy): only [sizeof_collection $flc] of [llength $rm] filler names found, candidate skipped"
                     continue
                 }
+                set ori0 [get_attribute -quiet [index_collection $flc 0] orientation]   ;# 070: VERIFY `orientation` of a filler (MX / N / FS ...), read here only for the removed fillers
                 remove_cells $flc   ;# 069: VERIFY remove_cells on the filler instances (as in task 068)
+                set ab_ftable [ant_rows_remove $ab_ftable $rm]   ;# 070: the table follows the design
                 incr ab_removed [llength $rm]
                 set base "${BUF_PREFIX}_[regsub -all {[^A-Za-z0-9]} $pn _]_${k}_t${tier}a${ntry}"
                 insert_buffer -lib_cell [get_lib_cells -exact $ab_buf_lc] -new_cell_names $base -new_net_names ${base}_n [get_ports -exact $pn]   ;# 068: VERIFY insert_buffer on a PORT puts the buffer between the port and all its loads (usage text: add_buffer ... object_list = nets, ports or pins)
@@ -816,7 +914,7 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
                 if {[sizeof_collection $op] != 1} { error "ERROR 069: net $n: buffer $bname has [sizeof_collection $op] output pins (nothing saved)" }
                 set newnet [get_object_name [get_nets -quiet -of_objects $op]]
                 set sargs [list -coordinates [list $cx $cy]]
-                if {[dict get $c orient] ne ""} { lappend sargs -orientation [dict get $c orient] }   ;# 069: the row's orientation, read from the removed fillers
+                if {$ori0 ne ""} { lappend sargs -orientation $ori0 }   ;# 069: the row's orientation, read from the removed fillers (070: read just before the removal)
                 if {[catch {set_cell_location {*}$sargs $bc} err]} {   ;# 068: VERIFY set_cell_location (the first server run accepted -coordinates); 069: VERIFY -orientation
                     puts ">>> 069 set_cell_location failed ($err), trying the origin attribute"
                     if {[catch {set_attribute -objects $bc -name origin -value [list $cx $cy]} err2]} { error "ERROR 069: net $n: cannot move $bname: $err / $err2 (nothing saved)" }
@@ -853,7 +951,7 @@ redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
             }
         }
         if {!$placed} {
-            set wide [ant_site_candidates [ant_filler_runs [ant069_filler_rows [list [list [expr {$px - 300.0}] [expr {$py - 300.0}]] [list [expr {$px + 300.0}] [expr {$py + 300.0}]]] $ab_filter]] $ab_bw $ab_site_w $px $py 1e9]   ;# 069: only for the message: the nearest free run in a wider window
+            set wide [ant_site_candidates [ant_filler_runs [ant_rows_in_window $ab_ftable [expr {$px - 300.0}] [expr {$py - 300.0}] [expr {$px + 300.0}] [expr {$py + 300.0}]]] $ab_bw $ab_site_w $px $py 1e9]   ;# 069: only for the message: the nearest free run in a wider window (070: from the table)
             if {[llength $wide] > 0} { set nearest "nearest free filler run at [format %.1f [dict get [lindex $wide 0] dist]] um" } else { set nearest "no free filler run within 300 um" }
             puts ">>> 069 BUFFER $n FAILED: no site within the tier 1 limit ($MAX_PIN_BUF_DIST um) or the tier 2 limit ([format %.1f $ab_tier2_dist] um); $nearest"
             lappend ab_failed "$n ($nearest)"

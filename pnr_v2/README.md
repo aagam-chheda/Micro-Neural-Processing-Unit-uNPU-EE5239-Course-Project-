@@ -113,6 +113,8 @@ What to read after each step:
 - `metal_fill_console.log` and `pv_console.log` as before; the exported netlist and GDS now contain the buffers.
 - Calibre: `drc.log` 0 results, `ant.log` the number of results per rule and which nets remain. A net that remains after its buffer is a new finding, not a reason to repeat the script on the old database.
 
+If `antenna_port_buffers.tcl` reports `0 usable candidates` or a net FAILED: run the read-only diagnostic `pnr_v2/diag_filler_runs.tcl` (task 070; net = `DIAG_NET` at its top, nothing is saved): `cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2`, then `icc2_shell -f ../pnr_v2/diag_filler_runs.tcl |& tee diag_filler_runs_console.log`, then `exit`.
+
 ## Edits
 
 | # | Files | Edit as done |
