@@ -47,3 +47,16 @@ Run 2 = the whole flow again from synthesis, with the lessons of run 1 built in.
 3. PrimeTime checkpoint right after CTS (needs an export of the CTS state: ask Execution whether `pv.tcl` can run on `_cts` for this), then route, then PrimeTime again before fill (lesson L5).
 4. Antenna repair for the 5 skipped nets if Calibre needs it; fill; export; the three Calibre checks; both PrimeTime runs; post-layout simulation.
 5. The "what we did differently" section for the course report: relocatable run directories, early port buffers with a formula-based prediction, the tool-made clock latency found and removed, the checkpoints.
+
+## 5. Later on 2026-11-10 (after the origin check)
+
+### 5.1 The line starts at the power plan; task 089
+- `diag_clock_latency_origin.tcl` on run 2's own library: 0 lines in `_setup` and `_floorplan`; 1 line from `_powerplan` on (ff 0.138485, ss 0.356843); `_portbuf` and `_cts` hold 0.367671 / 0.806847. CTS never replaced the pre-CTS estimate. So `place_opt`, step 4c and the old CTS timed the I/O paths against the estimate.
+- Task 089: remove the line at the start and end of `placement.tcl` and `port_buffers_early.tcl` (every `update_timing -full` through a helper that cleans up and prints a NOTE if the tool re-created it), a final removal and three count-only probes in `powerplanning.tcl` to name the trigger. Done locally, 120 checks in `test_clock_latency.tcl`.
+
+### 5.2 Decisions (user)
+- Redo the WHOLE flow from synthesis in a NEW clone (run 3, `unpu_run3`), because the instructor said it is better that way. Run 1 and run 2 stay as they are. Planning's earlier view (steps before placement are unaffected by the line, synthesis is deterministic and gave the identical netlist) is kept in the record: the full rerun is for a clean, single-commit deliverable, not because of a technical need.
+- Raise the clock uncertainty only while the optimiser runs, restore it afterwards (a friend's experience for the PrimeTime sign-off). Planning's caveat: a clock-wide margin hits the zero-margin read path (`paddr` -> `prdata`, setup +0.0081, hold +0.0068 in PrimeTime's convention); hence task 090 scopes the margin to paths that end at registers (`flops`, default) with an `outputs` alternative and a `clock` comparison form; starting values setup 0.05, hold 0.10 (environment overrides); restore proof and an exported-SDC check; probes that test the unverified ICC2 behaviour on the server. Done locally, 151 checks in `test_opt_uncertainty.tcl`.
+
+### 5.3 Waiting for
+- The user's "commit and push" for 089 and 090, then `unpu_run3`: synthesis, gate-level simulation, NDM, setup, floorplan, power plan, placement, port buffers, CTS, route with PrimeTime and Calibre checkpoints (lesson L5), then fill, export, Calibre, PrimeTime, post-layout simulation.

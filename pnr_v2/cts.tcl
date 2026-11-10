@@ -10,6 +10,7 @@ set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (
 if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
 set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
 source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
+source [file join [file dirname [file normalize [info script]]] opt_uncertainty.tcl]   ;# 090: the optimisation-only uncertainty margin (scoped, restored with a proof)
 set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
@@ -26,19 +27,16 @@ set CTS_CHECK_IN_PORT  "dma_rdata\[14\]"   ;# 088: the input port of the I/O ref
 set CTS_CHECK_OUT_PORT "dma_addr\[31\]"    ;# 088: the output port of the same check
 
 # ------------------------------------------------------------------------------
-# Hold margin control
-#   SPEC_HOLD_UNC   : real hold uncertainty from the SDC (used for signoff/reports)
-#   HOLD_SLACK_GOAL : slack you want after hold fixing
-#   OPT_HOLD_UNC    : temporary uncertainty used only while the optimizer runs.
-#                     ICC2 fixes hold only when slack < 0, so we raise the
-#                     uncertainty by the extra margin you want.
+# Optimisation-only uncertainty margin (task 090; opt_uncertainty.tcl holds the procs and the reasons)
+#   SPEC_*_UNC   : the real uncertainties of the course constraints (used for sign-off and reports; the exported SDC keeps them)
+#   *_SLACK_GOAL : extra margin ICC2 optimises for, on top of SPEC, ONLY while the optimiser runs. Defaults (setup 0.05, hold 0.10) and the environment overrides
+#                  UNPU_SETUP_SLACK_GOAL / UNPU_HOLD_SLACK_GOAL / UNPU_UNC_SCOPE / UNPU_UNC_PROBE are in opt_uncertainty.tcl; the source of each value is printed (>>> 090 parameters).
+#   OPT_*_UNC    : SPEC + goal. With the default scope (flops) it is set on the clock pins of the registers only, so paths that end at output ports keep SPEC.
 # ------------------------------------------------------------------------------
 set SPEC_HOLD_UNC    0.5   ;# 063 E9: old constraints, hold uncertainty 0.5 (the example had 0.05)
-set HOLD_SLACK_GOAL  0.0   ;# 065: user decision 2026-11-02, no extra margin on top of the course uncertainties (the example had 0.70)
-set OPT_HOLD_UNC     [expr {$SPEC_HOLD_UNC + $HOLD_SLACK_GOAL}]
-
 set SPEC_SETUP_UNC   1.5   ;# 063 E9: old constraints, setup uncertainty 1.5 (the example had 0.15)
-set SETUP_SLACK_GOAL 0.0   ;# 065: user decision 2026-11-02, no extra margin on top of the course uncertainties (the example had 0.3)
+lassign [unc090_params $SPEC_SETUP_UNC $SPEC_HOLD_UNC] SETUP_SLACK_GOAL HOLD_SLACK_GOAL UNC_SCOPE UNC_PROBE   ;# 090: replaces the 065 goals of 0.0
+set OPT_HOLD_UNC     [expr {$SPEC_HOLD_UNC + $HOLD_SLACK_GOAL}]
 set OPT_SETUP_UNC    [expr {$SPEC_SETUP_UNC + $SETUP_SLACK_GOAL}]
 
 file mkdir $LOG_DIR
@@ -110,15 +108,9 @@ redirect -tee -file ${LOG_DIR}/5_cts.log {
     # 088: the line `set_app_options -name clock_opt.hold.effort -value high` is deleted: this ICC2 has no such option (error NDMUI-439 in run 1, caught and printed as a WARNING every time). Nothing replaces it.
 
     set_scenario_status func_ss -active true -setup true -hold false
-    current_scenario func_ss
-    set_clock_uncertainty -setup $OPT_SETUP_UNC [get_clocks -filter "is_virtual == false"]
-    puts ">>> Setup uncertainty during optimization: $OPT_SETUP_UNC ns (spec $SPEC_SETUP_UNC ns)"
-
-    # 4b. Raise hold uncertainty on func_ff so the optimizer targets +HOLD_SLACK_GOAL
     set_scenario_status func_ff -active true -hold true -setup true
-    current_scenario func_ff
-    set_clock_uncertainty -hold $OPT_HOLD_UNC [get_clocks -filter "is_virtual == false"]
-    puts ">>> Hold uncertainty during optimization: $OPT_HOLD_UNC ns (spec $SPEC_HOLD_UNC ns)"
+    # 090: clock-level uncertainty = SPEC, the in2out numbers, then the OPT values of the scope (setup goal in func_ss, hold goal in func_ff), probes and an SDC check; restored below with a proof
+    unc090_open_opt cts $SPEC_SETUP_UNC $SPEC_HOLD_UNC $SETUP_SLACK_GOAL $HOLD_SLACK_GOAL $UNC_SCOPE $UNC_PROBE
 
     # 5. Run Clock Tree Synthesis and Optimization
     puts ">>> Running Clock Tree Synthesis and Optimization..."
@@ -156,14 +148,8 @@ redirect -tee -file ${LOG_DIR}/5_cts.log {
         }
     }
 
-    # 5b. Restore the real (spec) hold uncertainty so reports show true slack
-    #     (reports should now be >= +HOLD_SLACK_GOAL if the optimizer succeeded)
-
-    current_scenario func_ss
-    set_clock_uncertainty -setup $SPEC_SETUP_UNC [get_clocks -filter "is_virtual == false"]
-
-    current_scenario func_ff
-    set_clock_uncertainty -hold $SPEC_HOLD_UNC [get_clocks -filter "is_virtual == false"]
+    # 5b. Restore the real (spec) uncertainties so reports show true slack (090: removes the pin/port-level values, proves that none is left, compares the in2out numbers)
+    unc090_close_opt cts $SPEC_SETUP_UNC $SPEC_HOLD_UNC $SETUP_SLACK_GOAL $HOLD_SLACK_GOAL $UNC_SCOPE
 
     # 6. Connect PG Nets to CTS & Hold Buffers
     connect_pg_net -automatic

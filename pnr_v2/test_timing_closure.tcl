@@ -152,7 +152,8 @@ proc trimmed {lines} { set o {}; foreach l $lines { set t [string trim [regsub {
 set tcl_t [trimmed $tc]
 # 082: route.tcl gained 3 lines before these ranges (the run-root bootstrap replaced one line by three, and one RUN ROOT puts line follows the redirect line): every range moved down by 3
 # 088: and 2 more (the source line of clock_latency.tcl and the call of unpu_remove_clock_latency after link_block): down by 5 in total
-set ranges {{41 41} {47 62} {64 88} {90 137} {147 148} {152 157} {163 197}}
+# 090: route.tcl's uncertainty block now calls the procs of opt_uncertainty.tcl (shorter, plus one source line): the ranges are re-cut by content (suppress_message; routing layers .. hold cells; the uncertainty block; app options .. enable_ccd; route_opt, legalize; the close call; fillers .. the last report)
+set ranges {{43 43} {49 64} {66 75} {77 132} {142 143} {147 148} {154 188}}
 set ptr 0
 foreach r $ranges {
     lassign $r a z
@@ -168,11 +169,14 @@ foreach r $ranges {
     check "route.tcl lines $a-$z appear in timing_closure.tcl, in order ($missing)" {$ok}
 }
 # values
-foreach {name want} {SPEC_SETUP_UNC 1.5 SETUP_SLACK_GOAL 0.0 SPEC_HOLD_UNC 0.5 HOLD_SLACK_GOAL 0.0} {
+foreach {name want} {SPEC_SETUP_UNC 1.5 SPEC_HOLD_UNC 0.5} {
     set found 0
     foreach l $tc { if {[regexp "^\\s*set $name\\s+(\[0-9.\]+)" $l -> v] && $v == $want} { set found 1 } }
     check "$name = $want as in route.tcl" {$found}
 }
+# 090: the goals are no longer typed in the scripts: both call the same unc090_params (defaults in opt_uncertainty.tcl)
+check "the goals come from unc090_params in timing_closure.tcl" {[regexp {lassign \[unc090_params \$SPEC_SETUP_UNC \$SPEC_HOLD_UNC\] SETUP_SLACK_GOAL HOLD_SLACK_GOAL UNC_SCOPE UNC_PROBE} $src]}
+check "the goals come from unc090_params in route.tcl alike" {[regexp {lassign \[unc090_params \$SPEC_SETUP_UNC \$SPEC_HOLD_UNC\] SETUP_SLACK_GOAL HOLD_SLACK_GOAL UNC_SCOPE UNC_PROBE} [read_file $here/route.tcl]]}
 # the option table: every setting line of route.tcl that is copied, with its line number
 puts "OPTION TABLE (route.tcl line, setting; all present verbatim in timing_closure.tcl):"
 set i 0

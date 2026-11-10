@@ -122,7 +122,7 @@ foreach bad {set_clock_uncertainty set_propagated_clock set_app_options set_inpu
 
 # ---- 4. the flow scripts ----
 set boot4 {source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]}
-set users {route fix_antenna timing_closure pt_eco_apply antenna_port_buffers antenna_clk_root metal_fill pv cts}
+set users {route fix_antenna timing_closure pt_eco_apply antenna_port_buffers antenna_clk_root metal_fill pv cts placement port_buffers_early powerplanning}
 foreach f $users {
     set t [read_file $here/$f.tcl]
     set lines [split $t "\n"]
@@ -133,9 +133,9 @@ foreach f $users {
     set po [string first "unpu_remove_clock_latency" $t [string first "clock_latency.tcl" $t]]
     check "$f.tcl: calls unpu_remove_clock_latency" {$po > 0}
     set pl [string first "link_block" $t [expr {$k > 0 ? 0 : 0}]]
-    if {$f ne "cts"} {
+    if {$f ne "cts" && $f ne "powerplanning" && $f ne "port_buffers_early"} {
         set after_boot [string first $boot4 $t]
-        set pl [string first "link_block" $t $after_boot]
+        set pl [string first "\n    link_block\n" $t $after_boot]
         check "$f.tcl: the first call comes right after link_block (the block is open and linked)" {$pl > 0 && $po > $pl && ($po - $pl) < 400}
     }
 }
@@ -174,6 +174,36 @@ check "origin: block present as lib:block" {[orig088_present unpu_top_cts {unpu_
 check "origin: block absent" {![orig088_present unpu_top_portbuf {unpu_top.dlib:unpu_top_cts}]}
 check "origin: the script uses open_block -read and never saves" {[string first "open_block -read" $o0] > 0 && [string first "save_block" [regsub -all {#[^\n]*} $o0 ""]] < 0 && [string first "save_lib" [regsub -all {#[^\n]*} $o0 ""]] < 0}
 check "origin: the guard runs before the library is opened" {[string first "diag084_lib_check \$ORIGIN_LIB" $o0] > 0 && [string first "diag084_lib_check \$ORIGIN_LIB" $o0] < [string first "open_lib -read" $o0]}
+
+
+# ---- 6. task 089: placement, powerplanning, port_buffers_early ----
+proc code_of {path} { global here; set o {}; foreach l [split [read_file $path] "\n"] { set t [string trim $l]; if {$t ne "" && [string index $t 0] ne "#"} { lappend o [regsub {;#.*$} $l ""] } }; return [join $o "\n"] }
+set pl [read_file $here/placement.tcl]
+set pl_open [string first "open_block" $pl]; set pl_in [string first "unpu_remove_clock_latency placement-input" $pl]
+set pl_po [string first "    place_opt\n" $pl]; set pl_fin [string first "unpu_remove_clock_latency placement-final" $pl]; set pl_save [string first "save_block" $pl]; set pl_rep [string first "report_qor" $pl]
+check "placement.tcl: input removal right after open_block / link_block" {$pl_in > $pl_open && ($pl_in - $pl_open) < 300}
+check "placement.tcl: the final removal comes after place_opt and before the reports and the save" {$pl_fin > $pl_po && $pl_fin < $pl_rep && $pl_fin < $pl_save}
+check "placement.tcl: the NOTE for a line re-created inside place_opt" {[string first "unpu_clock_latency_note placement-final place_opt" $pl] > $pl_fin}
+set pp [read_file $here/powerplanning.tcl]
+set pp_in [string first "powerplan-probe-open" $pp]; set pp_c [string first "powerplan-probe-after-compile_pg" $pp]; set pp_k [string first "powerplan-probe-after-check_pg" $pp]; set pp_f [string first "unpu_remove_clock_latency powerplan-final" $pp]; set pp_s [string first "save_block" $pp]
+check "powerplanning.tcl: three probes in order (open, after compile_pg, after the check_pg commands)" {$pp_in > 0 && $pp_c > $pp_in && $pp_k > $pp_c}
+check "powerplanning.tcl: the probes only count (unpu_clock_latency_count), they never remove" {[string first "unpu_clock_latency_count powerplan-probe-open" $pp] > 0 && [string first "unpu_remove_clock_latency powerplan-probe" $pp] < 0}
+check "powerplanning.tcl: the final removal is after the probes and before save_block" {$pp_f > $pp_k && $pp_f < $pp_s}
+set pb [read_file $here/port_buffers_early.tcl]
+set pb_in [string first "unpu_remove_clock_latency port-buffers-input" $pb]; set pb_ut [string first "pbe089_update_timing table-prediction" $pb]; set pb_fin [string first "unpu_remove_clock_latency port-buffers-final" $pb]; set pb_sv [string first "save_block -as" $pb]
+check "port_buffers_early.tcl: the input removal comes before the first timing update and measure" {$pb_in > 0 && $pb_in < $pb_ut}
+check "port_buffers_early.tcl: the final removal comes right before save_block -as" {$pb_fin > 0 && $pb_fin < $pb_sv && ($pb_sv - $pb_fin) < 500}
+set pbcode [code_of $here/port_buffers_early.tcl]
+set n_raw [llength [regexp -all -inline {update_timing -full} $pbcode]]
+check "port_buffers_early.tcl: update_timing -full appears only inside the helper (2 times: before and after the removal)" {$n_raw == 2}
+check "port_buffers_early.tcl: PLAN_ONLY says the removal is in memory only" {[string first "changed the block IN MEMORY only" $pb] > 0}
+check "port_buffers_early.tcl: the gate tolerances are unchanged" {[regexp {set GATE_TOL_IN2OUT 0.005} $pb] && [regexp {set GATE_TOL_SETUP  0.005} $pb]}
+set src_now [read_file $here/clock_latency.tcl]
+check "the NOTE text exists in clock_latency.tcl" {[string first {>>> 089 NOTE: $label: the tool re-created the line inside} $src_now] > 0}
+# the note proc against the mock
+set ::UNPU_CL_LAST {{func_ss {set_clock_latency 0.8 [get_clocks {clk}]}}}
+set out [run_proc {unpu_clock_latency_note lab place_opt 1}]
+check "note proc returns normally" {[lindex $out 0] == 0}
 
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }

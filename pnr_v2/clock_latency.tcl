@@ -83,6 +83,8 @@ proc unpu_clock_latency_count {label} {
 }
 
 proc unpu_remove_clock_latency {label} {
+    global UNPU_CL_LAST
+    set UNPU_CL_LAST {}   ;# 089: the lines removed by THIS call as {scenario line} pairs, for the NOTE lines of the callers
     set cur ""
     catch {set cur [get_object_name [current_scenario]]}   ;# VERIFY current_scenario without argument returns the current scenario
     set names [unpu_scenario_names]
@@ -94,7 +96,7 @@ proc unpu_remove_clock_latency {label} {
         set before [llength $lines]
         set after $before
         if {$before > 0} {
-            foreach l $lines { puts ">>> 088 $label $s: removing the tool-made line: $l" }
+            foreach l $lines { puts ">>> 088 $label $s: removing the tool-made line: $l"; lappend UNPU_CL_LAST [list $s $l] }
             if {[catch {remove_clock_latency [get_clocks -filter "is_virtual == false"]} e]} { error "ERROR 088: $label: remove_clock_latency failed in scenario $s: $e" }   ;# the form that worked in task 086 (VERIFY: help remove_clock_latency)
             set after [llength [unpu_clock_latency_count_scen $s]]
             incr removed $before
@@ -122,4 +124,14 @@ proc unpu_clock_latency_grep {label files} {
     }
     puts ">>> 088 $label: exported SDC files checked ([llength $files]): 0 set_clock_latency lines"
     return 0
+}
+
+# 089: unpu_clock_latency_note <label> <what> <removed count>: if the removal found lines, say that the TOOL re-created them inside <what> (a finding, not an error) and print the values
+proc unpu_clock_latency_note {label what n} {
+    global UNPU_CL_LAST
+    if {$n > 0} {
+        puts ">>> 089 NOTE: $label: the tool re-created the line inside $what ($n line(s) removed again): [join [lmap x $UNPU_CL_LAST {lindex $x 1}] { | }]"
+    } else {
+        puts ">>> 089 $label: the tool did not re-create the line inside $what (0 lines before the removal)"
+    }
 }

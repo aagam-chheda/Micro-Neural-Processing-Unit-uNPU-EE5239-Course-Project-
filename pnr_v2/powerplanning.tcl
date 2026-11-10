@@ -9,6 +9,7 @@ set DESIGN_NAME "unpu_top"   ;# 063 E2: design name
 set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
 if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
 set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
 set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
@@ -25,6 +26,7 @@ redirect -tee -file ${LOG_DIR}/3_powerplanning.log {
 
     open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${DESIGN_NAME}_floorplan
     link_block
+    unpu_clock_latency_count powerplan-probe-open   ;# 089: probe only (no change): is the tool-made set_clock_latency already in the input block? The origin check showed 0 lines in _floorplan and 1 in _powerplan
 
     # Automatically detect exact layer names in SCL_4LM.tf
     if {[sizeof_collection [get_layers -quiet TOP_M]] > 0} {
@@ -103,11 +105,13 @@ redirect -tee -file ${LOG_DIR}/3_powerplanning.log {
         -extension {{stop: outermost_ring}}
 
     compile_pg -strategies std_rails
+    unpu_clock_latency_count powerplan-probe-after-compile_pg   ;# 089: probe only: after the last compile_pg
 
     # 5. Power Network Verification
     check_pg_drc
     check_pg_connectivity
     check_pg_missing_vias
+    unpu_clock_latency_count powerplan-probe-after-check_pg   ;# 089: probe only: after check_pg_drc / check_pg_connectivity / check_pg_missing_vias (together with the two probes above this names the command that makes the tool write the line)
 
     # 6. Create VDD/VSS block ports and physical terminals on the top-metal ring
     #    (the synthesized netlist has no PG ports, so write_gds had nothing to label,
@@ -131,6 +135,8 @@ redirect -tee -file ${LOG_DIR}/3_powerplanning.log {
     puts ">>> PG ports: [get_object_name [get_ports -quiet {VDD VSS}]]"
     puts ">>> PG terminals: [sizeof_collection [get_terminals -quiet -of_objects [get_ports -quiet {VDD VSS}]]]"
 
+    set pp_n [unpu_remove_clock_latency powerplan-final]   ;# 089: the saved block is clean; the probes above say which command created the line
+    unpu_clock_latency_note powerplan-final {the power plan commands} $pp_n
     save_block -as ${DESIGN_NAME}_powerplan
     save_lib
     puts ">>> STAGE 3 COMPLETE: ${DESIGN_NAME}_powerplan saved. Log: ${LOG_DIR}/3_powerplanning.log"

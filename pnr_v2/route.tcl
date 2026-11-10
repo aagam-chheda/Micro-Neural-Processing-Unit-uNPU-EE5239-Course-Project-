@@ -10,6 +10,7 @@ set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (
 if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
 set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
 source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
+source [file join [file dirname [file normalize [info script]]] opt_uncertainty.tcl]   ;# 090: the optimisation-only uncertainty margin (scoped, restored with a proof)
 set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
@@ -63,22 +64,15 @@ redirect -tee -file ${LOG_DIR}/6_route.log {
     }
 
     set SPEC_SETUP_UNC   1.5   ;# 063 E9: old constraints, setup uncertainty 1.5 (the example had 0.15)
-    set SETUP_SLACK_GOAL 0.0   ;# 065: user decision 2026-11-02, no extra margin on top of the course uncertainties (the example had 0.30)
-    set OPT_SETUP_UNC    [expr {$SPEC_SETUP_UNC + $SETUP_SLACK_GOAL}]
-
-    set_scenario_status func_ss -active true -setup true -hold false
-    current_scenario func_ss
-    set_clock_uncertainty -setup $OPT_SETUP_UNC [get_clocks -filter "is_virtual == false"]
-    puts ">>> Setup uncertainty during optimization: $OPT_SETUP_UNC ns (spec $SPEC_SETUP_UNC ns)"
-
-    # Same hold margin as CTS: spec 0.5 + 0.70 goal   ;# 063 E9: comment follows the new spec value   ;# 065: the goal is 0.0 now
     set SPEC_HOLD_UNC    0.5   ;# 063 E9: old constraints, hold uncertainty 0.5 (the example had 0.05)
-    set HOLD_SLACK_GOAL  0.0   ;# 065: user decision 2026-11-02, no extra margin on top of the course uncertainties (the example had 0.70)
+    lassign [unc090_params $SPEC_SETUP_UNC $SPEC_HOLD_UNC] SETUP_SLACK_GOAL HOLD_SLACK_GOAL UNC_SCOPE UNC_PROBE   ;# 090: goals/scope/probes with environment overrides (opt_uncertainty.tcl); replaces the 065 goals of 0.0
+    set OPT_SETUP_UNC    [expr {$SPEC_SETUP_UNC + $SETUP_SLACK_GOAL}]
     set OPT_HOLD_UNC     [expr {$SPEC_HOLD_UNC + $HOLD_SLACK_GOAL}]
 
+    set_scenario_status func_ss -active true -setup true -hold false
     set_scenario_status func_ff -active true -hold true -setup true
-    current_scenario func_ff
-    set_clock_uncertainty -hold $OPT_HOLD_UNC [get_clocks -filter "is_virtual == false"]
+    # 090: clock-level = SPEC, in2out numbers, OPT values of the scope (setup goal in func_ss, hold goal in func_ff), probes, SDC check; restored below with a proof
+    unc090_open_opt route $SPEC_SETUP_UNC $SPEC_HOLD_UNC $SETUP_SLACK_GOAL $HOLD_SLACK_GOAL $UNC_SCOPE $UNC_PROBE
 
     # 3. Configure Routing, SI Crosstalk & Antenna App Options
     set_app_options -name route.global.timing_driven -value true
@@ -150,12 +144,8 @@ redirect -tee -file ${LOG_DIR}/6_route.log {
 
     puts "diodes inserted: [sizeof_collection [get_cells -quiet -filter {ref_name == adiode}]]"
 
-    current_scenario func_ss
-    set_clock_uncertainty -setup $SPEC_SETUP_UNC [get_clocks -filter "is_virtual == false"]
-
-  # Restore the real hold uncertainty so reports and exported SDC are correct
-    current_scenario func_ff
-    set_clock_uncertainty -hold $SPEC_HOLD_UNC [get_clocks -filter "is_virtual == false"]
+    # Restore the real uncertainties so reports and exported SDC are correct (090: removes the pin/port-level values, proves none is left, in2out comparison)
+    unc090_close_opt route $SPEC_SETUP_UNC $SPEC_HOLD_UNC $SETUP_SLACK_GOAL $HOLD_SLACK_GOAL $UNC_SCOPE
 
     # Sanity check: confirm reference libraries and filler cells are visible
     puts "Reference libraries: [get_object_name [get_libs -quiet *]]"

@@ -9,6 +9,7 @@ set DESIGN_NAME "unpu_top"   ;# 063 E2: design name
 set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
 if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
 set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
 set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
@@ -25,6 +26,7 @@ redirect -tee -file ${LOG_DIR}/4_placement.log {
 
     open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${DESIGN_NAME}_powerplan
     link_block
+    unpu_remove_clock_latency placement-input   ;# 089: the tool-made set_clock_latency exists from the power plan on (origin check, run 2); every optimisation of this step sees PrimeTime's I/O convention without it
 
     suppress_message {DCHK-027 DCHK-010 ATTR-12}
 
@@ -47,6 +49,8 @@ redirect -tee -file ${LOG_DIR}/4_placement.log {
 
     # 4. Execute Placement and Optimization
     place_opt
+    set pl_n [unpu_remove_clock_latency placement-final]   ;# 089: place_opt (trial clock tree, clock-aware placement) may re-create the tool's estimate: removed again before the checks and the save
+    unpu_clock_latency_note placement-final place_opt $pl_n
 
     # Ensure strict cell legality on standard cell rows
     legalize_placement

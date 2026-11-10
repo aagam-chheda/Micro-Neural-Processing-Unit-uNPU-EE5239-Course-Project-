@@ -29,6 +29,7 @@ set DESIGN_NAME "unpu_top"
 set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
 if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
 set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
 set PNR_DIR     "${RUN_ROOT}/pnr_icc2"
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
@@ -346,6 +347,13 @@ proc pbe085_read_cells {} {   ;# all leaf cell boxes {x0 y0 x1 y1} (the occupanc
     return [list $boxes [array get ori]]
 }
 
+proc pbe089_update_timing {label} {   ;# 089: update_timing -full, then the removal of the tool-made set_clock_latency if the update re-created it, then a second update so that the numbers read next use the clean convention
+    update_timing -full
+    set n [unpu_remove_clock_latency port-buffers-$label]
+    unpu_clock_latency_note port-buffers-$label update_timing $n
+    if {$n > 0} { update_timing -full }
+}
+
 file mkdir $LOG_DIR
 file mkdir $RPT_DIR
 
@@ -361,6 +369,9 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
     open_lib ${BLOCKS_DIR}/${DESIGN_NAME}.dlib
     if {[catch {open_block ${DESIGN_NAME}.dlib:${IN_BLOCK}} oerr]} { error "ERROR 085: cannot open the block ${IN_BLOCK} ($oerr): run placement.tcl first. Blocks that exist: [pbe085_names [get_blocks -all -quiet]]" }
     link_block
+    set pb_n0 [unpu_remove_clock_latency port-buffers-input]   ;# 089: BEFORE the first update_timing and any measure: the tool-made set_clock_latency is removed, so the cone check, the prediction and the BEFORE/AFTER numbers of the gates use PrimeTime's I/O convention
+    unpu_clock_latency_note port-buffers-input {the power plan / placement steps (it was in the input block)} $pb_n0
+    if {$PLAN_ONLY} { puts ">>> 089 PLAN_ONLY 1: the removal above changed the block IN MEMORY only; nothing is saved" }
     puts ">>> 085 block ${IN_BLOCK} opened; the result is saved as the NEW block ${OUT_BLOCK} (${IN_BLOCK} is not overwritten)"
     suppress_message {DCHK-027 DCHK-010 ATTR-12 PDC-003 UIC-058 UIC-057}
 
@@ -408,7 +419,7 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
     set pb_outset [pbe085_names [all_outputs]]
 
     set pb_ab_gate_unknown 0
-    update_timing -full   ;# 087: the cone check below needs timing before the table
+    pbe089_update_timing table-prediction   ;# 087: the cone check below needs timing before the table (089: and the tool may re-create the latency at this update)
     array set pb_cone {}
     array set pb_slack0 {}
     set pb_table {}
@@ -505,7 +516,7 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
     # 5. Measurements before, and the input-to-output cone
     # --------------------------------------------------------------------------
     set pb_from [remove_from_collection [all_inputs] [get_ports -quiet $pb_clock_ports]]
-    update_timing -full
+    pbe089_update_timing before-measure
     set pb_s0 [pbe085_wns $SETUP_SCEN max]; set pb_h0 [pbe085_wns $HOLD_SCEN min]
     lassign [pbe085_in2out $SETUP_SCEN $pb_from] pb_io0 pb_ion0
     puts ">>> 085 BEFORE: setup WNS ($SETUP_SCEN) $pb_s0, hold WNS ($HOLD_SCEN) $pb_h0, in2out WNS ($SETUP_SCEN) $pb_io0 with $pb_ion0 violating endpoints"
@@ -625,7 +636,7 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
         set n_new [llength [pbe085_names [get_pins -quiet -leaf -of_objects [get_nets -exact [lindex $outn 0]]]]]
         if {$n_new != $pb_nl_of($p) + 1} { lappend pb_fail "$p: the buffer output net has $n_new leaf pins, expected [expr {$pb_nl_of($p) + 1}] (the loads and the buffer output)" }
     }
-    update_timing -full
+    pbe089_update_timing after-measure
     set pb_s1 [pbe085_wns $SETUP_SCEN max]; set pb_h1 [pbe085_wns $HOLD_SCEN min]
     lassign [pbe085_in2out $SETUP_SCEN $pb_from] pb_io1 pb_ion1
     puts ">>> 085 AFTER:  setup WNS ($SETUP_SCEN) $pb_s1 (before $pb_s0), hold WNS ($HOLD_SCEN) $pb_h1 (before $pb_h0), in2out WNS ($SETUP_SCEN) $pb_io1 with $pb_ion1 violating endpoints (before $pb_io0 with $pb_ion0)"
@@ -642,6 +653,8 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
     if {!$g2} { lappend pb_fail "ERROR 085: the buffers made the setup WNS worse: $gm2" }
     if {[llength $pb_fail] > 0} { error "ERROR 085: hard checks failed, nothing saved: [join $pb_fail {; }]" }
 
+    set pb_nf [unpu_remove_clock_latency port-buffers-final]   ;# 089: the saved block is clean
+    unpu_clock_latency_note port-buffers-final {the insertions and the gates} $pb_nf
     save_block -as ${OUT_BLOCK}
     save_lib
     pbe085_print_cone_block $pb_table $PREDICT_WEIGHT $pb_rows $pb_lc_name

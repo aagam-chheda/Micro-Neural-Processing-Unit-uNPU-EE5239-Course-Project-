@@ -329,6 +329,68 @@ What to expect. ICC2 now sees the I/O the way PrimeTime does: the input hold pat
 
 VERIFY list (task 088): V41 `write_sdc -scenario <s> -include clock_latency -output <f>` writes a file with the `set_clock_latency` lines (the counter reads only those lines, so a wider output is harmless); V42 `current_scenario` without argument returns the current scenario (otherwise it is not restored; printed nothing); V43 `clock_opt -list_only` prints the three step names, and `clock_opt -to build_clock`, `-from route_clock -to route_clock`, `-from final_opto` run the flow in pieces with the same result as one call (if not: `UNPU_CTS_SPLIT 0`); V44 `remove_clock_latency [get_clocks -filter "is_virtual == false"]` (the form of the 086 run); V45 the scenario names are all switchable (an inactive scenario would stop with ERROR 088 naming it); V46 the 4th bootstrap line is accepted by `icc2_shell -f` like the first three. Tests: `tclsh pnr_v2/test_clock_latency.tcl`.
 
+### Task 089: the line exists from the power plan on; removal from placement onward
+
+What the origin check showed (run 2's own library): `unpu_top_setup` and `unpu_top_floorplan` 0 lines; `unpu_top_powerplan` 1 line (ff 0.138485, ss 0.356843); `unpu_top_placement` the same; `unpu_top_portbuf` 0.367671 / 0.806847; `unpu_top_cts` (made by the OLD `cts.tcl`) the same as `_portbuf`. So CTS does not create the line; it leaves the pre-CTS ESTIMATE in place (the real tree latencies are about 0.60 ff / 1.36 ss), and `place_opt`, step 4c and the old CTS measured and optimised the I/O with the estimate as the I/O reference. Change: `placement.tcl` removes it right after `link_block` (`placement-input`) and again right after `place_opt` (`placement-final`, before the checks and the save); `port_buffers_early.tcl` removes it right after `link_block` (`port-buffers-input`, before the first timing update, in PLAN_ONLY too: the block is changed in memory only and the log says so), after every `update_timing -full` (a clean second update if the update re-created it) and before `save_block -as` (`port-buffers-final`); `powerplanning.tcl` removes it before `save_block` (`powerplan-final`). Every call prints the `>>> 088` counts; a line found again after a tool step prints `>>> 089 NOTE: <label>: the tool re-created the line inside <step> ...` (a finding, not an error). The gate tolerances of step 4c are unchanged. The `cts.tcl` removals of task 088 (`cts-input`, after each `clock_opt` part) stay.
+
+The trigger in `powerplanning.tcl` (not found in the help texts): `powerplanning.tcl` has no timing command, and the usage texts in `~/server_pull/rpt/help` of `compile_pg`, `connect_pg_net`, `create_net`, `set_app_options`, `check_pg_connectivity` contain no word about timing or latency (`check_pg_drc` only mentions clock nets). The line therefore comes from something the tool does implicitly in that step (a first timing-graph build or the clock-latency estimate that goes with it, VERIFY). To name the command, `powerplanning.tcl` now has three count-only probes (`powerplan-probe-open`, `powerplan-probe-after-compile_pg`, `powerplan-probe-after-check_pg`); the first probe that shows 1 names the command group. Re-running `powerplanning.tcl` is optional and costs the later steps; the removals from placement on make it unnecessary for the result.
+
+Rerun after the commit (csh, one command per line; `RUN_DIR` = this clone; the earlier steps up to the power plan are kept; type `exit` after each icc2_shell run):
+
+```
+cd $RUN_DIR/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre089
+icc2_shell -f ../pnr_v2/placement.tcl |& tee placement_console.log
+setenv UNPU_WI_BLOCKS "unpu_top_placement"
+icc2_shell -f ../pnr_v2/diag_clock_latency_origin.tcl |& tee diag_origin_placement.log
+setenv UNPU_PBE_PLAN_ONLY 1
+icc2_shell -f ../pnr_v2/port_buffers_early.tcl |& tee port_buffers_early_plan_console.log
+unsetenv UNPU_PBE_PLAN_ONLY
+icc2_shell -f ../pnr_v2/port_buffers_early.tcl |& tee port_buffers_early_console.log
+setenv UNPU_WI_BLOCKS "unpu_top_portbuf"
+icc2_shell -f ../pnr_v2/diag_clock_latency_origin.tcl |& tee diag_origin_portbuf.log
+unsetenv UNPU_WI_BLOCKS
+icc2_shell -f ../pnr_v2/cts.tcl |& tee cts_console.log
+```
+
+(compare the PLAN_ONLY table with the earlier one: with the clean convention the BUFFER set may change; the second `port_buffers_early.tcl` run is the real one, with the environment variables you decide on.) Expected table of the origin check after the redo: 0 lines in every block from `unpu_top_placement` on; the power-plan block stays as saved (1 line) unless `powerplanning.tcl` is run again, in which case `powerplan-final` cleans it. VERIFY V47: the probes and removals in `powerplanning.tcl` and `placement.tcl` run in the same scenarios as the later steps (all scenarios of the block are switched; an inactive one stops with ERROR 088).
+
+## Task 090: optimisation-only uncertainty margin (cts, route, timing_closure)
+
+User decision 2026-11-10: ICC2 optimises to `SPEC + goal`, the SPEC values (setup 1.5, hold 0.5), the exported SDC and the sign-off stay. Reason: ICC2's parasitic estimate and PrimeTime's SPEF differ by tens of ps. All code is in `opt_uncertainty.tcl` (sourced by `cts.tcl`, `route.tcl`, `timing_closure.tcl`, `pv.tcl`); the three scripts call `unc090_params`, `unc090_open_opt` (before the optimiser) and `unc090_close_opt` (after it).
+
+**The trap.** A clock-wide x also reaches the input-to-output group (`paddr` to `prdata`, budget 20 - 1.5 - 7 - 7, margin about 0 in both tools: setup +0.0081, hold +0.0068). ICC2 sees it x worse in setup AND hold, the hold part adds delay and breaks the setup part (-0.59 ns, 2026-11-09). So the margin must reach register endpoints and not output-port endpoints.
+
+| `UNPU_UNC_SCOPE` | what is set while the optimiser runs | endpoints at output ports |
+|---|---|---|
+| `flops` (DEFAULT) | clock-level stays SPEC; `SPEC + goal` on the clock pins of `all_registers -edge_triggered` (absolute value: a pin-level value replaces the clock-level one) | keep SPEC |
+| `outputs` | clock-level `SPEC + goal`; the SPEC value pinned on `all_outputs` | keep SPEC (pinned) |
+| `clock` | clock-level `SPEC + goal` (the old form, comparison only) | get the margin (the trap) |
+
+Goals: setup in `func_ss` only, hold in `func_ff` only. Defaults setup 0.05, hold 0.10 (starting values; hold larger because the sign-off failures were hold). Environment (csh, one per line; `unsetenv` returns to the defaults; the source of each value is printed in `>>> 090 parameters`):
+
+```
+setenv UNPU_SETUP_SLACK_GOAL 0.05
+setenv UNPU_HOLD_SLACK_GOAL 0.10
+setenv UNPU_UNC_SCOPE flops
+setenv UNPU_UNC_PROBE 1
+unsetenv UNPU_HOLD_SLACK_GOAL
+```
+
+A goal must be a number 0 <= v <= 1.0, the scope `flops`, `outputs` or `clock`, the probe flag 0 or 1; anything else is ERROR 090 naming the variable. Goal 0 for a kind sets nothing at pin level for that kind.
+
+**Lines to read (`>>> 090`):**
+- `parameters:` scope, goals, sources, targets.
+- `<label> scope flops: N clock pins of M edge-triggered registers (<command used>)` / `scope outputs: N output ports pinned`.
+- `<label> in2out: setup WNS ... hold WNS ...` before (SPEC state) and the line `in2out (scope ..): setup WNS a -> b, hold WNS c -> d` after the restore; `WARNING: the margin made the in2out group worse` when the drop is more than 0.005 ns (no stop; the end state counts).
+- `probe ...`: ONE known path with the pin/port-level value set and removed: flops form `dma_rdata[14]` to `u_dma/stage_reg_1__14_/D` (setup and hold): the slack must move by -goal; outputs form `dma_addr[31]` setup and `prdata[0]` hold: the slack with the port pinned must be +goal above the one without. `the value acts` = ok; `WARNING ... the SAME. ICC2 ignored ...` = the form does not work in this ICC2 (use the other scope); `WARNING ... expected` = it moved by another amount. A port or pin that is not in the design prints a WARNING and is skipped.
+- `SDC check <scenario> (<kind>, scope ..): ok` right after the OPT values (the scratch SDC `pnr_icc2/diag/uncertainty_*.sdc` shows them); `RESTORE PROOF <scenario>: pin/port-level uncertainty lines left 0 (0 names), clock-level values: ...`. Any line left or any clock-level value not at SPEC is ERROR 090 and nothing is saved.
+- `pv.tcl`: `pv-exported-sdc` lists every `set_clock_uncertainty` line of the two exported SDCs; a pin/port-level line or a value that differs from SPEC is ERROR 090 (a count other than 4 lines is a NOTE).
+
+Expected effect: more hold cells on input-to-register and register-to-register paths (area), a small setup effort on register endpoints; output-port paths are unchanged. If a probe says `SAME`, the margin does not act (flops) or leaks (outputs): do not trust the run, switch the scope.
+
+VERIFY list (task 090): V48 `all_registers -edge_triggered -clock_pins` (else the fallback `get_pins -of_objects <regs> -filter "is_clock_pin == true"` is used and printed); V49 `set_clock_uncertainty -setup|-hold <v> <pins or ports>` takes effect for paths ending at those objects and replaces the clock-level value there (the probes test it); V50 `remove_clock_uncertainty -setup|-hold <objects>` (else the form without the option is used and a NOTE is printed; the proof catches a failed removal); V51 `write_sdc -scenario <s> -include clock_uncertainty -nosplit -output <f>` writes the pin/port-level lines (the proof and the SDC check read them; if the SDC does not show pin-level values the SDC check stops with ERROR 090 rather than pass); V52 `get_ports -quiet -exact <name with brackets>`, `get_pins -quiet -exact <pin>`; V53 `all_outputs` as the object list of `set_clock_uncertainty`; V54 the pre-CTS in2out numbers (before CTS the clock is ideal) are comparable to the post-CTS ones (the in2out path does not use the clock tree). Tests: `tclsh pnr_v2/test_opt_uncertainty.tcl` (151 checks, a stateful mock of the three scopes, the restore proof, a failed removal, ports ignored by the tool).
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.

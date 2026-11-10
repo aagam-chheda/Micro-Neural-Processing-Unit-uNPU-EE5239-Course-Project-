@@ -10,6 +10,7 @@ set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (
 if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
 set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
 source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
+source [file join [file dirname [file normalize [info script]]] opt_uncertainty.tcl]   ;# 090: the check of the exported uncertainty lines
 set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set OUT_DIR     "${PNR_DIR}/outputs"
@@ -363,6 +364,7 @@ redirect -tee -file ${LOG_DIR}/7_pv.log {
         -scenario func_ff \
         -output ${OUT_DIR}/${DESIGN_NAME}_pnr_ff.sdc
     unpu_clock_latency_grep pv-exported-sdc [list ${OUT_DIR}/${DESIGN_NAME}_pnr_ss.sdc ${OUT_DIR}/${DESIGN_NAME}_pnr_ff.sdc]   ;# 088: hard check of the exported SDCs: any set_clock_latency line ends the run with ERROR 088
+    unc090_export_check pv-exported-sdc [list ${OUT_DIR}/${DESIGN_NAME}_pnr_ss.sdc ${OUT_DIR}/${DESIGN_NAME}_pnr_ff.sdc] $UNC090_SPEC_SETUP $UNC090_SPEC_HOLD   ;# 090: the exported SDC has only clock-level set_clock_uncertainty lines at the SPEC values (ERROR 090 otherwise)
     write_sdf \
         -corner corner_ff \
         -mode mode_func \
