@@ -252,27 +252,38 @@ pt_main {
                 set fp [open $chk_file r]; set chk_txt [read $fp]; close $fp
                 set chk [eco079_parse $chk_txt]
                 if {[llength [dict get $chk errors]] > 0} { error "CHECK: [llength [dict get $chk errors]] line(s) of $chk_file are not understood by the change-file parser, the cone check is incomplete: [join [lrange [dict get $chk errors] 0 2] { | }]" }
-                set hits [pt_cone_hits [dict get $chk cmds] $cone_cells $cone_ports]
-                puts ">>> 080 AFTER-CHECK of $chk_file: [llength [dict get $chk cmds]] changes parsed, [llength $hits] touch the cone"
-                foreach h $hits { puts ">>> 080   HIT change [dict get $h idx] (line [dict get $h line]): [dict get $h what] [dict get $h name]" }
-                # 092: every proposed insertion, its pin and class; the targets that remain
-                set eco_cls [dict create flop_output 0 flop_input 0 cone 0 port 0 other 0 unknown 0]
+                # 093: every proposed insertion is judged at PIN level: a load pin by the NET that feeds it (a flop-driven released net starts at a flop: safe), a driver pin of a cone cell, a kept cone net,
+                # 093: a cone port, a resize of a cone cell and anything unreadable are violations. The cell-level dont_touch above and the ICC2 apply gate stay the other two lines of defence.
+                file delete -force ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt
+                set eco_clsd [dict create]
+                set eco_cls [dict create load_flop 0 load_comb 0 flop_output 0 flop_input 0 other 0 port 0 cone_net 0 cone_driver 0 cone_port 0 unknown 0]
+                set eco_rows {}
                 foreach c [dict get $chk cmds] {
                     if {[dict get $c type] ne "insert_buffer"} continue
-                    lassign [pt_eco_insert_facts [dict get $c full_pin] $cone_cells] fcell fin fseq fout
-                    set cls [pt_eco_classify_insert [dict get $c objkind] $fin $fseq $fout]
+                    set fx [pt_eco_insert_facts_pin [dict get $c objkind] [dict get $c full_pin] $cone]
+                    set cls [pt_eco_pin_class [dict get $c objkind] [dict get $fx in_cone] [dict get $fx dir] [dict get $fx state] [dict get $fx drv_seq] [dict get $fx is_seq] [dict get $fx is_out]]
+                    dict set eco_clsd [dict get $c idx] $cls
                     dict incr eco_cls $cls
-                    puts ">>> 092 insertion [dict get $c idx]: pin [dict get $c full_pin] ([dict get $c ref]): [pt_eco_class_text $cls]"
+                    lappend eco_rows [pt_eco_class_row [dict get $c idx] [dict get $c full_pin] [dict get $c ref] $cls [dict get $fx net] [dict get $fx drivers]]
+                    puts ">>> 093 insertion [dict get $c idx]: pin [dict get $c full_pin] (cell [expr {[dict get $fx cell] eq {} ? {?} : [dict get $fx cell]}], [dict get $c ref]); net [expr {[dict get $fx net] eq {} ? {?} : [dict get $fx net]}]; driver [expr {[llength [dict get $fx drivers]] == 0 ? {?} : [join [dict get $fx drivers] {, }]}] (sequential: [expr {[llength [dict get $fx drv_seq]] == 0 ? {?} : [join [dict get $fx drv_seq] {, }]}]); net state [expr {[dict get $fx state] eq {} ? {?} : [dict get $fx state]}]: [pt_eco_class_text093 $cls]"
                 }
-                puts ">>> 092 insertions by class: [dict get $eco_cls flop_output] on a flop output pin outside the cone (expected), [dict get $eco_cls cone] on a cone cell, [dict get $eco_cls port] on a port, [dict get $eco_cls flop_input] on a flop input pin, [dict get $eco_cls other] on another combinational pin, [dict get $eco_cls unknown] unknown"
-                if {$eco_scope eq "reg2out" && ([dict get $eco_cls other] + [dict get $eco_cls flop_input] + [dict get $eco_cls unknown]) > 0} { puts ">>> 092 NOTE: some insertions are not on a flop output pin (listed above); they are outside the cone, the apply gate and PrimeTime decide, read them before applying" }
+                set fp [open ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt w]
+                puts $fp "# written by pt_eco_probe.tcl (task 093): one line per insertion of the hold change file: <idx> <pin> <ref> <class> net=<net> drivers=<driver pins>; pt_eco_apply.tcl prints these lines and refuses a violation class"
+                foreach l $eco_rows { puts $fp $l }
+                close $fp
+                puts ">>> 093 pin classes written to ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt"
+                set hits [pt_cone_hits_pin [dict get $chk cmds] $eco_clsd $cone_cells]
+                puts ">>> 080 AFTER-CHECK of $chk_file (pin level, task 093): [llength [dict get $chk cmds]] changes parsed, [llength $hits] violate the cone"
+                foreach h $hits { puts ">>> 080   HIT change [dict get $h idx] (line [dict get $h line]): [dict get $h what] [dict get $h name]" }
+                puts ">>> 093 insertions by class: [pt_eco_class_summary $eco_cls]"
+                if {$eco_scope eq "reg2out" && ([dict get $eco_cls other] + [dict get $eco_cls flop_input] + [dict get $eco_cls load_comb]) > 0} { puts ">>> 093 NOTE: some insertions are outside the cone but not on a flop-driven load pin (listed above); the apply gate and PrimeTime decide, read them before applying" }
                 set eco_rem [pt_eco_targets $eco_scope $rows_after]
                 puts ">>> 092 scope $eco_scope: targets before [llength $eco_targets], remaining after the ECO (in PrimeTime's memory) [llength $eco_rem]"
                 foreach l [pt_eco_target_lines $eco_rem] { puts ">>> 092   remaining target: $l" }
                 if {[llength $hits] > 0} {
                     set probe_line [pt_eco_result_line touches "[llength $hits] of [llength [dict get $chk cmds]] proposed changes touch the cone; first: [dict get [lindex $hits 0] what] [dict get [lindex $hits 0] name] (change [dict get [lindex $hits 0] idx], line [dict get [lindex $hits 0] line]); change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}] must NOT be applied"]
                 } else {
-                    set probe_line [pt_eco_result_line 1 "$nchg changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}] (none touches the in2out cone)"]
+                    set probe_line [pt_eco_result_line 1 "$nchg changes proposed, change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}] (none touches the in2out cone). Pin classes: [pt_eco_class_summary $eco_cls]"]
                 }
             }
         }

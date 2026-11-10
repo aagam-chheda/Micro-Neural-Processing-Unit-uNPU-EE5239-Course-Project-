@@ -1,5 +1,5 @@
 # ==============================================================================
-# Test: test_eco_scope.tcl (task 092)
+# Test: test_eco_scope.tcl (tasks 092, 093)
 # Run : tclsh pnr_v2/test_eco_scope.tcl   (no PrimeTime / ICC2 needed)
 # Tests the reg2out scope of the PrimeTime hold ECO: UNPU_ECO_SCOPE, the target selection on sample violation rows (the 7 register-to-output endpoints of the route checkpoint), the release of the
 # nets that a flop drives into the read mux (mock of the PrimeTime commands), the cone check on a sample change file, the class of each insertion, the count file, and the apply script's tagged
@@ -17,7 +17,7 @@ proc errmsg {script} { if {[catch {uplevel 1 $script} m]} { return $m }; return 
 
 source $here/pt/pt_common.tcl
 set apply [read_file $here/pt_eco_apply.tcl]
-foreach n {079 092} {
+foreach n {079 092 093} {
     set b [string first "# ---- BEGIN PURE TCL $n ----" $apply]; set e [string first "# ---- END PURE TCL $n ----" $apply]
     if {$b < 0 || $e < $b} { puts "FAIL pure block $n not found"; exit 1 }
     eval [string range $apply $b $e]
@@ -95,8 +95,8 @@ check "probe reads UNPU_ECO_SCOPE once, through the validator, before the sessio
 check "probe prints the scope with its source and the folders" {[has $pb {>>> 092 ECO scope $eco_scope ($eco_scope_src); input folder $PT_OUT_DIR, change files and reports in $PT_RPT_DIR}]}
 check "probe lists the targets and their count" {[has $pb {>>> 092 scope $eco_scope: [llength $eco_targets] of $n_before hold violators are targets}] && [has $pb {>>> 092   target: $l}]}
 check "the net release runs only in reg2out and before the protection" {[regexp {if \{\$eco_scope eq "reg2out"\} \{[^\n]*\n[^\n]*\n[^\n]*pt_cone_nets_reg2out} $pb] && [string first "pt_cone_nets_reg2out" $pb] < [string first "pt_cone_protect \$cone" $pb]}
-check "the cone cells stay protected and the AFTER check of the change file is still there" {[has $pb {pt_cone_hits [dict get $chk cmds] $cone_cells $cone_ports}] && [has $pb {pt_eco_result_line touches}]}
-check "every insertion is printed with pin and class; classes summed" {[has $pb {>>> 092 insertion [dict get $c idx]: pin [dict get $c full_pin]}] && [has $pb {>>> 092 insertions by class}]}
+check "the cone cells stay protected and the AFTER check of the change file is still there (pin level since 093)" {[has $pb {pt_cone_hits_pin [dict get $chk cmds] $eco_clsd $cone_cells}] && [has $pb {pt_eco_result_line touches}] && [has $pb {pt_cone_protect $cone}]}
+check "every insertion is printed with pin, net, driver and class; classes summed" {[has $pb {>>> 093 insertion [dict get $c idx]: pin [dict get $c full_pin]}] && [has $pb {>>> 093 insertions by class}]}
 check "remaining targets after the ECO are printed" {[has $pb {remaining after the ECO}] && [has $pb {remaining target: $l}]}
 set lit_cf "\$countfile\x7d\] \$eco_scope\]"
 check "the count file carries the scope" {[has $pb $lit_cf]}
@@ -121,6 +121,148 @@ check "apply source: the typed 15 is gone" {![string match "*EXPECT_ANTBUF*" [jo
 check "apply source: the gates are unchanged (in2out and whole-design setup, tolerance GATE_TOL_SETUP)" {[has $apply {eco079_gate_check $glabel $gb $ga $gtol}] && [has $apply {set GATE_TOL_SETUP  0.005}] && [has $apply {the in2out group}]}
 check "apply source: the block is still saved over unpu_top_route only after the checks (the user copies the library first)" {[string first "save_block -force -as \${DESIGN_NAME}_route" $apply] > [string first "NOTHING SAVED" $apply]}
 
+# ---- 9. task 093: the cone check at PIN level ----
+# mock of the PrimeTime commands used by pt_eco_insert_facts_pin. The 9 pins are the real ones of run 3 (checkpoint route3); the NET names are placeholders (the log of the server run has them), the drivers follow the
+# pattern of the log: the QN pin of a u_csr flop (dest_c_reg_reg_*, src_a_reg_reg_*, src_b_reg_reg_*), a sequential cell.
+set real9 {{u_csr/U77/A2 dest_c_reg_reg_5_} {u_csr/U77/C2 src_a_reg_reg_9_} {u_csr/U77/B2 src_b_reg_reg_9_} {u_csr/U9/B2 dest_c_reg_reg_13_} {u_csr/U74/C2 src_a_reg_reg_23_} {u_csr/U361/B2 src_b_reg_reg_23_} {u_csr/U79/B2 dest_c_reg_reg_21_} {u_csr/U72/C2 src_a_reg_reg_17_} {u_csr/U398/A2 src_b_reg_reg_27_}}
+array set PINNET {}; array set PINDIR {}; array set CELLSEQ {}
+set NETDRV [dict create]
+set mux_cells {}
+foreach pr $real9 {
+    lassign $pr pin flop
+    set net "u_csr/qn_$flop"
+    set PINNET($pin) $net; set PINDIR($pin) in
+    dict set NETDRV $net [list "u_csr/$flop/QN"]
+    set CELLSEQ(u_csr/$flop) true
+    set cell [eco079_pin_cell $pin]; set CELLSEQ($cell) false
+    lappend mux_cells $cell
+}
+set mux_cells [lsort -unique $mux_cells]
+# a kept cone net (driven by the decode cell U50, a cone cell), a pin on it, a driver pin, a combinational driver of a released net
+set PINNET(u_csr/U77/A1) u_csr/n_dec;   set PINDIR(u_csr/U77/A1) in;  dict set NETDRV u_csr/n_dec {u_csr/U50/ZN}; set CELLSEQ(u_csr/U50) false
+set PINNET(u_csr/U77/ZN) u_csr/n_rd;    set PINDIR(u_csr/U77/ZN) out; dict set NETDRV u_csr/n_rd {u_csr/U77/ZN}
+set PINNET(u_csr/U9/A2)  u_csr/n_comb;  set PINDIR(u_csr/U9/A2) in;   dict set NETDRV u_csr/n_comb {u_csr/U33/ZN}; set CELLSEQ(u_csr/U33) false
+set PINNET(u_csr/U9/C2)  u_csr/n_nodrv; set PINDIR(u_csr/U9/C2) in;   dict set NETDRV u_csr/n_nodrv {}
+set PINNET(u_csr/U9/C1)  u_csr/n_unk;   set PINDIR(u_csr/U9/C1) in;   dict set NETDRV u_csr/n_unk {u_csr/Ux/Z}      ;# the driver's is_sequential is unreadable (no entry in CELLSEQ)
+set PINNET(u_csr/U9/B1)  u_csr/n_far;   set PINDIR(u_csr/U9/B1) in;   dict set NETDRV u_csr/n_far {u_csr/dest_c_reg_reg_5_/QN}   ;# a net that is in neither list
+set PINNET(u_csr/dest_c_reg_reg_5_/QN) u_csr/qn_dest_c_reg_reg_5_; set PINDIR(u_csr/dest_c_reg_reg_5_/QN) out    ;# a flop output pin outside the cone (the 092 form)
+set CELLSEQ(u_csr/Ux) maybe
+set cone_cells [concat $mux_cells {u_csr/U50 u_csr/U33 u_csr/Ux}]
+proc get_pins {args} { global PINDIR; set p [lindex $args end]; return [expr {[info exists PINDIR($p)] ? [list $p] : {}}] }
+proc get_cells {args} {
+    if {[lindex $args 0] eq "-quiet" && [lindex $args 1] eq "-of_objects"} { return [list [eco079_pin_cell [lindex $args 2]]] }
+    global CELLSEQ; set c [lindex $args end]; return [expr {[info exists CELLSEQ($c)] ? [list $c] : {}}]
+}
+proc get_nets {args} { global PINNET; set p [lindex $args end]; return [expr {[info exists PINNET($p)] ? [list $PINNET($p)] : {}}] }
+proc get_attribute {obj attr} {
+    global PINDIR CELLSEQ
+    if {$attr eq "direction"} { return $PINDIR($obj) }
+    if {$attr eq "is_sequential"} { return $CELLSEQ($obj) }
+    error "mock: attribute $attr"
+}
+catch {unset pt_cone_h}; catch {unset pt_cone_seqc}
+set kept_nets {u_csr/n_dec u_csr/n_rd u_csr/n_comb_kept}
+set rel_nets [lmap pr $real9 {string cat u_csr/qn_ [lindex $pr 1]}]
+lappend rel_nets u_csr/n_comb u_csr/n_nodrv u_csr/n_unk u_csr/qn_dest_c_reg_reg_5_
+set cone93 [dict create cells $cone_cells ports {prdata[3]} nets $kept_nets released [lsort -unique $rel_nets]]
+proc cls_of {objkind pin} {
+    global cone93
+    set fx [pt_eco_insert_facts_pin $objkind $pin $cone93]
+    return [pt_eco_pin_class $objkind [dict get $fx in_cone] [dict get $fx dir] [dict get $fx state] [dict get $fx drv_seq] [dict get $fx is_seq] [dict get $fx is_out]]
+}
+check "net state: kept / released / none / unreadable" {[pt_pin_net_state a {a b} {c}] eq "kept" && [pt_pin_net_state c {a b} {c}] eq "released" && [pt_pin_net_state z {a b} {c}] eq "none" && [pt_pin_net_state "" {a} {c}] eq ""}
+check "net state: a net in both lists is kept (the safe direction)" {[pt_pin_net_state a {a} {a}] eq "kept"}
+# the 9 real pins
+set table {}
+set counts [dict create load_flop 0 load_comb 0 flop_output 0 flop_input 0 other 0 port 0 cone_net 0 cone_driver 0 cone_port 0 unknown 0]
+set chg9 "current_instance {u_csr}\n"
+set k 0
+foreach pr $real9 {
+    lassign $pr pin flop
+    incr k
+    set rel [string range $pin [expr {[string length u_csr/] }] end]
+    append chg9 "insert_buffer \[get_pins {$rel}\] buffd1 -new_net_names {net_PTECO_HOLD_NET$k} -new_cell_names {U_PTECO_HOLD_BUF$k}\n"
+}
+append chg9 "current_instance\n"
+set p9 [eco079_parse $chg9]
+check "the 9 real pins parse as 9 insertions" {[llength [dict get $p9 errors]] == 0 && [llength [dict get $p9 cmds]] == 9 && [dict get [lindex [dict get $p9 cmds] 0] full_pin] eq "u_csr/U77/A2"}
+set clsd [dict create]
+set rows9 {}
+foreach c [dict get $p9 cmds] {
+    set fx [pt_eco_insert_facts_pin [dict get $c objkind] [dict get $c full_pin] $cone93]
+    set cls [pt_eco_pin_class [dict get $c objkind] [dict get $fx in_cone] [dict get $fx dir] [dict get $fx state] [dict get $fx drv_seq] [dict get $fx is_seq] [dict get $fx is_out]]
+    dict set clsd [dict get $c idx] $cls
+    dict incr counts $cls
+    lappend rows9 [pt_eco_class_row [dict get $c idx] [dict get $c full_pin] [dict get $c ref] $cls [dict get $fx net] [dict get $fx drivers]]
+    lappend table "[dict get $c full_pin] | [dict get $fx net] | [join [dict get $fx drivers] ,] | $cls"
+}
+check "all 9 real pins are in the cone cells (the old cell-level check called all 9 a hit)" {[llength [pt_cone_hits [dict get $p9 cmds] $cone_cells {prdata[3]}]] == 9}
+check "all 9 real pins are class load_flop" {[dict get $counts load_flop] == 9 && [llength [lsort -unique [dict values $clsd]]] == 1}
+check "the pin-level check finds no hit for the 9" {[llength [pt_cone_hits_pin [dict get $p9 cmds] $clsd $cone_cells]] == 0}
+check "class summary for 9 of load_flop" {[pt_eco_class_summary $counts] eq "9 load pin on a flop-driven net (safe: starts at a flop)"}
+set resline [pt_eco_result_line 1 "9 changes proposed, change file /x/pt_route3/pt_eco_hold_changes.tcl (none touches the in2out cone). Pin classes: [pt_eco_class_summary $counts]"]
+check "PROBE RESULT line: ECO RAN: 9 changes proposed, then the class summary" {[string match "PROBE RESULT: ECO RAN: 9 changes proposed, change file * Pin classes: 9 load pin on a flop-driven net (safe: starts at a flop)" $resline]}
+# violations and the defences
+check "a pin on a KEPT cone net is cone_net (violation)" {[cls_of pin u_csr/U77/A1] eq "cone_net" && [pt_eco_class_violation cone_net]}
+check "a driver pin of a cone cell is cone_driver (violation)" {[cls_of pin u_csr/U77/ZN] eq "cone_driver" && [pt_eco_class_violation cone_driver]}
+check "a load pin on a released net with a combinational driver outside the cone: load_comb, not a violation, with its own text" {[cls_of pin u_csr/U9/A2] eq "load_comb" && ![pt_eco_class_violation load_comb] && [has [pt_eco_class_text093 load_comb] "read it"]}
+check "an unreadable pin (not found) in a cone cell is unknown (violation)" {[cls_of pin u_csr/U77/B1] eq "unknown" && [pt_eco_class_violation unknown]}
+check "a released net with no driver is unknown" {[cls_of pin u_csr/U9/C2] eq "unknown"}
+check "a released net whose driver's is_sequential is unreadable is unknown" {[cls_of pin u_csr/U9/C1] eq "unknown"}
+check "a net in neither list is unknown, not safe" {[cls_of pin u_csr/U9/B1] eq "unknown"}
+check "the 092 expected form is unchanged: a flop QN pin outside the cone is flop_output" {[cls_of pin u_csr/dest_c_reg_reg_5_/QN] eq "flop_output"}
+check "a cone port is cone_port (violation), another port is port" {[cls_of port {prdata[3]}] eq "cone_port" && [cls_of port {prdata[4]}] eq "port" && [pt_eco_class_violation cone_port] && ![pt_eco_class_violation port]}
+check "violation set: cone_net cone_driver cone_port cone_resize unknown only" {[lmap c {load_flop load_comb flop_output flop_input other port cone_net cone_driver cone_port cone_resize unknown} {pt_eco_class_violation $c}] eq {0 0 0 0 0 0 1 1 1 1 1}}
+check "the apply script's violation list equals the probe's" {[lmap c {load_flop load_comb flop_output flop_input other port cone_net cone_driver cone_port cone_resize unknown} {eco093_violation $c}] eq [lmap c {load_flop load_comb flop_output flop_input other port cone_net cone_driver cone_port cone_resize unknown} {pt_eco_class_violation $c}]}
+check "every class has a text" {[llength [lsearch -all -inline -glob [lmap c {load_flop load_comb flop_output flop_input other port cone_net cone_driver cone_port cone_resize unknown} {pt_eco_class_text093 $c}] "class unknown*"]] == 1}
+# a mixed change file: violations are reported with the idx, the pin and the class
+set mix "current_instance {u_csr}\ninsert_buffer \[get_pins {U77/A2}\] buffd1 -new_net_names {a} -new_cell_names {b}\ninsert_buffer \[get_pins {U77/A1}\] buffd1 -new_net_names {c} -new_cell_names {d}\ninsert_buffer \[get_pins {U77/ZN}\] buffd1 -new_net_names {e} -new_cell_names {f}\nsize_cell {U77} {oai222d2}\ncurrent_instance\ninsert_buffer \[get_ports {prdata\[3\]}\] buffd1 -new_net_names {g} -new_cell_names {h}\n"
+set pm [eco079_parse $mix]
+set cm [dict create]
+foreach c [dict get $pm cmds] { if {[dict get $c type] eq "insert_buffer"} { dict set cm [dict get $c idx] [cls_of [dict get $c objkind] [dict get $c full_pin]] } }
+set mh [pt_cone_hits_pin [dict get $pm cmds] $cm $cone_cells]
+check "mixed file: A2 clean; A1 (kept net), ZN (driver), the resize of U77 and the cone port are 4 hits" {[llength [dict get $pm errors]] == 0 && [llength $mh] == 4 && [lsort -integer [lmap h $mh {dict get $h idx}]] eq {2 3 4 5}}
+check "hit texts carry the pin and the class" {[has [dict get [lindex $mh 0] what] "u_csr/U77/A1"] && [has [dict get [lindex $mh 0] what] "VIOLATION"] && [dict get [lindex $mh 0] name] eq "u_csr/U77"}
+check "an insertion without a class is a violation (no silent pass)" {[llength [pt_cone_hits_pin [dict get $p9 cmds] [dict create] $cone_cells]] == 9}
+# the net release stores the released names; in2reg (no release) keeps every cone-cell pin a violation
+check "pt_cone_nets_reg2out records the released nets (section 3 result)" {[dict exists $new released] && [dict get $new released] eq {n_qn}}
+set cone_in2reg [dict create cells $cone_cells ports {prdata[3]} nets [concat $kept_nets $rel_nets]]
+set fx0 [pt_eco_insert_facts_pin pin u_csr/U77/A2 $cone_in2reg]
+check "in2reg (nothing released): the same pin is on a kept net -> cone_net, as the cell-level check said" {[dict get $fx0 state] eq "kept" && [pt_eco_pin_class pin 1 [dict get $fx0 dir] [dict get $fx0 state] [dict get $fx0 drv_seq] "" ""] eq "cone_net"}
+# the class file and the apply side
+check "class row text" {[lindex $rows9 0] eq "1 u_csr/U77/A2 buffd1 load_flop net=u_csr/qn_dest_c_reg_reg_5_ drivers=u_csr/dest_c_reg_reg_5_/QN"}
+check "class row: unreadable net and no drivers are written as ?" {[pt_eco_class_row 3 x/A1 buffd1 unknown "" {}] eq "3 x/A1 buffd1 unknown net=? drivers=?"}
+set cls_text "# comment\n[join $rows9 "\n"]\n"
+set pc [eco093_parse_classes $cls_text]
+check "apply: the class file of the 9 parses" {[llength [dict get $pc errors]] == 0 && [dict size [dict get $pc rows]] == 9}
+lassign [eco093_check [dict get $p9 cmds] [dict get $pc rows]] lines probs
+check "apply: 9 lines printed, no problem" {[llength $lines] == 9 && [llength $probs] == 0 && [has [lindex $lines 0] "class load_flop; net u_csr/qn_dest_c_reg_reg_5_; driver u_csr/dest_c_reg_reg_5_/QN"]}
+set bad_rows [dict get $pc rows]
+dict set bad_rows 4 cls cone_net
+lassign [eco093_check [dict get $p9 cmds] $bad_rows] l2 p2
+check "apply: a violation class in the file stops the apply (a problem is returned)" {[llength $p2] == 1 && [has [lindex $p2 0] "cone_net"] && [has [lindex $l2 3] "(VIOLATION)"]}
+set other_rows [dict get $pc rows]
+dict set other_rows 2 pin u_csr/U1/A1
+lassign [eco093_check [dict get $p9 cmds] $other_rows] l3 p3
+check "apply: a line for another pin = the file belongs to another change file" {[llength $p3] == 1 && [has [lindex $p3 0] "another change file"]}
+set short_rows [dict get $pc rows]; dict unset short_rows 9
+lassign [eco093_check [dict get $p9 cmds] $short_rows] l4 p4
+check "apply: a missing line is a problem" {[llength $p4] == 1 && [has [lindex $p4 0] "has no line"]}
+set long_rows [dict get $pc rows]; dict set long_rows 10 [dict create pin x/A1 ref buffd1 cls load_flop net n drivers d]
+lassign [eco093_check [dict get $p9 cmds] $long_rows] l5 p5
+check "apply: a line without a change is a problem" {[llength $p5] == 1 && [has [lindex $p5 0] "no insertion with that number"]}
+check "apply: a malformed class file is an error list" {[llength [dict get [eco093_parse_classes "1 only three fields"] errors]] == 1 && [llength [dict get [eco093_parse_classes "$cls_text\n$cls_text"] errors]] == 9}
+# source checks
+set pb [read_file $here/pt/pt_eco_probe.tcl]
+check "probe: the AFTER check is pin level and the cell-level pt_cone_hits is no longer called there" {[has $pb {pt_cone_hits_pin}] && ![has $pb {set hits [pt_cone_hits [dict get $chk cmds]}]}
+check "probe: the class file is deleted, then written next to the change files (PT_RPT_DIR)" {[has $pb {file delete -force ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt}] && [has $pb {open ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt w}]}
+check "probe: the result line carries the class summary" {[has $pb {Pin classes: [pt_eco_class_summary $eco_cls]}]}
+check "probe: the cone is still protected before fix_eco_timing with the cell-level dont_touch (unchanged)" {[string first "pt_cone_protect \$cone" $pb] < [string first "foreach att {collection bare_names}" $pb] && $PT_CONE_PROTECT == 1}
+check "apply: the class file is read from PT_DIR, an ERROR 093 stops it before anything is changed" {[has $apply {set ea_cls_file "${PT_DIR}/pt_eco_hold_pin_classes.txt"}] && [has $apply {ERROR 093: the pin classes of}] && [string first "ERROR 093: the pin classes" $apply] < [string first "2. Pins, references, names" $apply]}
+check "apply: the gates of the in2out and setup WNS are still there" {[has $apply {eco079_gate_check $glabel $gb $ga $gtol}]}
+set ::tableout [join $table "\n"]
+
 puts "RESULT: $npass passed, $nfail failed"
+if {[info exists env(SHOW_TABLE)]} { puts $::tableout }
 if {$nfail > 0} { exit 1 }
 exit 0

@@ -54,6 +54,48 @@ proc eco092_count_problem {label before after} {
     return ""
 }
 # ---- END PURE TCL 092 ----
+# ---- BEGIN PURE TCL 093 ----
+# 093: plain Tcl (tested by pnr_v2/test_eco_scope.tcl). The class file pt_eco_hold_pin_classes.txt that pt_eco_probe.tcl writes next to the change files: one line per insertion,
+# 093: "<idx> <pin> <ref> <class> net=<net> drivers=<pins>"; "#" lines and empty lines are comments. Returns a dict: rows (idx -> dict pin ref cls net drivers), errors (texts).
+proc eco093_parse_classes {text} {
+    set rows [dict create]
+    set errors {}
+    set ln 0
+    foreach l [split $text "\n"] {
+        incr ln
+        set t [string trim $l]
+        if {$t eq "" || [string index $t 0] eq "#"} continue
+        if {![regexp {^([0-9]+) (\S+) (\S+) (\S+) net=(\S+) drivers=(\S+)$} $t -> idx pin ref cls net drv]} { lappend errors "line $ln: not understood: $t"; continue }
+        if {[dict exists $rows $idx]} { lappend errors "line $ln: change $idx appears twice"; continue }
+        dict set rows $idx [dict create pin $pin ref $ref cls $cls net $net drivers $drv]
+    }
+    return [dict create rows $rows errors $errors]
+}
+# 093: the classes that must stop the apply (the list of pt_eco_class_violation in pt/pt_common.tcl; a test keeps the two equal)
+proc eco093_violation {cls} {
+    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize unknown} $cls] >= 0}]
+}
+# 093: the class file against the HOLD insertions of the change file. cmds: the parsed commands of the hold file (dicts with idx type full_pin). Returns {lines problems}: one printable line per insertion
+# 093: and the problems (a command without a line, a line for another pin, a line without a command, a violation class). Empty problems = the file belongs to this change file and no insertion is a violation.
+proc eco093_check {cmds rows} {
+    set lines {}
+    set probs {}
+    set seen {}
+    foreach c $cmds {
+        if {[dict get $c type] ne "insert_buffer"} continue
+        set idx [dict get $c idx]
+        lappend seen $idx
+        if {![dict exists $rows $idx]} { lappend probs "change $idx (pin [dict get $c full_pin]) has no line in the class file"; continue }
+        set r [dict get $rows $idx]
+        if {[dict get $r pin] ne [dict get $c full_pin]} { lappend probs "change $idx is on pin [dict get $c full_pin] but the class file says [dict get $r pin]: the class file belongs to another change file"; continue }
+        set v [eco093_violation [dict get $r cls]]
+        lappend lines "change $idx: pin [dict get $r pin] ([dict get $r ref]): class [dict get $r cls][expr {$v ? { (VIOLATION)} : {}}]; net [dict get $r net]; driver [dict get $r drivers]"
+        if {$v} { lappend probs "change $idx: pin [dict get $r pin] has the class [dict get $r cls], a violation of the in2out cone" }
+    }
+    dict for {idx r} $rows { if {[lsearch -exact $seen $idx] < 0} { lappend probs "the class file has a line for change $idx (pin [dict get $r pin]) but the change file has no insertion with that number" } }
+    return [list $lines $probs]
+}
+# ---- END PURE TCL 093 ----
 set PT_TAG ""   ;# 092: optional environment variable UNPU_PT_TAG (task 091): read the change files of the checkpoint folder pt_<tag>
 if {[info exists ::env(UNPU_PT_TAG)]} { set PT_TAG [string trim $::env(UNPU_PT_TAG)] }
 set PT_DIR      [eco092_pt_dir $PNR_DIR $PT_TAG]   ;# 079: where PrimeTime wrote the change files (pt_eco_probe.tcl, pt_eco_setup_probe.tcl); 092: pt_<tag> with UNPU_PT_TAG
@@ -824,6 +866,22 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     lassign [eco079_count_check "hold change file commands" $ea_hold_n $ea_expect] ok msg
     puts ">>> 079 CHECK $msg"
     if {!$ok} { error "ERROR 079: $msg (nothing changed)" }
+
+    # 093: the pin class of every hold insertion as the probe computed it (a load pin on a flop-driven net is safe; a cone net, a cone driver pin, a cone port or an unreadable pin is a violation). Information and a stop
+    # 093: on a violation or a class file of another change file; the gates below stay the proof in ICC2's timing.
+    set ea_cls_file "${PT_DIR}/pt_eco_hold_pin_classes.txt"
+    if {![file exists $ea_cls_file]} {
+        puts ">>> 093 no pin-class file $ea_cls_file (pt_eco_probe.tcl writes it since task 093): no class is printed; the in2out and setup gates below are the proof"
+    } else {
+        set ea_cp [eco093_parse_classes [eco079_read $ea_cls_file]]
+        if {[llength [dict get $ea_cp errors]] > 0} { error "ERROR 093: $ea_cls_file: [join [dict get $ea_cp errors] { | }] (nothing changed)" }
+        set ea_hcmds {}
+        foreach c $ea_cmds { if {[dict get $c file] eq "hold"} { lappend ea_hcmds $c } }
+        lassign [eco093_check $ea_hcmds [dict get $ea_cp rows]] ea_cl ea_cprob
+        foreach l $ea_cl { puts ">>> 093 $l" }
+        if {[llength $ea_cprob] > 0} { error "ERROR 093: the pin classes of $ea_cls_file do not allow this ECO: [join $ea_cprob { | }] (nothing changed)" }
+        puts ">>> 093 CHECK pin classes: [llength $ea_cl] hold insertions, none in a violation class"
+    }
 
     # --------------------------------------------------------------------------
     # 2. Pins, references, names (nothing is changed on any error here)

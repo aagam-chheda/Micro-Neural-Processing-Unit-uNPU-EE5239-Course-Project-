@@ -80,3 +80,6 @@ Run 2 = the whole flow again from synthesis, with the lessons of run 1 built in.
 
 ### 6.4 Server traps of this evening (for the explanation)
 - csh: a `foreach` loop cannot be written on one line; `2>` is "Ambiguous output redirect"; an escaped quote inside a double-quoted grep pattern gives "Unmatched". Calibre needs its own terminal with `siemens_cshrc_clean`, `MGC_HOME`, `CALIBRE_HOME` and `$MGC_HOME/bin` on the path. A `git pull` is needed in the clone before running a script that was committed after the clone.
+
+### 6.5 Note from the user (2026-11-10, evening)
+- The PDK has no decap cells, so no decoupling capacitors are added to the design for now. Nothing in the flow inserts them (the filler step uses `feedth`, `feedth3`, `feedth9` only). Mention it in the course report as a known limitation if the instructor asks about power integrity.

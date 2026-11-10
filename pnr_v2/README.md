@@ -533,6 +533,33 @@ Goal: setup ss 0 violators (unchanged), hold ff 0 violators. **Not in this pass:
 
 VERIFY list (task 092): V60 `UNPU_ECO_SCOPE reg2out` run: the released nets are above 0 and PrimeTime really inserts on the `QN` pins (the class lines say so); V61 `get_attribute <pin> direction` returns `out`/`in` and `is_sequential` returns `true`/`false` for the flops (otherwise the class is `unknown` and printed); V62 `fix_eco_timing` still accepts the form without `-from` / `-to` on this netlist (as in tasks 078 to 081); V63 `earlybuf_*` cell and pin snapshots compare equal after the apply (the existing snapshot code; a difference ends the run with nothing saved). Tests: `tclsh pnr_v2/test_eco_scope.tcl`.
 
+### The cone check at PIN level (task 093)
+
+**Why.** On `route3` the `reg2out` probe proposed 9 `insert_buffer` (2 `dl01d1`, 7 `buffd1`, +137.96 um2) that bring the 7 targets to 0 in PrimeTime's memory, but all 9 sit on LOAD pins of read-mux cells (`u_csr/U77/A2`, `U77/C2`, `U77/B2`, `U9/B2`, `U74/C2`, `U361/B2`, `U79/B2`, `U72/C2`, `U398/A2`). The 092 check judged the CELL (`oai222` is a cone cell) and ended with `ECO RAN BUT TOUCHES THE IN2OUT CONE: 9 of 9`.
+
+**The rule.** `insert_buffer` on a LOAD (input) pin puts the buffer on the net segment that feeds that pin; only the arcs from that pin are delayed. The `paddr` to `prdata` paths enter the same cell through OTHER pins. A pin whose net is driven by a flop (the `QN` net of a `u_csr` flop) starts a register-to-output path and cannot be on an input-to-output path. So the check asks: is the NET that feeds the pin on an input-to-output path? Every proposed insertion gets one class (printed as `>>> 093 insertion N: pin ...; net ...; driver ... (sequential: ...); net state ...: <class text>`):
+
+| class | meaning | AFTER check |
+|---|---|---|
+| `load_flop` | input pin of a cone cell, its net is a RELEASED net (task 092 rule) and every driver of the net is a sequential cell | safe |
+| `load_comb` | same, a driver is a combinational cell outside the cone (safe by the cone definition: a driver reachable from an input port would be in the cone); printed with a NOTE | not a violation, read it |
+| `flop_output`, `flop_input`, `other`, `port` | pin of a cell outside the cone, or a port outside the cone: classes of task 092 | not a violation |
+| `cone_net` | input pin whose net is a KEPT cone net (driven by a cone cell or on a cone port) | **violation** |
+| `cone_driver` | output pin of a cone cell | **violation** |
+| `cone_port` | a cone port | **violation** |
+| `cone_resize` | `size_cell` of a cone cell (reported as a hit with that text) | **violation** |
+| `unknown` | direction, net, driver or `is_sequential` unreadable; or a net that is in neither list | **violation** (no silent pass) |
+
+The AFTER check fails (`PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE`) only for the four violation classes and `unknown`. A clean run ends with `PROBE RESULT: ECO RAN: 9 changes proposed, change file ... (none touches the in2out cone). Pin classes: 9 load pin on a flop-driven net (safe: starts at a flop)`. In scope `in2reg` nothing is released, so every pin of a cone cell stays a violation (`cone_net` or `cone_driver`) exactly as the old cell-level check said.
+
+**What does not change.** The protection during `fix_eco_timing` is the one of task 092: cone CELLS `dont_touch`, kept cone nets `dont_touch` (195 kept, 109 released on `route3`). The pin-level class judges the PROPOSALS only. The probe also writes `pt_<tag>/pt_eco_hold_pin_classes.txt` (one line per insertion: index, pin, reference, class, net, drivers).
+
+**`pt_eco_apply.tcl`.** Gates unchanged: in2out and whole-design setup WNS must not get worse than 0.005 ns, DRC loop, legality, `earlybuf_*` / `antbuf_*` protection. The class file is read from the same folder as the change files: each hold insertion is printed with its class (`>>> 093 change N: ...`); a class file of another change file (different pin, missing or extra line) or a violation class ends the run with `ERROR 093`, nothing changed. Without the class file one line says so and nothing else changes. **The ICC2 gates are the final proof** that the claim holds in ICC2's own timing: the in2out WNS before and after the insertions is compared there (an input-to-output path through a load pin of the same cell would show up as a change of that WNS).
+
+**Sequence.** Unchanged from task 092 (the same commands); only the probe's verdict differs. After the probe read: the 9 `>>> 093 insertion` lines (net and driver of every pin), `>>> 093 insertions by class`, the `PROBE RESULT` line. Apply only when the result line is `ECO RAN:` and the classes are `load_flop`.
+
+VERIFY list (task 093): V64 `get_nets -quiet -of_objects <pin>` on a pin of a cell inside a hierarchy returns the same net NAME as the cone traversal used for the kept and released lists (a mismatch makes the state `none` and the class `unknown`, which is printed, never a silent pass); V65 `pt_cone_net_pins <net> out` (`all_connected -leaf`) lists the QN pin of the flop as the driver of the net; V66 `get_attribute <flop cell> is_sequential` is `true`; V67 `get_pins -quiet -exact <full pin>` finds the pins of the change file. Tests: `tclsh pnr_v2/test_eco_scope.tcl` (102 checks, 40 of them new, with the 9 real pins of `route3`).
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.

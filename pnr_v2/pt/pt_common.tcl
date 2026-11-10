@@ -1140,6 +1140,89 @@ proc pt_eco_class_text {cls} {
         default     { return "class unknown (the cell or pin attributes could not be read)" }
     }
 }
+
+# ---- 093: the cone check at PIN level (pure parts) ----
+# 093: a load pin (input pin) is judged by the NET that feeds it, not by the cell it belongs to. insert_buffer on a load pin delays only the arcs from that pin; a pin of a read-mux cell that is fed by a flop QN net
+# 093: starts a register-to-output path and cannot be on an input-to-output path. The net sets are those of the cone protection (pt_cone_nets_reg2out): kept (driven by a cone cell or on a cone port) and released.
+# 093: pt_pin_net_state <net> <kept nets> <released nets> -> kept | released | none (not a net of the cone at all) | "" (net name unreadable)
+proc pt_pin_net_state {net kept released} {
+    if {$net eq ""} { return "" }
+    if {[lsearch -exact $kept $net] >= 0} { return kept }
+    if {[lsearch -exact $released $net] >= 0} { return released }
+    return none
+}
+# 093: the class of one proposed insertion.
+#   objkind port: cone_port (the port is a cone port) | port
+#   pin of a cone cell (in_cone 1): output pin -> cone_driver; input pin -> by the state of its net: kept -> cone_net, released -> load_flop (every driver of the net is sequential) | load_comb (a driver is not sequential);
+#     anything unreadable (direction, net, state none, no driver, a driver whose is_sequential is unreadable) -> unknown
+#   pin of a cell outside the cone: the 092 class (flop_output flop_input other unknown)
+# 093: drv_seq = one 0 / 1 / "" per driver pin of the net (is_sequential of the driver's cell, "" = unreadable)
+proc pt_eco_pin_class {objkind in_cone dir state drv_seq is_seq is_out} {
+    if {$objkind eq "port"} { return [expr {$in_cone ? "cone_port" : "port"}] }
+    if {$in_cone} {
+        if {$dir ne "in" && $dir ne "out"} { return unknown }
+        if {$dir eq "out"} { return cone_driver }
+        switch -- $state {
+            kept { return cone_net }
+            released {
+                if {[llength $drv_seq] == 0} { return unknown }
+                set allseq 1
+                foreach s $drv_seq {
+                    if {$s ne "0" && $s ne "1"} { return unknown }
+                    if {$s eq "0"} { set allseq 0 }
+                }
+                return [expr {$allseq ? "load_flop" : "load_comb"}]
+            }
+            default { return unknown }
+        }
+    }
+    return [pt_eco_classify_insert pin 0 $is_seq $is_out]
+}
+# 093: the classes that make the AFTER check fail (a cone net, a cone driver pin, a cone port, a resize of a cone cell, and anything that could not be classified)
+proc pt_eco_class_violation {cls} {
+    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize unknown} $cls] >= 0}]
+}
+proc pt_eco_class_text093 {cls} {
+    switch -- $cls {
+        load_flop    { return "load pin on a flop-driven net (safe: starts at a flop)" }
+        load_comb    { return "load pin on a released net driven by a combinational cell outside the cone (safe by the cone definition; read it)" }
+        cone_net     { return "load pin on a kept cone net (VIOLATION: the net is on an input-to-output path)" }
+        cone_driver  { return "driver (output) pin of a cone cell (VIOLATION)" }
+        cone_port    { return "on a cone port (VIOLATION)" }
+        cone_resize  { return "resize of a cone cell (VIOLATION)" }
+        default      { return [pt_eco_class_text $cls] }
+    }
+}
+# 093: the hits of the AFTER check, same form as pt_cone_hits ({idx line what name}), from the classes of the insertions. clsd: dict idx -> class. An insertion without a class is `unknown` (a violation).
+# 093: size_cell of a cone cell is a violation as before.
+proc pt_cone_hits_pin {cmds clsd cone_cells} {
+    set out {}
+    foreach c $cmds {
+        set idx [dict get $c idx]
+        if {[dict get $c type] eq "insert_buffer"} {
+            set cls [expr {[dict exists $clsd $idx] ? [dict get $clsd $idx] : "unknown"}]
+            if {![pt_eco_class_violation $cls]} continue
+            set nm [dict get $c full_pin]
+            if {[dict get $c objkind] ne "port"} { set nm [eco079_pin_cell $nm] }
+            lappend out [dict create idx $idx line [dict get $c line] what "insert_buffer on [dict get $c full_pin]: [pt_eco_class_text093 $cls]" name $nm]
+        } elseif {[dict get $c type] eq "size_cell"} {
+            if {[lsearch -exact $cone_cells [dict get $c full_inst]] >= 0} { lappend out [dict create idx $idx line [dict get $c line] what "size_cell of the cone cell to [dict get $c ref]" name [dict get $c full_inst]] }
+        }
+    }
+    return $out
+}
+# 093: "9 load pin on a flop-driven net (safe: starts at a flop), 1 ..." from a dict class -> count (classes with count 0 are left out)
+proc pt_eco_class_summary {counts} {
+    set parts {}
+    dict for {cls n} $counts { if {$n > 0} { lappend parts "$n [pt_eco_class_text093 $cls]" } }
+    if {[llength $parts] == 0} { return "no insertion" }
+    return [join $parts {, }]
+}
+# 093: one line of the class file written next to the change files: <idx> <pin> <ref> <class> net=<net|?> drivers=<pin,pin|?>
+proc pt_eco_class_row {idx pin ref cls net drivers} {
+    return "$idx $pin $ref $cls net=[expr {$net eq {} ? {?} : $net}] drivers=[expr {[llength $drivers] == 0 ? {?} : [join $drivers ,]}]"
+}
+
 # ---- END PURE TCL 074 ----
 
 # ------------------------------------------------------------------------------
@@ -1799,6 +1882,7 @@ proc pt_cone_nets_reg2out {cone} {
     if {$kept == 0} { error "PT ERROR: reg2out: every cone net was released; the protection would be empty" }
     dict set cone nets_c $keep
     dict set cone nets [lsort -unique $nn]
+    dict set cone released [lsort -unique $dropped]   ;# 093: the pin-level check needs the released nets too
     return $cone
 }
 # 092: facts about the pin of one proposed insertion: {cell in_cone is_seq is_out}; is_seq / is_out are "" when unreadable
@@ -1817,6 +1901,42 @@ proc pt_eco_insert_facts {full_pin cone_cells} {
         }
     }
     return [list $cell [expr {[lsearch -exact $cone_cells $cell] >= 0}] $is_seq $is_out]
+}
+
+# 093: the facts for the pin-level class of one proposed insertion: a dict cell in_cone dir net state drivers drv_seq is_seq is_out. Unreadable facts are "" / {} (the class is then `unknown`).
+# 093: cone = the cone dict after the net release (nets = kept, released = released). VERIFY: get_nets -of_objects <pin>; pt_cone_net_pins <net> out (all_connected -leaf, as the 080 traversal); get_attribute <cell> is_sequential.
+proc pt_eco_insert_facts_pin {objkind full_pin cone} {
+    global pt_cone_h
+    set cone_cells [dict get $cone cells]
+    set kept [dict get $cone nets]
+    set rel {}
+    if {[dict exists $cone released]} { set rel [dict get $cone released] }
+    if {$objkind eq "port"} {
+        return [dict create cell "" in_cone [expr {[lsearch -exact [dict get $cone ports] $full_pin] >= 0}] dir "" net "" state "" drivers {} drv_seq {} is_seq "" is_out ""]
+    }
+    lassign [pt_eco_insert_facts $full_pin $cone_cells] cell in_cone is_seq is_out
+    set dir ""; set net ""; set drivers {}; set drv_seq {}
+    catch {
+        set pc [get_pins -quiet -exact $full_pin]
+        if {[sizeof_collection $pc] == 1} {
+            set d [get_attribute $pc direction]
+            if {$d eq "in" || $d eq "out"} { set dir $d }
+            set nc [get_nets -quiet -of_objects $pc]
+            if {[sizeof_collection $nc] == 1} {
+                set net [get_object_name $nc]
+                foreach_in_collection dp [pt_cone_net_pins $nc out] {
+                    lappend drivers [get_object_name $dp]
+                    set s ""
+                    catch {
+                        set dc [pt_cone_reg [get_cells -quiet -of_objects $dp]]
+                        if {[llength $dc] == 1} { set s [expr {[pt_cone_isseq [lindex $dc 0]] ? 1 : 0}] }
+                    }
+                    lappend drv_seq $s
+                }
+            }
+        }
+    }
+    return [dict create cell $cell in_cone $in_cone dir $dir net $net state [pt_pin_net_state $net $kept $rel] drivers $drivers drv_seq $drv_seq is_seq $is_seq is_out $is_out]
 }
 
 # 078: the common preparation of pt_hold_ff.tcl for a script that must have the same environment (used by pt_eco_probe.tcl): banner, SI, link, parasitics, SDC check, operating
