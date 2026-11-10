@@ -1178,6 +1178,12 @@ proc pt_eco_pin_class {objkind in_cone dir state drv_seq is_seq is_out} {
     }
     return [pt_eco_classify_insert pin 0 $is_seq $is_out]
 }
+# 093: is the (only) driver of a net the buffer that the change file names? dcells = the driver cells of the net ("" = unreadable); new_cell = the -new_cell_names value (full name, "" = none known)
+proc pt_eco_new_buf_driver {dcells new_cell} {
+    if {$new_cell eq "" || [llength $dcells] == 0} { return 0 }
+    foreach c $dcells { if {$c ne $new_cell} { return 0 } }
+    return 1
+}
 # 093: the classes that make the AFTER check fail (a cone net, a cone driver pin, a cone port, a resize of a cone cell, and anything that could not be classified)
 proc pt_eco_class_violation {cls} {
     return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize unknown} $cls] >= 0}]
@@ -1903,19 +1909,37 @@ proc pt_eco_insert_facts {full_pin cone_cells} {
     return [list $cell [expr {[lsearch -exact $cone_cells $cell] >= 0}] $is_seq $is_out]
 }
 
-# 093: the facts for the pin-level class of one proposed insertion: a dict cell in_cone dir net state drivers drv_seq is_seq is_out. Unreadable facts are "" / {} (the class is then `unknown`).
-# 093: cone = the cone dict after the net release (nets = kept, released = released). VERIFY: get_nets -of_objects <pin>; pt_cone_net_pins <net> out (all_connected -leaf, as the 080 traversal); get_attribute <cell> is_sequential.
-proc pt_eco_insert_facts_pin {objkind full_pin cone} {
+# 093: the facts for the pin-level class of one proposed insertion: a dict cell in_cone dir net state drivers drv_seq is_seq is_out new_net new_driver. Unreadable facts are "" / {} (the class is then `unknown`).
+# 093: cone = the cone dict after the net release (nets = kept, released = released). new_cell = the buffer cell the change file names for this insertion (-new_cell_names). The classification runs AFTER fix_eco_timing
+# 093: has inserted the buffers in PrimeTime's memory: the net now seen on a load pin is the NEW net, driven by the new buffer. So when the driver of the pin's net is the cell named in the change file, the net and the
+# 093: drivers are taken from the buffer's INPUT pin (the original net, the one that existed before the ECO); new_net / new_driver keep what the pin sees now. A buffer whose input net cannot be found leaves net "" (unknown).
+# 093: VERIFY: get_nets -of_objects <pin>; pt_cone_net_pins <net> out (all_connected -leaf, as the 080 traversal); get_pins -of_objects <cell> -filter "direction == in"; get_attribute <cell> is_sequential.
+proc pt_eco_net_info {netcoll} {   ;# {net driver_pins driver_cells drv_seq} of one net (a collection of one net)
+    set net [get_object_name $netcoll]
+    set drivers {}; set dcells {}; set drv_seq {}
+    foreach_in_collection dp [pt_cone_net_pins $netcoll out] {
+        lappend drivers [get_object_name $dp]
+        set s ""; set cn ""
+        catch {
+            set dc [pt_cone_reg [get_cells -quiet -of_objects $dp]]
+            if {[llength $dc] == 1} { set cn [lindex $dc 0]; set s [expr {[pt_cone_isseq $cn] ? 1 : 0}] }
+        }
+        lappend dcells $cn
+        lappend drv_seq $s
+    }
+    return [list $net $drivers $dcells $drv_seq]
+}
+proc pt_eco_insert_facts_pin {objkind full_pin cone {new_cell ""}} {
     global pt_cone_h
     set cone_cells [dict get $cone cells]
     set kept [dict get $cone nets]
     set rel {}
     if {[dict exists $cone released]} { set rel [dict get $cone released] }
     if {$objkind eq "port"} {
-        return [dict create cell "" in_cone [expr {[lsearch -exact [dict get $cone ports] $full_pin] >= 0}] dir "" net "" state "" drivers {} drv_seq {} is_seq "" is_out ""]
+        return [dict create cell "" in_cone [expr {[lsearch -exact [dict get $cone ports] $full_pin] >= 0}] dir "" net "" state "" drivers {} drv_seq {} is_seq "" is_out "" new_net "" new_driver ""]
     }
     lassign [pt_eco_insert_facts $full_pin $cone_cells] cell in_cone is_seq is_out
-    set dir ""; set net ""; set drivers {}; set drv_seq {}
+    set dir ""; set net ""; set drivers {}; set drv_seq {}; set new_net ""; set new_driver ""
     catch {
         set pc [get_pins -quiet -exact $full_pin]
         if {[sizeof_collection $pc] == 1} {
@@ -1923,20 +1947,24 @@ proc pt_eco_insert_facts_pin {objkind full_pin cone} {
             if {$d eq "in" || $d eq "out"} { set dir $d }
             set nc [get_nets -quiet -of_objects $pc]
             if {[sizeof_collection $nc] == 1} {
-                set net [get_object_name $nc]
-                foreach_in_collection dp [pt_cone_net_pins $nc out] {
-                    lappend drivers [get_object_name $dp]
-                    set s ""
-                    catch {
-                        set dc [pt_cone_reg [get_cells -quiet -of_objects $dp]]
-                        if {[llength $dc] == 1} { set s [expr {[pt_cone_isseq [lindex $dc 0]] ? 1 : 0}] }
+                lassign [pt_eco_net_info $nc] net drivers dcells drv_seq
+                if {$dir eq "in" && [pt_eco_new_buf_driver $dcells $new_cell]} {
+                    # the pin is now fed by the new buffer: go back to the net on the buffer's input pin
+                    set new_net $net; set new_driver [lindex $drivers 0]
+                    set net ""; set drivers {}; set drv_seq {}
+                    set bc [get_cells -quiet $new_cell]
+                    if {[sizeof_collection $bc] == 1} {
+                        set bin [get_pins -quiet -of_objects $bc -filter "direction == in"]
+                        if {[sizeof_collection $bin] == 1} {
+                            set onc [get_nets -quiet -of_objects $bin]
+                            if {[sizeof_collection $onc] == 1} { lassign [pt_eco_net_info $onc] net drivers dcells2 drv_seq }
+                        }
                     }
-                    lappend drv_seq $s
                 }
             }
         }
     }
-    return [dict create cell $cell in_cone $in_cone dir $dir net $net state [pt_pin_net_state $net $kept $rel] drivers $drivers drv_seq $drv_seq is_seq $is_seq is_out $is_out]
+    return [dict create cell $cell in_cone $in_cone dir $dir net $net state [pt_pin_net_state $net $kept $rel] drivers $drivers drv_seq $drv_seq is_seq $is_seq is_out $is_out new_net $new_net new_driver $new_driver]
 }
 
 # 078: the common preparation of pt_hold_ff.tcl for a script that must have the same environment (used by pt_eco_probe.tcl): banner, SI, link, parasitics, SDC check, operating

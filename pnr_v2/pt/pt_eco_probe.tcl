@@ -260,12 +260,12 @@ pt_main {
                 set eco_rows {}
                 foreach c [dict get $chk cmds] {
                     if {[dict get $c type] ne "insert_buffer"} continue
-                    set fx [pt_eco_insert_facts_pin [dict get $c objkind] [dict get $c full_pin] $cone]
+                    set fx [pt_eco_insert_facts_pin [dict get $c objkind] [dict get $c full_pin] $cone [dict get $c cell]]
                     set cls [pt_eco_pin_class [dict get $c objkind] [dict get $fx in_cone] [dict get $fx dir] [dict get $fx state] [dict get $fx drv_seq] [dict get $fx is_seq] [dict get $fx is_out]]
                     dict set eco_clsd [dict get $c idx] $cls
                     dict incr eco_cls $cls
                     lappend eco_rows [pt_eco_class_row [dict get $c idx] [dict get $c full_pin] [dict get $c ref] $cls [dict get $fx net] [dict get $fx drivers]]
-                    puts ">>> 093 insertion [dict get $c idx]: pin [dict get $c full_pin] (cell [expr {[dict get $fx cell] eq {} ? {?} : [dict get $fx cell]}], [dict get $c ref]); net [expr {[dict get $fx net] eq {} ? {?} : [dict get $fx net]}]; driver [expr {[llength [dict get $fx drivers]] == 0 ? {?} : [join [dict get $fx drivers] {, }]}] (sequential: [expr {[llength [dict get $fx drv_seq]] == 0 ? {?} : [join [dict get $fx drv_seq] {, }]}]); net state [expr {[dict get $fx state] eq {} ? {?} : [dict get $fx state]}]: [pt_eco_class_text093 $cls]"
+                    puts ">>> 093 insertion [dict get $c idx]: pin [dict get $c full_pin] (cell [expr {[dict get $fx cell] eq {} ? {?} : [dict get $fx cell]}], [dict get $c ref]); original net [expr {[dict get $fx net] eq {} ? {?} : [dict get $fx net]}], original driver [expr {[llength [dict get $fx drivers]] == 0 ? {?} : [join [dict get $fx drivers] {, }]}] (sequential: [expr {[llength [dict get $fx drv_seq]] == 0 ? {?} : [join [dict get $fx drv_seq] {, }]}]); net state [expr {[dict get $fx state] eq {} ? {?} : [dict get $fx state]}]; after the ECO the pin sees [expr {[dict get $fx new_net] eq {} ? {the same net} : "net [dict get $fx new_net] driven by [dict get $fx new_driver]"}]: [pt_eco_class_text093 $cls]"
                 }
                 set fp [open ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt w]
                 puts $fp "# written by pt_eco_probe.tcl (task 093): one line per insertion of the hold change file: <idx> <pin> <ref> <class> net=<net> drivers=<driver pins>; pt_eco_apply.tcl prints these lines and refuses a violation class"

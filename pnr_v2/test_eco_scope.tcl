@@ -128,10 +128,16 @@ set real9 {{u_csr/U77/A2 dest_c_reg_reg_5_} {u_csr/U77/C2 src_a_reg_reg_9_} {u_c
 array set PINNET {}; array set PINDIR {}; array set CELLSEQ {}
 set NETDRV [dict create]
 set mux_cells {}
+set bn 0
 foreach pr $real9 {
     lassign $pr pin flop
-    set net "u_csr/qn_$flop"
-    set PINNET($pin) $net; set PINDIR($pin) in
+    incr bn
+    set net "u_csr/qn_$flop"                                  ;# the ORIGINAL net (before the ECO): driven by the QN pin of a u_csr flop
+    set bufc "u_csr/U_PTECO_HOLD_BUF$bn"; set newnet "u_csr/net_PTECO_HOLD_NET$bn"
+    set PINNET($pin) $newnet; set PINDIR($pin) in             ;# AFTER the ECO the load pin sees the new net, driven by the new buffer
+    dict set NETDRV $newnet [list "$bufc/Z"]
+    set CELLSEQ($bufc) false
+    set PINNET($bufc/I) $net; set PINDIR($bufc/I) in; set PINDIR($bufc/Z) out; set PINNET($bufc/Z) $newnet   ;# the buffer's input pin sits on the original net
     dict set NETDRV $net [list "u_csr/$flop/QN"]
     set CELLSEQ(u_csr/$flop) true
     set cell [eco079_pin_cell $pin]; set CELLSEQ($cell) false
@@ -148,7 +154,14 @@ set PINNET(u_csr/U9/B1)  u_csr/n_far;   set PINDIR(u_csr/U9/B1) in;   dict set N
 set PINNET(u_csr/dest_c_reg_reg_5_/QN) u_csr/qn_dest_c_reg_reg_5_; set PINDIR(u_csr/dest_c_reg_reg_5_/QN) out    ;# a flop output pin outside the cone (the 092 form)
 set CELLSEQ(u_csr/Ux) maybe
 set cone_cells [concat $mux_cells {u_csr/U50 u_csr/U33 u_csr/Ux}]
-proc get_pins {args} { global PINDIR; set p [lindex $args end]; return [expr {[info exists PINDIR($p)] ? [list $p] : {}}] }
+proc get_pins {args} {
+    global PINDIR
+    if {[lindex $args 0] eq "-quiet" && [lindex $args 1] eq "-of_objects"} {   ;# the input pin of a (buffer) cell
+        set c [lindex $args 2]
+        return [expr {[info exists PINDIR($c/I)] ? [list $c/I] : {}}]
+    }
+    set p [lindex $args end]; return [expr {[info exists PINDIR($p)] ? [list $p] : {}}]
+}
 proc get_cells {args} {
     if {[lindex $args 0] eq "-quiet" && [lindex $args 1] eq "-of_objects"} { return [list [eco079_pin_cell [lindex $args 2]]] }
     global CELLSEQ; set c [lindex $args end]; return [expr {[info exists CELLSEQ($c)] ? [list $c] : {}}]
@@ -165,9 +178,9 @@ set kept_nets {u_csr/n_dec u_csr/n_rd u_csr/n_comb_kept}
 set rel_nets [lmap pr $real9 {string cat u_csr/qn_ [lindex $pr 1]}]
 lappend rel_nets u_csr/n_comb u_csr/n_nodrv u_csr/n_unk u_csr/qn_dest_c_reg_reg_5_
 set cone93 [dict create cells $cone_cells ports {prdata[3]} nets $kept_nets released [lsort -unique $rel_nets]]
-proc cls_of {objkind pin} {
+proc cls_of {objkind pin {newcell ""}} {
     global cone93
-    set fx [pt_eco_insert_facts_pin $objkind $pin $cone93]
+    set fx [pt_eco_insert_facts_pin $objkind $pin $cone93 $newcell]
     return [pt_eco_pin_class $objkind [dict get $fx in_cone] [dict get $fx dir] [dict get $fx state] [dict get $fx drv_seq] [dict get $fx is_seq] [dict get $fx is_out]]
 }
 check "net state: kept / released / none / unreadable" {[pt_pin_net_state a {a b} {c}] eq "kept" && [pt_pin_net_state c {a b} {c}] eq "released" && [pt_pin_net_state z {a b} {c}] eq "none" && [pt_pin_net_state "" {a} {c}] eq ""}
@@ -189,12 +202,12 @@ check "the 9 real pins parse as 9 insertions" {[llength [dict get $p9 errors]] =
 set clsd [dict create]
 set rows9 {}
 foreach c [dict get $p9 cmds] {
-    set fx [pt_eco_insert_facts_pin [dict get $c objkind] [dict get $c full_pin] $cone93]
+    set fx [pt_eco_insert_facts_pin [dict get $c objkind] [dict get $c full_pin] $cone93 [dict get $c cell]]
     set cls [pt_eco_pin_class [dict get $c objkind] [dict get $fx in_cone] [dict get $fx dir] [dict get $fx state] [dict get $fx drv_seq] [dict get $fx is_seq] [dict get $fx is_out]]
     dict set clsd [dict get $c idx] $cls
     dict incr counts $cls
     lappend rows9 [pt_eco_class_row [dict get $c idx] [dict get $c full_pin] [dict get $c ref] $cls [dict get $fx net] [dict get $fx drivers]]
-    lappend table "[dict get $c full_pin] | [dict get $fx net] | [join [dict get $fx drivers] ,] | $cls"
+    lappend table "[dict get $c full_pin] | orig net [dict get $fx net] | orig driver [join [dict get $fx drivers] ,] | after ECO [dict get $fx new_net] ([dict get $fx new_driver]) | $cls"
 }
 check "all 9 real pins are in the cone cells (the old cell-level check called all 9 a hit)" {[llength [pt_cone_hits [dict get $p9 cmds] $cone_cells {prdata[3]}]] == 9}
 check "all 9 real pins are class load_flop" {[dict get $counts load_flop] == 9 && [llength [lsort -unique [dict values $clsd]]] == 1}
@@ -216,10 +229,10 @@ check "violation set: cone_net cone_driver cone_port cone_resize unknown only" {
 check "the apply script's violation list equals the probe's" {[lmap c {load_flop load_comb flop_output flop_input other port cone_net cone_driver cone_port cone_resize unknown} {eco093_violation $c}] eq [lmap c {load_flop load_comb flop_output flop_input other port cone_net cone_driver cone_port cone_resize unknown} {pt_eco_class_violation $c}]}
 check "every class has a text" {[llength [lsearch -all -inline -glob [lmap c {load_flop load_comb flop_output flop_input other port cone_net cone_driver cone_port cone_resize unknown} {pt_eco_class_text093 $c}] "class unknown*"]] == 1}
 # a mixed change file: violations are reported with the idx, the pin and the class
-set mix "current_instance {u_csr}\ninsert_buffer \[get_pins {U77/A2}\] buffd1 -new_net_names {a} -new_cell_names {b}\ninsert_buffer \[get_pins {U77/A1}\] buffd1 -new_net_names {c} -new_cell_names {d}\ninsert_buffer \[get_pins {U77/ZN}\] buffd1 -new_net_names {e} -new_cell_names {f}\nsize_cell {U77} {oai222d2}\ncurrent_instance\ninsert_buffer \[get_ports {prdata\[3\]}\] buffd1 -new_net_names {g} -new_cell_names {h}\n"
+set mix "current_instance {u_csr}\ninsert_buffer \[get_pins {U77/A2}\] buffd1 -new_net_names {net_PTECO_HOLD_NET1} -new_cell_names {U_PTECO_HOLD_BUF1}\ninsert_buffer \[get_pins {U77/A1}\] buffd1 -new_net_names {c} -new_cell_names {d}\ninsert_buffer \[get_pins {U77/ZN}\] buffd1 -new_net_names {e} -new_cell_names {f}\nsize_cell {U77} {oai222d2}\ncurrent_instance\ninsert_buffer \[get_ports {prdata\[3\]}\] buffd1 -new_net_names {g} -new_cell_names {h}\n"
 set pm [eco079_parse $mix]
 set cm [dict create]
-foreach c [dict get $pm cmds] { if {[dict get $c type] eq "insert_buffer"} { dict set cm [dict get $c idx] [cls_of [dict get $c objkind] [dict get $c full_pin]] } }
+foreach c [dict get $pm cmds] { if {[dict get $c type] eq "insert_buffer"} { dict set cm [dict get $c idx] [cls_of [dict get $c objkind] [dict get $c full_pin] [dict get $c cell]] } }
 set mh [pt_cone_hits_pin [dict get $pm cmds] $cm $cone_cells]
 check "mixed file: A2 clean; A1 (kept net), ZN (driver), the resize of U77 and the cone port are 4 hits" {[llength [dict get $pm errors]] == 0 && [llength $mh] == 4 && [lsort -integer [lmap h $mh {dict get $h idx}]] eq {2 3 4 5}}
 check "hit texts carry the pin and the class" {[has [dict get [lindex $mh 0] what] "u_csr/U77/A1"] && [has [dict get [lindex $mh 0] what] "VIOLATION"] && [dict get [lindex $mh 0] name] eq "u_csr/U77"}
@@ -227,8 +240,29 @@ check "an insertion without a class is a violation (no silent pass)" {[llength [
 # the net release stores the released names; in2reg (no release) keeps every cone-cell pin a violation
 check "pt_cone_nets_reg2out records the released nets (section 3 result)" {[dict exists $new released] && [dict get $new released] eq {n_qn}}
 set cone_in2reg [dict create cells $cone_cells ports {prdata[3]} nets [concat $kept_nets $rel_nets]]
-set fx0 [pt_eco_insert_facts_pin pin u_csr/U77/A2 $cone_in2reg]
+set fx0 [pt_eco_insert_facts_pin pin u_csr/U77/A2 $cone_in2reg u_csr/U_PTECO_HOLD_BUF1]
 check "in2reg (nothing released): the same pin is on a kept net -> cone_net, as the cell-level check said" {[dict get $fx0 state] eq "kept" && [pt_eco_pin_class pin 1 [dict get $fx0 dir] [dict get $fx0 state] [dict get $fx0 drv_seq] "" ""] eq "cone_net"}
+
+# the real shape (093 follow-up): the pin sees net_PTECO_HOLD_NET<n> driven by U_PTECO_HOLD_BUF<n>; the class comes from the buffer's input net
+set fx1 [pt_eco_insert_facts_pin pin u_csr/U77/A2 $cone93 u_csr/U_PTECO_HOLD_BUF1]
+check "facts: original net and driver from the buffer's input pin, the new net and driver kept" {[dict get $fx1 net] eq "u_csr/qn_dest_c_reg_reg_5_" && [dict get $fx1 drivers] eq "u_csr/dest_c_reg_reg_5_/QN" && [dict get $fx1 drv_seq] eq "1" && [dict get $fx1 state] eq "released" && [dict get $fx1 new_net] eq "u_csr/net_PTECO_HOLD_NET1" && [dict get $fx1 new_driver] eq "u_csr/U_PTECO_HOLD_BUF1/Z"}
+check "the change file names the buffer: cell and net of insertion 1" {[dict get [lindex [dict get $p9 cmds] 0] cell] eq "u_csr/U_PTECO_HOLD_BUF1" && [dict get [lindex [dict get $p9 cmds] 0] net] eq "u_csr/net_PTECO_HOLD_NET1"}
+check "without the buffer name the new net is in neither list: unknown (the bug of the first 093 server run)" {[cls_of pin u_csr/U77/A2] eq "unknown" && [dict get [pt_eco_insert_facts_pin pin u_csr/U77/A2 $cone93] state] eq "none"}
+check "the name of ANOTHER buffer does not match: unknown" {[cls_of pin u_csr/U77/A2 u_csr/U_PTECO_HOLD_BUF2] eq "unknown"}
+check "the named buffer: load_flop" {[cls_of pin u_csr/U77/A2 u_csr/U_PTECO_HOLD_BUF1] eq "load_flop"}
+check "pure: new-buffer driver test" {[pt_eco_new_buf_driver {b1} b1] == 1 && [pt_eco_new_buf_driver {b1} b2] == 0 && [pt_eco_new_buf_driver {} b1] == 0 && [pt_eco_new_buf_driver {b1} ""] == 0 && [pt_eco_new_buf_driver {b1 ""} b1] == 0 && [pt_eco_new_buf_driver {b1 b2} b1] == 0}
+# a buffer whose input net cannot be found stays unknown; a buffer on a kept net is a violation; a buffer on a net with a combinational driver is load_comb
+set PINNET(u_csr/U_PTECO_HOLD_BUF9/I) u_csr/n_missing; set PINDIR(u_csr/U_PTECO_HOLD_BUF9/I) in; set PINDIR(u_csr/U9/B3) in
+set PINNET(u_csr/U9/B3) u_csr/net_PTECO_HOLD_NET9; dict set NETDRV u_csr/net_PTECO_HOLD_NET9 {u_csr/U_PTECO_HOLD_BUF9/Z}; set CELLSEQ(u_csr/U_PTECO_HOLD_BUF9) false
+check "a buffer whose input net is in no list: unknown" {[cls_of pin u_csr/U9/B3 u_csr/U_PTECO_HOLD_BUF9] eq "unknown"}
+unset PINNET(u_csr/U_PTECO_HOLD_BUF9/I); unset PINDIR(u_csr/U_PTECO_HOLD_BUF9/I)
+check "a buffer without a readable input pin / net: unknown, net empty" {[cls_of pin u_csr/U9/B3 u_csr/U_PTECO_HOLD_BUF9] eq "unknown" && [dict get [pt_eco_insert_facts_pin pin u_csr/U9/B3 $cone93 u_csr/U_PTECO_HOLD_BUF9] net] eq ""}
+set PINNET(u_csr/U_PTECO_HOLD_BUF9/I) u_csr/n_dec; set PINDIR(u_csr/U_PTECO_HOLD_BUF9/I) in
+check "a buffer whose input net is a KEPT cone net: cone_net (violation)" {[cls_of pin u_csr/U9/B3 u_csr/U_PTECO_HOLD_BUF9] eq "cone_net"}
+set PINNET(u_csr/U_PTECO_HOLD_BUF9/I) u_csr/n_comb
+check "a buffer whose input net is released with a combinational driver: load_comb" {[cls_of pin u_csr/U9/B3 u_csr/U_PTECO_HOLD_BUF9] eq "load_comb"}
+set PINNET(u_csr/U_PTECO_HOLD_BUF9/I) u_csr/n_nodrv
+check "a buffer whose input net has no driver: unknown" {[cls_of pin u_csr/U9/B3 u_csr/U_PTECO_HOLD_BUF9] eq "unknown"}
 # the class file and the apply side
 check "class row text" {[lindex $rows9 0] eq "1 u_csr/U77/A2 buffd1 load_flop net=u_csr/qn_dest_c_reg_reg_5_ drivers=u_csr/dest_c_reg_reg_5_/QN"}
 check "class row: unreadable net and no drivers are written as ?" {[pt_eco_class_row 3 x/A1 buffd1 unknown "" {}] eq "3 x/A1 buffd1 unknown net=? drivers=?"}
@@ -255,6 +289,7 @@ check "apply: a malformed class file is an error list" {[llength [dict get [eco0
 # source checks
 set pb [read_file $here/pt/pt_eco_probe.tcl]
 check "probe: the AFTER check is pin level and the cell-level pt_cone_hits is no longer called there" {[has $pb {pt_cone_hits_pin}] && ![has $pb {set hits [pt_cone_hits [dict get $chk cmds]}]}
+check "probe: the new buffer name of the change file is handed to the facts; the line shows original and new net" {[has $pb {$cone [dict get $c cell]]}] && [has $pb {original net}] && [has $pb {after the ECO the pin sees}]}
 check "probe: the class file is deleted, then written next to the change files (PT_RPT_DIR)" {[has $pb {file delete -force ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt}] && [has $pb {open ${PT_RPT_DIR}/pt_eco_hold_pin_classes.txt w}]}
 check "probe: the result line carries the class summary" {[has $pb {Pin classes: [pt_eco_class_summary $eco_cls]}]}
 check "probe: the cone is still protected before fix_eco_timing with the cell-level dont_touch (unchanged)" {[string first "pt_cone_protect \$cone" $pb] < [string first "foreach att {collection bare_names}" $pb] && $PT_CONE_PROTECT == 1}
