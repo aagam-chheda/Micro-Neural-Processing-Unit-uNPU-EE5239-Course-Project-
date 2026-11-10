@@ -127,6 +127,14 @@ proc eco098_earlier_instances {texts} {
     }
     return [lsort -unique $out]
 }
+# 098: the number of class rows against the number of size_cell changes. rows = the dict of eco093_parse_classes (idx -> row; comment and blank lines never become rows); "" when equal. ([dict size], not [llength]: llength of a dict counts keys AND values.)
+proc eco098_rows_problem {rows cmds} {
+    set n 0
+    foreach c $cmds { if {[dict get $c type] eq "size_cell"} { incr n } }
+    set r [dict size $rows]
+    if {$r != $n} { return "the class file has $r row(s) for $n size_cell change(s)" }
+    return ""
+}
 # 098: a SETUP-kind class file against the size_cell changes: every size_cell has a row (pin = the instance) and no row is a violation class. Returns {lines problems}.
 proc eco098_check_size {cmds rows} {
     set lines {}; set probs {}; set seen {}
@@ -1093,7 +1101,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
         if {[llength [dict get $ea_cp2 errors]] > 0} { error "ERROR 098: $ECO_CLASS_FILE: [join [dict get $ea_cp2 errors] { | }] (nothing changed)" }
         lassign [eco098_check_size $ea_cmds [dict get $ea_cp2 rows]] ea_cl2 ea_cprob2
         foreach l $ea_cl2 { puts ">>> 098 $l" }
-        if {[llength [dict get $ea_cp2 rows]] != [llength $ea_cl2] + [llength $ea_cprob2]} { lappend ea_cprob2 "the class file has [llength [dict get $ea_cp2 rows]] rows for [llength $ea_cmds] size_cell changes" }
+        if {[eco098_rows_problem [dict get $ea_cp2 rows] $ea_cmds] ne ""} { lappend ea_cprob2 [eco098_rows_problem [dict get $ea_cp2 rows] $ea_cmds] }   ;# the number of ROWS (dict size: comment and blank lines are not rows)
         if {[llength $ea_cprob2] > 0} { error "ERROR 098: the classes of $ECO_CLASS_FILE do not allow this ECO: [join $ea_cprob2 { | }] (nothing changed)" }
         puts ">>> 098 CHECK size classes: [llength $ea_cl2] size_cell changes, none in a violation class (a cone cell only to a FASTER reference, nothing on the clock network)"
     }

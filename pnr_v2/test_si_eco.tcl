@@ -92,5 +92,22 @@ check "apply source: the relocation of 097 applies to the setup resizes (same si
 
 check "apply source: in the SI-on round the marker cells of the first hold ECO are earlier-round cells (protected, not new, must still be there); the drc rule is unchanged" {[has $apply {set ea_si_round [expr {$PT_SI && $ECO_KIND ne "drc"}]}] && [has $apply {CHECK earlier-round cells with the marker}] && [has $apply {earlier-round cells vanished}] && [has $apply {CHECK hold-ECO cells}]}
 
+
+# ---- 7. the class file as the probe wrote it on the server (comment line + one row): 1 row, not 2 ----
+set real_cls "# written by pt_eco_setup_probe.tcl (task 098): one line per size_cell change: <idx> <instance> <new reference> <class> net=<output net> drivers=?; pt_eco_apply.tcl (UNPU_ECO_KIND setup) prints these lines and refuses a violation class\n1 u_apb/U29 buffd3 cone_faster net=u_apb/csr_sel\[1\] drivers=?\n"
+set pcr [eco093_parse_classes $real_cls]
+set one_cmd [dict get [eco079_parse "current_instance {u_apb}\nsize_cell {U29} buffd3\n"] cmds]
+check "real server class file (comment + 1 row): parsed without errors, 1 row" {[llength [dict get $pcr errors]] == 0 && [dict size [dict get $pcr rows]] == 1}
+check "real server class file: the row count equals the 1 size_cell change (the old llength of the dict said 2)" {[eco098_rows_problem [dict get $pcr rows] $one_cmd] eq "" && [llength [dict get $pcr rows]] == 2}
+lassign [eco098_check_size $one_cmd [dict get $pcr rows]] ll pp
+check "real server class file: the check passes, class cone_faster printed" {[llength $pp] == 0 && [llength $ll] == 1 && [has [lindex $ll 0] "class cone_faster"] && [has [lindex $ll 0] "net u_apb/csr_sel\[1\]"]}
+check "blank lines and several comment lines are not rows either" {[dict size [dict get [eco093_parse_classes "\n# a\n\n# b\n1 u_apb/U29 buffd3 cone_faster net=n drivers=?\n\n"] rows]] == 1}
+set two_rows "# c\n1 u_apb/U29 buffd3 cone_faster net=n drivers=?\n2 u_apb/U30 buffd3 cone_faster net=m drivers=?\n"
+check "two real rows for one change are still refused" {[has [eco098_rows_problem [dict get [eco093_parse_classes $two_rows] rows] $one_cmd] "2 row(s) for 1 size_cell change(s)"]}
+check "no row for one change is refused (the other check) and zero rows for zero changes is fine" {[has [eco098_rows_problem [dict create] $one_cmd] "0 row(s) for 1"] && [eco098_rows_problem [dict create] {}] eq ""}
+check "a duplicate row number is still an error of the reader" {[llength [dict get [eco093_parse_classes "1 a b c net=n drivers=?\n1 a b c net=n drivers=?\n"] errors]] == 1}
+check "apply source: the setup kind counts rows with eco098_rows_problem (dict size)" {[has $apply {eco098_rows_problem [dict get $ea_cp2 rows] $ea_cmds}] && ![has $apply {[llength [dict get $ea_cp2 rows]] !=}]}
+check "the hold / drc readers never counted rows by llength (eco093_check compares per change number)" {![has $apply {llength [dict get $ea_cp rows]}]}
+
 puts "RESULT: $npass passed, $nfail failed"
 exit [expr {$nfail > 0}]
