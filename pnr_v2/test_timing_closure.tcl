@@ -151,7 +151,8 @@ set tc [split $src "\n"]
 proc trimmed {lines} { set o {}; foreach l $lines { set t [string trim [regsub {\s+;# 072.*$} $l ""]]; if {$t ne "" && ![string match "#*" $t]} { lappend o $t } }; return $o }
 set tcl_t [trimmed $tc]
 # 082: route.tcl gained 3 lines before these ranges (the run-root bootstrap replaced one line by three, and one RUN ROOT puts line follows the redirect line): every range moved down by 3
-set ranges {{39 39} {45 60} {62 86} {88 135} {145 146} {150 155} {161 195}}
+# 088: and 2 more (the source line of clock_latency.tcl and the call of unpu_remove_clock_latency after link_block): down by 5 in total
+set ranges {{41 41} {47 62} {64 88} {90 137} {147 148} {152 157} {163 197}}
 set ptr 0
 foreach r $ranges {
     lassign $r a z
