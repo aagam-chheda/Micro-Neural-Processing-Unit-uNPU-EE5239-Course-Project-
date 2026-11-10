@@ -18,7 +18,8 @@ Outputs go to `<RUN_DIR>/pnr_icc2/` (`blocks logs reports outputs`; git-ignored)
 | 3 | `powerplanning.tcl` | `icc2_shell` |
 | 4 | `placement.tcl` | `icc2_shell` |
 | 4b | `pin_replace.tcl` | PARKED (task 068, see "Why step 4b"): not part of the flow; it reads `_placement` and writes `_pinplace`, which `cts.tcl` no longer reads |
-| 5 | `cts.tcl` | `icc2_shell` |
+| 4c | `port_buffers_early.tcl` | `icc2_shell` (task 085: after `placement.tcl`, before `cts.tcl`; predicts the pin-to-load wire of every INPUT port net from the placement and puts one buffer next to the pin of each net the antenna formula says would fail; an ECO on the netlist; reads `_placement`, writes the NEW block `_portbuf`; `clk` is never buffered; the buffers are protected from `clock_opt` / `route_opt`) |
+| 5 | `cts.tcl` | `icc2_shell` (reads `_portbuf` through the parameter `CTS_INPUT_BLOCK` at the top; set it to `unpu_top_placement` to run without step 4c) |
 | 6 | `route.tcl` | `icc2_shell` |
 | 6b | `fix_antenna.tcl` | `icc2_shell` (after the first Calibre antenna run; needs `<BASE>/pv/drc/unpu_top_antenna_bkp.db`) |
 | 6c | `antenna_port_buffers.tcl` | `icc2_shell` (task 068: after `fix_antenna.tcl`, before `metal_fill.tcl`; a buffer next to the pin of each long INPUT PORT net, an ECO on the netlist; reads the same `unpu_top_antenna_bkp.db`, overwrites `_route` in place; `clk` is never buffered) |
@@ -28,8 +29,38 @@ Outputs go to `<RUN_DIR>/pnr_icc2/` (`blocks logs reports outputs`; git-ignored)
 | 7 | `metal_fill.tcl` | `icc2_shell` |
 | 8 | `pv.tcl` | `icc2_shell` (task 073: the LEF is the macro `unpu_top` only, from `create_frame` + `write_lef -include cell`, with hard checks; read the `>>> 073 LEF CHECK PASSED` line in the log, a `FAILED` line makes the run end with `ERROR 073`) |
 
-Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_cts` -> `_route` -> `_filled` -> `_pv`.
+Block chain: `_setup` -> `_floorplan` -> `_powerplan` -> `_placement` -> `_portbuf` (step 4c) -> `_cts` -> `_route` -> `_filled` -> `_pv`.
 PARKED (task 068): the chain with `_pinplace` between `_placement` and `_cts` (step 4b) is not used.
+
+## Step 4c: port_buffers_early.tcl (task 085): input-port antenna protection BEFORE routing
+
+Why: an input port net has no driver and no diffusion inside the macro, so Calibre counts the whole pin-to-gate wire against a gate area of about 0.19 um^2 (limit about 72 um on M2/M3, about 46 um on TOP_M, `no diode allowed`). Run 1 found 16 failing nets only after the route (wires 130 to 478 um) and repaired them with five late ECO steps. Re-placing the pins does not help (see `PIN_SPACING_RESEARCH.md`). Step 4c does it once, up front.
+
+How it decides (all numbers come from `antenna_port_buffers.tcl`, read from its text): for each input port except the clock it measures the Manhattan distance from the pin to every load pin in the placed block, takes the longest, and computes the predicted ratio `2 x (length + width) x weight / gate area` (smallest load gate area from the kit LEF) with the M2/M3 weight and the TOP_M weight. A net is BUFFERED when the predicted ratio is more than `PREDICT_MARGIN` (0.8) times the limit 400. The printed table lists every port with its loads, longest distance, both ratios and the decision; the same numbers go to `pnr_icc2/reports/port_buffers_early_table.csv`.
+
+**Read this before applying.** The prediction is an upper bound: the router splits a long wire into layer islands, and in run 1 only 16 of roughly 80 input data nets failed although most pins are 100 to 250 um from their loads. A distance-based rule with margin 0.8 will therefore buffer MOST input nets (the table tells how many, before anything is inserted). Each buffer costs about 0.1 to 0.3 ns on its input path (good for the input hold paths, bad for setup) and the `paddr` -> `prdata` read path has no margin. So run it first with `PLAN_ONLY 1` (`setenv UNPU_PBE_PLAN_ONLY 1`, see below; no edit of the script), read the count and the cone list, and only then decide whether to keep `PREDICT_MARGIN 0.8` or to change it (a user decision with a written reason; the CSV and the Calibre antenna database of the first routed run give the data to calibrate it).
+
+Steps 4c (csh, from the server, one command per line; `RUN_DIR` = this clone):
+
+```
+cd $RUN_DIR/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_portbuf
+icc2_shell -f ../pnr_v2/port_buffers_early.tcl |& tee port_buffers_early_console.log
+```
+
+(first with `PLAN_ONLY 1`, then without), then `exit`. The three parameters can be given from the shell WITHOUT editing the script (the clone stays clean for `git pull`): `UNPU_PBE_PLAN_ONLY` (0 or 1), `UNPU_PBE_PREDICT_MARGIN` (a number above 0, at most 10), `UNPU_PBE_PREDICT_WEIGHT` (`m23` or `top`); an unset variable keeps the default of the file, an invalid value is `ERROR 085`, and the `>>> 085 parameters` line shows for each value whether it came from the default or the environment. First run, one csh command per line:
+
+```
+setenv UNPU_PBE_PLAN_ONLY 1
+icc2_shell -f ../pnr_v2/port_buffers_early.tcl |& tee port_buffers_early_console.log
+unsetenv UNPU_PBE_PLAN_ONLY
+```
+
+Type `exit` after each run. `unsetenv` matters: a variable left set would make the second run a plan-only run again (the parameters line says so). The script opens `_placement`, never overwrites it, and saves `_portbuf`; `cts.tcl` reads `_portbuf`. What to read in the log (`>>> 085` lines): the CHOSEN buffer cell (smallest footprint that passes the gate-area, diffusion and don't-use rules); the PREDICTION TABLE and TOTALS (BUFFER + OK + NO-LOADS + CLOCK-SKIPPED = all input ports); the CLOCK line (pin-to-first-load distance and the predicted ratio with the CTS root cell `inv0d4`: only printed, CTS decides the root); `BUFFER nets on an input-to-output cone`; BEFORE/AFTER setup, hold and in2out WNS; per cone net the delay added by its buffer; `PROTECTION` (dont_touch and fixed placement read back); `GATE` lines; `STAGE 4c COMPLETE`. The script stops BEFORE saving (`ERROR 085`, the nets are named) when: the in2out WNS or the setup WNS drops by more than `GATE_TOL_IN2OUT` / `GATE_TOL_SETUP` (0.005 ns, as in `pt_eco_apply.tcl`), a buffer cannot get a free site within `MAX_PIN_BUF_DIST` (40 um), a buffer is not where it was put, `check_legality` is not 0 or not readable, the buffer count differs from the BUFFER count, or the protection reads back wrong.
+
+Sites: there are no fillers before CTS, so the free sites are computed from the site-row boxes and the cell boxes (the same `ant_site_candidates` rules as `antenna_port_buffers.tcl`); the buffer is put with `set_cell_location` and NOT with `legalize_placement`. The new cells are named `earlybuf_*` (not `antbuf_*`: `antenna_port_buffers.tcl` counts `antbuf_*` cells against its own targets, and `pt_eco_apply.tcl` protects `antbuf_*`; the early buffers are protected by `dont_touch` instead, so a later PrimeTime ECO that names one of their pins is not protected by that script and must be read by hand). `antenna_port_buffers.tcl` stays the repair step after the route for anything the prediction missed. `pt_eco_apply.tcl` is left as is (Planning handles `earlybuf_*` there only if the ECO path is used again).
+
+VERIFY list (task 085): V26 `get_cells -hierarchical -filter "is_hierarchical == false"` returns every leaf cell and the `bbox` / `orientation` attributes read as strings (the script stops if fewer than 1000 boxes are read or a cell is not on a row); V27 `get_site_rows` boxes and the row `y0` equal the `y0` of the cells in the row (otherwise `stray` cells stop the script); V28 `all_fanout -flat -endpoints_only -from <port>` lists endpoints including output ports (the timing-path cross-check covers it, a disagreement is printed and counted as ON the cone); V29 `set_dont_touch <cells> true` and `set_attribute -name physical_status -value fixed` exist and read back as `dont_touch=true`, `physical_status=fixed`; V30b `get_timing_paths -from <port collection> -to [all_outputs] -slack_lesser_than 0` forms; V31b `insert_buffer` on a port and `remove_buffers` (as `antenna_port_buffers.tcl`); V32 clock attribute `sources`. Test: `tclsh pnr_v2/test_port_buffers_early.tcl`.
 
 ## Why step 4b (task 067) -- PARKED (task 068)
 

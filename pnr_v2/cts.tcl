@@ -13,6 +13,8 @@ set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
 
+set CTS_INPUT_BLOCK  "${DESIGN_NAME}_portbuf"   ;# 085: the block CTS reads. Default = the output of step 4c (port_buffers_early.tcl: _placement -> _portbuf -> _cts). Set it to ${DESIGN_NAME}_placement to run without step 4c
+
 # ------------------------------------------------------------------------------
 # Hold margin control
 #   SPEC_HOLD_UNC   : real hold uncertainty from the SDC (used for signoff/reports)
@@ -44,7 +46,9 @@ redirect -tee -file ${LOG_DIR}/5_cts.log {
         remove_blocks ${DESIGN_NAME}.dlib:${DESIGN_NAME}_cts
     }
 
-    open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${DESIGN_NAME}_placement   ;# 068: back to _placement, step 4b is parked
+    if {[catch {open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${CTS_INPUT_BLOCK}} cts_open_err]} {   ;# 085: the block comes from the parameter CTS_INPUT_BLOCK; a missing block stops with the way out
+        error "ERROR 085: cannot open the block ${CTS_INPUT_BLOCK} ($cts_open_err). Step 4c (port_buffers_early.tcl) writes it; to run without step 4c set CTS_INPUT_BLOCK to ${DESIGN_NAME}_placement at the top of cts.tcl. Blocks that exist: [get_object_name [get_blocks -all -quiet]]"
+    }
     link_block
 
     # Save as _cts immediately from clean placement checkpoint
