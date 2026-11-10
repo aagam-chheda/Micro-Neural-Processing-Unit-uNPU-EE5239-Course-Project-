@@ -1,0 +1,126 @@
+# ==============================================================================
+# Test: test_eco_scope.tcl (task 092)
+# Run : tclsh pnr_v2/test_eco_scope.tcl   (no PrimeTime / ICC2 needed)
+# Tests the reg2out scope of the PrimeTime hold ECO: UNPU_ECO_SCOPE, the target selection on sample violation rows (the 7 register-to-output endpoints of the route checkpoint), the release of the
+# nets that a flop drives into the read mux (mock of the PrimeTime commands), the cone check on a sample change file, the class of each insertion, the count file, and the apply script's tagged
+# input folder and the protection of the earlybuf_* cells.
+# ==============================================================================
+set here [file dirname [file normalize [info script]]]
+proc read_file {p} { set fp [open $p r]; set t [read $fp]; close $fp; return $t }
+set nfail 0; set npass 0
+proc check {name cond} {
+    global nfail npass
+    if {[uplevel 1 [list expr $cond]]} { incr npass } else { incr nfail; puts "FAIL $name   ($cond)" }
+}
+proc has {text lit} { return [expr {[string first $lit $text] >= 0}] }
+proc errmsg {script} { if {[catch {uplevel 1 $script} m]} { return $m }; return "" }
+
+source $here/pt/pt_common.tcl
+set apply [read_file $here/pt_eco_apply.tcl]
+foreach n {079 092} {
+    set b [string first "# ---- BEGIN PURE TCL $n ----" $apply]; set e [string first "# ---- END PURE TCL $n ----" $apply]
+    if {$b < 0 || $e < $b} { puts "FAIL pure block $n not found"; exit 1 }
+    eval [string range $apply $b $e]
+}
+
+# ---- 1. the scope variable ----
+check "scope: unset -> in2reg, source default" {[pt_eco_scope_resolve {}] eq "in2reg default"}
+check "scope: reg2out from the environment" {[pt_eco_scope_resolve {reg2out}] eq "reg2out {environment UNPU_ECO_SCOPE}"}
+check "scope: in2reg from the environment" {[pt_eco_scope_resolve {in2reg}] eq "in2reg {environment UNPU_ECO_SCOPE}"}
+foreach bad {"" "Reg2out" "reg2reg" "all" "in2out"} { check "scope rejected: '$bad'" {[string match "PT ERROR: UNPU_ECO_SCOPE=*" [errmsg {pt_eco_scope_resolve [list $bad]}]]} }
+
+# ---- 2. targets on sample rows ----
+proc row {ep sp spk epk slack} { return [dict create endpoint $ep startpoint $sp sp_kind $spk ep_kind $epk slack $slack group clk] }
+set rows {}
+foreach {ep sl} {{prdata[27]} -0.0238 {prdata[9]} -0.0069 {prdata[17]} -0.0053 {prdata[21]} -0.0029 {prdata[12]} -0.0003 {prdata[3]} -0.0002 {prdata[30]} -0.0001} {
+    lappend rows [row $ep u_csr/dest_c_reg_reg_5_/CK pin port $sl]   ;# placeholders: kinds as pt_collect_violations writes them (startpoint a pin, endpoint a port)
+}
+lappend rows [row u_dma/stage_reg_1__14_/D dma_rdata\[14\] port pin -0.0100]   ;# an input-to-register row
+lappend rows [row u_csr/x_reg/D u_csr/y_reg/CK pin pin -0.0050]                ;# register to register
+lappend rows [row prdata\[5\] paddr\[3\] port port -0.0010]                       ;# input to output (not a register start)
+check "reg2out: the 7 register-to-output endpoints, no other" {[llength [pt_eco_targets reg2out $rows]] == 7 && [lsort [lmap r [pt_eco_targets reg2out $rows] {dict get $r endpoint}]] eq [lsort {{prdata[27]} {prdata[9]} {prdata[17]} {prdata[21]} {prdata[12]} {prdata[3]} {prdata[30]}}]}
+check "in2reg: only the port-fed register endpoint (the reg2out rows are excluded)" {[llength [pt_eco_targets in2reg $rows]] == 1 && [dict get [lindex [pt_eco_targets in2reg $rows] 0] endpoint] eq "u_dma/stage_reg_1__14_/D"}
+check "reg2out: an input-to-output row is not a target" {[lsearch -exact [lmap r [pt_eco_targets reg2out $rows] {dict get $r endpoint}] prdata\[5\]] < 0}
+check "reg2out: a register-to-register row is not a target" {[lsearch -exact [lmap r [pt_eco_targets reg2out $rows] {dict get $r endpoint}] u_csr/x_reg/D] < 0}
+check "unreadable kinds belong to no scope" {[llength [pt_eco_targets reg2out [list [row a b "" port -1]]]] == 0 && [llength [pt_eco_targets in2reg [list [row a b port "" -1]]]] == 0}
+check "target line: endpoint, startpoint, slack" {[lindex [pt_eco_target_lines [list [lindex $rows 0]]] 0] eq "prdata\[27\] <- u_csr/dest_c_reg_reg_5_/CK (slack -0.0238)"}
+
+# ---- 3. the nets that a flop drives into the read mux are released (mock of the PrimeTime commands) ----
+proc foreach_in_collection {v coll body} { upvar 1 $v x; foreach i $coll { set x $i; uplevel 1 $body } }
+proc sizeof_collection {c} { return [llength $c] }
+proc get_object_name {x} { return $x }
+proc append_to_collection {var item} { upvar 1 $var v; lappend v $item }
+set NETDRV [dict create n_qn {u_csr/dest_c_reg_reg_5_/QN} n_mid {u_csr/U10/ZN} n_port {} n_nodrv {} n_apb {u_apb/U5/Z}]
+proc get_nets {args} { return n_port }          ;# the nets of the cone ports
+proc pt_cone_net_pins {net dir} { global NETDRV; return [dict get $NETDRV $net] }
+set cone [dict create cells {u_csr/U10 u_apb/U5} ports_c {prdata[3]} nets_c {n_qn n_mid n_port n_nodrv n_apb} nets {n_qn n_mid n_port n_nodrv n_apb}]
+set new [pt_cone_nets_reg2out $cone]
+check "net release: the flop-driven net (QN into the read mux) is released" {[lsearch -exact [dict get $new nets_c] n_qn] < 0}
+check "net release: a net driven by a cone cell stays protected" {[lsearch -exact [dict get $new nets_c] n_mid] >= 0 && [lsearch -exact [dict get $new nets_c] n_apb] >= 0}
+check "net release: a net on a cone port stays protected" {[lsearch -exact [dict get $new nets_c] n_port] >= 0}
+check "net release: a net with no known driver stays protected (the safe direction)" {[lsearch -exact [dict get $new nets_c] n_nodrv] >= 0}
+check "net release: the name list follows the collection" {[dict get $new nets] eq [lsort -unique [dict get $new nets_c]] && [llength [dict get $new nets_c]] == 4}
+check "net release: the cone cells are unchanged" {[dict get $new cells] eq {u_csr/U10 u_apb/U5}}
+check "net release: pure rule" {[pt_cone_net_keep {u_csr/dest_reg} {u_csr/U10}] == 0 && [pt_cone_net_keep {u_csr/U10} {u_csr/U10}] == 1 && [pt_cone_net_keep {} {u_csr/U10}] == 1 && [pt_cone_net_keep {u_csr/dest_reg u_csr/U10} {u_csr/U10}] == 1}
+check "net release: everything released -> error" {[string match "PT ERROR: reg2out: every cone net was released*" [errmsg {pt_cone_nets_reg2out [dict create cells {x} ports_c {} nets_c {n_qn} nets {n_qn}]}]]}
+
+# ---- 4. the cone check on a sample change file ----
+set chg "current_instance {u_csr}\ninsert_buffer \[get_pins {dest_c_reg_reg_5_/QN}\] dl01d1 -new_net_names {net_PTECO_HOLD_NET1} -new_cell_names {U_PTECO_HOLD_BUF1}\ninsert_buffer \[get_pins {src_a_reg_reg_9_/QN}\] dl01d1 -new_net_names {net_PTECO_HOLD_NET2} -new_cell_names {U_PTECO_HOLD_BUF2}\ncurrent_instance\n"
+set pr [eco079_parse $chg]
+check "sample file parses: 2 insertions" {[llength [dict get $pr errors]] == 0 && [llength [dict get $pr cmds]] == 2}
+set conecells {u_csr/U10 u_csr/ctmTdsLR_7 u_apb/U5}
+check "change on a flop QN pin outside the cone: clean" {[llength [pt_cone_hits [dict get $pr cmds] $conecells {prdata[3]}]] == 0}
+set bad "current_instance {u_csr}\ninsert_buffer \[get_pins {ctmTdsLR_7/Z}\] dl01d1 -new_net_names {a} -new_cell_names {b}\ninsert_buffer \[get_pins {U10/ZN}\] dl01d1 -new_net_names {c} -new_cell_names {d}\ncurrent_instance\ninsert_buffer \[get_ports {prdata\[3\]}\] dl01d1 -new_net_names {e} -new_cell_names {f}\nsize_cell {u_csr/U10} {oai222d2}\n"
+set prb [eco079_parse $bad]
+set hits [pt_cone_hits [dict get $prb cmds] $conecells {prdata[3]}]
+check "changes on the buffer ctmTdsLR_*, on the read-mux cell pin, on the cone port and a resize of a cone cell: all 4 reported" {[llength [dict get $prb errors]] == 0 && [llength $hits] == 4}
+check "hit texts name the objects" {[has [join [lmap h $hits {string cat [dict get $h what] " " [dict get $h name]}]] ctmTdsLR_7] && [has [join [lmap h $hits {string cat [dict get $h what] " " [dict get $h name]}]] {prdata[3]}]}
+
+# ---- 5. the class of each insertion ----
+check "class: flop output pin outside the cone is the expected form" {[pt_eco_classify_insert pin 0 1 1] eq "flop_output" && [string match "*expected form*" [pt_eco_class_text flop_output]]}
+check "class: a pin of a cone cell is cone, whatever else" {[pt_eco_classify_insert pin 1 1 1] eq "cone" && [pt_eco_classify_insert pin 1 0 0] eq "cone"}
+check "class: a port" {[pt_eco_classify_insert port 0 "" ""] eq "port"}
+check "class: flop input / combinational outside the cone / unreadable" {[pt_eco_classify_insert pin 0 1 0] eq "flop_input" && [pt_eco_classify_insert pin 0 0 1] eq "other" && [pt_eco_classify_insert pin 0 "" 1] eq "unknown" && [pt_eco_classify_insert pin 0 1 ""] eq "unknown"}
+check "class texts exist for all classes" {[llength [lsearch -all -inline -not -glob [lmap c {flop_output flop_input cone port other unknown} {pt_eco_class_text $c}] "class unknown*"]] == 5}
+
+# ---- 6. the count file ----
+set cft [pt_eco_expected_text 7 "Final ECO Summary" /x/pt_route/pt_eco_hold_changes_icc2.tcl reg2out]
+lassign [eco079_expect_decide 1 $cft 112 EXPECT_HOLD_CMDS] n src warn
+check "count file with a scope line: the apply parser still reads commands 7" {$n == 7 && $warn eq "" && [string match "*\nscope reg2out\n*" $cft]}
+check "count file without a scope: as before" {![string match "*scope*" [pt_eco_expected_text 112 s /x/f.tcl]] && [pt_eco_expected_text 112 s /x/f.tcl] eq [pt_eco_expected_text 112 s /x/f.tcl ""]}
+
+# ---- 7. the probe source ----
+set pb [read_file $here/pt/pt_eco_probe.tcl]
+check "probe reads UNPU_ECO_SCOPE once, through the validator, before the session is prepared" {[regexp -all {::env\(UNPU_ECO_SCOPE\)} $pb] == 2 && [string first "pt_eco_scope_resolve" $pb] < [string first "pt_prepare_session hold" $pb]}
+check "probe prints the scope with its source and the folders" {[has $pb {>>> 092 ECO scope $eco_scope ($eco_scope_src); input folder $PT_OUT_DIR, change files and reports in $PT_RPT_DIR}]}
+check "probe lists the targets and their count" {[has $pb {>>> 092 scope $eco_scope: [llength $eco_targets] of $n_before hold violators are targets}] && [has $pb {>>> 092   target: $l}]}
+check "the net release runs only in reg2out and before the protection" {[regexp {if \{\$eco_scope eq "reg2out"\} \{[^\n]*\n[^\n]*\n[^\n]*pt_cone_nets_reg2out} $pb] && [string first "pt_cone_nets_reg2out" $pb] < [string first "pt_cone_protect \$cone" $pb]}
+check "the cone cells stay protected and the AFTER check of the change file is still there" {[has $pb {pt_cone_hits [dict get $chk cmds] $cone_cells $cone_ports}] && [has $pb {pt_eco_result_line touches}]}
+check "every insertion is printed with pin and class; classes summed" {[has $pb {>>> 092 insertion [dict get $c idx]: pin [dict get $c full_pin]}] && [has $pb {>>> 092 insertions by class}]}
+check "remaining targets after the ECO are printed" {[has $pb {remaining after the ECO}] && [has $pb {remaining target: $l}]}
+set lit_cf "\$countfile\x7d\] \$eco_scope\]"
+check "the count file carries the scope" {[has $pb $lit_cf]}
+check "all outputs go to PT_RPT_DIR (the tag folder): no literal pt/ or outputs/ path" {![regexp {pnr_icc2/(pt|outputs)\y} [join [lmap l [split $pb "\n"] {expr {[string match "#*" [string trim $l]] ? "" : $l}}] "\n"]]}
+check "the hold margin is still the parameter PT_ECO_HOLD_MARGIN (0.05)" {[has $pb {-hold_margin $PT_ECO_HOLD_MARGIN}] && $PT_ECO_HOLD_MARGIN == 0.05}
+check "banner names the scope" {[has $pb {scope $eco_scope)}]}
+check "the protection of the cone is still on by default" {$PT_CONE_PROTECT == 1 && $PT_CONE_PROTECT_NETS == 1}
+
+# ---- 8. the apply script ----
+check "apply: no tag -> pnr_icc2/pt" {[eco092_pt_dir /r/pnr_icc2 ""] eq "/r/pnr_icc2/pt"}
+check "apply: tag route -> pnr_icc2/pt_route" {[eco092_pt_dir /r/pnr_icc2 route] eq "/r/pnr_icc2/pt_route"}
+foreach bad [list "a b" "../x" "a-b" [string repeat a 33]] { check "apply: tag rejected '$bad'" {[string match "ERROR 092: UNPU_PT_TAG=*" [errmsg {eco092_pt_dir /r/pnr_icc2 $bad}]]} }
+check "apply: the PrimeTime and the ICC2 side use the same folder for a tag" {[lindex [pt_tag_paths /r route] 1] eq [eco092_pt_dir /r/pnr_icc2 route]}
+check "protect: nothing to protect -> not ok (wrong block)" {[lindex [eco092_protect_decide 0 0] 0] == 0}
+check "protect: run 3 form (54 earlybuf, no antbuf) ok" {[lindex [eco092_protect_decide 0 54] 0] == 1 && [string match "0 antbuf_* and 54 earlybuf_* cells are protected" [lindex [eco092_protect_decide 0 54] 1]]}
+check "protect: run 1 form (15 antbuf) ok and both ok" {[lindex [eco092_protect_decide 15 0] 0] == 1 && [lindex [eco092_protect_decide 15 54] 0] == 1}
+check "count: unchanged -> no problem; changed -> sentence with both numbers" {[eco092_count_problem earlybuf_* 54 54] eq "" && [string match "earlybuf_* count 54 before the ECO, 53 after it" [eco092_count_problem earlybuf_* 54 53]]}
+check "apply source: UNPU_PT_TAG read, folder via eco092_pt_dir, missing folder is an ERROR 092" {[has $apply {info exists ::env(UNPU_PT_TAG)}] && [has $apply {set PT_DIR      [eco092_pt_dir $PNR_DIR $PT_TAG]}] && [has $apply {ERROR 092: UNPU_PT_TAG=$PT_TAG but the folder}]}
+check "apply source: every input file is under PT_DIR" {[has $apply {set ECO_HOLD_FILE   "${PT_DIR}/}] && [has $apply {set ECO_SETUP_FILE  "${PT_DIR}/}] && [has $apply {set ECO_COUNT_FILE  "${PT_DIR}/}]}
+check "apply source: the earlybuf_* cells are found, protected (snapshot) and counted before and after" {[has $apply {get_cells -quiet ${EARLY_PREFIX}_*}] && [has $apply {set ea_names [concat $ea_names $ea_early]}] && [has $apply {eco092_count_problem}] && [has $apply {${EARLY_PREFIX}_* count: $ea_nearly1 (before the ECO $ea_nearly)}]}
+check "apply source: the typed 15 is gone" {![string match "*EXPECT_ANTBUF*" [join [lmap l [split $apply "\n"] {expr {[string match "*The old EXPECT_ANTBUF*" $l] ? "" : $l}}] "\n"]]}
+check "apply source: the gates are unchanged (in2out and whole-design setup, tolerance GATE_TOL_SETUP)" {[has $apply {eco079_gate_check $glabel $gb $ga $gtol}] && [has $apply {set GATE_TOL_SETUP  0.005}] && [has $apply {the in2out group}]}
+check "apply source: the block is still saved over unpu_top_route only after the checks (the user copies the library first)" {[string first "save_block -force -as \${DESIGN_NAME}_route" $apply] > [string first "NOTHING SAVED" $apply]}
+
+puts "RESULT: $npass passed, $nfail failed"
+if {$nfail > 0} { exit 1 }
+exit 0

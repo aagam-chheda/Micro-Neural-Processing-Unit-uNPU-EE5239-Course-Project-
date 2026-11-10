@@ -269,3 +269,8 @@ The ECO probe log (second server run) shows `Checked out license 'PrimeTime-SI' 
 ## Checkpoint after route (task 091)
 
 `UNPU_PT_TAG` (csh: `setenv UNPU_PT_TAG route`, `unsetenv UNPU_PT_TAG` afterwards) makes `pt_common.tcl` read the checkpoint export `pnr_icc2/outputs_<tag>/` (written by `pv.tcl` with `UNPU_PV_TAG <tag>`) and write all reports to `pnr_icc2/pt_<tag>/`; run `pt_shell` from that folder (`mkdir -p pnr_icc2/pt_<tag>; cd pnr_icc2/pt_<tag>`). Without the variable nothing changes. The full sequence is in `pnr_v2/README.md`, section "Checkpoint after route (task 091)".
+
+## Scope reg2out of the hold ECO (task 092)
+
+`pt_eco_probe.tcl` reads the optional `UNPU_ECO_SCOPE` (`in2reg` = default, `reg2out`; csh `setenv` / `unsetenv`). `reg2out` targets the hold violators that start at a register and end at an output port (the 7 `prdata[*]` endpoints of the route checkpoint), keeps the in2out cone protected (cells always, nets only when driven by a cone cell or on a cone port) and prints the pin and class of every proposed insertion. With `UNPU_PT_TAG route` the probe reads `outputs_route/` and writes the change files and `pt_eco_hold_expected_count.txt` into `pnr_icc2/pt_route/`. The full sequence with the ICC2 apply and the second checkpoint is in `pnr_v2/README.md`, section "Hold ECO for register-to-output violators on the route checkpoint (task 092)".
+

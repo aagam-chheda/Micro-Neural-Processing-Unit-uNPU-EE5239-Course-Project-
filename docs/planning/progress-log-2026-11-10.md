@@ -60,3 +60,23 @@ Run 2 = the whole flow again from synthesis, with the lessons of run 1 built in.
 
 ### 5.3 Waiting for
 - The user's "commit and push" for 089 and 090, then `unpu_run3`: synthesis, gate-level simulation, NDM, setup, floorplan, power plan, placement, port buffers, CTS, route with PrimeTime and Calibre checkpoints (lesson L5), then fill, export, Calibre, PrimeTime, post-layout simulation.
+
+## 6. Run 3 (clone `unpu_run3`, commit `0196348` and later): results so far
+
+### 6.1 Front end and route
+- Synthesis, GLS: identical to runs 1 and 2 (2,465 flops, 442,295.85 um2, 343,341 checks). NDM, setup, floorplan, power plan, placement, early port buffers (54 buffers, 5 read-path nets skipped by the default `CONE_POLICY skip`), CTS, route: all complete, 0 errors.
+- The tool-made `set_clock_latency` line: created again inside `place_opt` and inside `build_clock`; removed each time by the proc of task 088; after CTS the I/O reference is PrimeTime's (output capture 0.0000, input launch 0.2403 = port stage). The 090 margin probes work (in2reg hold -0.1000, setup -0.0500; scope `flops`).
+- Route: 0 shorts, 0 opens; 090 report: in2out setup +0.0103 (after CTS) -> -0.0106 after route_opt in ICC2's view.
+
+### 6.2 Checkpoint after route (task 091), before fill and before any antenna ECO
+- PrimeTime on the route block (`UNPU_PT_TAG route`): SETUP ss: 0 violating endpoints (the run-1 `dma_addr[31]` failure is gone); HOLD ff: WNS -0.0238, TNS -0.0667, 7 violating endpoints, all register-to-output into `prdata[*]` from `u_csr` flops (PrimeTime sees up to 24 ps more than ICC2: parasitics). Run 1 had -0.24 / -0.35 on 1 / 263 endpoints.
+- Calibre on the route GDS: DRC 404 rules, 0 results; antenna 10 results (AN.MTL.1.M2 4, M3 2, MT 4): 8 on `paddr[7]`/`paddr[11]` (the skipped read-path nets), 2 on internal nets.
+- `fix_antenna.tcl` (layer hopping) then a second checkpoint (`route2`): antenna 4 results left, all M2 on `paddr[7]`; DRC 0 (re-run result pending when this was written; the antenna log showed 4).
+- Next: `antenna_port_buffers.tcl` for `paddr[7]` only (new antenna database from route2), then closure if the read path moves, then the hold ECO of task 092 (`reg2out` scope: 7 endpoints, flop-output nets released from the cone protection, read-mux cells still protected), checkpoint `route3`, PrimeTime and Calibre, then fill, final export, the three Calibre checks, both PrimeTime runs, the post-layout simulation.
+
+### 6.3 Tasks 091 and 092
+- 091 checkpoint export (`f179d05`): `pv.tcl` with `UNPU_PV_BLOCK` and `UNPU_PV_TAG`, `UNPU_PT_TAG` for PrimeTime, Calibre `sed` on the layout path.
+- 092 hold ECO for register-to-output violators (committed after this entry): `UNPU_ECO_SCOPE reg2out`, flop-driven nets released from the cone protection, tagged input folder, `earlybuf_*` protected.
+
+### 6.4 Server traps of this evening (for the explanation)
+- csh: a `foreach` loop cannot be written on one line; `2>` is "Ambiguous output redirect"; an escaped quote inside a double-quoted grep pattern gives "Unmatched". Calibre needs its own terminal with `siemens_cshrc_clean`, `MGC_HOME`, `CALIBRE_HOME` and `$MGC_HOME/bin` on the path. A `git pull` is needed in the clone before running a script that was committed after the clone.

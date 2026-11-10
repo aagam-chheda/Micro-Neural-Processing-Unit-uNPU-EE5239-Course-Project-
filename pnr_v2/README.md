@@ -462,6 +462,77 @@ Before each run the printed line must be `LAYOUT PATH "../../../outputs_route/un
 
 VERIFY list (task 091): V55 `save_block -force -as <name>` then `close_blocks` and `open_block <lib>:<name>` leaves the copy as the current block and the source block unmodified (`ls -l --time-style=full-iso` of the library folder of `unpu_top_route` before and after, or the block list); V56 the LEF macro rename for the block name `unpu_top_pv_route` (the generic rename of task 073 renames any single macro to `unpu_top`; the log line `LEF macro renamed ... -> unpu_top` or `already called` says which); V57 the Verilog module of the checkpoint netlist is `unpu_top` (checked by the script) and the GDS top cell is `unpu_top` (the `strings` check above); V58 Calibre resolves the relative `LAYOUT PATH` from `route1/drc` (`drc.log` names the GDS); V59 `route_global -congestion_map_only true`, `check_lvs` etc. behave on the route block as on the filled one (the reports go to `reports_route/`). Tests: `tclsh pnr_v2/test_pv_checkpoint.tcl`.
 
+## Hold ECO for register-to-output violators on the route checkpoint (task 092)
+
+Evidence (run 3, PrimeTime on `unpu_top_route`, `UNPU_PT_TAG route`): setup ss 0 violators; hold ff WNS -0.0238 ns, 7 violating endpoints, ALL register-to-output paths into `prdata[*]` from `u_csr` flops (`dest_c_reg_reg_*`, `src_a_reg_reg_*`, `src_b_reg_reg_*`) through the read mux (`oai222d1/d2`) and a tool buffer to the port. They are not input-to-output paths. The 090 margin (scope `flops`) does not reach output-port endpoints on purpose, so ICC2 did not fix them (ICC2 sees -0.0004).
+
+**What the new scope does** (`UNPU_ECO_SCOPE`, `in2reg` = the behaviour of tasks 078 to 081 and the DEFAULT, `reg2out` = new; validated, the source is printed in `>>> 092 ECO scope`):
+- The targets are the hold violators whose startpoint is a register pin and whose endpoint is an output port; they are listed with their count (`>>> 092   target:`). `fix_eco_timing` itself is still run WITHOUT a `-from` / `-to` restriction (the form that worked in tasks 078 to 081; no restriction option is known from a usage text), so it may also fix violators outside the scope; the count of other violators is printed and the targets that remain after the ECO are listed. Same data-chosen delay-cell list, same hold margin `PT_ECO_HOLD_MARGIN` 0.05 ns (a few ps to tens of ps of SPEF versus ICC2 difference; a fix closed at exactly 0.00 would not survive it).
+- **The finding behind the scope.** The cone protection of task 080 puts `dont_touch` on the cone CELLS and on every NET that touches a cone cell. The net from a flop's `QN` into the read mux touches a cone cell (`oai222`), so with the old rule PrimeTime may not insert a delay at the only place where a register-to-output delay belongs, and the 7 violators would remain with the message "every remaining violator crosses the cone". In `reg2out` the cone cells stay protected, but a cone NET stays protected only if it is DRIVEN by a cone cell or lies on a cone port. A net driven by a flop carries no input-to-output path (a flop ends a path), so it is released (`>>> 092 reg2out: cone nets kept protected ... released ...`).
+- **The cone-safety claim, and how it is checked.** (1) No input-to-output path runs on a released net by construction (driver is outside the cone). (2) The cone cells and the cone-driven nets and ports stay `dont_touch` during the ECO. (3) AFTER the ECO the written change file is parsed and every change is tested against the cone cells and ports: one change on a cone cell pin, a cone port or a resize of a cone cell ends the probe with `ECO RAN BUT TOUCHES THE IN2OUT CONE`. (4) Every insertion is printed with its pin and class (`>>> 092 insertion N: pin ...: on a flop output pin outside the cone (the expected form)`), and `>>> 092 insertions by class` sums them; anything that is not a flop output pin is listed and called out (outside the cone, but read it before applying). (5) The apply script's gate: in2out WNS and whole-design setup WNS in ICC2 must not worsen by more than 0.005 ns, else nothing is saved.
+- The change files and the count file (`pt_eco_hold_expected_count.txt`, with a `scope` line) go to the folder of `UNPU_PT_TAG` (`pnr_icc2/pt_<tag>/`); nothing is written into the final folders.
+
+**`pt_eco_apply.tcl`:** `UNPU_PT_TAG` selects the folder of the change files (`pnr_icc2/pt_<tag>/`, ERROR 092 if it does not exist). The typed `EXPECT_ANTBUF 15` is gone (run 3 has no `antbuf_*` yet): the 54 `earlybuf_*` buffers and any `antbuf_*` are protected like before (snapshot of reference, origin, orientation and pins, `dont_touch` switched off during the apply and on again), their counts are printed before and after and must be equal; a block with neither set is refused. All earlier gates stay (in2out and setup WNS tolerance 0.005, hold only a warning, DRC clean-up loop, 0 open nets, legality, each new cell placed next to its pin). It saves over `unpu_top_route`; the apply does no backup, the user copies the library first.
+
+**Sequence (csh, one command per line). Library backup first:**
+
+```
+cd $RUN_DIR/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_reg2out
+ls -ld blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_reg2out
+```
+
+PrimeTime terminal (the checkpoint folder is the one of the PrimeTime run of task 091):
+
+```
+cd $RUN_DIR/pnr_icc2/pt_route
+setenv UNPU_ECO_SCOPE reg2out
+setenv UNPU_PT_TAG route
+pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe_reg2out.log
+unsetenv UNPU_ECO_SCOPE
+unsetenv UNPU_PT_TAG
+grep ">>> 092\|PROBE RESULT\|AFTER-CHECK\|>>> 081" pt_eco_probe_reg2out.log
+```
+
+Read: `ECO scope reg2out (environment UNPU_ECO_SCOPE)`; `scope reg2out: 7 of 7 hold violators are targets` (if more than 7 appear, read the other ones: they are fixed too); `cone nets kept protected ... released ...` (released must be above 0); `PROBE RESULT: ECO RAN: N changes proposed ... (none touches the in2out cone)`; `insertions by class: N on a flop output pin outside the cone (expected)` with N equal to the number of changes; `remaining target` lines (none expected). If the result is `TOUCHES THE IN2OUT CONE`, stop: do not apply.
+
+ICC2 terminal:
+
+```
+cd $RUN_DIR/pnr_icc2
+setenv UNPU_PT_TAG route
+icc2_shell -f ../pnr_v2/pt_eco_apply.tcl < /dev/null |& tee pt_eco_apply_reg2out_console.log
+unsetenv UNPU_PT_TAG
+grep ">>> 092\|GATE\|CHECK\|STAGE 6g\|ERROR" pt_eco_apply_reg2out_console.log
+```
+
+Read: `change files from .../pt_route (UNPU_PT_TAG route)`; `0 antbuf_* and 54 earlybuf_* cells are protected`; `CHECK earlybuf_* count: 54 (before the ECO 54)`; `GATE setup ... ok` for the in2out group and the whole design; `check_routes AFTER: DRCs 0, open nets 0`; `STAGE 6g COMPLETE`. A GATE failure saves nothing (the library is untouched except the backup you made).
+
+Then the checkpoint again with a NEW tag and PrimeTime on it (setup and hold), the sequence of "Checkpoint after route (task 091)" with `route2`:
+
+```
+cd $RUN_DIR/pnr_icc2
+setenv UNPU_PV_BLOCK unpu_top_route
+setenv UNPU_PV_TAG route2
+icc2_shell -f ../pnr_v2/pv.tcl < /dev/null |& tee pv_route2_console.log
+unsetenv UNPU_PV_BLOCK
+unsetenv UNPU_PV_TAG
+mkdir -p pt_route2
+cd pt_route2
+setenv UNPU_PT_TAG route2
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+unsetenv UNPU_PT_TAG
+```
+
+Goal: setup ss 0 violators (unchanged), hold ff 0 violators. **Not in this pass:** the antenna repair for the 5 cone-skipped input nets and whatever the Calibre antenna run finds (Calibre has not run yet): the user tells Planning the Calibre result first; one combined sequence (antenna ECO, this hold ECO, checkpoint, PrimeTime, Calibre) can then be written. If the Calibre antenna pass is done BEFORE this ECO, run the ECO after it (the ECO needs the final netlist of the routed block).
+
+**Expectation for the 7 endpoints.** One delay cell per violating flop output, so at most 7 cells (fewer when several endpoints share a flop; each `prdata` bit has its own read-mux input, so about 7); the area change is printed by `fix_eco_timing` (`>>> 079 changes proposed ... area change`). Delay cells are slow at ss (0.4 to 0.9 ns, task 080), so a cell needed for 0.03 ns of hold at ff adds far more at ss.
+
+**What could hurt setup of the same flop's other paths.** A delay cell on the `QN` pin sits in front of ALL loads of that net, not only the read mux. Another path from the same flop (for example into the sequencer or the DMA address logic) gets the delay at ss, and register-to-register setup has about zero margin. PrimeTime's hold session is the ff corner only and cannot see it. The checks: the apply script's whole-design setup gate (ICC2 ss, 0.005 ns tolerance, nothing saved on a violation), then PrimeTime setup ss on `route2`. If the gate fails: read the setup report to find the path, then the options are a smaller delay cell on that flop only (a hold margin below 0.05 needs a written reason and the user's approval) or inserting at the read-mux input pin to isolate the one load (that pin belongs to a cone cell and the cone check forbids it; it needs a decision).
+
+VERIFY list (task 092): V60 `UNPU_ECO_SCOPE reg2out` run: the released nets are above 0 and PrimeTime really inserts on the `QN` pins (the class lines say so); V61 `get_attribute <pin> direction` returns `out`/`in` and `is_sequential` returns `true`/`false` for the flops (otherwise the class is `unknown` and printed); V62 `fix_eco_timing` still accepts the form without `-from` / `-to` on this netlist (as in tasks 078 to 081); V63 `earlybuf_*` cell and pin snapshots compare equal after the apply (the existing snapshot code; a difference ends the run with nothing saved). Tests: `tclsh pnr_v2/test_eco_scope.tcl`.
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.

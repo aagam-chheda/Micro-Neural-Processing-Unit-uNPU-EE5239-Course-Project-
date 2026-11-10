@@ -35,14 +35,37 @@ set STD_LEF     "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/le
 set STD_LIB     "scl180_std"
 set FILLER_LIB  "scl180_filler"
 set FILLER_REFS {feedth feedth3 feedth9}
-set PT_DIR      "${PNR_DIR}/pt"   ;# 079: where PrimeTime wrote the change files (pt_eco_probe.tcl, pt_eco_setup_probe.tcl)
+# ---- BEGIN PURE TCL 092 ----
+# 092: plain Tcl (tested by pnr_v2/test_pt_eco_apply.tcl). The folder of PrimeTime's change files: pnr_icc2/pt (default) or, with the tag of a checkpoint (UNPU_PT_TAG, task 091), pnr_icc2/pt_<tag>.
+proc eco092_pt_dir {pnr tag} {
+    if {$tag eq ""} { return ${pnr}/pt }
+    if {![regexp {^[A-Za-z0-9_]{1,32}$} $tag]} { error "ERROR 092: UNPU_PT_TAG='$tag' is not a valid tag (1 to 32 letters, digits or underscores)" }
+    return ${pnr}/pt_${tag}
+}
+# 092: the protected buffers: antbuf_* (antenna_port_buffers.tcl) and earlybuf_* (port_buffers_early.tcl). Either set may be empty (run 3: earlybuf only, the antbuf step comes later), both empty means this is not the block
+# 092: the script is meant for (the old guard "15 antbuf_*" is replaced by: what is there before must be there after, see eco092_count_problem). Returns {ok message}.
+proc eco092_protect_decide {n_ant n_early} {
+    if {$n_ant + $n_early == 0} { return [list 0 "no antbuf_* and no earlybuf_* cell found: this is not a block after port_buffers_early.tcl or antenna_port_buffers.tcl (nothing changed)"] }
+    return [list 1 "$n_ant antbuf_* and $n_early earlybuf_* cells are protected"]
+}
+# 092: "" when the count of a protected set is unchanged by the ECO, else a sentence
+proc eco092_count_problem {label before after} {
+    if {$before != $after} { return "$label count $before before the ECO, $after after it" }
+    return ""
+}
+# ---- END PURE TCL 092 ----
+set PT_TAG ""   ;# 092: optional environment variable UNPU_PT_TAG (task 091): read the change files of the checkpoint folder pt_<tag>
+if {[info exists ::env(UNPU_PT_TAG)]} { set PT_TAG [string trim $::env(UNPU_PT_TAG)] }
+set PT_DIR      [eco092_pt_dir $PNR_DIR $PT_TAG]   ;# 079: where PrimeTime wrote the change files (pt_eco_probe.tcl, pt_eco_setup_probe.tcl); 092: pt_<tag> with UNPU_PT_TAG
+if {$PT_TAG ne "" && ![file isdirectory $PT_DIR]} { error "ERROR 092: UNPU_PT_TAG=$PT_TAG but the folder $PT_DIR does not exist: the PrimeTime ECO probe (pt_eco_probe.tcl, run with the same UNPU_PT_TAG) writes it" }
+puts ">>> 092 change files from $PT_DIR[expr {$PT_TAG ne {} ? " (UNPU_PT_TAG $PT_TAG)" : { (no UNPU_PT_TAG: the final folder)}}]"
 
 # ---- parameters of THIS script ----
 set ECO_HOLD_FILE   "${PT_DIR}/pt_eco_hold_changes_icc2.tcl"    ;# 079: REQUIRED. The icc2tcl format of write_changes ("formatted for IC Compiler"); pt_eco_hold_changes.tcl has the same content
 set ECO_SETUP_FILE  "${PT_DIR}/pt_eco_setup_changes_icc2.tcl"   ;# 079: OPTIONAL (task 079 part 1 produces it); skipped with a printed line when it does not exist
 set ECO_COUNT_FILE  "${PT_DIR}/pt_eco_hold_expected_count.txt"   ;# 081: written by pt_eco_probe.tcl: the number of commands PrimeTime proposed (the expectation comes from the PrimeTime side, not from a typed number)
 set EXPECT_HOLD_CMDS 112        ;# 081: ONLY the fallback when ECO_COUNT_FILE does not exist (printed as a WARNING: an assumption). 109 was the first try (unprotected ECO), 112 the current one (in2out cone protected, commit 8b185fa); a different count in the change file is an error
-set EXPECT_ANTBUF   15          ;# 079: antenna_port_buffers.tcl made 15 port buffers; they must still be 15
+set EARLY_PREFIX    "earlybuf"  ;# 092: port_buffers_early.tcl (step 4c) names its buffers earlybuf_*; protected like the antbuf_* (dont_touch is already in the database; snapshot and count are compared at the end). The old EXPECT_ANTBUF 15 is gone: the counts before and after must be equal (eco092_count_problem)
 set BUF_PREFIX      "antbuf"    ;# 079: as antenna_port_buffers.tcl
 set CLK_PORT        "clk"       ;# 079: the clock port; its net's single leaf load is the CTS root (antenna_clk_root.tcl)
 set NEW_CELL_MARK   "PTECO"     ;# 079: PrimeTime's names contain this (U_PTECO_HOLD_BUF<n>, net_PTECO_HOLD_NET<n>); used to find extra / missing new cells
@@ -897,7 +920,13 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_names {}
     foreach_in_collection c [get_cells -quiet ${BUF_PREFIX}_*] { lappend ea_names [get_object_name $c] }
     set ea_nant [llength $ea_names]
-    if {$ea_nant != $EXPECT_ANTBUF} { error "ERROR 079: $ea_nant ${BUF_PREFIX}_* cells found, $EXPECT_ANTBUF expected: this is not the block after antenna_port_buffers.tcl (nothing changed)" }
+    set ea_early {}
+    foreach_in_collection c [get_cells -quiet ${EARLY_PREFIX}_*] { lappend ea_early [get_object_name $c] }
+    set ea_nearly [llength $ea_early]
+    lassign [eco092_protect_decide $ea_nant $ea_nearly] ea_pok ea_pmsg
+    if {!$ea_pok} { error "ERROR 092: $ea_pmsg" }
+    puts ">>> 092 $ea_pmsg"
+    set ea_names [concat $ea_names $ea_early]
     set ea_loads [ant068_net_leaf_pins $CLK_PORT]
     if {[llength $ea_loads] != 1} { error "ERROR 079: the clock port net $CLK_PORT has [llength $ea_loads] leaf loads, 1 expected (the CTS root)" }
     set ea_root [get_object_name [get_cells -quiet -of_objects [get_pins -quiet -exact [lindex $ea_loads 0]]]]
@@ -905,7 +934,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_snap0 [lmap nm $ea_names {ant072_snapshot $nm}]
     set ea_pnets {}
     foreach s $ea_snap0 { foreach e [dict get $s pins] { set pn [lindex $e 1]; if {$pn ne "-" && $pn ne "VDD" && $pn ne "VSS" && [lsearch -exact $ea_pnets $pn] < 0} { lappend ea_pnets $pn } } }
-    puts ">>> 079 protected cells: $ea_nant ${BUF_PREFIX}_* + the clock root $ea_root ([dict get [lindex $ea_snap0 end] ref]); signal nets [llength $ea_pnets]"
+    puts ">>> 079 protected cells: $ea_nant ${BUF_PREFIX}_* + $ea_nearly ${EARLY_PREFIX}_* + the clock root $ea_root ([dict get [lindex $ea_snap0 end] ref]); signal nets [llength $ea_pnets]"
     set ea_pcells [get_cells -quiet -exact $ea_names]
     if {$UNPROTECT_DURING} {
         catch {set_dont_touch $ea_pcells false}
@@ -1212,8 +1241,12 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     puts ">>> 079 CHECK protected cells ([llength $ea_names]): [expr {[llength $ea_diff] ? $ea_diff : {reference, origin and orientation identical; every pin on the same net except the [llength $ea_exp] expected move(s) listed above}}]"
     foreach d $ea_diff { lappend ea_failures "protected cell: $d" }
     set ea_nant1 [sizeof_collection [get_cells -quiet ${BUF_PREFIX}_*]]
-    puts ">>> 079 CHECK ${BUF_PREFIX}_* count: $ea_nant1 (expected $EXPECT_ANTBUF)"
-    if {$ea_nant1 != $EXPECT_ANTBUF} { lappend ea_failures "${BUF_PREFIX}_* count $ea_nant1 != $EXPECT_ANTBUF" }
+    set ea_nearly1 [sizeof_collection [get_cells -quiet ${EARLY_PREFIX}_*]]
+    puts ">>> 079 CHECK ${BUF_PREFIX}_* count: $ea_nant1 (before the ECO $ea_nant); ${EARLY_PREFIX}_* count: $ea_nearly1 (before the ECO $ea_nearly)"
+    foreach {ea_l ea_b ea_a} [list "${BUF_PREFIX}_*" $ea_nant $ea_nant1 "${EARLY_PREFIX}_*" $ea_nearly $ea_nearly1] {
+        set ea_cp [eco092_count_problem $ea_l $ea_b $ea_a]
+        if {$ea_cp ne ""} { lappend ea_failures $ea_cp }
+    }
     set ea_m1 [ant072_metrics "079 AFTER"]
     set ea_g1 [eco079_in2out_state "079 AFTER"]
     # 080: the GATE. The in2out group and the whole setup WNS must not be worse than before by more than the tolerance; hold only gives a warning (PrimeTime is the sign-off for hold).

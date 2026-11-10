@@ -1,6 +1,7 @@
 # ==============================================================================
 # Script: pt_eco_probe.tcl   (task 078)  -- PROBE of PrimeTime's own ECO commands, hold at the fast corner (ff)
 # Run   : cd <RUN_DIR>/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe.log
+# 092   : optional environment variables: UNPU_ECO_SCOPE (in2reg = default, reg2out = the register-to-output hold violators), UNPU_PT_TAG (task 091: the checkpoint folders outputs_<tag> / pt_<tag>).
 # Does  : the same preparation as pt_hold_ff.tcl (pt_prepare_session), then asks: does fix_eco_timing / fix_eco_hold + write_changes work here (licence, behaviour, output format)?
 #         It proposes netlist changes IN MEMORY only. It writes reports and the change files into pnr_icc2/pt/; no design file, SDC, SPEF or netlist is written or changed.
 # Ends  : with ONE line  `PROBE RESULT: ECO NOT AVAILABLE: <message>`, `PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: <PrimeTime's first messages>` or
@@ -19,6 +20,11 @@ pt_main {
     # PTE-077: fix_eco_timing recommends that this variable is set BEFORE the initial timing update of the session (otherwise it updates timing again itself). Only the probe sets it.
     set_app_var timing_save_pin_arrival_and_slack true   ;# VERIFY the variable name (taken from the message PTE-076/PTE-077 of the second server run)
     puts ">>> 078 timing_save_pin_arrival_and_slack set to true before the first update_timing (PTE-077 recommendation)"
+    # 092: the scope of the ECO: in2reg (DEFAULT, tasks 078-081) or reg2out (the register-to-output hold violators of the route checkpoint). Environment UNPU_ECO_SCOPE, validated, source printed.
+    set eco_envl {}
+    if {[info exists ::env(UNPU_ECO_SCOPE)]} { set eco_envl [list $::env(UNPU_ECO_SCOPE)] }
+    lassign [pt_eco_scope_resolve $eco_envl] eco_scope eco_scope_src
+    puts ">>> 092 ECO scope $eco_scope ($eco_scope_src); input folder $PT_OUT_DIR, change files and reports in $PT_RPT_DIR"
     set sdcv [pt_prepare_session hold $corner]
     set rpt ${PT_RPT_DIR}/pt_eco_hold_${corner}
     set probe_line ""
@@ -31,6 +37,12 @@ pt_main {
     set split [pt_eco_split_kinds $rows_before]
     puts ">>> 078 hold violators by kind (information; the ECO is run for ALL of them, without a -to / -from restriction): port-fed pin (startpoint is an input port, endpoint a pin) [dict get $split port_fed_pin]; other pin (endpoint a pin, startpoint a pin, e.g. register to register) [dict get $split other_pin]; endpoint is a port [dict get $split port]; kind unreadable [dict get $split unknown]; total [dict get $split total]"
     if {[dict get $split total] == 0} { puts ">>> 078 NOTE: there is no hold violator before the ECO; the probe has nothing to fix" }
+    # 092: the targets of the scope. fix_eco_timing is still run WITHOUT a -from / -to restriction (the form that worked in tasks 078-081; no restriction option is known from a usage text), so it may also
+    # 092: fix violators outside the scope: they are counted here and the number that remains is checked after the ECO.
+    set eco_targets [pt_eco_targets $eco_scope $rows_before]
+    puts ">>> 092 scope $eco_scope: [llength $eco_targets] of $n_before hold violators are targets of this scope ([expr {$n_before - [llength $eco_targets]}] other)"
+    foreach l [pt_eco_target_lines $eco_targets] { puts ">>> 092   target: $l" }
+    if {$eco_scope eq "reg2out" && [llength $eco_targets] == 0} { puts ">>> 092 NOTE: no register-to-output hold violator in this session: nothing for the scope reg2out to fix (check UNPU_PT_TAG and the corner)" }
 
     # ---- everything below is the probe: any error is the ANSWER, not a script error -----------------------------------------------------------------
     if {[catch {
@@ -124,6 +136,10 @@ pt_main {
         pt_load_eco_parser
         if {[catch {set cone [pt_in2out_cone]} cerr]} { error "CONE: $cerr" }
         pt_cone_print $cone ${rpt}
+        if {$eco_scope eq "reg2out"} {
+            # 092: the nets that a flop drives into a cone cell are released (see pt_cone_nets_reg2out); the cone cells stay dont_touch, and the AFTER check still rejects any change on a cone cell or port
+            if {[catch {set cone [pt_cone_nets_reg2out $cone]} nerr]} { error "CONE: $nerr" }
+        }
         set cone_cells [dict get $cone cells]
         set cone_ports [dict get $cone ports]
         set touching [pt_cone_touching $rows_before $cone_cells]
@@ -217,8 +233,8 @@ pt_main {
                 # 081: the count file for pt_eco_apply.tcl (the expectation comes from the PrimeTime side)
                 if {[string is integer -strict $nchg]} {
                     set cfpath ${PT_RPT_DIR}/pt_eco_hold_expected_count.txt
-                    set fp [open $cfpath w]; puts -nonewline $fp [pt_eco_expected_text $nchg $nsrc [expr {[info exists wr(icc2tcl)] ? $wr(icc2tcl) : $countfile}]]; close $fp
-                    puts ">>> 081 expected command count $nchg written to $cfpath (pt_eco_apply.tcl compares the change file against it)"
+                    set fp [open $cfpath w]; puts -nonewline $fp [pt_eco_expected_text $nchg $nsrc [expr {[info exists wr(icc2tcl)] ? $wr(icc2tcl) : $countfile}] $eco_scope]; close $fp
+                    puts ">>> 081 expected command count $nchg (scope $eco_scope) written to $cfpath (pt_eco_apply.tcl compares the change file against it)"
                 } else {
                     puts ">>> 081 WARNING: the number of proposed commands is unreadable ('$nchg'): NO count file is written; pt_eco_apply.tcl will fall back to its parameter EXPECT_HOLD_CMDS with a warning"
                 }
@@ -239,6 +255,20 @@ pt_main {
                 set hits [pt_cone_hits [dict get $chk cmds] $cone_cells $cone_ports]
                 puts ">>> 080 AFTER-CHECK of $chk_file: [llength [dict get $chk cmds]] changes parsed, [llength $hits] touch the cone"
                 foreach h $hits { puts ">>> 080   HIT change [dict get $h idx] (line [dict get $h line]): [dict get $h what] [dict get $h name]" }
+                # 092: every proposed insertion, its pin and class; the targets that remain
+                set eco_cls [dict create flop_output 0 flop_input 0 cone 0 port 0 other 0 unknown 0]
+                foreach c [dict get $chk cmds] {
+                    if {[dict get $c type] ne "insert_buffer"} continue
+                    lassign [pt_eco_insert_facts [dict get $c full_pin] $cone_cells] fcell fin fseq fout
+                    set cls [pt_eco_classify_insert [dict get $c objkind] $fin $fseq $fout]
+                    dict incr eco_cls $cls
+                    puts ">>> 092 insertion [dict get $c idx]: pin [dict get $c full_pin] ([dict get $c ref]): [pt_eco_class_text $cls]"
+                }
+                puts ">>> 092 insertions by class: [dict get $eco_cls flop_output] on a flop output pin outside the cone (expected), [dict get $eco_cls cone] on a cone cell, [dict get $eco_cls port] on a port, [dict get $eco_cls flop_input] on a flop input pin, [dict get $eco_cls other] on another combinational pin, [dict get $eco_cls unknown] unknown"
+                if {$eco_scope eq "reg2out" && ([dict get $eco_cls other] + [dict get $eco_cls flop_input] + [dict get $eco_cls unknown]) > 0} { puts ">>> 092 NOTE: some insertions are not on a flop output pin (listed above); they are outside the cone, the apply gate and PrimeTime decide, read them before applying" }
+                set eco_rem [pt_eco_targets $eco_scope $rows_after]
+                puts ">>> 092 scope $eco_scope: targets before [llength $eco_targets], remaining after the ECO (in PrimeTime's memory) [llength $eco_rem]"
+                foreach l [pt_eco_target_lines $eco_rem] { puts ">>> 092   remaining target: $l" }
                 if {[llength $hits] > 0} {
                     set probe_line [pt_eco_result_line touches "[llength $hits] of [llength [dict get $chk cmds]] proposed changes touch the cone; first: [dict get [lindex $hits 0] what] [dict get [lindex $hits 0] name] (change [dict get [lindex $hits 0] idx], line [dict get [lindex $hits 0] line]); change file [expr {[info exists wr(icctcl)] ? $wr(icctcl) : $countfile}] must NOT be applied"]
                 } else {
@@ -257,7 +287,7 @@ pt_main {
         }
     }
     puts "\n=============================================================================="
-    puts " ECO PROBE (hold, corner $corner; hold margin $PT_ECO_HOLD_MARGIN ns)"
+    puts " ECO PROBE (hold, corner $corner; hold margin $PT_ECO_HOLD_MARGIN ns; scope $eco_scope)"
     puts "   $probe_line"
     foreach cav [pt_summary_caveat [expr {[info exists PT_ANNOTATION_UNCHECKED] && $PT_ANNOTATION_UNCHECKED}]] { puts "   CAVEAT: $cav" }
     puts "=============================================================================="

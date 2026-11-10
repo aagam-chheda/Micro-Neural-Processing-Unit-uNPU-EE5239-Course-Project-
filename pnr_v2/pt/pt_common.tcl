@@ -1086,8 +1086,59 @@ proc pt_cone_missing {a b} {   ;# elements of a that are not in b
 }
 
 # 081: the content of the count file read by pt_eco_apply.tcl: the number of commands PrimeTime proposed, where it came from and the change file it belongs to
-proc pt_eco_expected_text {n source change_file} {
-    return "# written by pt_eco_probe.tcl: the number of commands PrimeTime proposed in the run that wrote the change file below; pt_eco_apply.tcl compares the change file against THIS number\ncommands $n\nsource $source\nchange_file $change_file\n"
+proc pt_eco_expected_text {n source change_file {scope ""}} {
+    set sc ""
+    if {$scope ne ""} { set sc "scope $scope\n" }   ;# 092: the scope of the probe run (in2reg / reg2out); an extra line, the apply script reads only `commands <N>`
+    return "# written by pt_eco_probe.tcl: the number of commands PrimeTime proposed in the run that wrote the change file below; pt_eco_apply.tcl compares the change file against THIS number\ncommands $n\n${sc}source $source\nchange_file $change_file\n"
+}
+
+# ---- 092: the ECO scope (pure parts) ----
+# 092: pt_eco_scope_resolve <env list> -> {scope source}; the list is {} when UNPU_ECO_SCOPE is not set, {value} when it is. in2reg = the behaviour of tasks 078-081 (DEFAULT); reg2out = the register-to-output hold violators (task 092).
+proc pt_eco_scope_resolve {envl} {
+    if {[llength $envl] == 0} { return [list in2reg default] }
+    set v [string trim [lindex $envl 0]]
+    if {[lsearch -exact {in2reg reg2out} $v] < 0} { error "PT ERROR: UNPU_ECO_SCOPE='$v' is not valid: in2reg or reg2out" }
+    return [list $v "environment UNPU_ECO_SCOPE"]
+}
+# 092: the violation rows (pt_collect_violations) that belong to a scope. in2reg: endpoint a pin, startpoint an input port. reg2out: endpoint an output port, startpoint a pin (a register). An unreadable kind belongs to no scope.
+proc pt_eco_targets {scope rows} {
+    set out {}
+    foreach r $rows {
+        set sp [dict get $r sp_kind]; set ep [dict get $r ep_kind]
+        if {$scope eq "in2reg" && $ep eq "pin" && $sp eq "port"} { lappend out $r }
+        if {$scope eq "reg2out" && $ep eq "port" && $sp eq "pin"} { lappend out $r }
+    }
+    return $out
+}
+# 092: one line per target: "endpoint <- startpoint (slack)"
+proc pt_eco_target_lines {rows} {
+    return [lmap r $rows {string cat [dict get $r endpoint] " <- " [dict get $r startpoint] " (slack " [dict get $r slack] ")"}]
+}
+# 092: does a NET of the cone need dont_touch in the reg2out scope? A net lies on an input-to-output path only when it is DRIVEN by a cone cell or by a cone port (a flop ends a path, so a net driven by a
+# 092: flop carries no input-to-output path even if it feeds a cone cell). drv_cells = the cells of the net's driver pins; no driver known = keep (the safe direction).
+proc pt_cone_net_keep {drv_cells cone_cells} {
+    if {[llength $drv_cells] == 0} { return 1 }
+    foreach c $drv_cells { if {[lsearch -exact $cone_cells $c] >= 0} { return 1 } }
+    return 0
+}
+# 092: the class of one proposed insertion (for the reg2out scope): cone | port | flop_output (the expected form: a delay cell on the output pin of a register that is not in the cone) | flop_input | other | unknown
+proc pt_eco_classify_insert {objkind in_cone is_seq is_out} {
+    if {$objkind eq "port"} { return port }
+    if {$in_cone} { return cone }
+    if {$is_seq eq "" || $is_out eq ""} { return unknown }
+    if {$is_seq && $is_out} { return flop_output }
+    if {$is_seq} { return flop_input }
+    return other
+}
+proc pt_eco_class_text {cls} {
+    switch -- $cls {
+        flop_output { return "on a flop output pin outside the cone (the expected form)" }
+        flop_input  { return "on an input pin of a flop (not the expected form)" }
+        cone        { return "on a pin of a cone cell" }
+        port        { return "on a port" }
+        other       { return "on a pin of a combinational cell outside the cone" }
+        default     { return "class unknown (the cell or pin attributes could not be read)" }
+    }
 }
 # ---- END PURE TCL 074 ----
 
@@ -1724,6 +1775,48 @@ proc pt_cone_unprotect {prot} {
     set v "<unreadable>"
     if {$c ne "" && [sizeof_collection $c] > 0} { catch {set v [get_attribute [index_collection $c 0] dont_touch]} }
     puts ">>> 080 dont_touch REMOVED again from the cone objects (read back of the first cell: $v)"
+}
+
+# 092: reg2out scope: keep dont_touch on the cone CELLS, but only on the cone NETS that are driven by a cone cell or lie on a cone port. The nets that a flop drives into a cone cell (the QN net into the read mux) are
+# 092: released: they carry no input-to-output path, and they are exactly where a hold delay for a register-to-output path belongs. Returns the cone dict with nets_c / nets replaced.
+proc pt_cone_nets_reg2out {cone} {
+    set cone_cells [dict get $cone cells]
+    set ports_c [dict get $cone ports_c]
+    set pnets {}
+    if {$ports_c ne "" && [sizeof_collection $ports_c] > 0} { foreach_in_collection n [get_nets -quiet -of_objects $ports_c] { lappend pnets [get_object_name $n] } }
+    set keep ""; set kept 0; set dropped {}; set nn {}
+    foreach_in_collection n [dict get $cone nets_c] {
+        set name [get_object_name $n]
+        set k 1
+        if {[lsearch -exact $pnets $name] < 0} {
+            set dcells {}
+            foreach_in_collection dp [pt_cone_net_pins $n out] { lappend dcells [eco079_pin_cell [get_object_name $dp]] }
+            set k [pt_cone_net_keep $dcells $cone_cells]
+        }
+        if {$k} { append_to_collection keep $n; lappend nn $name; incr kept } else { lappend dropped $name }
+    }
+    puts ">>> 092 reg2out: cone nets kept protected (driven by a cone cell or on a cone port): $kept; released (driven by a cell outside the cone, i.e. by a flop: no input-to-output path runs on them): [llength $dropped]; first released: [lrange [lsort $dropped] 0 4]"
+    if {$kept == 0} { error "PT ERROR: reg2out: every cone net was released; the protection would be empty" }
+    dict set cone nets_c $keep
+    dict set cone nets [lsort -unique $nn]
+    return $cone
+}
+# 092: facts about the pin of one proposed insertion: {cell in_cone is_seq is_out}; is_seq / is_out are "" when unreadable
+proc pt_eco_insert_facts {full_pin cone_cells} {
+    global pt_cone_h
+    set cell [eco079_pin_cell $full_pin]
+    set is_seq ""; set is_out ""
+    if {$cell ne ""} {
+        catch {
+            if {![info exists pt_cone_h($cell)]} { set pt_cone_h($cell) [get_cells -quiet $cell] }
+            if {[sizeof_collection $pt_cone_h($cell)] == 1} { set v [get_attribute $pt_cone_h($cell) is_sequential]; if {$v eq "true" || $v eq "false"} { set is_seq [expr {$v eq "true"}] } }
+        }
+        catch {
+            set pc [get_pins -quiet -exact $full_pin]
+            if {[sizeof_collection $pc] == 1} { set d [get_attribute $pc direction]; if {$d eq "out" || $d eq "in"} { set is_out [expr {$d eq "out"}] } }
+        }
+    }
+    return [list $cell [expr {[lsearch -exact $cone_cells $cell] >= 0}] $is_seq $is_out]
 }
 
 # 078: the common preparation of pt_hold_ff.tcl for a script that must have the same environment (used by pt_eco_probe.tcl): banner, SI, link, parasitics, SDC check, operating
