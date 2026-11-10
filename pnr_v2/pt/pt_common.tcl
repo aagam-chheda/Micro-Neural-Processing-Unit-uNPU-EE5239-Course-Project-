@@ -381,7 +381,7 @@ proc pt_parse_para_errors {text} {
     return $n
 }
 
-# 074: the table of "Report : annotated_parasitics -check -internal_nets -boundary_nets" as printed by PrimeTime:
+# 074: the table of "Report : annotated_parasitics -check -internal_nets -boundary_nets" as printed by PrimeTime (the header is TWO lines, SI on has the column `Coupled network` too, see pt_annotation_layout):
 #   Net Type | Total | Lumped | RC pi | RC network | Not Annotated     then the rows "  - Pin to pin nets | 16113 | 0 | 0 | 16113 | 0", "  - Driverless nets ...", "  - Loadless nets ..."
 #   for the internal nets and again under "Boundary/port nets", a total row "| 16688 | 0 | 0 | 16295 | 393 |", the line "Annotated nets : N", and numbered lines of the unannotated nets
 #   ("1.  csr_sel[2] (driver: <none>)").
@@ -398,12 +398,22 @@ proc pt_parse_annotation_table {text} {
     set cols {}
     set present 0
     set problem ""
+    set prev ""
     foreach l [split $text "\n"] {
+        set above $prev
+        set prev $l
         if {[regexp -nocase {Report\s*:\s*annotated_parasitics} $l]} { set present 1 }
         if {[regexp -nocase {^\s*net\s+type\s*\|(.*)$} $l -> rest]} {
             set present 1
             set cols {}
-            foreach c [split $rest "|"] { set c [string trim $c]; if {$c ne ""} { lappend cols [regsub -all {\s+} [string tolower $c] " "] } }
+            # the real header has TWO lines (the names are split across them: `  RC    |` above `network |`, `Not` above `Annotated`): the cells of the line directly above are joined with those of the Net Type line
+            set acells {}
+            if {[regexp {^\s*\|(.*)$} $above -> arest]} { set acells [split $arest "|"] }
+            set ncells [split $rest "|"]
+            for {set i 0} {$i < [llength $ncells]} {incr i} {
+                set c [string trim "[string trim [lindex $acells $i]] [string trim [lindex $ncells $i]]"]
+                if {$c ne ""} { lappend cols [regsub -all {\s+} [string tolower $c] " "] }
+            }
             if {[lsearch -exact $cols "total"] < 0 || [lsearch -exact $cols "not annotated"] < 0} {
                 set problem "the header line has no 'Total' and 'Not Annotated' column (the columns are: [join $cols { | }])"
                 set cols {}

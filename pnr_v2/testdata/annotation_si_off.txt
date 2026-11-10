@@ -1,17 +1,24 @@
-Report : annotated_parasitics -check -internal_nets -boundary_nets
+****************************************
+Report : annotated_parasitics
+	-check
+	-internal_nets
+	-boundary_nets
 Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 21:10:15 2026
+****************************************
 
-Net Type                |   Total | Lumped | RC pi | RC network | Not Annotated
---------------------------------------------------------------------------
-Internal nets
-  - Pin to pin nets     |   16389 |      0 |     0 |      16389 |             0
-  - Driverless nets     |     343 |      0 |     0 |          0 |           343
-  - Loadless nets       |      48 |      0 |     0 |          0 |            48
-Boundary/port nets
-  - Pin to pin nets     |     182 |      0 |     0 |        182 |             0
-  - Driverless nets     |       0 |      0 |     0 |          0 |             0
-  - Loadless nets       |      22 |      0 |     0 |          0 |            22
---------------------------------------------------------------------------
-                        |   16984 |      0 |     0 |      16571 |           413 |
-
-Annotated nets : 16571
+                    |         |         |         |   RC    |   Not   |
+Net Type            |  Total  | Lumped  |  RC pi  | network |Annotated|
+--------------------+---------+---------+---------+---------+---------+
+Internal nets       |         |         |         |         |         |
+  - Pin to pin nets |   16389 |       0 |       0 |   16389 |       0 |
+  - Driverless nets |     343 |       0 |       0 |       0 |     343 |
+  - Loadless nets   |      48 |       0 |       0 |       0 |      48 |
+--------------------+---------+---------+---------+---------+---------+
+Boundary/port nets  |         |         |         |         |         |
+  - Pin to pin nets |     182 |       0 |       0 |     182 |       0 |
+  - Driverless nets |       0 |       0 |       0 |       0 |       0 |
+  - Loadless nets   |      22 |       0 |       0 |       0 |      22 |
+--------------------+---------+---------+---------+---------+---------+
+                    |   16984 |       0 |       0 |   16571 |     413 |
