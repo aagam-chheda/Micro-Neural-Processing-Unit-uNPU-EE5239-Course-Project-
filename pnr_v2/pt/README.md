@@ -287,3 +287,7 @@ The after-check of `pt_eco_probe.tcl` judges every proposed insertion by the NET
 ## Task 096: `UNPU_PT_SDC` and the clock-path limit
 
 `UNPU_PT_SDC=legacy` makes `pt_setup_ss.tcl` / `pt_hold_ff.tcl` read `constraints/legacy/unpu_top_legacy.sdc` instead of the SDC that ICC2 wrote (same single change: `set_propagated_clock [all_clocks]`); the reports go to `pt_<tag>_legacy`. The exported SDC no longer carries the 0.40 ns clock-path `max_transition` (option B, `pv.tcl`). `pnr_v2/sdc_compare.tcl` compares the two SDCs. Details and csh commands: `pnr_v2/README.md`, section "Option B ...".
+
+## Annotation table with SI on (fix after the first SI-on runs)
+
+With `UNPU_PT_SI=1` `report_annotated_parasitics` prints an extra column (`Coupled network`). `pt_parse_annotation_table` now reads the columns from the header line (`Net Type | Total | ... | Not Annotated`): `Total` and `Not Annotated` are found by name, `Lumped`/`RC pi`/`RC network` by name, any other column counts as annotated nets, and the number of numbers per row must equal the number of header columns. The check stays mandatory and strict (0 percent not annotated on the pin-to-pin rows). A table that is in the text but cannot be parsed gives `the annotation table IS in the text but could not be parsed: <reason>` instead of `NOT in the session text`. One parser serves the setup and hold scripts, the three ECO probes (all through `pt_read_spef`) and `check_annotation.tcl`. Test data: `pnr_v2/testdata/annotation_si_{off,on}.txt` (the real rows of run 3).

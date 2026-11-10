@@ -390,22 +390,82 @@ proc pt_parse_para_errors {text} {
 proc pt_parse_annotation_table {text} {
     set rows {}
     set total {}
+    set total_extra 0
     set annotated ""
     set names {}
     set section internal
+    # the columns are READ from the header line (`Net Type | Total | Lumped | RC pi | RC network | [Coupled network |] Not Annotated`), never assumed (with SI on PrimeTime prints an extra column)
+    set cols {}
+    set present 0
+    set problem ""
     foreach l [split $text "\n"] {
-        if {[regexp -nocase {^\s*boundary} $l]} { set section boundary; continue }
-        if {[regexp -nocase {^\s*internal} $l]} { set section internal; continue }
-        if {[regexp -nocase {^\s*-\s*(pin\s+to\s+pin|driverless|loadless)\s+nets\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)} $l -> ty t lu pi rc na]} {
-            set ty [expr {[string match -nocase "pin*" $ty] ? "p2p" : ([string match -nocase "driver*" $ty] ? "driverless" : "loadless")}]
-            lappend rows [list $section $ty $t $lu $pi $rc $na]
+        if {[regexp -nocase {Report\s*:\s*annotated_parasitics} $l]} { set present 1 }
+        if {[regexp -nocase {^\s*net\s+type\s*\|(.*)$} $l -> rest]} {
+            set present 1
+            set cols {}
+            foreach c [split $rest "|"] { set c [string trim $c]; if {$c ne ""} { lappend cols [regsub -all {\s+} [string tolower $c] " "] } }
+            if {[lsearch -exact $cols "total"] < 0 || [lsearch -exact $cols "not annotated"] < 0} {
+                set problem "the header line has no 'Total' and 'Not Annotated' column (the columns are: [join $cols { | }])"
+                set cols {}
+            }
             continue
         }
-        if {[regexp {^\s*\|?\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|\s*([0-9]+)\s*\|?\s*$} $l -> a b c d e]} { set total [list $a $b $c $d $e]; continue }
+        if {[regexp -nocase {^\s*boundary} $l]} { set section boundary; continue }
+        if {[regexp -nocase {^\s*internal} $l]} { set section internal; continue }
+        if {[regexp -nocase {^\s*-\s*(pin\s+to\s+pin|driverless|loadless)\s+nets\s*\|(.*)$} $l -> ty rest]} {
+            set present 1
+            set nums {}
+            foreach c [split $rest "|"] { set c [string trim $c]; if {$c ne ""} { lappend nums $c } }
+            set lay [pt_annotation_layout $cols $nums]
+            if {[dict get $lay problem] ne ""} { if {$problem eq ""} { set problem "row '[string trim $l]': [dict get $lay problem]" }; continue }
+            set ty [expr {[string match -nocase "pin*" $ty] ? "p2p" : ([string match -nocase "driver*" $ty] ? "driverless" : "loadless")}]
+            set row [list $section $ty [dict get $lay total] [dict get $lay lumped] [dict get $lay rcpi] [dict get $lay rcnet] [dict get $lay notann]]
+            if {[dict get $lay extra] != 0 || [dict get $lay has_extra]} { lappend row [dict get $lay extra] }   ;# the annotated nets of columns beyond Lumped / RC pi / RC network (SI on: Coupled network)
+            lappend rows $row
+            continue
+        }
+        if {[regexp {^\s*\|?\s*([0-9]+(\s*\|\s*[0-9]+)+)\s*\|?\s*$} $l -> list_]} {
+            set nums {}
+            foreach c [split $list_ "|"] { lappend nums [string trim $c] }
+            set lay [pt_annotation_layout $cols $nums]
+            if {[dict get $lay problem] ne ""} { if {$problem eq ""} { set problem "total row '[string trim $l]': [dict get $lay problem]" }; continue }
+            set total [list [dict get $lay total] [dict get $lay lumped] [dict get $lay rcpi] [dict get $lay rcnet] [dict get $lay notann]]
+            set total_extra [dict get $lay extra]
+            continue
+        }
         if {[regexp -nocase {^\s*annotated\s+nets\s*:\s*([0-9]+)} $l -> n]} { set annotated $n; continue }
         if {[regexp {^\s*([0-9]+)\.\s+(\S+)\s+\(driver:\s*(.*?)\)\s*$} $l -> idx nm drv]} { lappend names [list $idx $nm $drv] }
     }
-    return [dict create found [expr {[llength $rows] > 0 && [llength $total] == 5}] rows $rows total $total annotated $annotated names $names]
+    set found [expr {[llength $rows] > 0 && [llength $total] == 5 && $problem eq ""}]
+    if {!$found && $present && $problem eq ""} {
+        set problem "the report is present but has [llength $rows] net row(s) and [expr {[llength $total] == 5 ? {a} : {no}}] total row"
+    }
+    return [dict create found $found rows $rows total $total total_extra $total_extra annotated $annotated names $names present $present problem $problem columns $cols]
+}
+# 074 (SI fix): map the numbers of one table line onto the columns of the header. cols = the lower-case column names after `Net Type` (empty = no header seen: the 5-column layout of the SI-off report is assumed).
+# Total / Not Annotated are found BY NAME; Lumped, RC pi, RC network by name (0 when the column does not exist); every other column is an annotated-net count too (SI on: Coupled network) and goes into `extra`.
+# The number of numbers must equal the number of columns, else `problem` says so. Returns a dict: total lumped rcpi rcnet notann extra has_extra problem.
+proc pt_annotation_layout {cols nums} {
+    set res [dict create total 0 lumped 0 rcpi 0 rcnet 0 notann 0 extra 0 has_extra 0 problem ""]
+    if {[llength $cols] == 0} { set cols {total lumped {rc pi} {rc network} {not annotated}} }
+    if {[llength $nums] != [llength $cols]} {
+        dict set res problem "[llength $nums] numbers but the header has [llength $cols] columns ([join $cols { | }])"
+        return $res
+    }
+    set known {total lumped {rc pi} {rc network} {not annotated}}
+    for {set i 0} {$i < [llength $cols]} {incr i} {
+        set c [lindex $cols $i]; set v [lindex $nums $i]
+        if {![string is integer -strict $v]} { dict set res problem "'$v' under '$c' is not a number"; return $res }
+        switch -- $c {
+            "total" { dict set res total $v }
+            "lumped" { dict set res lumped $v }
+            "rc pi" { dict set res rcpi $v }
+            "rc network" { dict set res rcnet $v }
+            "not annotated" { dict set res notann $v }
+            default { dict set res extra [expr {[dict get $res extra] + $v}]; dict set res has_extra 1 }
+        }
+    }
+    return $res
 }
 
 # 074: policy for the table. errors = the read_parasitics error count ("" when none was printed). Returns {ok lines}; every line is for the log.
@@ -424,7 +484,11 @@ proc pt_annotation_policy {parsed errors max_pct allow_unreadable} {
             lappend out "WARNING: the annotation table could not be found or read; continuing because PT_ALLOW_UNREADABLE_ANNOTATION is 1"
             return [list $ok $out]
         }
-        lappend out "the annotation table of report_annotated_parasitics could not be found or read (no rows or no total row); read parasitics_command.log, then either fix the parser or set PT_ALLOW_UNREADABLE_ANNOTATION"
+        if {[dict exists $parsed present] && [dict get $parsed present]} {
+            lappend out "the annotation table of report_annotated_parasitics IS in the text but could not be parsed: [dict get $parsed problem] (columns read from the header: [join [dict get $parsed columns] { | }]); read parasitics_command.log, then fix the parser or set PT_ALLOW_UNREADABLE_ANNOTATION"
+        } else {
+            lappend out "the annotation table of report_annotated_parasitics could not be found or read (no rows or no total row); read parasitics_command.log, then either fix the parser or set PT_ALLOW_UNREADABLE_ANNOTATION"
+        }
         return [list 0 $out]
     }
     set rows [dict get $parsed rows]
@@ -446,9 +510,10 @@ proc pt_annotation_policy {parsed errors max_pct allow_unreadable} {
         lassign $r sec ty t lu pi rc na
         if {$ty eq "p2p"} {
             incr p2p_total $t
-            incr p2p_ann [expr {$lu + $pi + $rc}]
+            set ex [expr {[llength $r] > 7 ? [lindex $r 7] : 0}]   ;# the annotated nets of the extra columns (SI on: Coupled network)
+            incr p2p_ann [expr {$lu + $pi + $rc + $ex}]
             incr p2p_un $na
-            lappend detail "$sec $t (annotated [expr {$lu + $pi + $rc}], not annotated $na)"
+            lappend detail "$sec $t (annotated [expr {$lu + $pi + $rc + $ex}], not annotated $na)"
         }
     }
     if {$p2p_total == 0} {
@@ -472,8 +537,9 @@ proc pt_annotation_policy {parsed errors max_pct allow_unreadable} {
     set names [dict get $parsed names]
     lappend out "unannotated nets listed in the report: [llength $names]; the first 10: [join [lmap n [lrange $names 0 9] {format "%s (driver: %s)" [lindex $n 1] [lindex $n 2]}] {, }]"
     set an [dict get $parsed annotated]
-    if {[string is integer -strict $an] && $an != ($p2p_ann + 0) && $an != ([lindex $tot 1] + [lindex $tot 2] + [lindex $tot 3])} {
-        lappend out "WARNING: 'Annotated nets : $an' differs from the annotated counts of the table ($p2p_ann pin-to-pin, [expr {[lindex $tot 1] + [lindex $tot 2] + [lindex $tot 3]}] in the total row)"
+    set tot_ann [expr {[lindex $tot 1] + [lindex $tot 2] + [lindex $tot 3] + [dict get $parsed total_extra]}]
+    if {[string is integer -strict $an] && $an != ($p2p_ann + 0) && $an != $tot_ann} {
+        lappend out "WARNING: 'Annotated nets : $an' differs from the annotated counts of the table ($p2p_ann pin-to-pin, $tot_ann in the total row)"
     }
     return [list $ok $out]
 }
@@ -1570,12 +1636,25 @@ proc pt_read_spef {corner spef} {
     if {$an_chunk ne ""} { puts ">>> 074 report_annotated_parasitics text from $PT_PARA_LOG ([string length $an_chunk] bytes):\n$an_chunk" }
     puts ">>> 074 session text: read_parasitics [string length $pt_rp_txt] bytes, report_annotated_parasitics [string length $pt_an_txt] bytes; file $logf: [pt_file_size0 $logf] bytes"
     set parsed ""
+    set present_problem ""
     foreach {src txt} [list "the session text of report_annotated_parasitics" $pt_an_txt "the part of $PT_PARA_LOG written by report_annotated_parasitics" $an_chunk "the last report block of $PT_PARA_LOG" [pt_last_annotation_block [pt_file_tail $logf 0]]] {
         set p [pt_parse_annotation_table [pt_last_annotation_block $txt]]
         if {![dict get $p found]} { set p [pt_parse_annotation_table $txt] }
         if {[dict get $p found]} { set parsed $p; puts ">>> 074 annotation table read from $src"; break }
+        if {[dict get $p present] && $present_problem eq ""} { set present_problem "in $src: [dict get $p problem] (columns read from the header: [join [dict get $p columns] { | }])" }   ;# 098: the table IS there but the parser could not read it
     }
     puts ">>> 074 ANNOTATION: read_parasitics errors '[expr {$errors eq {} ? {none printed} : $errors}]'"
+    if {$parsed eq "" && $present_problem ne ""} {
+        # the table IS in the text, the parser could not read it: say that (not "NOT in the session text"); the check stays mandatory
+        set why "the annotation table IS in the text but could not be parsed: $present_problem. The check stays MANDATORY (nothing is waived); the parser (pt_parse_annotation_table) reads the columns from the header line and needs a 'Total' and a 'Not Annotated' column and as many numbers per row as columns."
+        if {[string is integer -strict $errors] && $errors > 0} { error "PT ERROR: parasitics annotation: read_parasitics reported $errors error(s). $why" }
+        if {$PT_ALLOW_UNREADABLE_ANNOTATION} {
+            set PT_ANNOTATION_UNCHECKED 1
+            puts ">>> 074 WARNING: $why Continuing because PT_ALLOW_UNREADABLE_ANNOTATION is 1; the SUMMARY block carries the caveat."
+            return
+        }
+        error "PT ERROR: parasitics annotation: $why"
+    }
     if {$parsed eq ""} {
         # no table in the session
         set declared [pt_declared_after [expr {[info exists env($PT_ANNOTATION_ENV)] ? $env($PT_ANNOTATION_ENV) : {}}]]

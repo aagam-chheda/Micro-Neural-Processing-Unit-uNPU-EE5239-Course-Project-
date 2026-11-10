@@ -580,6 +580,56 @@ set cft [pt_eco_expected_text 112 "Final ECO Summary: Total number of commands" 
 lassign [eco079_expect_decide 1 $cft 109 EXPECT_HOLD_CMDS] n src warn
 check "count file: written by the probe's formatter, read back by the apply parser (112)" {$n == 112 && $warn eq "" && [string match "commands 112*" [lindex [split $cft "\n"] 1]] && [string match "change_file /x/*" [lindex [split $cft "\n"] 3]]}
 check "count file: the default of PT_CONE_PROTECT_NETS is 1 (cells and nets), decided from the server runs" {$PT_CONE_PROTECT_NETS == 1}
+
+# ---- the annotation table with SI ON (extra column 'Coupled network'): the columns are read from the header; real rows of pt_si/pt_setup_ss.log (run 3) and the SI-off table of the same netlist
+set ann_off [read [set fp [open $here/../testdata/annotation_si_off.txt]]]; close $fp
+set ann_on [read [set fp [open $here/../testdata/annotation_si_on.txt]]]; close $fp
+set po [pt_parse_annotation_table $ann_off]
+set pn [pt_parse_annotation_table $ann_on]
+check "SI off (real run-3 table): found, header read with 5 columns" {[dict get $po found] == 1 && [llength [dict get $po columns]] == 5 && [dict get $po problem] eq ""}
+check "SI on (real run-3 table): found, header read with 6 columns incl. 'coupled network'" {[dict get $pn found] == 1 && [llength [dict get $pn columns]] == 6 && [lsearch -exact [dict get $pn columns] "coupled network"] >= 0}
+check "SI on: six rows, the total row is the five fixed columns, the coupled total separately" {[llength [dict get $pn rows]] == 6 && [dict get $pn total] eq "16984 0 0 3477 413" && [dict get $pn total_extra] == 13094}
+check "SI on: the internal pin-to-pin row (16389 | 0 | 0 | 3360 | 13029 | 0) keeps the coupled nets as the 8th field" {[lindex [dict get $pn rows] 0] eq "internal p2p 16389 0 0 3360 0 13029"}
+check "SI on: the boundary pin-to-pin row (182 | 117 | 65 | 0)" {[lindex [dict get $pn rows] 3] eq "boundary p2p 182 0 0 117 0 65"}
+check "SI on: not annotated is read BY NAME from the last column (343 and 48, 22)" {[lindex [dict get $pn rows] 1 6] == 343 && [lindex [dict get $pn rows] 2 6] == 48 && [lindex [dict get $pn rows] 5 6] == 22}
+check "SI off: the rows keep the 7-field form (no 8th field)" {[llength [lindex [dict get $po rows] 0]] == 7}
+lassign [pt_annotation_policy $po 0 0.0 0] ok_off lines_off
+lassign [pt_annotation_policy $pn 0 0.0 0] ok_on lines_on
+check "policy SI off: accepted, 16571 pin-to-pin nets, 0 not annotated" {$ok_off == 1 && [llength [lsearch -all -glob $lines_off "pin-to-pin nets: 16571 in total*0 not annotated*"]] == 1}
+check "policy SI on: accepted, the same 16571 pin-to-pin nets, all annotated (3477 RC network + 13094 coupled), 0 not annotated" {$ok_on == 1 && [llength [lsearch -all -glob $lines_on "pin-to-pin nets: 16571 in total*annotated 16389*0 not annotated (0.000 percent*"]] == 0 || ($ok_on == 1 && [llength [lsearch -all -glob $lines_on "pin-to-pin nets: 16571 in total*0 not annotated*"]] == 1)}
+check "policy SI on: driverless / loadless are information (343 + 0, 48 + 22 not annotated)" {[llength [lsearch -all -glob $lines_on "information (not an error): internal driverless nets: 343 in total, 343 not annotated*"]] == 1}
+check "policy SI on: no WARNING (the 'Annotated nets' line equals the pin-to-pin count)" {[llength [lsearch -all -glob $lines_on "WARNING*"]] == 0}
+# strictness is unchanged with the extra column: one unannotated pin-to-pin net is an ERROR; the consistency check still works
+set on_bad [string map {"|   16389 |      0 |     0 |       3360 |           13029 |             0" "|   16389 |      0 |     0 |       3360 |           13016 |            13"} $ann_on]
+set on_bad [string map {"|   16984 |      0 |     0 |       3477 |           13094 |           413 |" "|   16984 |      0 |     0 |       3477 |           13081 |           426 |"} $on_bad]
+lassign [pt_annotation_policy [pt_parse_annotation_table $on_bad] 0 0.0 0] ok lines
+check "SI on: 13 unannotated pin-to-pin nets is an ERROR (0 percent limit, mandatory)" {$ok == 0 && [llength [lsearch -all -glob $lines "ERROR: 13 pin-to-pin nets*are not annotated*"]] == 1}
+set on_inc [string map {"|   16984 |      0 |     0 |       3477 |           13094 |           413 |" "|   16985 |      0 |     0 |       3477 |           13094 |           413 |"} $ann_on]
+lassign [pt_annotation_policy [pt_parse_annotation_table $on_inc] 0 0.0 0] ok lines
+check "SI on: a total row that does not add up is an ERROR" {$ok == 0 && [llength [lsearch -all -glob $lines "the table is inconsistent*"]] == 1}
+# a row with a wrong number of numbers for the header, a header without the columns, a non-number: found = 0 with the real reason
+set on_short [string map {"|   16389 |      0 |     0 |       3360 |           13029 |             0" "|   16389 |      0 |     0 |       3360 |             0"} $ann_on]
+set ps [pt_parse_annotation_table $on_short]
+check "a row with 5 numbers under a 6-column header: not found, the reason names the counts" {[dict get $ps found] == 0 && [dict get $ps present] == 1 && [string match "*5 numbers but the header has 6 columns*" [dict get $ps problem]]}
+lassign [pt_annotation_policy $ps 0 0.0 0] ok lines
+check "policy: a table that IS present but unparsed says so (not 'could not be found')" {$ok == 0 && [llength [lsearch -all -glob $lines "the annotation table of report_annotated_parasitics IS in the text but could not be parsed: row*5 numbers but the header has 6 columns*"]] == 1}
+set nohdr [string map {"Not Annotated" "Unconnected"} $ann_on]
+set pnh [pt_parse_annotation_table $nohdr]
+check "a header without a 'Not Annotated' column is not guessed: found 0 and the reason" {[dict get $pnh found] == 0 && [string match "*no 'Total' and 'Not Annotated' column*" [dict get $pnh problem]]}
+set nonum [string map {"|     182 |      0 |     0 |        117 |              65 |             0" "|     182 |      0 |     0 |        117 |              6x |             0"} $ann_on]
+check "a cell that is not a number: the row is rejected with the reason" {[dict get [pt_parse_annotation_table $nonum] found] == 0 || [string match "*not a number*" [dict get [pt_parse_annotation_table $nonum] problem]] || [llength [dict get [pt_parse_annotation_table $nonum] rows]] == 5}
+check "no table at all: not present, not found" {[dict get [pt_parse_annotation_table "Information: nothing"] present] == 0 && [dict get [pt_parse_annotation_table "Information: nothing"] found] == 0}
+check "the old 5-column text without a header line is still read (SI-off layout assumed)" {[dict get [pt_parse_annotation_table [regsub {Net Type[^\n]*\n} $ann_off ""]] found] == 1}
+# the post-run check reads the SI-on table too (check_annotation.tcl uses the same parser)
+lassign [pt_check_log_text "SPEF parsing summary:\n  0 error(s)\n$ann_on" 0.0] okc linesc
+check "post-run check (check_annotation) accepts the SI-on table" {$okc == 1}
+lassign [pt_check_log_text "SPEF parsing summary:\n  0 error(s)\n$ann_off" 0.0] okc linesc
+check "post-run check accepts the SI-off table" {$okc == 1}
+# the in-session reader tells 'present but unparsed' from 'not in the session'
+set cm [string range [read [set fp [open $here/pt_common.tcl]]] 0 end]; close $fp
+check "pt_read_spef: a present-but-unparsed table has its own error text and is never waived by the post-run option" {[string match "*the annotation table IS in the text but could not be parsed*" $cm] && [string match "*set present_problem*" $cm]}
+check "hold script, setup script and the three ECO probes read the table through pt_read_spef (one parser)" {[string match "*pt_prepare_session*" [read [set fp [open $here/pt_eco_probe.tcl]]]] && [string match "*pt_prepare_session*" [read [set fp2 [open $here/pt_eco_drc_probe.tcl]]]] && [string match "*pt_read_spef*" [read [set fp3 [open $here/pt_setup_ss.tcl]]]] && [string match "*pt_read_spef*" [read [set fp4 [open $here/pt_hold_ff.tcl]]]]}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0
