@@ -42,9 +42,7 @@ pt_main {
         if {[catch {report_timing -from [get_ports paddr*] -to [get_ports prdata*] -delay_type max -path_type full_clock_expanded -max_paths 10 -nworst 1} err]} { puts "report_timing paddr -> prdata failed: $err" }
     }
     # design rules
-    redirect -tee -file ${rpt}_design_rules.rpt {
-        if {[catch {report_constraint -all_violators -max_transition -max_capacitance -min_pulse_width} err]} { puts "report_constraint (design rules) failed: $err" }   ;# VERIFY the three options together
-    }
+    pt_design_rules_run setup $corner $sdcv   ;# 095: writes pt_setup_ss_design_rules.rpt, prints the DESIGN RULES block, feeds the SUMMARY
 
     # ---- summary -----------------------------------------------------------------------------------------------------------------------
     lassign [pt_violators max $PT_MAX_VIOLATED_DETAIL] wns tns num details
@@ -65,7 +63,8 @@ pt_main {
         if {!$vok} { set viol_err $vmsg; lappend PT_SUMMARY_EXTRA "VIOLATIONS FILE INCONSISTENT: $vmsg" }
     }
 
-    set verdict [pt_print_summary setup $corner $wns $tns $num $PT_ICC2_SETUP_WNS]
+    set icc2_ref [pt_icc2_reference setup]   ;# 095: from ICC2's report of the same export, not a constant
+    set verdict [pt_print_summary setup $corner $wns $tns $num $icc2_ref]
     if {$viol_err ne ""} { error "PT ERROR: $viol_err" }   ;# 078: raised after the SUMMARY block so that the summary is not lost
     puts "Reports in $PT_RPT_DIR. Log: pt_setup_ss.log (the tee of this run)."
 }

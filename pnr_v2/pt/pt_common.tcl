@@ -24,9 +24,23 @@ proc pt_tag_problem {tag} {
     if {![regexp {^[A-Za-z0-9_]{1,32}$} $tag]} { return "'$tag' is not a valid tag (1 to 32 letters, digits or underscores)" }
     return ""
 }
-proc pt_tag_paths {base tag} {   ;# {out_dir rpt_dir}
-    if {$tag eq ""} { return [list ${base}/pnr_icc2/outputs ${base}/pnr_icc2/pt] }
-    return [list ${base}/pnr_icc2/outputs_${tag} ${base}/pnr_icc2/pt_${tag}]
+# 095: with SI (crosstalk) analysis ON (UNPU_PT_SI=1) the REPORTS go to a folder of their own (pt_<tag>_si, or pt_si without a tag) so that an SI-on run never overwrites the SI-off reports; the inputs stay the same.
+proc pt_tag_paths {base tag {si 0}} {   ;# {out_dir rpt_dir}
+    set sfx [expr {$si ? "_si" : ""}]
+    if {$tag eq ""} { return [list ${base}/pnr_icc2/outputs ${base}/pnr_icc2/pt${sfx}] }
+    return [list ${base}/pnr_icc2/outputs_${tag} ${base}/pnr_icc2/pt_${tag}${sfx}]
+}
+# 095: the reports of ICC2 that were written for the same export (pv.tcl: reports[_<tag>]); the ICC2 reference of the summary is read from there (never typed in this file)
+proc pt_reports_dir {base tag} {
+    if {$tag eq ""} { return ${base}/pnr_icc2/reports }
+    return ${base}/pnr_icc2/reports_${tag}
+}
+# 095: the environment variable UNPU_PT_SI (0 or 1, nothing else). envl: the list of the raw values ({} when the variable is not set). Returns {value source}; an invalid value is an error (never read as 0).
+proc pt_si_resolve {envl} {
+    if {[llength $envl] == 0} { return [list 0 default] }
+    set v [lindex $envl 0]
+    if {$v ni {0 1}} { error "PT ERROR: UNPU_PT_SI='$v' is not valid: it must be 0 (SI off, the default) or 1 (SI/crosstalk analysis on, needs the PrimeTime-SI licence)" }
+    return [list $v {environment UNPU_PT_SI}]
 }
 set PT_TAG ""
 if {[info exists ::env(UNPU_PT_TAG)]} {
@@ -34,9 +48,15 @@ if {[info exists ::env(UNPU_PT_TAG)]} {
     set pt_tag_msg [pt_tag_problem $PT_TAG]
     if {$pt_tag_msg ne ""} { error "PT ERROR: UNPU_PT_TAG: $pt_tag_msg" }
 }
-lassign [pt_tag_paths $PT_BASE $PT_TAG] PT_OUT_DIR PT_RPT_DIR
+# 095: UNPU_PT_SI (0 default, 1 = SI on). The value, its source and the folder of the reports are printed; the licence check is in pt_si_setup.
+set pt_si_envl {}
+if {[info exists ::env(UNPU_PT_SI)]} { set pt_si_envl [list [string trim $::env(UNPU_PT_SI)]] }
+lassign [pt_si_resolve $pt_si_envl] PT_SI_ENABLE PT_SI_SOURCE
+lassign [pt_tag_paths $PT_BASE $PT_TAG $PT_SI_ENABLE] PT_OUT_DIR PT_RPT_DIR
+set PT_REPORTS_DIR [pt_reports_dir $PT_BASE $PT_TAG]   ;# 095: ICC2's reports of the same export
 if {$PT_TAG ne "" && ![file isdirectory $PT_OUT_DIR]} { error "PT ERROR: UNPU_PT_TAG=$PT_TAG but the folder $PT_OUT_DIR does not exist: run pv.tcl with UNPU_PV_TAG $PT_TAG first (README, checkpoint after route)" }
 if {$PT_TAG ne ""} { puts ">>> 091 PT CHECKPOINT tag $PT_TAG: inputs from $PT_OUT_DIR, reports in $PT_RPT_DIR (run pt_shell from that reports folder: parasitics_command.log is written to the current directory)" } else { puts ">>> 091 PT inputs from $PT_OUT_DIR, reports in $PT_RPT_DIR (no UNPU_PT_TAG: the final export)" }
+puts ">>> 095 SI (crosstalk) analysis: [expr {$PT_SI_ENABLE ? {ON} : {OFF}}] (source: $PT_SI_SOURCE); ICC2 reference reports from $PT_REPORTS_DIR"
 set PT_KIT       "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180"
 set PT_DESIGN    "unpu_top"
 
@@ -89,11 +109,11 @@ set PT_KNOWN_UNCONSTRAINED {pready}
 # Signal integrity (PrimeTime-SI). DEFAULT OFF. The ICC2 numbers were computed with SI/crosstalk analysis ON (route.tcl: time.si_enable_analysis true). With SI OFF PrimeTime sees no
 # crosstalk delta delay: its setup slack is usually BETTER (larger) and its hold slack usually BETTER than the ICC2 one, so a difference in that direction is expected.
 # 1 = turn it on; the script then checks the licence and stops if it is not available.
-set PT_SI_ENABLE 0
+# 095: PT_SI_ENABLE is set at the top of this file from the environment variable UNPU_PT_SI (0 = default). With 1 the reports go to pt_<tag>_si (or pt_si), never over the SI-off reports.
 
-# ICC2 figures for the same checks (user's run, handoff 18.35: setup WNS +0.0143 ns func_ss, hold WNS about -0.0004 ns func_ff)
-set PT_ICC2_SETUP_WNS  0.0143
-set PT_ICC2_HOLD_WNS  -0.0004
+# 095: the ICC2 reference figures are NOT constants any more (they were run-1 numbers): pt_icc2_reference reads them from ICC2's reports of the same export (pnr_icc2/reports[_<tag>]/unpu_top_final_{setup_ss,hold_ff}.rpt)
+set PT_ICC2_SETUP_REPORT "unpu_top_final_setup_ss.rpt"
+set PT_ICC2_HOLD_REPORT  "unpu_top_final_hold_ff.rpt"
 
 # How many violated endpoints get a full path report in the hold script, and how many in the setup script
 set PT_MAX_VIOLATED_DETAIL 50
@@ -108,6 +128,8 @@ set PT_VIOL_MAX_PATHS 100000
 set PT_ECO_HOLD_MARGIN 0.05
 # library cell name patterns for the buffer candidates (names relative to the library; the choice among them is made by DATA: is_buffer, delay, area -- see pt_eco_choose_buffers)
 set PT_ECO_LIB_PATTERNS {dl* buff*}
+# 095: buffer candidates for the max-transition ECO (pt_eco_drc_probe.tcl): plain buffers only. The dl* delay cells are NOT candidates there (a delay cell is a slow cell: it would make a transition problem worse).
+set PT_ECO_DRC_LIB_PATTERNS {buff* bufbd*}
 # 078 fix: when NO delay is readable from the library, the buffer list is the hold-fixing set: every candidate that matches PT_ECO_DELAY_PATTERN (the dl* delay cells) plus the cells in
 # PT_ECO_EXTRA_CELLS (buffd1: the smallest plain buffer), ordered by area, largest first, as the proxy for the delay (the first server run: the delay was n/a for all 18 cells). This is a
 # NAME-based choice, forced by the missing data; the log says so.
@@ -933,6 +955,7 @@ proc pt_eco_result_line {ok detail} {
         touches { return "PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE: $detail" }
         cone { return "PROBE RESULT: ECO NOT RUN, IN2OUT CONE NOT COMPUTED: $detail" }
         unchecked { return "PROBE RESULT: ECO RAN BUT THE IN2OUT CONE CHECK COULD NOT BE COMPLETED: $detail" }
+        clock { return "PROBE RESULT: ECO NOT RUN, CLOCK NETWORK NOT PROTECTED: $detail" }
         default { return "PROBE RESULT: ECO NOT AVAILABLE: $detail" }
     }
 }
@@ -1186,7 +1209,7 @@ proc pt_eco_new_buf_driver {dcells new_cell} {
 }
 # 093: the classes that make the AFTER check fail (a cone net, a cone driver pin, a cone port, a resize of a cone cell, and anything that could not be classified)
 proc pt_eco_class_violation {cls} {
-    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize unknown} $cls] >= 0}]
+    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize clock_net unknown} $cls] >= 0}]
 }
 proc pt_eco_class_text093 {cls} {
     switch -- $cls {
@@ -1196,12 +1219,13 @@ proc pt_eco_class_text093 {cls} {
         cone_driver  { return "driver (output) pin of a cone cell (VIOLATION)" }
         cone_port    { return "on a cone port (VIOLATION)" }
         cone_resize  { return "resize of a cone cell (VIOLATION)" }
+        clock_net    { return "change on a clock-network pin or cell (VIOLATION: the clock tree is not touched by a data-limit ECO, task 095)" }
         default      { return [pt_eco_class_text $cls] }
     }
 }
 # 093: the hits of the AFTER check, same form as pt_cone_hits ({idx line what name}), from the classes of the insertions. clsd: dict idx -> class. An insertion without a class is `unknown` (a violation).
 # 093: size_cell of a cone cell is a violation as before.
-proc pt_cone_hits_pin {cmds clsd cone_cells} {
+proc pt_cone_hits_pin {cmds clsd cone_cells {clock_cells {}}} {
     set out {}
     foreach c $cmds {
         set idx [dict get $c idx]
@@ -1213,6 +1237,7 @@ proc pt_cone_hits_pin {cmds clsd cone_cells} {
             lappend out [dict create idx $idx line [dict get $c line] what "insert_buffer on [dict get $c full_pin]: [pt_eco_class_text093 $cls]" name $nm]
         } elseif {[dict get $c type] eq "size_cell"} {
             if {[lsearch -exact $cone_cells [dict get $c full_inst]] >= 0} { lappend out [dict create idx $idx line [dict get $c line] what "size_cell of the cone cell to [dict get $c ref]" name [dict get $c full_inst]] }
+            if {[lsearch -exact $clock_cells [dict get $c full_inst]] >= 0} { lappend out [dict create idx $idx line [dict get $c line] what "size_cell of the clock-network cell to [dict get $c ref]: [pt_eco_class_text093 clock_net]" name [dict get $c full_inst]] }
         }
     }
     return $out
@@ -1228,6 +1253,183 @@ proc pt_eco_class_summary {counts} {
 proc pt_eco_class_row {idx pin ref cls net drivers} {
     return "$idx $pin $ref $cls net=[expr {$net eq {} ? {?} : $net}] drivers=[expr {[llength $drivers] == 0 ? {?} : [join $drivers ,]}]"
 }
+
+# ---- 095: design rules in the summary, the ICC2 reference from the export, the data-limit max-transition ECO (pure Tcl, tested in pnr_v2/test_drc_eco.tcl) ----
+# 095: the entries of report_constraint -all_violators (-max_transition -max_capacitance -min_pulse_width). A group starts at a heading line ("   max_transition"); an entry is a line with "(VIOLATED"
+# 095: whose last three numbers are required, actual, slack; the name is the first word of the line, or the line before when the entry is wrapped (a long pin name on its own line). A VIOLATED line whose
+# 095: numbers cannot be read is KEPT as an entry with empty numbers (never dropped). Returns a dict: ok (1 when the text is a report_constraint report), entries (dicts group name required actual slack).
+proc pt_parse_design_rules {text} {
+    set ok [regexp {Report\s*:\s*constraint} $text]
+    set group ""
+    set pending ""
+    set entries {}
+    foreach l [split $text "\n"] {
+        if {[regexp {^\s{3}(max_transition|max_capacitance|min_pulse_width|max_fanout|min_period|min_delay|max_delay)\s*$} $l -> g]} { set group $g; set pending ""; continue }
+        if {[string first "(VIOLATED" $l] >= 0} {
+            set name ""
+            set req ""; set act ""; set sl ""
+            set m [regexp {(-?[0-9]+\.?[0-9]*)\s+(-?[0-9]+\.?[0-9]*)\s+(-?[0-9]+\.?[0-9]*)\s*\(VIOLATED} $l -> req act sl]
+            if {!$m} { set req ""; set act ""; set sl "" }
+            set first [lindex [regexp -all -inline {\S+} $l] 0]
+            if {$first ne "" && ![string is double -strict $first] && [string index $l 0] eq " " && ![regexp {^\s{20,}} $l]} { set name $first } else { set name $pending }
+            lappend entries [dict create group [expr {$group eq {} ? {unknown} : $group}] name $name required $req actual $act slack $sl]
+            set pending ""
+            continue
+        }
+        if {[regexp {^\s{3}(\S+)\s*$} $l -> nm] && [string first "-----" $nm] < 0} { set pending $nm } else { set pending "" }
+    }
+    return [dict create ok $ok entries $entries]
+}
+# 095: the same number, to 1e-9
+proc pt_num_eq {a b} {
+    if {![string is double -strict $a] || ![string is double -strict $b]} { return 0 }
+    return [expr {abs($a - $b) < 1e-9}]
+}
+# 095: limits: the entries of pt_limit_entries (kind value clock_path line). Returns the values of the max_transition limits as {clock_values design_values}.
+proc pt_tran_limits {entries} {
+    set clk {}; set dw {}
+    foreach e $entries {
+        if {[dict get $e kind] ne "max_transition"} continue
+        if {[dict get $e clock_path]} { lappend clk [dict get $e value] } else { lappend dw [dict get $e value] }
+    }
+    return [list $clk $dw]
+}
+# 095: which limit applies to a max_transition entry: clock (its required value is a -clock_path limit), design (the design-wide one), both (the two limits have the same value: not separable), other.
+proc pt_tran_kind {required clk_values dw_values} {
+    set c 0; set d 0
+    foreach v $clk_values { if {[pt_num_eq $required $v]} { set c 1 } }
+    foreach v $dw_values  { if {[pt_num_eq $required $v]} { set d 1 } }
+    if {$c && $d} { return both }
+    if {$c} { return clock }
+    if {$d} { return design }
+    return other
+}
+# 095: the summary of the entries. Returns a dict: ok, total, groups (dict group -> count), tran (dict kind -> {n worst_slack worst_actual required}), and the counts maxcap, minpw, other_groups.
+proc pt_design_rules_summary {parsed clk_values dw_values} {
+    set groups [dict create]
+    set tran [dict create clock [list 0 "" "" ""] design [list 0 "" "" ""] both [list 0 "" "" ""] other [list 0 "" "" ""]]
+    foreach e [dict get $parsed entries] {
+        dict incr groups [dict get $e group]
+        if {[dict get $e group] ne "max_transition"} continue
+        set k [pt_tran_kind [dict get $e required] $clk_values $dw_values]
+        lassign [dict get $tran $k] n ws wa rq
+        incr n
+        set s [dict get $e slack]; set a [dict get $e actual]
+        if {[string is double -strict $s] && ($ws eq "" || $s < $ws)} { set ws $s }
+        if {[string is double -strict $a] && ($wa eq "" || $a > $wa)} { set wa $a }
+        if {$rq eq ""} { set rq [dict get $e required] }
+        dict set tran $k [list $n $ws $wa $rq]
+    }
+    set total 0
+    dict for {g n} $groups { incr total $n }
+    return [dict create ok [dict get $parsed ok] total $total groups $groups tran $tran]
+}
+proc pt_dr_count {sum group} { if {[dict exists [dict get $sum groups] $group]} { return [dict get [dict get $sum groups] $group] }; return 0 }
+# 095: MET / VIOLATED (N) / UNKNOWN (reason). Never MET for a text that is not a report_constraint report.
+proc pt_design_rules_verdict {sum} {
+    if {![dict get $sum ok]} { return "UNKNOWN (the design-rule report could not be read: no 'Report : constraint' header)" }
+    set n [dict get $sum total]
+    if {$n == 0} { return MET }
+    return "VIOLATED ($n)"
+}
+# 095: the lines of the DESIGN RULES block (printed in the log and in the summary)
+proc pt_design_rules_lines {sum clk_values dw_values} {
+    set out [list "DESIGN RULES (report_constraint -all_violators -max_transition -max_capacitance -min_pulse_width):"]
+    if {![dict get $sum ok]} { lappend out "  the report could not be read" }
+    foreach {k label} [list clock "max_transition, clock-path limit ([join $clk_values {, }] ns)" design "max_transition, design limit ([join $dw_values {, }] ns)" both "max_transition, a limit that is both clock-path and design-wide" other "max_transition, another limit"] {
+        lassign [dict get [dict get $sum tran] $k] n ws wa rq
+        if {$n == 0 && $k in {both other}} continue
+        lappend out "  $label: $n violators[expr {$n > 0 ? ", worst actual $wa ns (required $rq), worst slack $ws" : {}}]"
+    }
+    set known 0
+    foreach {g label} {max_capacitance "max_capacitance" min_pulse_width "min pulse width"} {
+        lappend out "  $label: [pt_dr_count $sum $g] violators"
+        incr known [pt_dr_count $sum $g]
+    }
+    set others [expr {[dict get $sum total] - [pt_dr_count $sum max_transition] - $known}]
+    if {$others > 0} { lappend out "  other groups of the report: $others violators ([dict get $sum groups])" }
+    lappend out "  DESIGN RULES: [pt_design_rules_verdict $sum]"
+    return $out
+}
+# 095: the line that joins timing and design rules: CLEAN only when both are MET; says what is not met otherwise (the setup/hold verdict words are not changed)
+proc pt_signoff_line {kind timing_verdict rules_verdict} {
+    if {$timing_verdict eq "MET" && $rules_verdict eq "MET"} { return "TIMING AND DESIGN RULES: both MET" }
+    set parts {}
+    if {$timing_verdict ne "MET"} { lappend parts "[string toupper $kind] $timing_verdict" }
+    if {$rules_verdict ne "MET"} { lappend parts "DESIGN RULES $rules_verdict" }
+    return "SIGN-OFF IS NOT CLEAN: [join $parts {; }]"
+}
+# 095: ICC2's worst slack from a report_timing text (the lines "slack (MET|VIOLATED) <value>", 2 decimals): the smallest. Returns {value raw n}; value "" when no such line.
+proc pt_icc2_slack_from_report {text} {
+    set best ""; set raw ""; set n 0
+    foreach l [split $text "\n"] {
+        if {[regexp {^\s*slack\s+\((?:MET|VIOLATED)\)\s+(-?[0-9]+\.?[0-9]*)\s*$} $l -> v]} {
+            incr n
+            if {$best eq "" || $v < $best} { set best $v; set raw $v }
+        }
+    }
+    if {$best ne "" && $best == 0} { set best 0.0 }
+    return [list $best $raw $n]
+}
+# 095: the text for "where the ICC2 figure came from"
+proc pt_icc2_source_text {file value raw n} {
+    if {$value eq ""} { return "ICC2 reference: NOT AVAILABLE ($file has no 'slack (MET|VIOLATED)' line, or the file is missing): the comparison is UNKNOWN" }
+    return "ICC2 reference: worst slack $raw of the $n paths in $file (the ICC2 report rounds to 2 decimals)"
+}
+
+# 095: the DATA-limit max-transition entries to fix: the max_transition entries whose required value is the design-wide limit (not a -clock_path limit). Returns the entries (dicts).
+proc pt_drc_select {parsed clk_values dw_values} {
+    set out {}
+    foreach e [dict get $parsed entries] {
+        if {[dict get $e group] ne "max_transition"} continue
+        if {[pt_tran_kind [dict get $e required] $clk_values $dw_values] eq "design"} { lappend out $e }
+    }
+    return $out
+}
+# 095: group the entries by NET. facts: dict name -> dict (net driver_refs driver_pins fanout kind). Entries whose name has no facts, or no net, go to the net "?" (never dropped). Returns a list of dicts
+# 095: {net entries worst_actual worst_slack driver_refs driver_pins fanout kind} ordered by the worst slack (most negative first).
+proc pt_drc_group_by_net {entries facts} {
+    set by [dict create]
+    foreach e $entries {
+        set nm [dict get $e name]
+        set net "?"
+        if {[dict exists $facts $nm]} { set f [dict get $facts $nm]; if {[dict get $f net] ne ""} { set net [dict get $f net] } }
+        dict lappend by $net $e
+    }
+    set rows {}
+    dict for {net es} $by {
+        set wa ""; set ws ""
+        foreach e $es {
+            if {[string is double -strict [dict get $e actual]] && ($wa eq "" || [dict get $e actual] > $wa)} { set wa [dict get $e actual] }
+            if {[string is double -strict [dict get $e slack]] && ($ws eq "" || [dict get $e slack] < $ws)} { set ws [dict get $e slack] }
+        }
+        set f [dict create net $net driver_refs {} driver_pins {} fanout "" kind ""]
+        foreach e $es { if {[dict exists $facts [dict get $e name]] && [dict get [dict get $facts [dict get $e name]] net] eq [expr {$net eq {?} ? {} : $net}]} { set f [dict get $facts [dict get $e name]]; break } }
+        lappend rows [dict create net $net entries $es worst_actual $wa worst_slack $ws driver_refs [dict get $f driver_refs] driver_pins [dict get $f driver_pins] fanout [dict get $f fanout] kind [dict get $f kind]]
+    }
+    set keyed {}
+    foreach r $rows { lappend keyed [list [expr {[dict get $r worst_slack] eq "" ? 1e9 : [dict get $r worst_slack]}] $r] }
+    set out {}
+    foreach k [lsort -real -index 0 -increasing $keyed] { lappend out [lindex $k 1] }
+    return $out
+}
+# 095: the nets file (';' separated, as the other csv files of the probes)
+proc pt_drc_nets_header {} { return "net;kind;driver_pins;driver_refs;fanout_load_pins;n_entries;worst_actual_ns;worst_slack_ns;entries" }
+proc pt_drc_nets_row {r} {
+    set names [lmap e [dict get $r entries] {dict get $e name}]
+    set d [expr {[llength [dict get $r driver_pins]] ? [join [dict get $r driver_pins] ,] : {?}}]
+    set f [expr {[llength [dict get $r driver_refs]] ? [join [dict get $r driver_refs] ,] : {?}}]
+    return "[dict get $r net];[expr {[dict get $r kind] eq {} ? {?} : [dict get $r kind]}];$d;$f;[expr {[dict get $r fanout] eq {} ? {?} : [dict get $r fanout]}];[llength [dict get $r entries]];[dict get $r worst_actual];[dict get $r worst_slack];[join $names ,]"
+}
+# 095: one printable line per net with the DATA that explains the transition (driver reference, number of load pins); nothing is guessed: a field that could not be read says so
+proc pt_drc_why {r} {
+    set refs [expr {[llength [dict get $r driver_refs]] ? [join [dict get $r driver_refs] /] : {driver unreadable}}]
+    set fo [dict get $r fanout]
+    set out "net [dict get $r net]: [llength [dict get $r entries]] entries, worst actual [dict get $r worst_actual] ns (slack [dict get $r worst_slack]); driven by $refs ([expr {[llength [dict get $r driver_pins]] ? [join [dict get $r driver_pins] ,] : {?}}]); [expr {$fo eq {} ? {load pins unreadable} : "$fo load pin(s)"}]"
+    if {[dict get $r kind] eq "port"} { append out "; the violation is at an OUTPUT PORT (the port load of the SDC is on this net)" }
+    return $out
+}
+# ---- end of the 095 procs ----
 
 # ---- END PURE TCL 074 ----
 
@@ -1426,10 +1628,16 @@ proc pt_check_opcond {corner} {
 }
 
 # 074: signal integrity switch with licence check
+# 095: the ECO probes are run SI off: their change files are read by pt_eco_apply.tcl from the SI-off folder, and an SI-on probe would write to pt_<tag>_si. A run with UNPU_PT_SI=1 is refused (nothing is silently redirected).
+proc pt_probe_si_guard {script} {
+    global PT_SI_ENABLE PT_SI_SOURCE
+    if {$PT_SI_ENABLE} { error "PT ERROR: $script is an ECO probe and runs with SI off: UNPU_PT_SI=1 ($PT_SI_SOURCE) would write its change files to the SI folder where pt_eco_apply.tcl does not look. Unset UNPU_PT_SI (csh: unsetenv UNPU_PT_SI)" }
+}
 proc pt_si_setup {} {
-    global PT_SI_ENABLE
-    if {!$PT_SI_ENABLE} { puts ">>> 074 SI/crosstalk analysis OFF (PT_SI_ENABLE 0): ICC2 had it ON, so PrimeTime is expected to be the same or LESS pessimistic than ICC2 (README)"; return }
-    if {[catch {get_license PrimeTime-SI} err]} { error "PT ERROR: PT_SI_ENABLE is 1 but the PrimeTime-SI licence could not be acquired: $err" }   ;# VERIFY get_license PrimeTime-SI
+    global PT_SI_ENABLE PT_SI_SOURCE PT_RPT_DIR
+    puts ">>> 095 SI state: [expr {$PT_SI_ENABLE ? {ON} : {OFF}}] (source: $PT_SI_SOURCE); reports go to $PT_RPT_DIR"
+    if {!$PT_SI_ENABLE} { puts ">>> 074 SI/crosstalk analysis OFF (UNPU_PT_SI not set to 1): ICC2 had it ON, so PrimeTime is expected to be the same or LESS pessimistic than ICC2 (README)"; return }
+    if {[catch {get_license PrimeTime-SI} err]} { error "PT ERROR: UNPU_PT_SI=1 but the PrimeTime-SI licence could not be acquired: $err" }   ;# VERIFY get_license PrimeTime-SI
     set_app_var si_enable_analysis true
     puts ">>> 074 SI/crosstalk analysis ON (licence acquired)"
 }
@@ -1969,6 +2177,123 @@ proc pt_eco_insert_facts_pin {objkind full_pin cone {new_cell ""}} {
 
 # 078: the common preparation of pt_hold_ff.tcl for a script that must have the same environment (used by pt_eco_probe.tcl): banner, SI, link, parasitics, SDC check, operating
 # condition, limits, update_timing + check_timing + clock propagation proof. Returns the SDC value dict.
+# 095: the design-rule check of the session (max_transition, max_capacitance, min pulse width): runs report_constraint, writes pt_<kind>_<corner>_design_rules.rpt, prints the DESIGN RULES block and stores the lines and the
+# 095: verdict for the SUMMARY (PT_DR_LINES, PT_DR_VERDICT). An unreadable report is UNKNOWN, never MET. sdcv: the dict of pt_read_sdc_and_check (maxtran / maxcap lines). Returns a dict: sum parsed clk dw report.
+proc pt_design_rules_run {kind corner sdcv} {
+    global PT_RPT_DIR PT_DR_LINES PT_DR_VERDICT
+    set txt ""
+    redirect -variable txt {
+        if {[catch {report_constraint -all_violators -max_transition -max_capacitance -min_pulse_width} err]} { puts "report_constraint (design rules) failed: $err" }   ;# VERIFY the three options together
+    }
+    set f ${PT_RPT_DIR}/pt_${kind}_${corner}_design_rules.rpt
+    set fp [open $f w]; puts $fp $txt; close $fp
+    lassign [pt_tran_limits [pt_limit_entries [dict get $sdcv maxtran] [dict get $sdcv maxcap]]] clk dw
+    set parsed [pt_parse_design_rules $txt]
+    set sum [pt_design_rules_summary $parsed $clk $dw]
+    set PT_DR_LINES [pt_design_rules_lines $sum $clk $dw]
+    set PT_DR_VERDICT [pt_design_rules_verdict $sum]
+    foreach l $PT_DR_LINES { puts ">>> 095 $l" }
+    puts ">>> 095 full report: $f"
+    return [dict create sum $sum parsed $parsed clk $clk dw $dw report $f]
+}
+# 095: the ICC2 reference figure for the summary, read from ICC2's report of the same export (never typed). kind: setup | hold. Returns the value ("" when unavailable) and appends the source line to PT_SUMMARY_EXTRA.
+proc pt_icc2_reference {kind} {
+    global PT_REPORTS_DIR PT_ICC2_SETUP_REPORT PT_ICC2_HOLD_REPORT PT_SUMMARY_EXTRA
+    set f ${PT_REPORTS_DIR}/[expr {$kind eq "setup" ? $PT_ICC2_SETUP_REPORT : $PT_ICC2_HOLD_REPORT}]
+    set text ""
+    if {[file exists $f]} { if {[catch {set fp [open $f r]; set text [read $fp]; close $fp} e]} { set text "" } }
+    lassign [pt_icc2_slack_from_report $text] v raw n
+    set line [pt_icc2_source_text $f $v $raw $n]
+    puts ">>> 095 $line"
+    lappend PT_SUMMARY_EXTRA $line
+    return $v
+}
+
+# 095: the facts of the object (pin or port) named in the design-rule report, for the data-limit ECO: its net, the leaf driver pins and their library references, the number of load pins (+ ports on the net).
+# 095: VERIFY get_pins/get_ports -exact with a hierarchical leaf pin, get_nets -of_objects, get_cells -of_objects <pin>, all_connected. A fact that cannot be read stays empty and `err` says why; nothing is guessed.
+proc pt_drc_net_facts {name} {
+    set res [dict create name $name kind "" net "" driver_pins {} driver_refs {} fanout "" err ""]
+    set kind pin
+    set obj [get_pins -quiet -exact $name]
+    if {[sizeof_collection $obj] == 0} { set obj [get_ports -quiet -exact $name]; set kind port }
+    if {[sizeof_collection $obj] == 0} { dict set res err "no pin or port named $name"; return $res }
+    dict set res kind $kind
+    if {[catch {
+        set nc [get_nets -quiet -of_objects $obj]
+        if {[sizeof_collection $nc] != 1} { error "[sizeof_collection $nc] nets on $name (1 expected)" }
+        lassign [pt_eco_net_info $nc] net dpins dcells dseq
+        dict set res net $net
+        dict set res driver_pins $dpins
+        set refs {}
+        foreach p $dpins { set r ""; catch {set r [get_attribute [get_cells -of_objects [get_pins -exact $p]] ref_name]}; lappend refs $r }
+        dict set res driver_refs $refs
+        set nin [sizeof_collection [pt_cone_net_pins $nc in]]
+        set nports 0
+        catch {set nports [sizeof_collection [filter_collection [all_connected $nc] "object_class == port"]]}
+        dict set res fanout [expr {$nin + $nports}]
+    } e]} { dict set res err $e }
+    return $res
+}
+# 095: the buffer candidates of the library by name pattern, as dicts {name raw func area delay} (delay is not read: empty), for pt_eco_choose_buffers. VERIFY get_lib_cells / get_lib_pins / lib attributes as in pt_eco_probe.tcl.
+proc pt_eco_lib_buffers {lib patterns} {
+    set cands {}
+    set seen {}
+    foreach pat $patterns {
+        foreach_in_collection lc [get_lib_cells -quiet "${lib}/${pat}"] {
+            set nm [lindex [split [get_object_name $lc] /] end]
+            if {[lsearch -exact $seen $nm] >= 0} continue
+            lappend seen $nm
+            set isb ""; set area ""
+            catch {set isb [get_attribute $lc is_buffer]}
+            catch {set area [get_attribute $lc area]}
+            set lpins {}
+            catch {
+                foreach_in_collection lp [get_lib_pins -of_objects $lc] {
+                    set pd ""; set pf ""
+                    catch {set pd [get_attribute $lp direction]}
+                    catch {set pf [get_attribute $lp function]}
+                    lappend lpins [dict create name [lindex [split [get_object_name $lp] /] end] dir $pd func $pf]
+                }
+            }
+            lappend cands [dict create name $nm raw $isb func [pt_eco_func_is_buffer $lpins] area $area delay ""]
+        }
+    }
+    return $cands
+}
+
+# 095: the CLOCK NETWORK is dont_touch during the data-limit ECO (the clock tree is not part of it: the 0.40 ns clock-path limit is a separate decision). Cells that own an output pin on the clock network (clock
+# 095: buffers/inverters/gates; flops are not: their Q pins are data) and the clock nets. VERIFY the pin/net attribute is_clock_network and the cell attribute is_sequential. Returns {cells_c nets_c} (collections of the
+# 095: objects that were switched on; pt_cone_unprotect switches them off) plus names (the cell names, for the after-check). An empty clock network is an ERROR (the protection would be void).
+proc pt_clock_protect {} {
+    set pins [get_pins -quiet -hierarchical -filter "is_clock_network == true && direction == out"]   ;# VERIFY the filter
+    if {[sizeof_collection $pins] == 0} { error "PT ERROR: no output pin on the clock network was found (attribute is_clock_network): the clock tree could not be protected" }
+    set cells [get_cells -quiet -of_objects $pins]
+    set cells [filter_collection $cells "is_sequential == false"]
+    set nets [get_nets -quiet -hierarchical -filter "is_clock_network == true"]
+    set pre_c [filter_collection $cells "dont_touch == true"]
+    set todo_c [remove_from_collection $cells $pre_c]
+    set pre_n [filter_collection $nets "dont_touch == true"]
+    set todo_n [remove_from_collection $nets $pre_n]
+    if {[sizeof_collection $todo_c] > 0} { set_dont_touch $todo_c true }
+    if {[sizeof_collection $todo_n] > 0} { set_dont_touch $todo_n true }
+    set names {}
+    foreach_in_collection c $cells { lappend names [get_object_name $c] }
+    set v "<none>"
+    if {[sizeof_collection $cells] > 0} { set v "<unreadable>"; catch {set v [get_attribute [index_collection $cells 0] dont_touch]} }
+    puts ">>> 095 clock network protected: [sizeof_collection $cells] clock cells ([sizeof_collection $todo_c] switched on, [sizeof_collection $pre_c] had dont_touch already), [sizeof_collection $nets] clock nets ([sizeof_collection $todo_n] switched on); read back of the first cell: dont_touch = $v"
+    if {[sizeof_collection $cells] == 0 || $v ne "true"} { error "PT ERROR: the clock network protection is not in effect (cells [sizeof_collection $cells], read back '$v')" }
+    return [dict create cells_c $todo_c nets_c $todo_n names $names]
+}
+# 095: is this pin (or the cell's output) on the clock network? 1 / 0 / "" (unreadable: the caller treats "" as a violation)
+proc pt_on_clock_network {objkind full_name} {
+    set v ""
+    catch {
+        if {$objkind eq "port"} { set o [get_ports -quiet -exact $full_name] } else { set o [get_pins -quiet -exact $full_name] }
+        if {[sizeof_collection $o] == 1} { set v [get_attribute $o is_clock_network] }
+    }
+    return [pt_eco_attr_bool $v]
+}
+
 proc pt_prepare_session {kind corner} {
     global PT_CORNER PT_NETLIST PT_RPT_DIR PT_EXPECT_MAX_TRANSITION PT_EXPECT_MAX_CAP
     file mkdir $PT_RPT_DIR
@@ -1986,14 +2311,23 @@ proc pt_prepare_session {kind corner} {
 
 # 074: the summary block and the comparison with ICC2, printed at the end of each script
 proc pt_print_summary {kind corner wns tns num icc2_wns} {
+    global PT_SI_ENABLE PT_DR_LINES PT_DR_VERDICT
     set v [pt_verdict $wns]
     puts "\n=============================================================================="
     puts " SUMMARY"
-    puts "   [pt_summary_line $kind $corner $wns $tns $num]"
+    puts "   [pt_summary_line $kind $corner $wns $tns $num], SI [expr {$PT_SI_ENABLE ? {ON} : {OFF}}]"
     puts "   [string toupper $kind]: $v[expr {$v eq {UNKNOWN} ? { (a number could not be read, see the log above)} : {}}]"
     puts "   [pt_compare_line $kind $wns $icc2_wns]"
     global PT_SUMMARY_EXTRA
     if {[info exists PT_SUMMARY_EXTRA]} { foreach l $PT_SUMMARY_EXTRA { puts "   $l" } }   ;# 078: e.g. the violations-file line
+    # 095: the design rules are part of the summary; sign-off is not clean when they are violated (or unreadable). The setup/hold verdict words above are unchanged.
+    if {[info exists PT_DR_LINES] && [info exists PT_DR_VERDICT]} {
+        foreach l $PT_DR_LINES { puts "   $l" }
+        puts "   [pt_signoff_line $kind $v $PT_DR_VERDICT]"
+    } else {
+        puts "   DESIGN RULES: NOT CHECKED in this run"
+        puts "   [pt_signoff_line $kind $v {NOT CHECKED}]"
+    }
     global PT_ANNOTATION_UNCHECKED
     foreach cav [pt_summary_caveat [expr {[info exists PT_ANNOTATION_UNCHECKED] && $PT_ANNOTATION_UNCHECKED}]] { puts "   CAVEAT: $cav" }
     puts "=============================================================================="

@@ -329,7 +329,7 @@ check "summary line: unreadable" {[pt_summary_line hold ff "" "" ""] eq "HOLD co
 check "comparison with ICC2 (setup)" {[pt_compare_line setup 0.0100 0.0143] eq "SETUP WNS: PrimeTime +0.0100 ns, ICC2 +0.0143 ns, difference -0.0043 ns (PrimeTime minus ICC2)"}
 check "comparison with ICC2 (hold)" {[pt_compare_line hold -0.0004 -0.0004] eq "HOLD WNS: PrimeTime -0.0004 ns, ICC2 -0.0004 ns, difference +0.0000 ns (PrimeTime minus ICC2)"}
 check "comparison with ICC2 (unreadable)" {[pt_compare_line hold "" -0.0004] eq "HOLD WNS: PrimeTime n/a ns, ICC2 -0.0004 ns, difference UNKNOWN"}
-check "ICC2 figures at the top" {$PT_ICC2_SETUP_WNS == 0.0143 && $PT_ICC2_HOLD_WNS == -0.0004}
+check "095: no ICC2 figure is a constant any more (the run-1 numbers are gone)" {![info exists PT_ICC2_SETUP_WNS] && ![info exists PT_ICC2_HOLD_WNS] && $PT_ICC2_SETUP_REPORT eq "unpu_top_final_setup_ss.rpt" && $PT_ICC2_HOLD_REPORT eq "unpu_top_final_hold_ff.rpt"}
 check "expected legacy values at the top" {$PT_EXPECT_PERIOD == 20.0 && $PT_EXPECT_SETUP_UNC == 1.5 && $PT_EXPECT_HOLD_UNC == 0.5}
 check "SI is off by default" {$PT_SI_ENABLE == 0}
 check "the override is empty by default" {$PT_SPEF_OVERRIDE(ss) eq "" && $PT_SPEF_OVERRIDE(ff) eq ""}

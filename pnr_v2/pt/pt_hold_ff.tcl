@@ -31,10 +31,7 @@ pt_main {
     redirect -tee -file ${rpt}_paths_worst20.rpt {
         if {[catch {report_timing -delay_type min -path_type full_clock_expanded -max_paths 20 -nworst 1} err]} { puts "report_timing (hold) failed: $err" }
     }
-    redirect -tee -file ${rpt}_design_rules.rpt {
-        if {[catch {report_constraint -all_violators -max_transition -max_capacitance -min_pulse_width} err]} { puts "report_constraint (design rules) failed: $err" }   ;# VERIFY the three options together
-    }
-
+    pt_design_rules_run hold $corner $sdcv   ;# 095: writes pt_hold_ff_design_rules.rpt, prints the DESIGN RULES block, feeds the SUMMARY
     # ---- every violated endpoint: endpoint, slack, startpoint and the clock arrival of both ends -------------------------------------------
     lassign [pt_violators min $PT_MAX_VIOLATED_DETAIL] wns tns num details
     foreach d $details {
@@ -68,7 +65,8 @@ pt_main {
         if {!$vok} { set viol_err $vmsg; lappend PT_SUMMARY_EXTRA "VIOLATIONS FILE INCONSISTENT: $vmsg" }
     }
 
-    set verdict [pt_print_summary hold $corner $wns $tns $num $PT_ICC2_HOLD_WNS]
+    set icc2_ref [pt_icc2_reference hold]   ;# 095: from ICC2's report of the same export, not a constant
+    set verdict [pt_print_summary hold $corner $wns $tns $num $icc2_ref]
     if {$viol_err ne ""} { error "PT ERROR: $viol_err" }   ;# 078: raised after the SUMMARY block so that the summary is not lost
     puts "Reports in $PT_RPT_DIR. Log: pt_hold_ff.log (the tee of this run)."
 }

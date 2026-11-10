@@ -277,3 +277,9 @@ The ECO probe log (second server run) shows `Checked out license 'PrimeTime-SI' 
 ## Pin-level cone check of the hold ECO (task 093)
 
 The after-check of `pt_eco_probe.tcl` judges every proposed insertion by the NET that feeds its pin, not by the cell: a load pin on a released (flop-driven) net is safe; a kept cone net, a driver pin of a cone cell, a cone port, a resize of a cone cell and anything unreadable (`unknown`) are violations. Each insertion prints `>>> 093 insertion N: pin ...; net ...; driver ...: <class>`, the probe writes `pt_<tag>/pt_eco_hold_pin_classes.txt`, and the result line ends with the class summary. The rule, the class table, the apply side and V64 to V67 are in `pnr_v2/README.md`, section "The cone check at PIN level (task 093)".
+
+## Task 095: design rules in the summary, the ICC2 reference, UNPU_PT_SI, the max-transition ECO probe
+
+- **DESIGN RULES block** in the log and in the SUMMARY of `pt_setup_ss.tcl` / `pt_hold_ff.tcl` (max_transition by limit: clock-path vs design, max_capacitance, min pulse width, `DESIGN RULES: MET` / `VIOLATED (N)` / `UNKNOWN`) and a line `SIGN-OFF IS NOT CLEAN` when they are violated; the setup/hold verdict words are unchanged. The ICC2 figure of the comparison line is read from ICC2's report of the same export (`reports[_<tag>]/unpu_top_final_{setup_ss,hold_ff}.rpt`); the source is printed.
+- **`UNPU_PT_SI=1`**: SI on, reports in `pt_<tag>_si` / `pt_si`; the ECO probes refuse it.
+- **`pt_eco_drc_probe.tcl`**: `fix_eco_drc -type max_transition` for the data limit with the in2out cone and the clock network `dont_touch`; applied with `setenv UNPU_ECO_KIND drc` in `pt_eco_apply.tcl`. Full text and the csh sequence: `pnr_v2/README.md`, section "Max-transition ECO for the DATA limit".

@@ -83,3 +83,21 @@ Run 2 = the whole flow again from synthesis, with the lessons of run 1 built in.
 
 ### 6.5 Note from the user (2026-11-10, evening)
 - The PDK has no decap cells, so no decoupling capacitors are added to the design for now. Nothing in the flow inserts them (the filler step uses `feedth`, `feedth3`, `feedth9` only). Mention it in the course report as a known limitation if the instructor asks about power integrity.
+
+## 7. Run 3 final layout: sign-off results and review (night of 2026-11-10)
+
+### 7.1 Results on the final filled layout (all copied to `~/server_pull/run3/`)
+- Hold ECO of task 092/093 applied (9 cells, +138 um2, all on flop-driven pins, gates ok: in2out +0.0362 -> +0.0385, hold in ICC2 -0.0158 -> -0.0028); checkpoint `route4`: PrimeTime setup +0.1058 / hold +0.0002, 0 violators; Calibre DRC 0, antenna 0. Metal fill and final export: LEF check passed (one macro `unpu_top`, 206 pins), SDF 3.0, exported SDC without `set_clock_latency` and with only the clock-level 1.5/0.5 uncertainty.
+- Final: Calibre DRC 404 rules / 0, antenna 16 rules / 0, LVS CORRECT (with the approved `FILTER_DWN2PSUB`); PrimeTime setup ss +0.1058 ns, hold ff +0.0002 ns, 0 violators, 100 percent annotated, propagated clock proved, SI OFF.
+- Numbers for the report: utilization 69.83 percent (cells 499,289 um2 in a 715,039 um2 core), global-route overflow 1.96 percent (H 1.79, V 2.12, worst cell 7 tracks), clock tree 2,465 sinks / 6 levels / 63 repeaters, ff latency 0.56 skew 0.32, ss latency 1.26 skew 0.75; ICC2 total dynamic power 8.43 mW (default activity, not meaningful); `check_pg_missing_vias` 9 (V2 5, V3 4) while Calibre is clean.
+- Post-layout simulation: runs A (ss nochecks), B (ss checks), C (ff nochecks): `ALL CHECKS PASSED`, 343,341, 0 FAIL, 0 `*E/*F`; the script says FAIL because of new SDF message forms (24 conditional-arc SDFNEP on `ad01d0`; SDFNL1 / SDFNET on reset flops in checks mode) and a violation counter that matches specify-source context lines (`grep "Timing violation"` = 0); run D failed twice with `NOLICN` (all six Xcelium licence features failed: seats in use). Task 094 (verdict honesty, classification, user approval switch).
+
+### 7.2 Review findings
+- REAL GAP: the final ss design-rule report has 510 max_transition entries: 424 on the clock-path limit 0.40 ns (actual 0.43-0.48; the limit comes from the example `cts.tcl`, exported in the SDC, not in the legacy SDC: the L7 item, user decision pending: option A tune CTS, option B drop from the exported SDC with a written reason; Planning recommends asking whether the limit is a required sign-off limit) and 86 on the DATA limit 3.0 ns (legacy SDC; actual 3.03-3.05; `dma_wdata[25/27/29]`, `u_actbuf/U4xx/A2`). ICC2's own final QoR shows 10 violating nets. The PrimeTime summary did not report design rules. USER DECISION: fix the 86 by an ECO (task 095). 
+- The PrimeTime summary prints run-1 constants as the ICC2 reference (hardcoded): to be removed (task 095).
+- Hold margin is +0.0002 ns with SI OFF; an SI-on run is a robustness check (task 095, part 3).
+
+### 7.3 Explanations given to the user today (for the final explanation)
+- ECO = engineering change order, a small local fix on a nearly finished layout, with gates and a fresh checkpoint after each.
+- SI = signal integrity (crosstalk): coupling capacitance to switching neighbours changes delay by tens of ps; PrimeTime without SI is less pessimistic than ICC2 with SI.
+- Max transition = slew limit; clock-path limit 0.40 ns versus the course's data limit 3.0 ns.

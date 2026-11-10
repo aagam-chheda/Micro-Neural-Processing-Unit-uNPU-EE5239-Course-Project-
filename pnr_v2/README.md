@@ -562,6 +562,108 @@ The AFTER check fails (`PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE`) only
 
 VERIFY list (task 093): V64 `get_nets -quiet -of_objects <pin>` on a pin of a cell inside a hierarchy returns the same net NAME as the cone traversal used for the kept and released lists (a mismatch makes the state `none` and the class `unknown`, which is printed, never a silent pass); V65 `pt_cone_net_pins <net> out` (`all_connected -leaf`) lists the QN pin of the flop as the driver of the net; V66 `get_attribute <flop cell> is_sequential` is `true`; V67 `get_pins -quiet -exact <full pin>` finds the pins of the change file; V68 `get_pins -of_objects <new buffer cell> -filter "direction == in"` returns the buffer's one input pin and `get_nets -of_objects` of it the original net (otherwise `unknown`, printed). Tests: `tclsh pnr_v2/test_eco_scope.tcl` (114 checks, 52 of them new for 093, with the 9 real pins of `route3` in the shape PrimeTime shows after the insertion).
 
+## Max-transition ECO for the DATA limit, design rules in the PrimeTime summary, UNPU_PT_SI (task 095)
+
+**Evidence (run 3, final filled layout, ss).** `report_constraint -all_violators -max_transition -max_capacitance -min_pulse_width`: 510 `max_transition` entries, 0 `max_capacitance`, 0 min pulse width (the parser of `pt_parse_design_rules` reproduces these numbers from the real report, `pnr_v2/testdata/095_run3_ss_design_rules.rpt`; the ff report has none). Two groups: 424 on the CLOCK-PATH limit 0.40 ns (not part of this task: the user dropped it from the exported SDC, task 096) and **86 on the DATA limit 3.0 ns** (`set_max_transition 3 [current_design]`, legacy SDC): actual 3.00 to 3.05 ns; the entries with slack `0.00 (VIOLATED: increase significant digits)` are over by less than 5 ps.
+
+**The 86 entries are on 9 nets** (traced from the post-layout netlist of run 3 with a throw-away script; the probe prints the same table from PrimeTime, `pt_eco_drc_ss_nets.csv`):
+
+| Net | Driver | Load pins | Entries | Why the transition is high |
+|---|---|---|---|---|
+| `u_seq/HFSNET_137` | `buffd1` `u_seq/HFSBUF_1163_489` | 40 | 41 (the load pins `A2`/`B2` of `U367..U390`, the select pins `U97/S`, `U396/S`) | the high-fanout synthesis buffer is the SMALLEST buffer (`buffd1`) and drives 40 loads |
+| `u_actbuf/HFSNET_29` | `buffd1` `u_actbuf/HFSBUF_21543_531` | 37 | 38 (37 load pins `A2` of `U412..U481` and the driver pin `HFSBUF_21543_531/Z` itself, 3.02) | the same: a `buffd1` on 37 loads |
+| `dma_wdata[7], [11], [21], [25], [27], [29], [31]` | `an02d4` (`U150`, `U210`, `U99`, `U157`, `U220`, `U198`, `U101`) | 0 (an OUTPUT PORT) | 7 (the port) | the port load of the SDC (`set_load -pin_load 1` = 1 pF) on an AND gate |
+
+**Proposed fix (what the ECO is expected to do; PrimeTime chooses):** size up the two `buffd1` (to `buffd3`/`buffd7`), or split the net with buffers; for the 7 ports a stronger driver or a buffer in front of the port (`an02d4` may already be the largest AND: then `insert_buffer`). The area cost is a few cells.
+
+**Part 1: `pt/pt_eco_drc_probe.tcl` (new) and `pt_eco_apply.tcl` with `UNPU_ECO_KIND drc`.**
+- The probe (ss) runs `pt_prepare_session`, the design-rule report BEFORE, selects the entries whose required value is the design-wide limit (read from the SDC, not typed), writes the net table, runs `fix_eco_drc -type max_transition -methods {size_cell insert_buffer} -buffer_list <plain buffers>` (forms in order: collection, bare names, no list, type only; an option error tries the next form; the help text is printed first), writes `pt_eco_drc_changes{.tcl,_icc2.tcl,.txt}`, `pt_eco_drc_expected_count.txt` and `pt_eco_drc_pin_classes.txt`, and prints the AFTER design rules in PrimeTime's memory (remaining data-limit violators listed, the clock-path count before/after: it must not change).
+- **Protection, stated rule.** The in2out cone is `dont_touch` as in 092/093 (cells, and the nets that carry an input-to-output path; the nets that a flop drives into the cone are released) and the CLOCK NETWORK is `dont_touch` too (cells with an output pin on the clock network and the clock nets; an empty clock network or a failed read-back of the attribute is an error: `PROBE RESULT: ECO NOT RUN, CLOCK NETWORK NOT PROTECTED`). A resize of a cone cell is therefore NOT allowed in this probe (stricter than "allowed if it is a speed-up"; a violator that sits only on a protected net is listed as remaining). After the ECO every change is checked at pin level (the 093 classes plus the new class `clock_net`); a `size_cell` of a cone or clock cell and any violation class gives `PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE`. The buffer candidates are plain buffers (`buff*`, `bufbd*`); the `dl*` delay cells are NOT candidates.
+- The apply (`setenv UNPU_ECO_KIND drc`, default `hold`, validated, printed in `>>> 095 ECO kind`) reads `pt_eco_drc_changes_icc2.tcl`, `pt_eco_drc_expected_count.txt` and `pt_eco_drc_pin_classes.txt` (REQUIRED for this kind; a violation class stops it before anything is changed). `insert_buffer` on a driver pin and `size_cell` were already supported (079). The 9 `U_PTECO_HOLD_BUF` cells of the hold ECO are protected like the `earlybuf_*` cells: snapshot (reference, origin, orientation, pin nets) compared at the end, their count must be unchanged, and they are not counted as "new cells" or as "applied before". **The gates are unchanged:** in2out WNS and whole-design setup WNS not worse than 0.005 ns before saving, DRC 0 (clean-up loop), legality 0, open nets 0, `earlybuf_*`/`antbuf_*` unchanged. The hold WNS before/after is printed (`GATE hold ...`, a WARNING, not an error).
+- **Hold.** Hold at ff is only +0.0002 ns. A resize or a buffer on these nets can change it: a stronger driver makes the signals through the HFS nets arrive EARLIER (less hold slack on endpoints they feed), a buffer in front of an output port adds delay (more hold slack at that port). The 7 `dma_wdata` ports are register-to-output hold endpoints of the same kind as the `prdata` ones fixed in 092, so they are the ones to watch. Expectation: the two HFS nets feed long reg-to-reg control paths (hold slack of tenths of a ns); the ports are the risk. ICC2 prints its hold WNS before/after; **the next PrimeTime hold run decides**; if it goes negative, a second hold ECO round (`UNPU_ECO_SCOPE reg2out` or the default scope) is the remedy.
+
+**Sequence for run 3 (csh, one command per line).** The probe runs on the UNTAGGED final export (`pnr_icc2/outputs`, folder `pnr_icc2/pt`): that is the run that showed the violators, and its netlist equals `unpu_top_route` plus fillers (physical-only cells), so the change file applies to `_route`; no new checkpoint is needed.
+
+```
+cd $RUN_DIR/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_maxtrans
+ls -ld blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_maxtrans
+```
+
+PrimeTime terminal (probe; reads `outputs/`, writes into `pt/`):
+
+```
+cd $RUN_DIR/pnr_icc2/pt
+pt_shell -f ../../pnr_v2/pt/pt_eco_drc_probe.tcl |& tee pt_eco_drc_probe.log
+grep ">>> 095\|PROBE RESULT" pt_eco_drc_probe.log
+```
+
+Read: `BEFORE: 86 max_transition entries of the DATA limit`, `the 86 entries sit on 9 NETS`, the `buffer list`, `clock network protected`, `AFTER the ECO ... data-limit max_transition violators 0 (before 86)`, `clock-path max_transition entries: before 424, after 424`, `insertions by class`, `PROBE RESULT: ECO RAN: N changes proposed ... (none touches the in2out cone or the clock network)`.
+
+ICC2 terminal:
+
+```
+cd $RUN_DIR/pnr_icc2
+setenv UNPU_ECO_KIND drc
+icc2_shell -f ../pnr_v2/pt_eco_apply.tcl < /dev/null |& tee pt_eco_apply_drc_console.log
+unsetenv UNPU_ECO_KIND
+grep ">>> 095\|>>> 093\|GATE\|CHECK\|STAGE 6g\|ERROR" pt_eco_apply_drc_console.log
+```
+
+Read: `ECO kind drc (environment UNPU_ECO_KIND)`, `the block already holds 9 cells of the hold ECO`, `CHECK hold-ECO cells (PTECO_HOLD): 9 before the ECO, 9 after it`, `GATE setup ... ok` (in2out and whole design), `GATE hold ...` (the hold WNS before/after), `check_routes AFTER: DRCs 0, open nets 0`, `STAGE 6g COMPLETE`.
+
+Then the ECO is in `unpu_top_route`, so the fill and the export are redone (the filled block and `outputs/` were written before the ECO). Keep run 3's results first, then fill, export, the three Calibre runs in a NEW folder `final2`, both PrimeTime runs and the simulation:
+
+```
+cd $RUN_DIR/pnr_icc2
+mv pt pt_run3_final
+mv sim sim_run3_final
+cp -r outputs outputs_run3_final
+icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
+icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
+```
+
+Calibre DRC, antenna and LVS: the commands of `calibre/README.md` for the final layout (run folder `pnr_icc2/calibre/final2/{drc,ant,lvs}`, as `final` of run 3). PrimeTime on the new export (`mkdir -p pt` first, `cd` into it):
+
+```
+mkdir -p $RUN_DIR/pnr_icc2/pt
+cd $RUN_DIR/pnr_icc2/pt
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+```
+
+Why each step: the backup (the apply overwrites `_route`); the probe (PrimeTime proposes, nothing is written to the design); the apply (the ICC2 netlist and routes change); fill + export (they were produced before the ECO); Calibre (the layout changed); PrimeTime (the sign-off of timing AND of the design rules, including hold); the simulation (post-layout netlist and SDF changed, `sim/README.md`).
+
+**Part 2: design rules in the summary.** `pt_setup_ss.tcl` and `pt_hold_ff.tcl` call `pt_design_rules_run`: the DESIGN RULES block is printed in the log and in the SUMMARY (max_transition split by the limit that applies, read from the SDC: clock-path vs design; max_capacitance; min pulse width; worst actual/required/slack of each group; `DESIGN RULES: MET` / `VIOLATED (N)` / `UNKNOWN (...)` when the report cannot be read) and a line `SIGN-OFF IS NOT CLEAN: DESIGN RULES VIOLATED (510)` (or `TIMING AND DESIGN RULES: both MET`). The `SETUP: MET` / `HOLD: MET` words are unchanged. With the run-3 report the block reads 424 / 86 / 0 / 0. The reports `pt_<kind>_<corner>_design_rules.rpt` keep their names. The ICC2 reference of the comparison line is no longer a constant (`PT_ICC2_SETUP_WNS`/`PT_ICC2_HOLD_WNS`, run-1 numbers, are gone): it is the worst `slack (MET|VIOLATED)` of ICC2's own report of the same export (`reports[_<tag>]/unpu_top_final_setup_ss.rpt` and `unpu_top_final_hold_ff.rpt`, the first 50 paths, 2 decimals), and the SUMMARY says where it came from; when the report is missing or unreadable the comparison says `difference UNKNOWN`.
+
+**Part 3: PrimeTime with SI.** `UNPU_PT_SI` (0 = default, 1 = SI/crosstalk analysis on; anything else is `PT ERROR`; source printed in `>>> 095 SI state`). With 1 the PrimeTime-SI licence is checked (existing check), the inputs stay (`outputs[_<tag>]`) and the REPORTS go to `pt_<tag>_si` (or `pt_si` without a tag), so the SI-off reports are never overwritten; the summary line ends with `SI ON`/`SI OFF`. The ECO probes refuse `UNPU_PT_SI=1` (their change files are read by the apply from the SI-off folder). SI-on run (csh), for the route4 checkpoint and for the final export:
+
+```
+cd $RUN_DIR/pnr_icc2
+mkdir -p pt_route4_si
+cd pt_route4_si
+setenv UNPU_PT_TAG route4
+setenv UNPU_PT_SI 1
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+unsetenv UNPU_PT_SI
+unsetenv UNPU_PT_TAG
+```
+
+```
+cd $RUN_DIR/pnr_icc2
+mkdir -p pt_si
+cd pt_si
+setenv UNPU_PT_SI 1
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+unsetenv UNPU_PT_SI
+```
+
+**Tests:** `tclsh pnr_v2/test_drc_eco.tcl` (103 checks: the real report 424/86/0/0 and the ff report, unreadable and synthetic reports, the summary block, the ICC2 reference, the SI variable also in a child `tclsh`, the net grouping with the 9 real nets, the class file with `clock_net`, the kind/files/hold-cell logic of the apply, source checks of the probe). The other suites keep their counts (`test_eco_scope` 114, `pt/test_pt_common` 278 with one check replaced: the run-1 constants).
+
+**VERIFY (task 095), read in the logs:** V69 `help fix_eco_drc` exists in T-2022.03-SP2 and accepts `-type max_transition -methods {size_cell insert_buffer} -buffer_list` (the form that ran is printed); V70 the licence for `fix_eco_drc` (PT-002 'PrimeTime-ECO' is printed for `get_license` but `fix_eco_timing` worked: the command itself decides); V71 `report_constraint -all_violators -max_transition -max_capacitance -min_pulse_width` prints the headings `max_transition` etc. (the parser is checked on the real run-3 text); V72 `is_clock_network` on pins and nets and the protection read-back (`clock network protected: N clock cells`); V73 `get_nets -of_objects <port>` and `all_connected` give the net and the load count for the net table; V74 the buffer names `U_PTECO_*` of `fix_eco_drc` (the apply counts new cells by NAME with the marker `PTECO`, hold cells `PTECO_HOLD` excluded); V75 the hold WNS of ICC2 before/after the ECO in the apply log, then PrimeTime hold; V76 `UNPU_PT_SI=1`: `get_license PrimeTime-SI` and `si_enable_analysis` are accepted.
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.

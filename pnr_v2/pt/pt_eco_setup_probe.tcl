@@ -12,6 +12,7 @@ set PT_SCRIPT_DIR [file dirname [file normalize [info script]]]
 source ${PT_SCRIPT_DIR}/pt_common.tcl
 
 pt_main {
+    pt_probe_si_guard pt_eco_setup_probe.tcl   ;# 095
     set corner ss
     set_app_var timing_save_pin_arrival_and_slack true   ;# VERIFY (PTE-077, as the hold probe)
     set sdcv [pt_prepare_session setup $corner]
