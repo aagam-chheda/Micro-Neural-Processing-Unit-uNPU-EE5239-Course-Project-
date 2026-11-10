@@ -73,7 +73,7 @@ proc eco093_parse_classes {text} {
 }
 # 093: the classes that must stop the apply (the list of pt_eco_class_violation in pt/pt_common.tcl; a test keeps the two equal)
 proc eco093_violation {cls} {
-    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize clock_net unknown} $cls] >= 0}]
+    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize cone_slower clock_net unknown} $cls] >= 0}]
 }
 # 093: the class file against the HOLD insertions of the change file. cmds: the parsed commands of the hold file (dicts with idx type full_pin). Returns {lines problems}: one printable line per insertion
 # 093: and the problems (a command without a line, a line for another pin, a line without a command, a violation class). Empty problems = the file belongs to this change file and no insertion is a violation.
@@ -99,12 +99,49 @@ proc eco093_check {cmds rows} {
 # ---- BEGIN PURE TCL 095 ----
 # 095: plain Tcl (tested by pnr_v2/test_drc_eco.tcl). The kind of ECO this run applies: hold (DEFAULT, tasks 079-093) or drc (the max-transition ECO for the data limit, pt_eco_drc_probe.tcl). Returns a dict: main (the change file),
 # 095: setup (the optional setup change file; "" = none for this kind), count (the expected-count file) and classes (the pin-class file); all in the folder of PrimeTime's files.
-proc eco095_kind_files {kind pt_dir} {
+proc eco095_kind_files {kind pt_dir {si 0}} {
     switch -- $kind {
-        hold { return [dict create main ${pt_dir}/pt_eco_hold_changes_icc2.tcl setup ${pt_dir}/pt_eco_setup_changes_icc2.tcl count ${pt_dir}/pt_eco_hold_expected_count.txt classes ${pt_dir}/pt_eco_hold_pin_classes.txt] }
+        hold {
+            # 098: with SI on the optional setup change file is NOT read by a hold run (one kind per call, the setup kind has its own call)
+            return [dict create main ${pt_dir}/pt_eco_hold_changes_icc2.tcl setup [expr {$si ? "" : "${pt_dir}/pt_eco_setup_changes_icc2.tcl"}] count ${pt_dir}/pt_eco_hold_expected_count.txt classes ${pt_dir}/pt_eco_hold_pin_classes.txt]
+        }
         drc  { return [dict create main ${pt_dir}/pt_eco_drc_changes_icc2.tcl setup "" count ${pt_dir}/pt_eco_drc_expected_count.txt classes ${pt_dir}/pt_eco_drc_pin_classes.txt] }
+        setup { return [dict create main ${pt_dir}/pt_eco_setup_changes_icc2.tcl setup "" count ${pt_dir}/pt_eco_setup_expected_count.txt classes ${pt_dir}/pt_eco_setup_pin_classes.txt] }
     }
-    error "ERROR 095: UNPU_ECO_KIND='$kind' is not valid: hold (the default) or drc"
+    error "ERROR 095: UNPU_ECO_KIND='$kind' is not valid: hold (the default), drc or setup (task 098)"
+}
+# 098: the folder of PrimeTime's change files: pt[_<tag>] (SI off) or pt_si / pt_<tag>_si (the probes ran with UNPU_PT_SI=1). si must be 0 or 1.
+proc eco098_pt_dir {pnr tag si} {
+    if {$si ni {0 1}} { error "ERROR 098: UNPU_PT_SI='$si' is not valid: 0 (the default) or 1" }
+    set d [eco092_pt_dir $pnr $tag]
+    return [expr {$si ? "${d}_si" : $d}]
+}
+# 098: the instances that earlier ECO rounds resized or inserted and that this round must leave alone: the cells named in the given change files (size_cell instances and insert_buffer cells; texts of the files)
+proc eco098_earlier_instances {texts} {
+    set out {}
+    foreach t $texts {
+        set pr [eco079_parse $t]
+        foreach c [dict get $pr cmds] {
+            if {[dict get $c type] eq "size_cell"} { lappend out [dict get $c full_inst] } else { lappend out [dict get $c cell] }
+        }
+    }
+    return [lsort -unique $out]
+}
+# 098: a SETUP-kind class file against the size_cell changes: every size_cell has a row (pin = the instance) and no row is a violation class. Returns {lines problems}.
+proc eco098_check_size {cmds rows} {
+    set lines {}; set probs {}; set seen {}
+    foreach c $cmds {
+        if {[dict get $c type] ne "size_cell"} continue
+        set idx [dict get $c idx]
+        lappend seen $idx
+        if {![dict exists $rows $idx]} { lappend probs "change $idx (size_cell [dict get $c full_inst]) has no line in the class file"; continue }
+        set r [dict get $rows $idx]
+        if {[dict get $r pin] ne [dict get $c full_inst]} { lappend probs "change $idx is size_cell [dict get $c full_inst] but the class file says [dict get $r pin]: the class file belongs to another change file"; continue }
+        set v [eco093_violation [dict get $r cls]]
+        lappend lines "change $idx: size_cell [dict get $r pin] -> [dict get $r ref]: class [dict get $r cls][expr {$v ? { (VIOLATION)} : {}}]; net [dict get $r net]"
+        if {$v} { lappend probs "change $idx: size_cell [dict get $r pin] has the class [dict get $r cls]" }
+    }
+    return [list $lines $probs]
 }
 # 095: the cells that carry the PrimeTime marker but are NOT cells of the hold ECO that is already in the block (U_PTECO_HOLD_BUF<n>): a drc run on a block that has the hold cells must not call them "applied before".
 proc eco095_not_hold {names mark hold_mark} {
@@ -212,15 +249,17 @@ proc eco097_out_pin {lefcell} {
 # ---- END PURE TCL 097 ----
 set PT_TAG ""   ;# 092: optional environment variable UNPU_PT_TAG (task 091): read the change files of the checkpoint folder pt_<tag>
 if {[info exists ::env(UNPU_PT_TAG)]} { set PT_TAG [string trim $::env(UNPU_PT_TAG)] }
-set PT_DIR      [eco092_pt_dir $PNR_DIR $PT_TAG]   ;# 079: where PrimeTime wrote the change files (pt_eco_probe.tcl, pt_eco_setup_probe.tcl); 092: pt_<tag> with UNPU_PT_TAG
-if {$PT_TAG ne "" && ![file isdirectory $PT_DIR]} { error "ERROR 092: UNPU_PT_TAG=$PT_TAG but the folder $PT_DIR does not exist: the PrimeTime ECO probe (pt_eco_probe.tcl, run with the same UNPU_PT_TAG) writes it" }
-puts ">>> 092 change files from $PT_DIR[expr {$PT_TAG ne {} ? " (UNPU_PT_TAG $PT_TAG)" : { (no UNPU_PT_TAG: the final folder)}}]"
+set PT_SI 0   ;# 098: UNPU_PT_SI (0 default, 1 = the change files of an SI-on probe run, folder pt_si / pt_<tag>_si)
+if {[info exists ::env(UNPU_PT_SI)]} { set PT_SI [string trim $::env(UNPU_PT_SI)] }
+set PT_DIR      [eco098_pt_dir $PNR_DIR $PT_TAG $PT_SI]   ;# 079: where PrimeTime wrote the change files (pt_eco_probe.tcl, pt_eco_setup_probe.tcl); 092: pt_<tag> with UNPU_PT_TAG
+if {($PT_TAG ne "" || $PT_SI) && ![file isdirectory $PT_DIR]} { error "ERROR 092: UNPU_PT_TAG=$PT_TAG / UNPU_PT_SI=$PT_SI but the folder $PT_DIR does not exist: the PrimeTime ECO probe (pt_eco_probe.tcl, run with the same UNPU_PT_TAG) writes it" }
+puts ">>> 092 change files from $PT_DIR[expr {$PT_TAG ne {} ? " (UNPU_PT_TAG $PT_TAG)" : { (no UNPU_PT_TAG: the final folder)}}]; 098 SI state of the probes: [expr {$PT_SI ? {ON (UNPU_PT_SI=1: the SI folder)} : {OFF}}]"
 
 # ---- parameters of THIS script ----
 # 095: UNPU_ECO_KIND (hold = default, drc = the max-transition ECO of the data limit) selects the change file, the count file and the class file; the printed line says which.
 set ECO_KIND "hold"
 if {[info exists ::env(UNPU_ECO_KIND)]} { set ECO_KIND [string trim $::env(UNPU_ECO_KIND)] }
-set ECO_FILES [eco095_kind_files $ECO_KIND $PT_DIR]
+set ECO_FILES [eco095_kind_files $ECO_KIND $PT_DIR $PT_SI]
 puts ">>> 095 ECO kind $ECO_KIND ([expr {[info exists ::env(UNPU_ECO_KIND)] ? {environment UNPU_ECO_KIND} : {default}}]): change file [dict get $ECO_FILES main]"
 set ECO_HOLD_FILE   [dict get $ECO_FILES main]   ;# 079: REQUIRED. The icc2tcl format of write_changes ("formatted for IC Compiler"); 095: for the kind drc pt_eco_drc_changes_icc2.tcl (the variable keeps its old name; its commands are labelled "hold" in the log)
 set ECO_SETUP_FILE  [dict get $ECO_FILES setup]   ;# 079: OPTIONAL (task 079 part 1 produces it); skipped with a printed line when it does not exist; 095: "" for the kind drc
@@ -1027,8 +1066,12 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     # 093: the pin class of every hold insertion as the probe computed it (a load pin on a flop-driven net is safe; a cone net, a cone driver pin, a cone port or an unreadable pin is a violation). Information and a stop
     # 093: on a violation or a class file of another change file; the gates below stay the proof in ICC2's timing.
     set ea_cls_file $ECO_CLASS_FILE
-    if {![file exists $ea_cls_file] && $ECO_KIND eq "drc"} { error "ERROR 095: the pin-class file $ea_cls_file is missing: for the kind drc it is REQUIRED (it carries the in2out-cone and clock-network classes of pt_eco_drc_probe.tcl); nothing changed" }
-    if {![file exists $ea_cls_file]} {
+    if {$ECO_KIND eq "setup"} {
+        puts ">>> 093 the pin classes of the setup kind are the size_cell classes checked below (098)"
+    } elseif {![file exists $ea_cls_file] && $ECO_KIND eq "drc"} { error "ERROR 095: the pin-class file $ea_cls_file is missing: for the kind drc it is REQUIRED (it carries the in2out-cone and clock-network classes of pt_eco_drc_probe.tcl); nothing changed" }
+    if {$ECO_KIND eq "setup"} {
+        # 098: size_cell rows, checked below
+    } elseif {![file exists $ea_cls_file]} {
         puts ">>> 093 no pin-class file $ea_cls_file (pt_eco_probe.tcl writes it since task 093): no class is printed; the in2out and setup gates below are the proof"
     } else {
         set ea_cp [eco093_parse_classes [eco079_read $ea_cls_file]]
@@ -1039,6 +1082,29 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
         foreach l $ea_cl { puts ">>> 093 $l" }
         if {[llength $ea_cprob] > 0} { error "ERROR 093: the pin classes of $ea_cls_file do not allow this ECO: [join $ea_cprob { | }] (nothing changed)" }
         puts ">>> 093 CHECK pin classes: [llength $ea_cl] hold insertions, none in a violation class"
+    }
+
+    # 098: the SETUP kind is size_cell only (the probe stops and reports when PrimeTime needs an insertion on the read path); its class file carries one row per size_cell change
+    set ea_earlier {}
+    if {$ECO_KIND eq "setup"} {
+        foreach c $ea_cmds { if {[dict get $c type] ne "size_cell"} { error "ERROR 098: the setup kind is size_cell only, but change [dict get $c idx] (line [dict get $c line]) is an insert_buffer on [dict get $c full_pin]: the probe should have stopped for a decision (nothing changed)" } }
+        if {![file exists $ECO_CLASS_FILE]} { error "ERROR 098: the class file $ECO_CLASS_FILE is missing: for the kind setup it is REQUIRED (nothing changed)" }
+        set ea_cp2 [eco093_parse_classes [eco079_read $ECO_CLASS_FILE]]
+        if {[llength [dict get $ea_cp2 errors]] > 0} { error "ERROR 098: $ECO_CLASS_FILE: [join [dict get $ea_cp2 errors] { | }] (nothing changed)" }
+        lassign [eco098_check_size $ea_cmds [dict get $ea_cp2 rows]] ea_cl2 ea_cprob2
+        foreach l $ea_cl2 { puts ">>> 098 $l" }
+        if {[llength [dict get $ea_cp2 rows]] != [llength $ea_cl2] + [llength $ea_cprob2]} { lappend ea_cprob2 "the class file has [llength [dict get $ea_cp2 rows]] rows for [llength $ea_cmds] size_cell changes" }
+        if {[llength $ea_cprob2] > 0} { error "ERROR 098: the classes of $ECO_CLASS_FILE do not allow this ECO: [join $ea_cprob2 { | }] (nothing changed)" }
+        puts ">>> 098 CHECK size classes: [llength $ea_cl2] size_cell changes, none in a violation class (a cone cell only to a FASTER reference, nothing on the clock network)"
+    }
+    # 098: cells of earlier rounds (the resized drivers of the max-transition ECO, task 095) are protected and may not be targeted again
+    if {$ECO_KIND ne "drc"} {
+        set ea_ef [file join [eco092_pt_dir $PNR_DIR $PT_TAG] pt_eco_drc_changes_icc2.tcl]
+        if {[file exists $ea_ef]} {
+            foreach ea_in [eco098_earlier_instances [list [eco079_read $ea_ef]]] { if {[eco079_lookup_cell $ea_in] ne ""} { lappend ea_earlier $ea_in } }
+            puts ">>> 098 earlier-round cells from $ea_ef: [llength $ea_earlier] found in the design (protected, unchanged at the end)"
+        } else { puts ">>> 098 no earlier max-transition change file $ea_ef: the resized drivers of task 095 are not protected by name (the end check of reference and pins of the other protected cells stays)" }
+        foreach c $ea_cmds { if {[dict get $c type] eq "size_cell" && [lsearch -exact $ea_earlier [dict get $c full_inst]] >= 0} { error "ERROR 098: change [dict get $c idx] resizes [dict get $c full_inst], a cell of an earlier round (protected) (nothing changed)" } }
     }
 
     # --------------------------------------------------------------------------
@@ -1086,7 +1152,8 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     }
     foreach p [eco079_name_problems $ea_cmds $ea_ex_cells $ea_ex_nets] { lappend ea_prob $p; puts ">>> 079 ERROR $p" }
     set ea_pre [eco095_marker_names $NEW_CELL_MARK]
-    if {$ECO_KIND eq "drc"} { set ea_holdprev [eco095_hold_cells $ea_pre $HOLD_CELL_MARK]; set ea_pre [eco095_not_hold $ea_pre $NEW_CELL_MARK $HOLD_CELL_MARK] } else { set ea_holdprev {} }
+    set ea_si_round [expr {$PT_SI && $ECO_KIND ne "drc"}]   ;# 098: the SI-on round runs on a block that already holds the cells of the first hold ECO: every cell with the marker that exists BEFORE is an earlier-round cell (protected, not counted as new); new names must not collide (eco079_name_problems)
+    if {$ECO_KIND eq "drc"} { set ea_holdprev [eco095_hold_cells $ea_pre $HOLD_CELL_MARK]; set ea_pre [eco095_not_hold $ea_pre $NEW_CELL_MARK $HOLD_CELL_MARK] } elseif {$ea_si_round} { set ea_holdprev $ea_pre; set ea_pre {} } else { set ea_holdprev {} }
     if {[llength $ea_holdprev] > 0} { puts ">>> 095 the block already holds [llength $ea_holdprev] cells of the hold ECO ($HOLD_CELL_MARK): protected below, not counted as new" }
     if {[llength $ea_pre] > 0} { lappend ea_prob "[llength $ea_pre] cell(s) with $NEW_CELL_MARK in the name (other than the hold-ECO cells) already exist: this change list was applied before"; puts ">>> 079 ERROR [lindex $ea_prob end]" }
     if {[llength $ea_prob] > 0} { error "ERROR 079: [llength $ea_prob] problem(s) found before any change, NOTHING was changed (listed above)" }
@@ -1144,7 +1211,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     lassign [eco092_protect_decide $ea_nant $ea_nearly] ea_pok ea_pmsg
     if {!$ea_pok} { error "ERROR 092: $ea_pmsg" }
     puts ">>> 092 $ea_pmsg"
-    set ea_names [concat $ea_names $ea_early $ea_holdprev]   ;# 095: the cells of the hold ECO (kind drc) are protected and compared like the antbuf_* / earlybuf_* cells
+    set ea_names [concat $ea_names $ea_early $ea_holdprev $ea_earlier]   ;# 095: the cells of the hold ECO (kind drc) are protected and compared like the antbuf_* / earlybuf_* cells
     set ea_loads [ant068_net_leaf_pins $CLK_PORT]
     if {[llength $ea_loads] != 1} { error "ERROR 079: the clock port net $CLK_PORT has [llength $ea_loads] leaf loads, 1 expected (the CTS root)" }
     set ea_root [get_object_name [get_cells -quiet -of_objects [get_pins -quiet -exact [lindex $ea_loads 0]]]]
@@ -1519,6 +1586,13 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
         set ea_hold_after [eco095_hold_cells [eco095_marker_names $NEW_CELL_MARK] $HOLD_CELL_MARK]
         puts ">>> 095 CHECK hold-ECO cells ($HOLD_CELL_MARK): [llength $ea_holdprev] before the ECO, [llength $ea_hold_after] after it"
         if {$ea_hold_after ne $ea_holdprev} { lappend ea_failures "the cells of the hold ECO changed: before [llength $ea_holdprev], after [llength $ea_hold_after] (names differ or a cell vanished)" }
+    } elseif {$ea_si_round} {
+        # 098: the cells that existed before the round are still there, and the NEW ones are those of the change file
+        set ea_all_after $ea_found_names
+        set ea_found_names [lmap n $ea_all_after {expr {[lsearch -exact $ea_holdprev $n] >= 0 ? [continue] : $n}}]
+        set ea_gone_prior [lmap n $ea_holdprev {expr {[lsearch -exact $ea_all_after $n] >= 0 ? [continue] : $n}}]
+        puts ">>> 098 CHECK earlier-round cells with the marker $NEW_CELL_MARK: [llength $ea_holdprev] before the ECO, [expr {[llength $ea_holdprev] - [llength $ea_gone_prior]}] still there after it; new cells found: [llength $ea_found_names]"
+        if {[llength $ea_gone_prior] > 0} { lappend ea_failures "earlier-round cells vanished: [lrange $ea_gone_prior 0 4]" }
     }
     set ea_found [llength $ea_found_names]
     set ea_want_ins [expr {$ea_nins - $ea_nskip_ins}]

@@ -16,7 +16,7 @@ set PT_SCRIPT_DIR [file dirname [file normalize [info script]]]
 source ${PT_SCRIPT_DIR}/pt_common.tcl
 
 pt_main {
-    pt_probe_si_guard pt_eco_probe.tcl   ;# 095
+    pt_probe_si_guard pt_eco_probe.tcl 1   ;# 095; 098: SI on allowed (change files go to the SI folder)
     set corner ff
     # PTE-077: fix_eco_timing recommends that this variable is set BEFORE the initial timing update of the session (otherwise it updates timing again itself). Only the probe sets it.
     set_app_var timing_save_pin_arrival_and_slack true   ;# VERIFY the variable name (taken from the message PTE-076/PTE-077 of the second server run)

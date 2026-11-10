@@ -158,6 +158,9 @@ set PT_VIOL_MAX_PATHS 100000
 # 078 (ECO probe, pt_eco_probe.tcl). Hold margin handed to fix_eco_timing: 0.05 ns on top of the 0.5 ns hold uncertainty that is already in the constraints, because the PrimeTime and the ICC2
 # parasitic estimates (and the ICC2 re-route after the ECO) differ by picoseconds to tens of picoseconds; a fix that closes with exactly 0.00 would not survive that difference.
 set PT_ECO_HOLD_MARGIN 0.05
+# 098: setup margin handed to fix_eco_timing -type setup (SI-on ECO round): 0.02 ns. The SI-on slack of the read path is -0.0364 ns; ICC2 re-routes the changed nets and its SI/parasitic estimates differ from PrimeTime's by
+# 098: picoseconds to tens of picoseconds, so a fix that closes at exactly 0.00 would not survive. 0.02 ns keeps the cost of the sizing small. If this release does not know -setup_margin the probe tries the form without it and says so.
+set PT_ECO_SETUP_MARGIN 0.02
 # library cell name patterns for the buffer candidates (names relative to the library; the choice among them is made by DATA: is_buffer, delay, area -- see pt_eco_choose_buffers)
 set PT_ECO_LIB_PATTERNS {dl* buff*}
 # 095: buffer candidates for the max-transition ECO (pt_eco_drc_probe.tcl): plain buffers only. The dl* delay cells are NOT candidates there (a delay cell is a slow cell: it would make a transition problem worse).
@@ -1057,14 +1060,18 @@ proc pt_eco_change_number {parsed file_n} {
 
 # the one result line of the probe
 proc pt_eco_result_line {ok detail} {
+    global PT_SI_ENABLE
+    set tag [expr {[info exists PT_SI_ENABLE] && $PT_SI_ENABLE ? "PROBE RESULT (SI ON):" : "PROBE RESULT:"}]   ;# 098: the SI state is part of the result line (the change files of an SI-on probe go to the SI folder)
     switch -- $ok {
-        1 { return "PROBE RESULT: ECO RAN: $detail" }
-        nochanges { return "PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: $detail" }
-        touches { return "PROBE RESULT: ECO RAN BUT TOUCHES THE IN2OUT CONE: $detail" }
-        cone { return "PROBE RESULT: ECO NOT RUN, IN2OUT CONE NOT COMPUTED: $detail" }
-        unchecked { return "PROBE RESULT: ECO RAN BUT THE IN2OUT CONE CHECK COULD NOT BE COMPLETED: $detail" }
-        clock { return "PROBE RESULT: ECO NOT RUN, CLOCK NETWORK NOT PROTECTED: $detail" }
-        default { return "PROBE RESULT: ECO NOT AVAILABLE: $detail" }
+        1 { return "$tag ECO RAN: $detail" }
+        nochanges { return "$tag ECO RAN BUT PROPOSED NO CHANGES: $detail" }
+        touches { return "$tag ECO RAN BUT TOUCHES THE IN2OUT CONE: $detail" }
+        cone { return "$tag ECO NOT RUN, IN2OUT CONE NOT COMPUTED: $detail" }
+        unchecked { return "$tag ECO RAN BUT THE IN2OUT CONE CHECK COULD NOT BE COMPLETED: $detail" }
+        clock { return "$tag ECO NOT RUN, CLOCK NETWORK NOT PROTECTED: $detail" }
+        notclosed { return "$tag SIZE-ONLY ECO DOES NOT CLOSE THE VIOLATORS (the user decides): $detail" }
+        needsdecision { return "$tag ECO NEEDS A DECISION (nothing is applied): $detail" }
+        default { return "$tag ECO NOT AVAILABLE: $detail" }
     }
 }
 
@@ -1317,7 +1324,7 @@ proc pt_eco_new_buf_driver {dcells new_cell} {
 }
 # 093: the classes that make the AFTER check fail (a cone net, a cone driver pin, a cone port, a resize of a cone cell, and anything that could not be classified)
 proc pt_eco_class_violation {cls} {
-    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize clock_net unknown} $cls] >= 0}]
+    return [expr {[lsearch -exact {cone_net cone_driver cone_port cone_resize cone_slower clock_net unknown} $cls] >= 0}]
 }
 proc pt_eco_class_text093 {cls} {
     switch -- $cls {
@@ -1328,6 +1335,9 @@ proc pt_eco_class_text093 {cls} {
         cone_port    { return "on a cone port (VIOLATION)" }
         cone_resize  { return "resize of a cone cell (VIOLATION)" }
         clock_net    { return "change on a clock-network pin or cell (VIOLATION: the clock tree is not touched by a data-limit ECO, task 095)" }
+        cone_faster  { return "resize of a cone cell to a FASTER reference of the same function (allowed in the setup kind)" }
+        cone_slower  { return "resize of a cone cell to a reference that is not provably faster (VIOLATION)" }
+        resize_other { return "resize of a cell outside the cone" }
         default      { return [pt_eco_class_text $cls] }
     }
 }
@@ -1538,6 +1548,35 @@ proc pt_drc_why {r} {
     return $out
 }
 # ---- end of the 095 procs ----
+# ---- 098: the SI-on ECO round (pure parts; tested in pnr_v2/test_si_eco.tcl) ----
+# 098: split a library reference into {family-prefix drive-number}: an02d4 -> {an02d 4}, buffd1 -> {buffd 1}, inv0d0 -> {inv0d 0}, dfcrq2 -> {dfcrq 2}. {} when the name does not end in a number (buffda).
+proc pt_ref_split {ref} {
+    if {[regexp {^(.*[A-Za-z_])([0-9]+)$} $ref -> pre n]} { return [list $pre $n] }
+    return {}
+}
+# 098: is `new` a FASTER (larger drive) reference of the same function than `old`? Decided from the names of this library only: the same family prefix and a larger drive number. Anything that cannot be compared is NOT faster.
+proc pt_ref_faster {old new} {
+    set a [pt_ref_split $old]; set b [pt_ref_split $new]
+    if {[llength $a] != 2 || [llength $b] != 2} { return 0 }
+    if {[lindex $a 0] ne [lindex $b 0]} { return 0 }
+    return [expr {[lindex $b 1] > [lindex $a 1]}]
+}
+proc pt_ref_speed_text {old new} {
+    if {$old eq "" || $new eq ""} { return "the old reference is unknown: speed-up not provable" }
+    set a [pt_ref_split $old]; set b [pt_ref_split $new]
+    if {[llength $a] != 2 || [llength $b] != 2 || [lindex $a 0] ne [lindex $b 0]} { return "$old -> $new: not the same family, speed-up not provable" }
+    if {[lindex $b 1] > [lindex $a 1]} { return "$old -> $new: larger drive of the same function (faster)" }
+    return "$old -> $new: NOT a larger drive"
+}
+# 098: the class of a size_cell change of the SETUP kind. in_cone: the cell is on an input-to-output path (the read path); on the cone a resize is allowed ONLY to a faster reference; the clock network is never touched.
+# cone_faster / resize_other are fine, cone_slower / clock_net / unknown are violations.
+proc pt_setup_size_class {in_cone is_clock old new} {
+    if {$is_clock eq "" || $in_cone eq ""} { return unknown }
+    if {$is_clock} { return clock_net }
+    if {$in_cone} { return [expr {[pt_ref_faster $old $new] ? "cone_faster" : "cone_slower"}] }
+    return resize_other
+}
+
 
 # ---- END PURE TCL 074 ----
 
@@ -1750,10 +1789,12 @@ proc pt_check_opcond {corner} {
 
 # 074: signal integrity switch with licence check
 # 095: the ECO probes are run SI off: their change files are read by pt_eco_apply.tcl from the SI-off folder, and an SI-on probe would write to pt_<tag>_si. A run with UNPU_PT_SI=1 is refused (nothing is silently redirected).
-proc pt_probe_si_guard {script} {
+proc pt_probe_si_guard {script {allow_si 0}} {
     global PT_SI_ENABLE PT_SI_SOURCE PT_SDC_MODE PT_SDC_SOURCE
     if {$PT_SDC_MODE ne "exported"} { error "PT ERROR: $script is an ECO probe and runs on the exported SDC: UNPU_PT_SDC=$PT_SDC_MODE ($PT_SDC_SOURCE) would write its change files to the _legacy folder where pt_eco_apply.tcl does not look. Unset UNPU_PT_SDC (csh: unsetenv UNPU_PT_SDC)" }
-    if {$PT_SI_ENABLE} { error "PT ERROR: $script is an ECO probe and runs with SI off: UNPU_PT_SI=1 ($PT_SI_SOURCE) would write its change files to the SI folder where pt_eco_apply.tcl does not look. Unset UNPU_PT_SI (csh: unsetenv UNPU_PT_SI)" }
+    # 098: the hold and setup probes may run with SI ON (their change files then go to the SI folder, pt_si / pt_<tag>_si, and pt_eco_apply.tcl reads the folder named by the same UNPU_PT_SI); the max-transition probe stays SI off
+    if {$PT_SI_ENABLE && !$allow_si} { error "PT ERROR: $script is an ECO probe that runs with SI off: UNPU_PT_SI=1 ($PT_SI_SOURCE) would write its change files to the SI folder where pt_eco_apply.tcl does not look for this kind. Unset UNPU_PT_SI (csh: unsetenv UNPU_PT_SI)" }
+    puts ">>> 098 ECO probe $script: SI [expr {$PT_SI_ENABLE ? {ON (change files go to the SI folder)} : {OFF}}]"
 }
 proc pt_si_setup {} {
     global PT_SI_ENABLE PT_SI_SOURCE PT_RPT_DIR
@@ -2414,6 +2455,57 @@ proc pt_on_clock_network {objkind full_name} {
         if {[sizeof_collection $o] == 1} { set v [get_attribute $o is_clock_network] }
     }
     return [pt_eco_attr_bool $v]
+}
+
+# 098: protect cells by name (dont_touch) during an ECO run; names that do not exist are listed, not ignored. Returns {cells_c nets_c} for pt_cone_unprotect, and prints what it did.
+proc pt_protect_named {label names} {
+    set found {}; set missing {}
+    foreach n $names {
+        set c [get_cells -quiet -exact $n]
+        if {[sizeof_collection $c] == 1} { lappend found $n } else { lappend missing $n }
+    }
+    set todo ""
+    if {[llength $found] > 0} {
+        set cc [get_cells -quiet -exact $found]
+        set pre [filter_collection $cc "dont_touch == true"]
+        set todo [remove_from_collection $cc $pre]
+        if {[sizeof_collection $todo] > 0} { set_dont_touch $todo true }
+    }
+    puts ">>> 098 protected during the ECO ($label): [llength $found] cells dont_touch[expr {[llength $missing] > 0 ? ", [llength $missing] names not found (first: [lrange $missing 0 2])" : {}}]"
+    return [dict create cells_c $todo nets_c ""]
+}
+# 098: one setup measurement of the CURRENT session state: {n wns in2out}, each "" when unreadable (printed, never silently 0)
+proc pt_setup_measure {} {
+    set res [dict create n "" wns "" in2out ""]
+    lassign [pt_violators max 0] wns tns num details
+    dict set res n $num; dict set res wns $wns
+    set v ""
+    catch {set v [get_attribute [get_timing_paths -delay_type max -from [get_ports paddr*] -to [get_ports prdata*] -max_paths 1] slack]}
+    dict set res in2out $v
+    return $res
+}
+proc pt_measure_text {m} { return "violating endpoints [dict get $m n], setup WNS [pt_fmt_ns [dict get $m wns]] ns, in2out (paddr -> prdata) worst slack [pt_fmt_ns [dict get $m in2out]] ns" }
+# 098: the measurement in the view of the session (SI as started) and, when UNPU_PT_SI=1, in the SI-OFF view of the SAME session (si_enable_analysis false, VERIFY that it can be switched in a session; restored afterwards).
+# Prints the lines; returns a dict: on (the measurement of the session view) off (the SI-off measurement, or "" with the reason in off_why).
+proc pt_measure_views {label} {
+    global PT_SI_ENABLE
+    set on [pt_setup_measure]
+    puts ">>> 098 $label, SI [expr {$PT_SI_ENABLE ? {ON} : {OFF}}] view: [pt_measure_text $on]"
+    set res [dict create on $on off "" off_why ""]
+    if {$PT_SI_ENABLE} {
+        if {[catch {
+            set_app_var si_enable_analysis false
+            update_timing -full
+            dict set res off [pt_setup_measure]
+            set_app_var si_enable_analysis true
+            update_timing -full
+        } err]} {
+            catch {set_app_var si_enable_analysis true}
+            dict set res off_why "si_enable_analysis could not be switched in the session ($err): use the two-run procedure (README)"
+            puts ">>> 098 $label, SI OFF view: NOT MEASURED: [dict get $res off_why]"
+        } else { puts ">>> 098 $label, SI OFF view (same session, si_enable_analysis false, restored to true): [pt_measure_text [dict get $res off]]" }
+    }
+    return $res
 }
 
 proc pt_prepare_session {kind corner} {

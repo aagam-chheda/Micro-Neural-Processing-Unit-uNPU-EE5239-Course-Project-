@@ -737,6 +737,113 @@ grep ">>> 097\|SIZE change\|GATE\|CHECK\|STAGE 6g\|ERROR" pt_eco_apply_drc_conso
 
 **VERIFY (task 097):** V81 `size_cell` on a cell that overlaps its neighbours for the moment (the master is wider before `set_cell_location` moves it) is accepted by this ICC2; if it is refused the log shows `size_cell failed` for the first candidate; V82 `set_cell_location -coordinates -orientation` on a cell with a new master, and the read-back of `bbox`/`orientation`; V83 `get_ports -of_objects <net>` for the driver-to-port distance; V84 a filler's `orientation` attribute equals the orientation a cell needs in that row (the run's orientation is taken from the first filler of the run).
 
+## SI-on ECO round (task 098): close the SI-on setup and hold endpoints without losing the SI-off sign-off
+
+**Evidence (run 3, final filled layout after 092-097, commit 6970448).** SI OFF (the default sign-off): setup ss +0.1041 ns, hold ff +0.0008 ns, 0 violators, design rules MET. SI ON (`UNPU_PT_SI=1`, annotation 3,477 RC + 13,094 coupled nets): setup ss **-0.0364 ns, TNS -0.0755, 4 endpoints**, all `paddr[3]` -> `prdata[20]` -0.0364, `[10]` -0.0242, `[22]` -0.0090, `[17]` -0.0059 (the zero-margin combinational read path; the net `paddr[3]` is about 210 um long and was left unbuffered on purpose by the early port buffers, CONE-SKIPPED); hold ff **-0.0114 ns, 1 endpoint** `prdata[9]` from `u_csr/src_a_reg_reg_9_/CP` (register to output, the family of task 092). The current state is the FALLBACK; the new state replaces it only if everything passes.
+
+**What changed.**
+1. *SI-on probes.* The hold probe (`pt_eco_probe.tcl`) and the setup probe (`pt_eco_setup_probe.tcl`) now run with `UNPU_PT_SI=1` (the max-transition probe still refuses it). The session is the SI-on session of the sign-off run (coupled parasitics, `si_enable_analysis`), the change files go to the SI folder (`pnr_icc2/pt_si/`, or `pt_<tag>_si/` with a tag), and the SI state is printed in the banner, the probe header and the result line (`PROBE RESULT (SI ON): ...`). `pt_eco_apply.tcl` reads the folder named by the same variable (`UNPU_PT_SI=1`, ERROR 092 if the folder does not exist); a hold run with SI on does not read the optional setup file (one kind per call). **The change files must come from ONE probe run per kind**: a second probe run in the same folder overwrites the first, the count and class files are rewritten with it (the setup probe deletes stale ones first).
+2. *Setup kind (`UNPU_ECO_KIND=setup`).* `fix_eco_timing -type setup -methods {size_cell} -setup_margin 0.02` (`PT_ECO_SETUP_MARGIN`; if this release does not know `-setup_margin` the form without it is tried, and said). Size-only first; the probe does NOT ask for insertions. The in2out cone is NOT protected (the read path IS the cone) but every change is classified: a `size_cell` of a cone cell is allowed only if the new reference is FASTER (a larger drive of the same function, decided from the library names: same family prefix, larger drive number: `oai222d1` -> `oai222d2`; a name that cannot be compared, `buffda`, is NOT provably faster and is a violation, `cone_slower`); the clock network, the `earlybuf_*`/`antbuf_*` buffers, the `PTECO_HOLD` cells and the 9 resized drivers of task 095 are `dont_touch` in the probe and protected (snapshot) in the apply, and a change that targets one of them is an ERROR 098. Per proposed change the probe prints: the cell, old and new reference (the old one recorded for every cone cell before the ECO), the speed relation, the output net, whether it is on the read path, the area (old -> new) and the class. If PrimeTime proposes an INSERTION anyway, or the size changes do not close the violators, the probe STOPS and says so (`ECO NEEDS A DECISION` / `SIZE-ONLY ECO DOES NOT CLOSE THE VIOLATORS (the user decides)`) with the options (a buffer on the cone net and its delay cost, a stronger early buffer on `paddr[3]` replacing the CONE-SKIPPED decision, a margin approach): no count file and no class file are written then, so the apply cannot run on it. The measurement is printed BEFORE and AFTER in the SI-on view and, in the same session, in the SI-OFF view (`si_enable_analysis false`, restored to true; VERIFY V85; if it cannot be switched the line says so and the two-run procedure applies: the SI-off sign-off run of the final export, below).
+3. *Hold kind for `prdata[9]`.* The 092 scope `reg2out` with SI on: `setenv UNPU_ECO_SCOPE reg2out`, the delay cell on a flop-driven load pin, pin-level classes, cone cells protected. `PT_ECO_HOLD_MARGIN` stays 0.05 ns: the SI-on slack is -0.0114 ns, a delay cell at ff is 0.2 to 0.4 ns, so the margin is about 4 times the violation and covers the picoseconds of difference between PrimeTime and the ICC2 re-route; no reason to change it.
+4. *Apply.* One kind per call; order **hold, then setup**, each with its own gates. Reason: the hold insertion is a delay cell on a flop-driven load pin of `prdata[9]`, which is not one of the four read-path endpoints; the setup resizes do not touch it, and the second apply protects it (the cells of the first call are earlier-round cells: snapshot compared, count still present, not counted as new). The setup probe does not see the hold cell (it runs on the export before the hold ECO); the PrimeTime runs on the new export are the proof. The gates after EACH call are the existing ones: in2out WNS and whole-design setup WNS not worse than 0.005 ns before saving (for the setup kind the in2out WNS is printed before and after: it should IMPROVE; it is an SI-on measurement in ICC2 and will not match PrimeTime's SI-on exactly), DRC 0 (clean-up loop), legality 0, open nets 0, `earlybuf_*`/`antbuf_*`/`PTECO_HOLD` and the 9 resized drivers unchanged. The relocation of task 097 applies to every `size_cell`.
+
+**Sequence for run 3 (csh, one command per line; `$RUN_DIR` set).** The state to keep is the FALLBACK: nothing below overwrites it until the `mv` lines.
+
+```
+cd $RUN_DIR/pnr_icc2
+cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_si
+ls -ld blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_si
+mkdir -p pt_si
+```
+
+PrimeTime probes (SI on, from `pt_si`; the two can run in two terminals at the same time, they write different file names; about 2 to 4 minutes each, SI on is slower than the 2 minutes of a sign-off run):
+
+```
+cd $RUN_DIR/pnr_icc2/pt_si
+setenv UNPU_PT_SI 1
+setenv UNPU_ECO_SCOPE reg2out
+pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe_hold.log
+unsetenv UNPU_ECO_SCOPE
+grep "PROBE RESULT\|>>> 092\|>>> 093\|AFTER" pt_eco_probe_hold.log
+```
+
+```
+cd $RUN_DIR/pnr_icc2/pt_si
+setenv UNPU_PT_SI 1
+pt_shell -f ../../pnr_v2/pt/pt_eco_setup_probe.tcl |& tee pt_eco_setup_probe.log
+grep "PROBE RESULT\|>>> 098" pt_eco_setup_probe.log
+```
+
+Read: hold `PROBE RESULT (SI ON): ECO RAN: 1 changes proposed ... (none touches the in2out cone)` with the class `load pin on a flop-driven net`; setup `PROBE RESULT (SI ON): ECO RAN: N size_cell changes proposed ... violating endpoints 4 -> 0 in this view; SI-off view: violating endpoints 0 ...`. **If either says `NEEDS A DECISION`, `DOES NOT CLOSE` or `TOUCHES`, STOP and report to Planning: do not go on.**
+
+ICC2 (hold first, then setup; each call opens `unpu_top_route` and overwrites it, the gates run in each):
+
+```
+cd $RUN_DIR/pnr_icc2
+setenv UNPU_PT_SI 1
+setenv UNPU_ECO_KIND hold
+icc2_shell -f ../pnr_v2/pt_eco_apply.tcl < /dev/null |& tee pt_eco_apply_si_hold_console.log
+grep ">>> 098\|>>> 097\|GATE\|CHECK\|STAGE 6g\|ERROR" pt_eco_apply_si_hold_console.log
+setenv UNPU_ECO_KIND setup
+icc2_shell -f ../pnr_v2/pt_eco_apply.tcl < /dev/null |& tee pt_eco_apply_si_setup_console.log
+grep ">>> 098\|>>> 097\|GATE\|CHECK\|STAGE 6g\|ERROR" pt_eco_apply_si_setup_console.log
+unsetenv UNPU_ECO_KIND
+unsetenv UNPU_PT_SI
+```
+
+Run the second call only if the first ended with `STAGE 6g COMPLETE`. A failure saves nothing; the library backup `bak_pre_si` is for a call that must be undone.
+
+Then the chain that must be redone (the filled block and `outputs/` are from before the ECO). Keep the fallback results FIRST:
+
+```
+cd $RUN_DIR/pnr_icc2
+mv outputs outputs_before_si
+mv pt pt_before_si
+mv pt_si pt_si_before_si
+mv pt_legacy pt_legacy_before_si
+mv sim sim_before_si
+mv calibre/final2 calibre/final2_before_si
+icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
+icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
+```
+
+(`pt_si` is moved away together with the probe files: the change files are no longer needed after the apply; copy them to `pt_si_before_si` first happens by the `mv`.) `metal_fill.tcl` about 1 to 2 minutes, `pv.tcl` about 1 to 2 minutes (run-3 log timestamps: 21:09:54 and 21:11:09).
+
+Calibre DRC, antenna and LVS in a NEW folder `final3` (the commands of `calibre/README.md`, as `final2`; the three runs can run in three terminals at the same time; the run times were not recorded in the logs I have: read the Calibre logs). PrimeTime on the new export, SI OFF, SI ON and the legacy SDC (six runs of about 2 minutes, all independent: three terminals at the same time, each in its own folder):
+
+```
+mkdir -p $RUN_DIR/pnr_icc2/pt
+cd $RUN_DIR/pnr_icc2/pt
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+```
+
+```
+mkdir -p $RUN_DIR/pnr_icc2/pt_si
+cd $RUN_DIR/pnr_icc2/pt_si
+setenv UNPU_PT_SI 1
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+unsetenv UNPU_PT_SI
+```
+
+```
+mkdir -p $RUN_DIR/pnr_icc2/pt_legacy
+cd $RUN_DIR/pnr_icc2/pt_legacy
+setenv UNPU_PT_SDC legacy
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+unsetenv UNPU_PT_SDC
+```
+
+The post-layout simulation (`sim/README.md`; A 4.4 min, B 6.6 min, C 4.5 min, D about 6 to 7 min plus the licence wait; independent of Calibre and PrimeTime, can start right after `pv.tcl`). **Accept the new state only if:** both SI-off and SI-on PrimeTime runs show 0 violators (setup ss, hold ff), the legacy run is identical to the SI-off one, DESIGN RULES MET, Calibre `final3` DRC 0 / antenna 0 / LVS CORRECT, the simulation passes as before. Otherwise go back: `mv` the `*_before_si` folders back and restore the library from `bak_pre_si`.
+
+**What to expect for the 5 endpoints (from the numbers in the task; the cells are not known until the probe has run).** The 4 setup endpoints share the input `paddr[3]` and the first stages of the read mux; -0.0364 ns on `prdata[20]` is the worst, the others are -0.0242 / -0.0090 / -0.0059, so one or two larger-drive cells in the shared part (the address decode / the cell that `paddr[3]` drives and its fan-out cone) close all four, and the 36 ps is a small speed-up for a cell on a 4.5 ns path (a `d1` -> `d2` step typically gains tens of picoseconds). The cost is the extra input capacitance a larger cell puts on the driving net (here the long unbuffered `paddr[3]`, driven by the input driver `buffd1` of the SDC): the probe's AFTER numbers include it. The hold endpoint `prdata[9]` needs 11 ps: one delay cell on the flop output, which the SI-off sign-off may see as +0.2 to 0.4 ns on the same path at ss (setup of the register-to-output path has large margin there, 092). **Risk to the SI-off numbers (setup +0.1041, hold +0.0008):** the setup resizes make the read path faster, so SI-off setup should improve or stay; a faster cell in the cone can only reduce hold on in-to-out hold paths if any exist (the in2out hold is not the worst endpoint: +0.0008 is a register-to-output / input-to-register path, to be re-read in the new hold run); the new delay cell lowers the hold risk of its own path and adds to its setup path (register-to-output, large margin); a re-route of the touched nets changes coupling by picoseconds. The new PrimeTime runs decide; hold at +0.0008 has the least margin and is the one to read first.
+
+**Tests:** `tclsh pnr_v2/test_si_eco.tcl` (44 checks: the SI folder of the probes and the apply, the kinds, the setup change file with `size_cell` lines, the speed-up check, the class rules and the equality of the violation lists of the probe and the apply side, the size class file check, the result lines and guards, source checks of the probe and the apply). `test_drc_eco` keeps 103 (the kind `setup` is now valid).
+
+**VERIFY (task 098):** V85 `set_app_var si_enable_analysis false` / `true` followed by `update_timing -full` works in the SI-on session (the SI-off view of the same session); V86 `fix_eco_timing -type setup -methods {size_cell} -setup_margin` accepts these options (the form that ran is printed); V87 `size_cell` proposals of PrimeTime use references of the same family (the speed relation is decided from the names; a line `not provable` is a violation and stops the apply); V88 `get_cells -hierarchical earlybuf_*` etc. return the protected cells in the probe session (the line `protected during the ECO` counts them); V89 the SI-on hold probe finds `prdata[9]` as a reg2out target (`>>> 092 scope reg2out: 1 of 1`).
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.

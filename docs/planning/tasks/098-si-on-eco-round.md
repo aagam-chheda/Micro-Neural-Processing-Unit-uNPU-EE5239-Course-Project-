@@ -1,0 +1,34 @@
+# Task 098 — SI-ON ECO round: close the 4 setup endpoints (read path) and the 1 hold endpoint that PrimeTime-SI reports, without losing the SI-OFF sign-off
+
+Read first: `docs/planning/progress-log-2026-11-10.md` (section 8), tasks 092, 093, 095, 097 (the hold ECO, the pin-level class, the design-rule ECO, the resize relocation), `pnr_v2/pt/pt_eco_probe.tcl`, `pnr_v2/pt/pt_eco_setup_probe.tcl`, `pnr_v2/pt/pt_eco_drc_probe.tcl`, `pnr_v2/pt_eco_apply.tcl`, `pnr_v2/pt/pt_common.tcl` (cone procs, `UNPU_PT_SI`, `UNPU_PT_TAG`), the SI-on result files on the PC: `~/server_pull/run3` has the earlier run; the SI-on folder `pnr_icc2/pt_si/` of the final export will be copied by the user later (`pt_si/pt_setup_ss_violations.csv`, `pt_hold_ff_violations.csv`, `*_paths_*.rpt`).
+
+## What the server showed (run 3, final filled layout after tasks 092 to 097, commit 6970448, 2026-11-11 about 00:00)
+
+| PrimeTime | SI OFF (default sign-off) | SI ON (crosstalk) |
+|---|---|---|
+| setup ss | +0.1041 ns, 0 violators | **-0.0364 ns, TNS -0.0755, 4 violating endpoints** |
+| hold ff | +0.0008 ns, 0 violators | **-0.0114 ns, 1 violating endpoint** |
+| design rules | MET | MET |
+
+The 4 setup endpoints, all in path group clk, all from ONE input port: `paddr[3]` -> `prdata[20]` -0.0364, `prdata[10]` -0.0242, `prdata[22]` -0.0090, `prdata[17]` -0.0059 (the zero-margin combinational read path, the in2out group; the net `paddr[3]` is about 210 um long and was left unbuffered on purpose by the early port buffers: `CONE-SKIPPED`, predicted antenna ratio 1172, fixed by layer hopping). The hold endpoint: `prdata[9]` -0.0114, startpoint `u_csr/src_a_reg_reg_9_/CP` (a register-to-output path, the family of task 092). Annotation 100 percent (16,571 nets, 3,477 RC + 13,094 coupled, 137,670 coupling capacitances annotated). The user decided (2026-11-11): do the SI ECO round, so that the design is clean in both views. The current state is the fallback; the new state replaces it only if everything passes.
+
+## Goal
+
+An ECO round driven by PrimeTime WITH SI ON, applied in ICC2 behind the existing gates, after which PrimeTime reports 0 violators with SI ON AND SI OFF (setup ss, hold ff), the design rules stay MET, Calibre stays 0/0/CORRECT.
+
+## Changes
+
+1. SI-on ECO probes. The ECO probes currently refuse `UNPU_PT_SI=1` (the apply reads the SI-off folder). Allow it: with `UNPU_PT_SI=1` the probes run in an SI-on session (parasitics with `-keep_capacitive_coupling`, the same as the SI-on sign-off run, the annotation proof of the two-line table works now) and write their change files into the SI folder (`pt_si/` for the untagged final export, `pt_<tag>_si/` for a tag), with the SI state printed in the banner and in the PROBE RESULT line. The apply reads the change files from the folder named by the same variable. Keep the default (SI off) behaviour unchanged; state in the README that the change files must come from ONE probe run per kind.
+2. SETUP kind for the read path (`UNPU_ECO_KIND=setup` already exists in the apply for `size_cell`; the setup probe `pt_eco_setup_probe.tcl` exists): in SI-on mode run `fix_eco_timing -type setup` with methods `size_cell` (and `insert_buffer` if PrimeTime proposes it and `size_cell` alone cannot close the 4 endpoints; try size-only first), restricted to what the 4 paths need. The in2out cone must NOT be protected against speed-ups here (the paths ARE the cone): allow `size_cell` on cone cells only if the resulting cell is FASTER (a larger drive of the same function), forbid `insert_buffer` on cone nets unless there is no other fix (report it and stop, the user decides), keep the clock network and the flop-driven nets of the 092/093 rules as they are. Print per proposed change: cell, old/new reference, the net, whether it is on the read path, and the area change. Report the remaining violators in PrimeTime's memory with SI ON, and the same measurement with SI OFF in the same session if `si_enable_analysis` can be switched in a session (VERIFY; if not, say so and give the two-run procedure), so the user sees that SI OFF stays met.
+3. HOLD kind for `prdata[9]` (-0.0114 SI on): the `reg2out` scope of 092/093 with SI on (the delay cell on a flop-driven load pin, pin-level class, cone cells protected); `PT_ECO_HOLD_MARGIN` stays 0.05 unless the SI-on slack shows it is too small for 11 ps (state the margin and why).
+4. Apply (`pt_eco_apply.tcl`): the order of the kinds in one pass is hold, then setup (the setup resizes must see the hold cells), or the reverse if you find a reason, with the gates after EACH kind (in2out WNS and whole-design setup WNS not worse than 0.005 before saving; here the setup kind is meant to IMPROVE the read path: report the in2out WNS before/after in ICC2, which is a SI-on measurement in ICC2 and will not match PrimeTime's SI-on exactly), DRC 0, legality 0, open nets 0, the protected cells (`earlybuf_*`, `antbuf_*`, the 9 `PTECO_HOLD` cells, the 9 resized drivers of 095/097) unchanged. The relocation of 097 applies to every `size_cell`.
+5. README: the full csh sequence for run 3, one command per line, with the reason of each step: library backup `bak_pre_si`, probes (hold then setup, SI on, from `pt_si`), apply (kind per call), then the chain that must be redone: `metal_fill.tcl`, `pv.tcl` (keep the previous outputs first: `mv outputs outputs_before_si`, `mv pt pt_before_si`, `mv pt_si pt_si_before_si`, `mv pt_legacy pt_legacy_before_si`, `mv sim sim_before_si`, `mv calibre/final2 calibre/final2_before_si` as needed), Calibre DRC/antenna/LVS in `final3`, PrimeTime SI OFF, SI ON and legacy SDC, the simulation. Say how long each part takes (from the log timestamps you have) and which steps can run in parallel.
+6. Tests for the pure parts: the SI folder selection, the setup-kind change-file parsing with `size_cell` lines, the speed-up check (new reference faster than the old), the refusal of an `insert_buffer` on a cone net, the class rules; all older suites keep their counts (pt/test_pt_common 307, test_pt_eco_apply 169, test_eco_scope 114, test_drc_eco 103, test_sdc_limits 65, sim verdict 122, and the others as in 097).
+
+## Constraints
+
+"Nothing fails silently; nothing hardcoded; no threshold narrowed; no waiver without approval." No constraint, limit or uncertainty changes. The sign-off stays PrimeTime; ICC2's numbers are reported, not tuned. If SI on cannot be closed by size-only changes, STOP and report the options (buffer on the cone net with its cost, a stronger early buffer on `paddr[3]` replacing the CONE-SKIPPED decision, or a margin approach), do not choose. Local only: no server work, no commit.
+
+## Report back
+
+Files, tests, the VERIFY list, the csh sequence, what you expect for each of the 5 endpoints (which cells, how much speed-up is needed: 36 ps on `paddr[3]` -> `prdata[20]`), and the risk to the SI-off numbers (setup +0.1041 hold +0.0008). Stop after reporting.

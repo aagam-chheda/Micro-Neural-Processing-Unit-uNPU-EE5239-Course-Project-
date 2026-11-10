@@ -186,13 +186,14 @@ check "result line: clock network not protected" {[pt_eco_result_line clock "x"]
 # the apply script: kind, files, hold cells
 check "kind hold (default): the files of tasks 079-093" {[eco095_kind_files hold /p] eq "main /p/pt_eco_hold_changes_icc2.tcl setup /p/pt_eco_setup_changes_icc2.tcl count /p/pt_eco_hold_expected_count.txt classes /p/pt_eco_hold_pin_classes.txt"}
 check "kind drc: its own change, count and class files, no setup file" {[eco095_kind_files drc /p] eq "main /p/pt_eco_drc_changes_icc2.tcl setup {} count /p/pt_eco_drc_expected_count.txt classes /p/pt_eco_drc_pin_classes.txt"}
-foreach bad {"" Hold setup both} { check "kind rejected: '$bad'" {[string match "ERROR 095: UNPU_ECO_KIND=*" [errmsg {eco095_kind_files $bad /p}]]} }
+check "kind setup (task 098) is valid and has its own files" {[dict get [eco095_kind_files setup /p] main] eq "/p/pt_eco_setup_changes_icc2.tcl"}
+foreach bad {"" Hold both} { check "kind rejected: '$bad'" {[string match "ERROR 095: UNPU_ECO_KIND=*" [errmsg {eco095_kind_files $bad /p}]]} }
 set names {u_csr/U_PTECO_HOLD_BUF1 u_csr/U_PTECO_HOLD_BUF2 u_seq/U_PTECO_DRC_BUF1 u_x/U1}
 check "hold cells are told from the new drc cells" {[eco095_hold_cells $names PTECO_HOLD] eq "u_csr/U_PTECO_HOLD_BUF1 u_csr/U_PTECO_HOLD_BUF2" && [eco095_not_hold $names PTECO PTECO_HOLD] eq "u_seq/U_PTECO_DRC_BUF1"}
 check "not_hold with the marker PTECO leaves only the new cells" {[eco095_not_hold {u_csr/U_PTECO_HOLD_BUF1 u_seq/U_PTECO_DRC_BUF1} PTECO PTECO_HOLD] eq "u_seq/U_PTECO_DRC_BUF1"}
-check "apply source: UNPU_ECO_KIND is read, validated through eco095_kind_files and printed" {[has $apply {UNPU_ECO_KIND}] && [has $apply {>>> 095 ECO kind $ECO_KIND}] && [has $apply {set ECO_FILES [eco095_kind_files $ECO_KIND $PT_DIR]}]}
+check "apply source: UNPU_ECO_KIND is read, validated through eco095_kind_files and printed" {[has $apply {UNPU_ECO_KIND}] && [has $apply {>>> 095 ECO kind $ECO_KIND}] && [has $apply {set ECO_FILES [eco095_kind_files $ECO_KIND $PT_DIR $PT_SI]}]}
 check "apply source: the class file is REQUIRED for the kind drc" {[has $apply {for the kind drc it is REQUIRED}]}
-check "apply source: the hold-ECO cells are protected, compared and not counted as new" {[has $apply {set ea_names [concat $ea_names $ea_early $ea_holdprev]}] && [has $apply {CHECK hold-ECO cells}] && [has $apply {eco095_not_hold $ea_pre}] && [has $apply {eco095_not_hold $ea_found_names}]}
+check "apply source: the hold-ECO cells are protected, compared and not counted as new" {[has $apply {set ea_names [concat $ea_names $ea_early $ea_holdprev $ea_earlier]}] && [has $apply {CHECK hold-ECO cells}] && [has $apply {eco095_not_hold $ea_pre}] && [has $apply {eco095_not_hold $ea_found_names}]}
 check "apply source: the gates are unchanged (in2out and whole-design setup WNS tolerance, DRC, legality, open nets)" {[has $apply {GATE_TOL_SETUP}] && [has $apply {check_routes DRCs}] && [has $apply {legality violations}] && [has $apply {open nets}] && [has $apply {set GATE_TOL_SETUP  0.005}]}
 check "apply source: hold WNS before and after is reported" {[has $apply {GATE hold $ghst}] && [has $apply {the whole-design hold WNS}]}
 # the probe script
