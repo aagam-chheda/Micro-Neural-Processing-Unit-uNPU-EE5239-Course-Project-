@@ -136,7 +136,7 @@ foreach f $users {
     if {$f ne "cts" && $f ne "powerplanning" && $f ne "port_buffers_early"} {
         set after_boot [string first $boot4 $t]
         set pl [string first "\n    link_block\n" $t $after_boot]
-        check "$f.tcl: the first call comes right after link_block (the block is open and linked)" {$pl > 0 && $po > $pl && ($po - $pl) < 400}
+        check "$f.tcl: the first call comes right after link_block (the block is open and linked)" {$pl > 0 && $po > $pl && ($po - $pl) < [expr {$f eq "pv" ? 1500 : 400}]}   ;# 091: pv.tcl has the checkpoint copy (save_block -as, reopen) between link_block and the removal, on purpose: the removal must land in the copy
     }
 }
 set pv [read_file $here/pv.tcl]

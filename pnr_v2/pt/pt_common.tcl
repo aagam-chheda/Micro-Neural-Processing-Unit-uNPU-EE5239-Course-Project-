@@ -17,6 +17,26 @@ set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path
 set PT_BASE      $RUN_ROOT
 set PT_OUT_DIR   "${PT_BASE}/pnr_icc2/outputs"      ;# files written by pv.tcl
 set PT_RPT_DIR   "${PT_BASE}/pnr_icc2/pt"           ;# all PrimeTime reports; created by the scripts
+# 091: CHECKPOINT. The optional environment variable UNPU_PT_TAG (letters, digits, underscore; csh: setenv UNPU_PT_TAG route) selects the checkpoint export of pv.tcl (UNPU_PV_TAG, the SAME tag):
+# 091: the inputs are read from pnr_icc2/outputs_<tag>/ and every report goes to pnr_icc2/pt_<tag>/, so that the checkpoint and the final results never overwrite each other. Without it nothing changes.
+# 091: pt_tag_problem / pt_tag_paths are plain Tcl (tested in test_pt_common.tcl and test_pv_checkpoint.tcl).
+proc pt_tag_problem {tag} {
+    if {![regexp {^[A-Za-z0-9_]{1,32}$} $tag]} { return "'$tag' is not a valid tag (1 to 32 letters, digits or underscores)" }
+    return ""
+}
+proc pt_tag_paths {base tag} {   ;# {out_dir rpt_dir}
+    if {$tag eq ""} { return [list ${base}/pnr_icc2/outputs ${base}/pnr_icc2/pt] }
+    return [list ${base}/pnr_icc2/outputs_${tag} ${base}/pnr_icc2/pt_${tag}]
+}
+set PT_TAG ""
+if {[info exists ::env(UNPU_PT_TAG)]} {
+    set PT_TAG [string trim $::env(UNPU_PT_TAG)]
+    set pt_tag_msg [pt_tag_problem $PT_TAG]
+    if {$pt_tag_msg ne ""} { error "PT ERROR: UNPU_PT_TAG: $pt_tag_msg" }
+}
+lassign [pt_tag_paths $PT_BASE $PT_TAG] PT_OUT_DIR PT_RPT_DIR
+if {$PT_TAG ne "" && ![file isdirectory $PT_OUT_DIR]} { error "PT ERROR: UNPU_PT_TAG=$PT_TAG but the folder $PT_OUT_DIR does not exist: run pv.tcl with UNPU_PV_TAG $PT_TAG first (README, checkpoint after route)" }
+if {$PT_TAG ne ""} { puts ">>> 091 PT CHECKPOINT tag $PT_TAG: inputs from $PT_OUT_DIR, reports in $PT_RPT_DIR (run pt_shell from that reports folder: parasitics_command.log is written to the current directory)" } else { puts ">>> 091 PT inputs from $PT_OUT_DIR, reports in $PT_RPT_DIR (no UNPU_PT_TAG: the final export)" }
 set PT_KIT       "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180"
 set PT_DESIGN    "unpu_top"
 

@@ -391,6 +391,77 @@ Expected effect: more hold cells on input-to-register and register-to-register p
 
 VERIFY list (task 090): V48 `all_registers -edge_triggered -clock_pins` (else the fallback `get_pins -of_objects <regs> -filter "is_clock_pin == true"` is used and printed); V49 `set_clock_uncertainty -setup|-hold <v> <pins or ports>` takes effect for paths ending at those objects and replaces the clock-level value there (the probes test it); V50 `remove_clock_uncertainty -setup|-hold <objects>` (else the form without the option is used and a NOTE is printed; the proof catches a failed removal); V51 `write_sdc -scenario <s> -include clock_uncertainty -nosplit -output <f>` writes the pin/port-level lines (the proof and the SDC check read them; if the SDC does not show pin-level values the SDC check stops with ERROR 090 rather than pass); V52 `get_ports -quiet -exact <name with brackets>`, `get_pins -quiet -exact <pin>`; V53 `all_outputs` as the object list of `set_clock_uncertainty`; V54 the pre-CTS in2out numbers (before CTS the clock is ideal) are comparable to the post-CTS ones (the in2out path does not use the clock tree). Tests: `tclsh pnr_v2/test_opt_uncertainty.tcl` (151 checks, a stateful mock of the three scopes, the restore proof, a failed removal, ports ignored by the tool).
 
+## Checkpoint after route (task 091)
+
+Lesson L5: PrimeTime and Calibre are run on the ROUTED block before fill, while every fix is cheap (in run 1 PrimeTime came last and found 264 violations). `pv.tcl`, the PrimeTime scripts and the Calibre control files get an optional checkpoint mode; the default (final export of `unpu_top_filled` into `pnr_icc2/outputs/`) is unchanged and nothing of it is overwritten.
+
+| variable | meaning |
+|---|---|
+| `UNPU_PV_BLOCK` | block to export (default `unpu_top_filled`). A block other than the default without `UNPU_PV_TAG` is ERROR 091 (it would overwrite the final export). |
+| `UNPU_PV_TAG` | letters, digits, underscore. Everything goes to tagged places: `pnr_icc2/outputs_<tag>/` (same file names as the final export), `pnr_icc2/reports_<tag>/`, `logs/7_pv_<tag>.log`; the saved block is `unpu_top_pv_<tag>`. The block is COPIED first (`save_block -force -as unpu_top_pv_<tag>`, closed and reopened), so `unpu_top_route` itself is not modified (no `connect_pg_net`, `create_frame`, latency removal in it). |
+| `UNPU_PT_TAG` | the same tag for `pt_setup_ss.tcl` / `pt_hold_ff.tcl` / the ECO probes: inputs from `outputs_<tag>/`, reports in `pnr_icc2/pt_<tag>/`. The folder must exist (ERROR otherwise, naming `pv.tcl`). |
+| `PL_OUT_DIR`, `PL_SIM_DIR` | (existing since task 075) the simulation script reads another export folder and writes another sim folder. |
+
+All hard checks of `pv.tcl` run unchanged in both modes (LEF check with `MACRO unpu_top`, SDF 3.0 header, the 088 `set_clock_latency` grep, the 090 `unc090_export_check`). New: the exported `unpu_top_pnr_sim.v` must hold a module called `unpu_top` (PrimeTime does `link_design unpu_top`): printed in both modes, ERROR 091 in a tagged run. The line `>>> 091 PV block ..., tag ..., output folder ...` is the first line to read.
+
+**1. Export the routed block (icc2_shell; csh, one command per line):**
+
+```
+cd $RUN_DIR/pnr_icc2
+setenv UNPU_PV_BLOCK unpu_top_route
+setenv UNPU_PV_TAG route
+icc2_shell -f ../pnr_v2/pv.tcl < /dev/null |& tee pv_route_console.log
+unsetenv UNPU_PV_BLOCK
+unsetenv UNPU_PV_TAG
+ls -l outputs_route
+grep ">>> 091\|ERROR\|CHECK PASSED\|CHECK FAILED\|STAGE 7" pv_route_console.log
+```
+
+Read: `>>> 091 PV block unpu_top_route, tag 'route', output folder .../outputs_route`; `checkpoint: working on the copy unpu_top_pv_route`; `LEF CHECK PASSED`; `SDF CHECK PASSED` twice; `091 netlist ...: module unpu_top present`; the `pv-exported-sdc` lines (4 clock-level lines at SPEC); `STAGE 7 COMPLETE`. `outputs_route` must hold `unpu_top_routed.gds`, `unpu_top.lef`, `unpu_top.def`, `unpu_top_pnr_sim.v`, `unpu_top_pnr_pg.v`, `unpu_top_spef.*`, `unpu_top_ss.sdf`, `unpu_top_ff.sdf`, `unpu_top_pnr_ss.sdc`, `unpu_top_pnr_ff.sdc`. `ls -ld outputs` must show the time of the earlier final export or none: the checkpoint did not touch it. The ICC2 checks of `pv.tcl` (`check_routes`, `check_legality`, PG) are in `reports_route/`.
+
+**2. PrimeTime on the checkpoint (pt_shell terminal, `pnr_v2/pt/README.md` sections 1 to 3b apply unchanged):**
+
+```
+cd $RUN_DIR
+mkdir -p pnr_icc2/pt_route
+cd pnr_icc2/pt_route
+setenv UNPU_PT_TAG route
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+unsetenv UNPU_PT_TAG
+```
+
+The first lines show `>>> 091 PT CHECKPOINT tag route: inputs from .../outputs_route, reports in .../pt_route`. Run from `pt_route` (the folder you are in): `parasitics_command.log` is written to the current directory. If the annotation fallback (pt README 3b) is needed, use the same commands there from this folder. Read the `SUMMARY` block of each log: zero violating endpoints is the goal (setup ss, hold ff), plus the annotation check. Run 1 ended with 263 hold violators, all on input-to-register and register-to-register paths; the 090 margin is meant to prevent them.
+
+**3. Calibre DRC and antenna on the checkpoint GDS (a Calibre terminal, `calibre/README.md` section 1; LVS later on the final layout).** The control files are NOT edited on the server: the run folder copy gets ONE `sed` per file that changes only the folder name in the `LAYOUT PATH` line.
+
+```
+cd $RUN_DIR
+mkdir -p pnr_icc2/calibre/route1/drc pnr_icc2/calibre/route1/ant
+cp pnr_v2/calibre/drc.ctrl pnr_icc2/calibre/route1/drc/
+cp pnr_v2/calibre/ant.ctrl pnr_icc2/calibre/route1/ant/
+sed -i '/^LAYOUT PATH/s#/outputs/#/outputs_route/#' pnr_icc2/calibre/route1/drc/drc.ctrl
+sed -i '/^LAYOUT PATH/s#/outputs/#/outputs_route/#' pnr_icc2/calibre/route1/ant/ant.ctrl
+cd pnr_icc2/calibre/route1/drc
+pwd -P
+grep '^LAYOUT PATH' drc.ctrl
+ls -lL ../../../outputs_route/unpu_top_routed.gds
+calibre -drc -hier drc.ctrl |& tee drc.log
+cd ../ant
+pwd -P
+grep '^LAYOUT PATH' ant.ctrl
+ls -lL ../../../outputs_route/unpu_top_routed.gds
+calibre -drc -hier ant.ctrl |& tee ant.log
+```
+
+Before each run the printed line must be `LAYOUT PATH "../../../outputs_route/unpu_top_routed.gds"`, `pwd -P` must be under `$RUN_DIR`, and `ls -lL` must show the file (about 15 to 20 MB: no metal fill yet). Read the results with the commands of `calibre/README.md` sections 4 and 5 (`TOTAL RULECHECKS EXECUTED` 404 for DRC and 16 for antenna, `TOTAL RESULTS GENERATED`, `grep "TOTAL Result Count" ... | grep -v "= 0 "`, layer statistics, `grep -i error`). Goal: DRC 0 and antenna 0. A non-zero antenna result is expected to be possible (ICC2 counted 87 violations at the end of route; Calibre decides, and its input-port nets are the ones ICC2 skips): the antenna database of the checkpoint feeds the existing loop (`fix_antenna.tcl`, `calibre/README.md` section 5): `mkdir -p $RUN_DIR/pv/drc` and `cp $RUN_DIR/pnr_icc2/calibre/route1/ant/unpu_top.ant.db $RUN_DIR/pv/drc/unpu_top_antenna_bkp.db`. The GDS top cell must be `unpu_top`: check it as in `calibre/README.md` section 3 with `strings -n 3 ../../outputs_route/unpu_top_routed.gds | grep -n "^unpu_top"`.
+
+**4. Simulation (optional).** `env PL_OUT_DIR=pnr_icc2/outputs_route PL_SIM_DIR=pnr_icc2/sim_route bash pnr_v2/sim/run_postlayout_sim.sh ss nochecks` (repo-root relative folders; the script prints the folders it uses).
+
+**Cost (estimates, nothing measured for the checkpoint yet):** `pv.tcl` on the route block is the same work as on the filled block (GDS merge, SPEF, SDF, reports) minus the fill, so the same order of minutes as the final export; PrimeTime a few minutes per corner (the task 074 runs); Calibre DRC: the old 15.7 MB GDS took about 160 s (`calibre/README.md` section 4) and the checkpoint GDS has no fill, so expect a few minutes; antenna tens of seconds. The checkpoint can be repeated after each later ECO step with another tag (`UNPU_PV_TAG route_eco1`, `UNPU_PT_TAG route_eco1`, a new `route2` Calibre folder).
+
+VERIFY list (task 091): V55 `save_block -force -as <name>` then `close_blocks` and `open_block <lib>:<name>` leaves the copy as the current block and the source block unmodified (`ls -l --time-style=full-iso` of the library folder of `unpu_top_route` before and after, or the block list); V56 the LEF macro rename for the block name `unpu_top_pv_route` (the generic rename of task 073 renames any single macro to `unpu_top`; the log line `LEF macro renamed ... -> unpu_top` or `already called` says which); V57 the Verilog module of the checkpoint netlist is `unpu_top` (checked by the script) and the GDS top cell is `unpu_top` (the `strings` check above); V58 Calibre resolves the relative `LAYOUT PATH` from `route1/drc` (`drc.log` names the GDS); V59 `route_global -congestion_map_only true`, `check_lvs` etc. behave on the route block as on the filled one (the reports go to `reports_route/`). Tests: `tclsh pnr_v2/test_pv_checkpoint.tcl`.
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.

@@ -265,3 +265,7 @@ The ECO probe log (second server run) shows `Checked out license 'PrimeTime-SI' 
 - `UITE-305` `Converting a propagated clock 'clk' to an ideal clock`: the order of the SDC makes a later `create_clock` reset the clock; this is why the script applies `set_propagated_clock [all_clocks]` itself after `read_sdc` and proves it (step 8b).
 - `UITE-489` `Setting input delay on clock port (clk) relative to a clock (clk) defined at the same port. Command is ignored`: harmless, the input delay on the clock port itself has no meaning.
 - `Warning: There is 1 port with parasitics but with no driving cell. Ports clk`: the clock source port, expected; printed as information.
+
+## Checkpoint after route (task 091)
+
+`UNPU_PT_TAG` (csh: `setenv UNPU_PT_TAG route`, `unsetenv UNPU_PT_TAG` afterwards) makes `pt_common.tcl` read the checkpoint export `pnr_icc2/outputs_<tag>/` (written by `pv.tcl` with `UNPU_PV_TAG <tag>`) and write all reports to `pnr_icc2/pt_<tag>/`; run `pt_shell` from that folder (`mkdir -p pnr_icc2/pt_<tag>; cd pnr_icc2/pt_<tag>`). Without the variable nothing changes. The full sequence is in `pnr_v2/README.md`, section "Checkpoint after route (task 091)".

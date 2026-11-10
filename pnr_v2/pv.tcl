@@ -3,6 +3,10 @@
 # Path  : <RUN_DIR>/pnr_v2/pv.tcl   ;# 063 E1: new path
 # Stage : Physical Verification, Filler Insertion & Signoff Export
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
+# 091   : CHECKPOINT MODE (lesson L5: judge the routed block with PrimeTime and Calibre BEFORE fill). Optional environment variables (csh: setenv / unsetenv):
+# 091   :   UNPU_PV_BLOCK  the block to export (default unpu_top_filled = the final export, as before). A block other than the default needs a tag (the final export folder is never overwritten).
+# 091   :   UNPU_PV_TAG    letters, digits, underscore. With a tag EVERYTHING goes to a tagged place: pnr_icc2/outputs_<tag>/ (same file names), pnr_icc2/reports_<tag>/, logs/7_pv_<tag>.log,
+# 091   :              and the saved block is unpu_top_pv_<tag>. The opened block is copied (save_block -as) FIRST, so the source block is not modified. Default (no tag): nothing changes.
 # ==============================================================================
 
 set DESIGN_NAME "unpu_top"   ;# 063 E2: design name
@@ -152,12 +156,74 @@ proc pv_sdf_version_problem {text} {
 }
 # ---- END PURE TCL 076 ----
 
+# ---- BEGIN PURE TCL 091 ----
+# 091: plain Tcl for the checkpoint mode (tested by pnr_v2/test_pv_checkpoint.tcl)
+# 091: pv091_tag_problem <tag> -> "" or a sentence: a tag is 1..32 letters, digits or underscores
+proc pv091_tag_problem {tag} {
+    if {![regexp {^[A-Za-z0-9_]{1,32}$} $tag]} { return "'$tag' is not a valid tag (1 to 32 letters, digits or underscores)" }
+    return ""
+}
+# 091: pv091_resolve <design> <env block list> <env tag list> -> {block tag}; the env lists are {} when the variable is not set and {value} when it is; a set but empty value is an error
+proc pv091_resolve {design envb envt} {
+    set block ${design}_filled
+    set tag ""
+    if {[llength $envb] > 0} {
+        set v [string trim [lindex $envb 0]]
+        if {![regexp {^[A-Za-z0-9_.-]+$} $v]} { error "ERROR 091: UNPU_PV_BLOCK='$v' is not a block name (letters, digits, underscore, dot, dash; no library prefix)" }
+        set block $v
+    }
+    if {[llength $envt] > 0} {
+        set v [string trim [lindex $envt 0]]
+        set pr [pv091_tag_problem $v]
+        if {$pr ne ""} { error "ERROR 091: UNPU_PV_TAG: $pr" }
+        set tag $v
+    }
+    if {$block ne "${design}_filled" && $tag eq ""} {
+        error "ERROR 091: UNPU_PV_BLOCK=$block differs from the final block ${design}_filled but UNPU_PV_TAG is not set: the export would overwrite the final export folder. Set a tag (for example setenv UNPU_PV_TAG route)"
+    }
+    if {$tag ne "" && $block eq "${design}_pv_${tag}"} {
+        error "ERROR 091: UNPU_PV_BLOCK=$block is the block this run would save (${design}_pv_${tag}); choose another tag"
+    }
+    return [list $block $tag]
+}
+# 091: pv091_paths <pnr dir> <design> <tag> -> dict out_dir rpt_dir log_name save_name; the untagged names are the ones of the final export (unchanged since task 063)
+proc pv091_paths {pnr design tag} {
+    if {$tag eq ""} { return [dict create out_dir ${pnr}/outputs rpt_dir ${pnr}/reports log_name 7_pv.log save_name ${design}_pv] }
+    return [dict create out_dir ${pnr}/outputs_${tag} rpt_dir ${pnr}/reports_${tag} log_name 7_pv_${tag}.log save_name ${design}_pv_${tag}]
+}
+# 091: pv091_modules <verilog text> -> the module names, in order
+proc pv091_modules {text} {
+    set o {}
+    foreach l [split $text "\n"] { if {[regexp {^\s*module\s+([A-Za-z0-9_$\\.]+)} $l -> m]} { lappend o $m } }
+    return $o
+}
+# 091: pv091_module_problem <modules> <design> -> "" or a sentence: the netlist must hold a module called like the design (PrimeTime runs link_design on it)
+proc pv091_module_problem {modules design} {
+    if {[lsearch -exact $modules $design] < 0} { return "the exported netlist has no module '$design' (modules: [lrange $modules 0 9]); PrimeTime's link_design $design would fail" }
+    return ""
+}
+# ---- END PURE TCL 091 ----
+
+# 091: checkpoint mode: the output places come from the optional variables (default = the final export, unchanged)
+set pv_env_block {}
+if {[info exists ::env(UNPU_PV_BLOCK)]} { set pv_env_block [list $::env(UNPU_PV_BLOCK)] }
+set pv_env_tag {}
+if {[info exists ::env(UNPU_PV_TAG)]} { set pv_env_tag [list $::env(UNPU_PV_TAG)] }
+lassign [pv091_resolve $DESIGN_NAME $pv_env_block $pv_env_tag] PV_BLOCK PV_TAG
+set pv_paths [pv091_paths $PNR_DIR $DESIGN_NAME $PV_TAG]
+set OUT_DIR   [dict get $pv_paths out_dir]
+set RPT_DIR   [dict get $pv_paths rpt_dir]
+set PV_LOG    [dict get $pv_paths log_name]
+set PV_SAVE   [dict get $pv_paths save_name]
 file mkdir $OUT_DIR
 file mkdir $LOG_DIR
 file mkdir $RPT_DIR
 
-redirect -tee -file ${LOG_DIR}/7_pv.log {
+redirect -tee -file ${LOG_DIR}/${PV_LOG} {
     puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
+    puts ">>> 091 PV block $PV_BLOCK, tag '[expr {$PV_TAG eq {} ? {(none: the final export)} : $PV_TAG}]', output folder $OUT_DIR, reports $RPT_DIR, log ${LOG_DIR}/${PV_LOG}, block saved at the end as $PV_SAVE"
+    set pv_old_files [llength [glob -nocomplain -directory $OUT_DIR *]]
+    if {$pv_old_files > 0} { puts ">>> 091 NOTE: $OUT_DIR already holds $pv_old_files file(s); files with the same names are overwritten" }
 
     set open_blk [get_blocks -quiet *]
     if {[sizeof_collection $open_blk] > 0} { 
@@ -176,7 +242,7 @@ redirect -tee -file ${LOG_DIR}/7_pv.log {
     open_lib ${BLOCKS_DIR}/${DESIGN_NAME}.dlib
     
     # Open the final filled block containing the metal fill
-    set blk_name "${DESIGN_NAME}_filled"
+    set blk_name $PV_BLOCK   ;# 091: default ${DESIGN_NAME}_filled
     if {[catch {open_block ${DESIGN_NAME}.dlib:${blk_name}} open_err]} {
         puts "WARNING: could not open ${blk_name}: $open_err"
         puts "Blocks available in library ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:"
@@ -185,6 +251,16 @@ redirect -tee -file ${LOG_DIR}/7_pv.log {
     }
     current_block ${blk_name}
     link_block
+    if {$PV_TAG ne ""} {
+        # 091: checkpoint mode: work on a COPY, so that connect_pg_net, create_frame, the removal of the clock latency ... never modify the source block (same pattern as cts.tcl: save_block -as first).
+        # 091: the copy is closed and reopened, so that every change below lands in it for sure (VERIFY: save_block -force -as; the copy then is the current block).
+        if {[catch {save_block -force -as $PV_SAVE} pv_cp_err]} { error "ERROR 091: cannot save the copy $PV_SAVE of $blk_name: $pv_cp_err" }
+        close_blocks -force [get_blocks -quiet *]
+        if {[catch {open_block ${DESIGN_NAME}.dlib:${PV_SAVE}} pv_cp_err]} { error "ERROR 091: cannot open the copy $PV_SAVE: $pv_cp_err" }
+        current_block ${PV_SAVE}
+        link_block
+        puts ">>> 091 checkpoint: working on the copy $PV_SAVE of $blk_name; $blk_name itself is not modified"
+    }
 
     unpu_remove_clock_latency pv   ;# 088: remove the tool-made set_clock_latency (a no-op when the block is clean); prints the counts per scenario, ERROR 088 if any is left
     # 1. Standard Cell Fillers & route_eco DRC clearance already completed in route.tcl
@@ -344,6 +420,12 @@ redirect -tee -file ${LOG_DIR}/7_pv.log {
         -exclude {pg_netlist physical_only_cells leaf_module_declarations} \
         ${OUT_DIR}/${DESIGN_NAME}_pnr_sim.v
 
+    # 091: the netlist must hold a module called like the design (PrimeTime: link_design ${DESIGN_NAME}); checked in both modes, an error only in checkpoint mode (the final export is unchanged)
+    set fp [open ${OUT_DIR}/${DESIGN_NAME}_pnr_sim.v r]; set pv_vtxt [read $fp]; close $fp
+    set pv_mods [pv091_modules $pv_vtxt]
+    set pv_modp [pv091_module_problem $pv_mods $DESIGN_NAME]
+    puts ">>> 091 netlist ${OUT_DIR}/${DESIGN_NAME}_pnr_sim.v: [llength $pv_mods] module(s), first [lrange $pv_mods 0 2]; [expr {$pv_modp eq {} ? "module $DESIGN_NAME present" : $pv_modp}]"
+
      # Rename uppercase internal nets N<digits> to N_uc_<digits> so case-insensitive LVS never shorts N33 with n33
     exec sed -i -E {s/\bN([0-9]+)\b/N_uc_\1/g} ${OUT_DIR}/${DESIGN_NAME}_pnr_pg.v
     
@@ -395,6 +477,10 @@ redirect -tee -file ${LOG_DIR}/7_pv.log {
     }   ;# 076
     foreach pv_pr $pv_sdf_problems { puts ">>> 076 SDF CHECK FAILED: $pv_pr" }   ;# 076
 
+    if {$pv_modp ne "" && $PV_TAG ne ""} {   ;# 091
+        error "ERROR 091: checkpoint export failed its check, NOTHING SAVED: $pv_modp"   ;# 091
+    }   ;# 091
+
     # 073: a failed LEF check makes the whole run fail (the other exports above are written, but nothing is saved and no COMPLETE line is printed)
     if {[llength $pv_lef_problems] > 0} {   ;# 073
         error "ERROR 073: the LEF export failed its checks, NOTHING SAVED, the run is NOT complete: [join $pv_lef_problems {; }]"   ;# 073
@@ -405,8 +491,9 @@ redirect -tee -file ${LOG_DIR}/7_pv.log {
     }   ;# 076
 
     # 5. Save Final Checkpoint
-    save_block -as ${DESIGN_NAME}_pv
+    save_block -as $PV_SAVE   ;# 091: ${DESIGN_NAME}_pv (final export) or ${DESIGN_NAME}_pv_<tag> (checkpoint)
     save_lib
-    puts ">>> STAGE 7 COMPLETE: All deliverables exported to ${OUT_DIR}. Reports in ${RPT_DIR}. Log: ${LOG_DIR}/7_pv.log"
+    puts ">>> STAGE 7 COMPLETE: All deliverables exported to ${OUT_DIR}. Reports in ${RPT_DIR}. Log: ${LOG_DIR}/${PV_LOG}"
+    puts ">>> 091 done: block $PV_BLOCK, tag '[expr {$PV_TAG eq {} ? {(none)} : $PV_TAG}]', saved block $PV_SAVE"
 
 }

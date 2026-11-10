@@ -268,3 +268,7 @@ Also copy `antenna_results.ant` from the `ant` folder if `ls` found it, and the 
 | V18 | Calibre resolves the relative `LAYOUT PATH` (`../../../outputs/unpu_top_routed.gds`) from the folder it is started in (task 082) | the printed `ls -lL` of step 2, and the GDS name in the first lines of `drc.log` |
 | deck switches | SETTLED: `#define 4M1L` and `#define FILTER_DWN2PSUB` are the switches; the `VIRTUAL CONNECT` lines of `drc.ctrl` must NOT be in `lvs.ctrl` (error SPC1); `LVS REPORT` and `MASK SVDB DIRECTORY` did not clash | `lvs.log` first errors |
 | `3V` | the DRC voltage option stays an assumption (18.24) | not testable from the layout |
+
+## Checkpoint after route (task 091)
+
+DRC and antenna on the routed (not yet filled) GDS from `pnr_icc2/outputs_route/` (written by `pv.tcl` with `UNPU_PV_TAG route`): a run folder `pnr_icc2/calibre/route1/{drc,ant}/` with copies of the control files and ONE `sed` per file that changes only `outputs` to `outputs_route` in the `LAYOUT PATH` line (the repository files and the final-layout folder `run1` are not touched). The commands, what to read and the antenna hand-over to `fix_antenna.tcl` are in `pnr_v2/README.md`, section "Checkpoint after route (task 091)". LVS stays on the final layout.
