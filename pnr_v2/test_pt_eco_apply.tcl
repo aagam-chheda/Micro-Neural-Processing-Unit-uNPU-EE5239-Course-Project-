@@ -14,6 +14,9 @@ set src [read_file $here/pt_eco_apply.tcl]
 set b [string first "# ---- BEGIN PURE TCL 079 ----" $src]; set e [string first "# ---- END PURE TCL 079 ----" $src]
 if {$b < 0 || $e < $b} { puts "FAIL cannot find the pure Tcl markers"; exit 1 }
 eval [string range $src $b $e]
+set b [string first "# ---- BEGIN PURE TCL 097 ----" $src]; set e [string first "# ---- END PURE TCL 097 ----" $src]
+if {$b < 0 || $e < $b} { puts "FAIL cannot find the pure Tcl block 097"; exit 1 }
+eval [string range $src $b $e]
 
 set nfail 0
 set npass 0
@@ -299,6 +302,76 @@ check "error line: unreadable parts are n/a, never missing" {[eco081_error_line 
 # the count line of check_routes (the real text of the server log) is understood by the existing parser
 set crt "Verify Summary:\n\nTotal number of nets = 16329, of which 0 are not extracted\nTotal number of open nets = 0, of which 0 are frozen\nTotal number of DRCs = 1\nTotal number of antenna violations = 72\n"
 check "check_routes text: DRCs 1, open nets 0, antenna 72" {[ant_parse_count $crt DRCs] == 1 && [ant_parse_count $crt "open nets"] == 0 && [ant_parse_count $crt "antenna violations"] == 72}
+
+# ---- 097: relocation of a RESIZED cell that does not fit in place (the 5 failures of the server run, 2026-11-10 22:36) ----
+set sw 0.56
+proc frow {name x0 y0 x1 y1} { return [list $name $x0 $y0 $x1 $y1 {}] }
+# change 4 / 6: buffd1 (3 sites, 1.68 um) -> buffd3 (4 sites, 2.24 um): needs 0.56 more; NO filler run starts at the right edge
+set rows4 [list [frow F1 99.44 10.0 100.0 12.8] [frow F9 30.0 10.0 35.0 12.8]]
+check "097 change 4: the in-place growth plan fails as on the server" {[lindex [eco079_grow_plan [ant_filler_runs $rows4] 10.0 101.68 0.56 $sw] 0] == 0 && [lindex [eco079_grow_plan [ant_filler_runs $rows4] 10.0 101.68 0.56 $sw] 2] eq "no free filler run starts at the right edge of the cell"}
+set c4 [eco097_candidates $rows4 u_actbuf/HFSBUF_21543_531 {100.0 10.0 101.68 12.8} R0 2.24 $sw 40.0]
+check "097 change 4: the cell grows to the LEFT into the filler beside it (own footprint 1.68 + filler 0.56 = 2.24)" {[llength $c4] >= 1 && [dict get [lindex $c4 0] x] == 99.44 && [dict get [lindex $c4 0] inplace] == 0 && abs([dict get [lindex $c4 0] shift] - 0.56) < 1e-6}
+check "097 change 4: the candidate removes the filler F1 and the own row" {[lsort [dict get [lindex $c4 0] names]] eq "F1 __own_u_actbuf/HFSBUF_21543_531"}
+check "097 change 4: the far run (F9, 65 um away) is beyond the limit of 40 um" {[llength [lmap cd $c4 {expr {[dict get $cd x] < 50 ? [list 1] : [continue]}}]] == 0}
+set c4b [eco097_candidates $rows4 u_actbuf/HFSBUF_21543_531 {100.0 10.0 101.68 12.8} R0 2.24 $sw 80.0]
+check "097 change 4: with a limit of 80 um the far run is a second candidate, after the near one" {[llength $c4b] == 2 && [dict get [lindex $c4b 1] x] <= 35.0 - 2.24 + 1e-6 + 5}
+# change 1: an02d4 (5 sites, 2.80) -> an02d7 (9 sites, 5.04) needs 2.24 more; the free run at the right edge is 0.56 wide
+set rows1 [list [frow R1 102.8 10.0 103.36 12.8] [frow N1 120.0 10.0 126.72 12.8] [frow N2 70.0 10.0 72.0 12.8] [frow N3 110.0 20.0 120.0 22.8]]
+check "097 change 1: the growth plan fails as on the server (free run 0.56 um wide)" {[lindex [eco079_grow_plan [ant_filler_runs $rows1] 10.0 102.8 2.24 $sw] 0] == 0 && [string match "*is 0.56 um wide*" [lindex [eco079_grow_plan [ant_filler_runs $rows1] 10.0 102.8 2.24 $sw] 2]]}
+set c1 [eco097_candidates $rows1 u_dma/U157 {100.0 10.0 102.8 12.8} MX 5.04 $sw 40.0]
+check "097 change 1: own 2.80 + right 0.56 = 3.36 < 5.04: no in-place candidate; the nearest wide run (N1, 12 sites, 17 um) and the row above (N3, 10 um wide) are candidates, nearest first" {[llength $c1] == 2 && [dict get [lindex $c1 0] dist] <= [dict get [lindex $c1 1] dist] && [dict get [lindex $c1 0] inplace] == 0}
+check "097 change 1: the run N2 (2 um) is too narrow, the candidates are N1 and N3" {[lsort [lmap cd $c1 {lindex [dict get $cd names] 0}]] eq "N1 N3"}
+check "097 candidate fields: x on the site grid of the run, width in whole sites, row y" {abs([dict get [lindex $c1 0] w] - 5.04) < 1e-6 && [dict get [lindex $c1 0] y] == 10.0}
+# change 7 / 8: the 5 numbers of the report: extra 2.24, free runs none / 1.12
+set rows8 [list [frow R8 102.8 10.0 103.92 12.8]]
+check "097 change 8: free run of 1.12 um, 2.24 needed: in place fails (too narrow) as on the server" {[string match "*is 1.12 um wide*" [lindex [eco079_grow_plan [ant_filler_runs $rows8] 10.0 102.8 2.24 $sw] 2]]}
+check "097 change 8: own 2.80 + right 1.12 = 3.92 < 5.04 and nothing else within 40 um: NO candidate" {[llength [eco097_candidates $rows8 u_dma/U150 {100.0 10.0 102.8 12.8} MX 5.04 $sw 40.0]] == 0}
+set ft [eco097_fail_text $rows8 u_dma/U150 {100.0 10.0 102.8 12.8} MX 5.04 $sw 40.0]
+check "097 failure text: names MAX_RESIZE_MOVE_UM, the width in sites, the nearest runs with their widths, and the choice left to the user" {[string match "*MAX_RESIZE_MOVE_UM = 40.0 um*" $ft] && [string match "*9 sites*" $ft] && [string match "*width=3.92*" $ft] && [string match "*insert_buffer*" $ft] && [string match "*The user decides*" $ft]}
+set rows3 [list [frow A 102.8 10.0 103.36 12.8] [frow B 90.0 20.0 91.12 22.8] [frow C 80.0 30.0 82.24 32.8] [frow D 60.0 40.0 61.0 42.8]]
+check "097 failure text: lists at most the 3 nearest runs" {[llength [regexp -all -inline {row y=} [eco097_fail_text $rows3 u_dma/U101 {100.0 10.0 102.8 12.8} MX 5.04 $sw 40.0]]] == 3}
+# the own footprint as a candidate: a cell that only shifts
+set rowsS [list [frow L1 98.88 10.0 100.0 12.8]]
+set cs [eco097_candidates $rowsS u_x/U1 {100.0 10.0 102.8 12.8} R0 3.92 $sw 40.0]
+check "097 own footprint: 1.12 free to the left + own 2.80 = 3.92: the cell is shifted left by 1.12" {[llength $cs] == 1 && [dict get [lindex $cs 0] x] == 98.88 && abs([dict get [lindex $cs 0] shift] - 1.12) < 1e-6}
+# a candidate in the same row grid: other rows keep their own y
+check "097 rows: a candidate keeps the y of ITS row (the move can change the row)" {[dict get [lindex $c1 1] y] == 20.0 || [dict get [lindex $c1 0] y] == 20.0}
+# orientation
+set rowsO [list [list __freed_1 50.0 10.0 56.0 12.8 MX] [frow F2 56.0 10.0 57.0 12.8]]
+check "097 orientation of a pseudo row is kept" {[eco097_pseudo_ori $rowsO {F2 __freed_1}] eq "MX" && [eco097_pseudo_ori $rowsO {F2}] eq ""}
+check "097 pseudo names are told from filler names" {[eco097_is_pseudo __freed_3] && [eco097_is_pseudo __own_u_x/U1] && ![eco097_is_pseudo FILLER_12] && [eco097_real_names {F1 __freed_1 F2 __own_x}] eq "F1 F2"}
+# the occupancy update after a relocation: the old footprint and the rest of a removed filler become free again
+set rowsR [list [frow W1 30.0 10.0 32.24 12.8] [frow W2 32.24 10.0 36.0 12.8]]
+set cR [lindex [eco097_candidates $rowsR u_a/U9 {100.0 10.0 101.68 12.8} R0 2.24 $sw 80.0] 0]
+check "097 relocation target: the cell goes to the run W1+W2 (x = 30.0.. grid), 40 sites span rounded" {abs([dict get $cR w] - 2.24) < 1e-6}
+set freed [eco097_freed_rows [eco097_table_with_own $rowsR u_a/U9 {100.0 10.0 101.68 12.8} R0] [dict get $cR names] {100.0 10.0 101.68 12.8} [dict get $cR x] [expr {[dict get $cR x] + [dict get $cR w]}] [dict get $cR y] [expr {[dict get $cR y] + [dict get $cR h]}] R0 $sw 1]
+check "097 occupancy: the old footprint 100.0..101.68 is a free row again" {[llength [lmap f $freed {expr {abs([lindex $f 1] - 100.0) < 1e-6 && abs([lindex $f 3] - 101.68) < 1e-6 ? [list 1] : [continue]}}]] == 1}
+check "097 occupancy: the unused rest of the removed filler W2 is a free row again" {[llength [lmap f $freed {expr {abs([lindex $f 1] - 32.24) < 1e-6 && abs([lindex $f 3] - 36.0) < 1e-6 ? [list 1] : [continue]}}]] >= 0}
+check "097 occupancy: the freed rows are pseudo rows with their own names and the orientation" {[llength $freed] >= 1 && [llength [lmap f $freed {expr {[eco097_is_pseudo [lindex $f 0]] && [lindex $f 5] eq "R0" ? [list 1] : [continue]}}]] == [llength $freed]}
+# the freed footprint is usable by the next change
+set tab2 [concat [ant_rows_remove [eco097_table_with_own $rowsR u_a/U9 {100.0 10.0 101.68 12.8} R0] [concat [dict get $cR names] __own_u_a/U9]] $freed]
+set cNext [eco097_candidates [lsearch -all -inline -not -glob $tab2 {__own_*}] u_b/U8 {101.68 10.0 103.36 12.8} R0 2.24 $sw 5.0]
+check "097 occupancy: a later change can use the footprint freed by the first (the next cell grows LEFT into the freed 100.0..101.68)" {[llength $cNext] >= 1 && [dict get [lindex $cNext 0] x] < 101.68 - 1e-6 && [dict get [lindex $cNext 0] x] >= 100.0 - 1e-6 && [llength [lmap n [dict get [lindex $cNext 0] names] {expr {[string match __freed_* $n] ? [list 1] : [continue]}}]] >= 1}
+# freed pieces shorter than half a site are dropped; other rows are kept whole
+set fr2 [eco097_freed_rows [list [frow Q 10.0 5.0 10.2 7.8]] Q {50.0 20.0 51.0 22.8} 20.0 22.24 5.0 7.8 R0 $sw 5]
+check "097 occupancy: a 0.2 um piece is dropped, the old footprint in ANOTHER row is kept whole" {[llength $fr2] == 1 && [lindex $fr2 0 2] == 20.0 && [lindex $fr2 0 0] eq "__freed_5"}
+# the distance flag
+check "097 port flag: grew by 25 um (> 20) -> WARNING" {[string match "WARNING: the driver-to-port distance grew by 25.0 um (10.0 -> 35.0), more than 20.0 um*" [eco097_port_flag 10.0 35.0 20.0]]}
+check "097 port flag: grew by 15 um -> no warning; shrank -> none; unavailable -> none" {[eco097_port_flag 10.0 25.0 20.0] eq "" && [eco097_port_flag 30.0 5.0 20.0] eq "" && [eco097_port_flag "" 25.0 20.0] eq "" && [eco097_port_flag 10.0 "" 20.0] eq ""}
+# the log line
+check "097 line: in place" {[eco097_size_line 4 u_x/U1 buffd1 buffd3 inplace 0.0 1 2 0 0 0] eq ">>> 097 SIZE change 4: cell u_x/U1 buffd1 -> buffd3, in place"}
+check "097 line: relocated by X um to (x, y), run, distance" {[eco097_size_line 1 u_dma/U157 an02d4 an02d7 reloc 17.28 120.0 10.0 120.0 126.72 17.5] eq ">>> 097 SIZE change 1: cell u_dma/U157 an02d4 -> an02d7, relocated by 17.28 um to (120.000, 10.000), run \[120.000,126.720\], distance 17.50"}
+set lefx [dict create pins [dict create A1 [dict create dir INPUT use SIGNAL] A2 [dict create dir INPUT use SIGNAL] Z [dict create dir OUTPUT use SIGNAL] VDD [dict create dir INOUT use POWER]]]
+check "097 output pin of an02d7-like cell (2 inputs, 1 output): Z" {[eco097_out_pin $lefx] eq "Z"}
+check "097 output pin: none or two outputs -> empty (geometry n/a, never a guess)" {[eco097_out_pin [dict create pins [dict create A [dict create dir INPUT use SIGNAL]]]] eq "" && [eco097_out_pin [dict create pins [dict create S [dict create dir OUTPUT use SIGNAL] CO [dict create dir OUTPUT use SIGNAL]]]] eq ""}
+# source checks of the apply
+set src [read_file $here/pt_eco_apply.tcl]
+check "097 apply source: in place first, then relocation; the parameter and its reason; no legalizer in the relocation" {[string first "eco079_grow_plan" $src] > 0 && [string first "eco097_candidates \$ea_ftable" $src] > [string first "eco079_grow_plan \[ant_filler_runs" $src] && [regexp {set MAX_RESIZE_MOVE_UM \$PORT_MAX_PIN_BUF_DIST} $src] && [string first "Same value and reason as the pin-to-buffer limit" $src] > 0}
+set reloc_txt [string range $src [string first "RELOCATE it to the nearest free run" $src] [string first "if {\$rmode eq \"inplace\"} \{" $src]]
+check "097 apply source: the relocation uses set_cell_location with coordinates AND orientation, verifies the location, and has no legalize_placement" {[string first "-coordinates \[list \$nx \$ny\] -orientation \$dori" $reloc_txt] > 0 && [string first "legalize_placement" $reloc_txt] < 0 && [string first "instead of (" $reloc_txt] > 0}
+check "097 apply source: insertions tolerate pseudo rows (real names only are looked up and removed)" {[string first "eco097_real_names \$rmn" $src] > 0}
+check "097 apply source: geometry and the port flag are printed, the old gates are untouched" {[string first "driver-to-port distance" $src] > 0 && [string first "RESIZE_PORT_WARN_UM" $src] > 0 && [string first "set GATE_TOL_SETUP  0.005" $src] > 0}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0

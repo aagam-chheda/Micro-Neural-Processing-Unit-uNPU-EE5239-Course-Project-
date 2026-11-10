@@ -119,6 +119,97 @@ proc eco095_hold_cells {names hold_mark} {
     return [lsort $out]
 }
 # ---- END PURE TCL 095 ----
+# ---- BEGIN PURE TCL 097 ----
+# 097: plain Tcl (tested by pnr_v2/test_eco_resize.tcl; needs ant_filler_runs, ant_site_candidates, ant_rows_in_window, ant_run_report, ant_manhattan of antenna_port_buffers.tcl). A RESIZED cell that does not fit in place
+# 097: (task 079's growth into the filler run at its right edge) is relocated to the nearest free site run that is wide enough for the NEW cell. Rows of the filler table are {name x0 y0 x1 y1 ori}. The table also
+# 097: holds PSEUDO rows (names starting with "__"): free sites that are not filler instances (the footprint a relocated cell left, the rest of a removed filler); they are "removed" from the table only.
+proc eco097_is_pseudo {name} { return [string match "__*" $name] }
+proc eco097_real_names {names} { return [lmap n $names {expr {[eco097_is_pseudo $n] ? [continue] : $n}}] }
+# 097: the orientation stored in the first pseudo row of `names` (rows of the table), "" when none
+proc eco097_pseudo_ori {rows names} {
+    foreach n $names {
+        if {![eco097_is_pseudo $n]} continue
+        foreach r $rows { if {[lindex $r 0] eq $n && [lindex $r 5] ne ""} { return [lindex $r 5] } }
+    }
+    return ""
+}
+# 097: the table with the old footprint of the cell as a free row (the cell is going to move or to grow: its own sites count as free). bbox = {x0 y0 x1 y1}.
+proc eco097_table_with_own {rows inst bbox ori} {
+    lassign $bbox x0 y0 x1 y1
+    return [concat $rows [list [list "__own_$inst" $x0 $y0 $x1 $y1 $ori]]]
+}
+# 097: the candidate runs for a cell of new width bw whose old box is bbox: the run is evaluated from the OLD cell's centre (Manhattan distance of the new cell's centre, limit = the move limit). Returns the list of candidate
+# 097: dicts of ant_site_candidates (x y w h dist orient names run_x0 run_x1), nearest first, each with `shift` (Manhattan distance of the new ORIGIN from the old one) and `inplace` (same origin).
+proc eco097_candidates {rows inst bbox ori bw site_w limit {tol 0.001}} {
+    lassign $bbox x0 y0 x1 y1
+    set px [expr {($x0 + $x1) / 2.0}]; set py [expr {($y0 + $y1) / 2.0}]
+    set tbl [eco097_table_with_own $rows $inst $bbox $ori]
+    set L [expr {$limit + $bw + ($y1 - $y0)}]
+    set frows [ant_rows_in_window $tbl [expr {$px - $L}] [expr {$py - $L}] [expr {$px + $L}] [expr {$py + $L}]]
+    set out {}
+    foreach cd [ant_site_candidates [ant_filler_runs $frows] $bw $site_w $px $py $limit $tol] {
+        dict set cd shift [ant_manhattan [dict get $cd x] [dict get $cd y] $x0 $y0]
+        dict set cd inplace [expr {abs([dict get $cd x] - $x0) <= $tol && abs([dict get $cd y] - $y0) <= $tol}]
+        lappend out $cd
+    }
+    return $out
+}
+# 097: after a relocation the sites that are free again, as pseudo rows. names = the table rows that the move removed (fillers and the own row), own = the old box, the new cell occupies [nx0, nx1] in the row y0..y1.
+# 097: Every removed row and the old footprint, minus the new cell's span, becomes a free row again (pieces shorter than half a site are dropped). Returns the list of rows; counter = first number for the names.
+proc eco097_freed_rows {rows names own nx0 nx1 y0 y1 ori site_w counter {tol 0.001}} {
+    set segs {}
+    foreach n $names {
+        if {[string match "__own_*" $n]} continue
+        foreach r $rows { if {[lindex $r 0] eq $n} { lappend segs [list [lindex $r 1] [lindex $r 2] [lindex $r 3] [lindex $r 4] [expr {[lindex $r 5] ne "" ? [lindex $r 5] : $ori}]] } }   ;# a filler is in the row of the new cell: its orientation
+    }
+    lassign $own ox0 oy0 ox1 oy1
+    lappend segs [list $ox0 $oy0 $ox1 $oy1 $ori]
+    set out {}
+    foreach sg $segs {
+        lassign $sg sx0 sy0 sx1 sy1 sori
+        set pieces {}
+        if {abs($sy0 - $y0) <= $tol} {
+            if {$sx0 < $nx0 - $tol} { lappend pieces [list $sx0 [expr {min($sx1, $nx0)}]] }
+            if {$sx1 > $nx1 + $tol} { lappend pieces [list [expr {max($sx0, $nx1)}] $sx1] }
+        } else { set pieces [list [list $sx0 $sx1]] }
+        foreach pc $pieces {
+            if {[lindex $pc 1] - [lindex $pc 0] < $site_w / 2.0} continue
+            lappend out [list "__freed_$counter" [lindex $pc 0] $sy0 [lindex $pc 1] $sy1 $sori]
+            incr counter
+        }
+    }
+    return $out
+}
+# 097: WARNING text when the driver-to-port distance of a relocated cell grew by more than `warn` um ("" otherwise; "" values: the distance is not available)
+proc eco097_port_flag {before after warn} {
+    if {![string is double -strict $before] || ![string is double -strict $after]} return
+    if {$after - $before > $warn} { return [format "WARNING: the driver-to-port distance grew by %.1f um (%.1f -> %.1f), more than %.1f um: the output net is longer; the timing gates decide" [expr {$after - $before}] $before $after $warn] }
+    return ""
+}
+# 097: the per-change log line
+proc eco097_size_line {idx inst oldref newref mode shift x y run_x0 run_x1 dist} {
+    if {$mode eq "inplace"} { return [format ">>> 097 SIZE change %d: cell %s %s -> %s, in place" $idx $inst $oldref $newref] }
+    return [format ">>> 097 SIZE change %d: cell %s %s -> %s, relocated by %.2f um to (%.3f, %.3f), run \[%.3f,%.3f\], distance %.2f" $idx $inst $oldref $newref $shift $x $y $run_x0 $run_x1 $dist]
+}
+# 097: the failure text when no candidate works: the 3 nearest runs with their widths and why each is rejected, and what the user can do
+proc eco097_fail_text {rows inst bbox ori bw site_w limit} {
+    lassign $bbox x0 y0 x1 y1
+    set px [expr {($x0 + $x1) / 2.0}]; set py [expr {($y0 + $y1) / 2.0}]
+    set tbl [eco097_table_with_own $rows $inst $bbox $ori]
+    set runs [ant_filler_runs $tbl]
+    set lines [ant_run_report $runs $bw $site_w $px $py $limit 3]
+    return "no free site run within MAX_RESIZE_MOVE_UM = [format %.1f $limit] um is wide enough for the new cell ([format %.2f $bw] um = [expr {int(ceil($bw / $site_w - 1e-6))}] sites); the 3 nearest runs: [join $lines { | }]. The user decides: raise MAX_RESIZE_MOVE_UM (the line `set MAX_RESIZE_MOVE_UM` in pt_eco_apply.tcl), or ask the probe for -methods {insert_buffer} only for this net"
+}
+# 097: the signal OUTPUT pin of a LEF cell (dict with `pins`: name -> dict dir use); "" when it has none or more than one (the geometry report then says n/a)
+proc eco097_out_pin {lefcell} {
+    set outs {}
+    dict for {pn pd} [dict get $lefcell pins] {
+        if {[dict get $pd use] eq "POWER" || [dict get $pd use] eq "GROUND"} continue
+        if {[dict get $pd dir] eq "OUTPUT"} { lappend outs $pn }
+    }
+    return [expr {[llength $outs] == 1 ? [lindex $outs 0] : ""}]
+}
+# ---- END PURE TCL 097 ----
 set PT_TAG ""   ;# 092: optional environment variable UNPU_PT_TAG (task 091): read the change files of the checkpoint folder pt_<tag>
 if {[info exists ::env(UNPU_PT_TAG)]} { set PT_TAG [string trim $::env(UNPU_PT_TAG)] }
 set PT_DIR      [eco092_pt_dir $PNR_DIR $PT_TAG]   ;# 079: where PrimeTime wrote the change files (pt_eco_probe.tcl, pt_eco_setup_probe.tcl); 092: pt_<tag> with UNPU_PT_TAG
@@ -637,6 +728,10 @@ eval [string range $ec_src $ec_h [expr {$ec_f - 1}]]
 foreach ec_n {MAX_PIN_BUF_DIST ANT_RATIO_LIMIT ANT_WEIGHT_PINWIRE WIRE_WIDTH_UM ANT_WEIGHT_TOPM TIER2_RATIO} {
     if {[catch {set PORT_$ec_n [eco079_param_from_text $ec_src $ec_n]} ec_err]} { error "ERROR 079: ${SCRIPT_DIR}/antenna_port_buffers.tcl: $ec_err" }
 }
+# 097: a resized cell that does not fit in place may be relocated by at most this much (Manhattan distance between the centre of the old cell and the centre of the new one). Same value and reason as the pin-to-buffer limit of
+# 097: step 6c (PORT_MAX_PIN_BUF_DIST, read above): a cell that moves farther adds wire delay on its nets that PrimeTime did not see; the timing gates after the ECO judge what is left. Edit this line to change it (printed).
+set MAX_RESIZE_MOVE_UM $PORT_MAX_PIN_BUF_DIST
+set RESIZE_PORT_WARN_UM 20.0   ;# 097: WARNING when the driver-to-port distance of a relocated cell grows by more than this (named by the task text of 097)
 set ec_src2 [eco079_read ${SCRIPT_DIR}/timing_closure.tcl]
 set ec_b [string first "# ---- BEGIN PURE TCL 072 ----" $ec_src2]
 set ec_e [string first "# ---- END PURE TCL 072 ----" $ec_src2]
@@ -648,6 +743,33 @@ eval [string range $ec_src2 $ec_h [expr {$ec_f - 1}]]
 unset ec_src ec_src2 ec_b ec_e ec_h ec_f ec_n
 
 # 079: ICC2 side helpers of this script (not tested locally)
+proc eco097_geom {inst sigout} {   ;# 097 (ICC2 side): the driver pin centre, the driver-to-port distance (first port on the net) and the driver-to-centroid-of-the-loads distance of the output net of a cell; "" for what cannot be read. VERIFY get_ports -of_objects <net>
+    set res [dict create driver "" port "" centroid "" nloads 0]
+    if {[catch {
+        set pin [get_pins -quiet -exact "$inst/$sigout"]
+        if {[sizeof_collection $pin] != 1} { error "no pin $inst/$sigout" }
+        lassign [ant068_centre $pin] dx dy
+        dict set res driver [list $dx $dy]
+        set net [eco079_net_of_pin "$inst/$sigout"]
+        if {$net eq ""} { error "no net on $inst/$sigout" }
+        set ports [get_ports -quiet -of_objects [get_nets -exact $net]]
+        foreach_in_collection pt $ports {
+            set xy [eco079_port_xy [get_object_name $pt]]
+            if {$xy ne ""} { dict set res port [ant_manhattan $dx $dy [lindex $xy 0] [lindex $xy 1]]; break }
+        }
+        set sx 0.0; set sy 0.0; set n 0
+        foreach lp [eco079_net_leaf_pins $net] {
+            if {$lp eq "$inst/$sigout"} continue
+            set po [get_pins -quiet -exact $lp]
+            if {[sizeof_collection $po] != 1} continue
+            lassign [ant068_centre $po] lx ly
+            set sx [expr {$sx + $lx}]; set sy [expr {$sy + $ly}]; incr n
+        }
+        dict set res nloads $n
+        if {$n > 0} { dict set res centroid [ant_manhattan $dx $dy [expr {$sx / $n}] [expr {$sy / $n}]] }
+    } err]} { dict set res err $err }
+    return $res
+}
 proc eco095_marker_names {mark} {   ;# 095: the full names of the cells whose name contains the marker (ICC2 side)
     set l {}
     foreach_in_collection c [get_cells -quiet -hierarchical -filter "name =~ *${mark}*"] { lappend l [get_object_name $c] }
@@ -1044,6 +1166,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_filter [join [lmap f $FILLER_REFS {string cat "ref_name == " $f}] " || "]
     set ea_ftable [ant070_all_fillers $ea_filter]
     puts ">>> 079 filler table: [llength $ea_ftable] filler instances"
+    puts ">>> 097 a resized cell that does not fit in place is relocated to the nearest free run within MAX_RESIZE_MOVE_UM = [format %.1f $MAX_RESIZE_MOVE_UM] um (= PORT_MAX_PIN_BUF_DIST of step 6c), at most $MAX_SITE_TRIES candidate runs per change; a driver-to-port distance that grows by more than [format %.1f $RESIZE_PORT_WARN_UM] um is a WARNING"
     if {[llength $ea_ftable] == 0} { error "ERROR 079: no filler instance found with '$ea_filter'" }
     set ea_nfill0 [llength $ea_ftable]
     set ea_done {}
@@ -1052,6 +1175,7 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
     set ea_touched {}
     set ea_moves {}
     set ea_removed 0
+    set ea_freed_n 0   ;# 097: counter for the names of the pseudo rows (free sites that are not filler instances)
     set ea_ins_err_shown 0
     set ea_skipped {}
     set ea_gone {}
@@ -1082,28 +1206,99 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
             lassign [ant068_bbox_of $cc] cx0 cy0 cx1 cy1
             set extra [expr {$bw - ($cx1 - $cx0)}]
             set rm {}
+            set rmode inplace
+            set rl_shift 0.0; set rl_x $cx0; set rl_y $cy0; set rl_r0 0.0; set rl_r1 0.0; set rl_dist 0.0; set rl_ori ""
+            set sg_out [eco097_out_pin [dict get $ea_lef $ref]]   ;# the single signal output of the new master (an02d7 has two inputs: ea_sig only holds the 1-in/1-out buffer references)
+            set geom0 [eco097_geom $inst $sg_out]
             if {$extra > 0.001} {
                 lassign [eco079_grow_plan [ant_filler_runs $ea_ftable] $cy0 $cx1 $extra $ea_site_w] gok rm greason
-                if {!$gok} {
-                    set fmsg "$inst $oldref -> $ref needs [format %.2f $extra] um more width: $greason"
-                    puts ">>> 079 SIZE change $idx [expr {$ALLOW_PARTIAL ? {SKIPPED} : {FAILED}}]: $fmsg"
-                    if {$ALLOW_PARTIAL} { lappend ea_skipped [dict create idx $idx line [dict get $c line] pin $inst reason $fmsg on {}] } else { lappend ea_failed "change $idx: $fmsg" }
-                    continue
+                if {$gok} {
+                    remove_cells [get_cells -exact $rm]
+                    set ea_ftable [ant_rows_remove $ea_ftable $rm]
+                    incr ea_removed [llength $rm]
+                } else {
+                    # ---- 097: it does not fit in place: RELOCATE it to the nearest free run (its own old sites count as free) within MAX_RESIZE_MOVE_UM ----
+                    set rmode reloc
+                    set own_ori [get_attribute -quiet $cc orientation]
+                    set cands [eco097_candidates $ea_ftable $inst [list $cx0 $cy0 $cx1 $cy1] $own_ori $bw $ea_site_w $MAX_RESIZE_MOVE_UM]
+                    puts ">>> 097 SIZE change $idx: $inst $oldref -> $ref needs [format %.2f $extra] um more width ($greason); relocation: [llength $cands] candidate run(s) within [format %.1f $MAX_RESIZE_MOVE_UM] um, at most $MAX_SITE_TRIES tried"
+                    set rl_ok 0
+                    set sized 0
+                    set rej {}
+                    set ntry 0
+                    foreach cd $cands {
+                        if {$ntry >= $MAX_SITE_TRIES} break
+                        incr ntry
+                        set nx [dict get $cd x]; set ny [dict get $cd y]
+                        set names [dict get $cd names]
+                        set real [eco097_real_names $names]
+                        set tbl_b [eco097_table_with_own $ea_ftable $inst [list $cx0 $cy0 $cx1 $cy1] $own_ori]   ;# the table as the candidate saw it (extents of the rows the move removes)
+                        set nfl 0; set flc ""
+                        if {[llength $real] > 0} { set flc [get_cells -quiet -exact $real]; set nfl [sizeof_collection $flc] }
+                        if {$nfl != [llength $real]} { lappend rej "($nx, $ny): only $nfl of [llength $real] filler names found"; continue }
+                        if {$nfl > 0} { set dori [get_attribute -quiet [index_collection $flc 0] orientation] } else { set dori [eco097_pseudo_ori $tbl_b $names] }
+                        if {$dori eq "" && abs($ny - $cy0) < 0.001} { set dori $own_ori }
+                        if {$dori eq ""} { lappend rej "($nx, $ny): the row orientation is unknown"; continue }
+                        if {$nfl > 0} { remove_cells $flc }
+                        set ea_ftable [ant_rows_remove $ea_ftable $names]
+                        incr ea_removed [llength $real]
+                        if {!$sized} {
+                            if {[catch {size_cell $cc $lcname} err]} {
+                                if {[catch {size_cell -lib_cell $lc $cc} err2]} { puts ">>> 097 SIZE change $idx FAILED: $err / $err2"; lappend rej "($nx, $ny): size_cell failed: $err / $err2"; break }
+                            }
+                            set sized 1
+                        }
+                        set sargs [list -coordinates [list $nx $ny] -orientation $dori]
+                        if {[catch {set_cell_location {*}$sargs [get_cells -exact $inst]} err]} { lappend rej "($nx, $ny): set_cell_location failed: $err"; continue }
+                        lassign [ant068_bbox_of [get_cells -exact $inst]] bx0 by0 bx1 by1
+                        set bori [get_attribute -quiet [get_cells -exact $inst] orientation]
+                        set bad {}
+                        if {[ant_manhattan $bx0 $by0 $nx $ny] > $POS_TOL} { lappend bad "cell at ([format %.3f $bx0], [format %.3f $by0]) instead of ([format %.3f $nx], [format %.3f $ny])" }
+                        if {$bori ne $dori} { lappend bad "orientation $bori instead of $dori" }
+                        if {[get_attribute -quiet [get_cells -exact $inst] ref_name] ne $ref} { lappend bad "reference [get_attribute -quiet [get_cells -exact $inst] ref_name] instead of $ref" }
+                        if {[llength $bad] > 0} { lappend rej "($nx, $ny): [join $bad {; }]"; continue }
+                        # success: update the occupancy (the old footprint and the unused rest of the removed fillers are free again)
+                        set freed [eco097_freed_rows $tbl_b $names [list $cx0 $cy0 $cx1 $cy1] $nx [expr {$nx + [dict get $cd w]}] $ny [expr {$ny + [dict get $cd h]}] $dori $ea_site_w $ea_freed_n]
+                        set rl_ok 1
+                        set rl_shift [ant_manhattan $nx $ny $cx0 $cy0]; set rl_x $nx; set rl_y $ny
+                        set rl_r0 [dict get $cd run_x0]; set rl_r1 [dict get $cd run_x1]; set rl_dist [dict get $cd dist]; set rl_ori $dori
+                        break
+                    }
+                    if {!$rl_ok} {
+                        set fmsg "$inst $oldref -> $ref needs [format %.2f $extra] um more width: $greason; relocation failed ([llength $cands] candidate(s) within the limit, [llength $rej] rejected: [join $rej { | }]); [eco097_fail_text $ea_ftable $inst [list $cx0 $cy0 $cx1 $cy1] $own_ori $bw $ea_site_w $MAX_RESIZE_MOVE_UM]"
+                        puts ">>> 079 SIZE change $idx [expr {$ALLOW_PARTIAL ? {SKIPPED} : {FAILED}}]: $fmsg"
+                        if {$ALLOW_PARTIAL} { lappend ea_skipped [dict create idx $idx line [dict get $c line] pin $inst reason $fmsg on {}] } else { lappend ea_failed "change $idx: $fmsg" }
+                        continue
+                    }
                 }
-                remove_cells [get_cells -exact $rm]
-                set ea_ftable [ant_rows_remove $ea_ftable $rm]
-                incr ea_removed [llength $rm]
             }
-            if {[catch {size_cell $cc $lcname} err]} {   ;# VERIFY size_cell <cells> <lib_cell> (usage text of this release)
-                if {[catch {size_cell -lib_cell $lc $cc} err2]} { puts ">>> 079 SIZE change $idx FAILED: $err / $err2"; lappend ea_failed "change $idx: size_cell $inst $ref failed: $err / $err2"; continue }
+            if {$rmode eq "inplace"} {
+                if {[catch {size_cell $cc $lcname} err]} {   ;# VERIFY size_cell <cells> <lib_cell> (usage text of this release)
+                    if {[catch {size_cell -lib_cell $lc $cc} err2]} { puts ">>> 079 SIZE change $idx FAILED: $err / $err2"; lappend ea_failed "change $idx: size_cell $inst $ref failed: $err / $err2"; continue }
+                }
+                legalize_placement -cells [get_cells -exact $inst]
             }
-            legalize_placement -cells [get_cells -exact $inst]
             lassign [ant068_bbox_of [get_cells -exact $inst]] nx0 ny0 nx1 ny1
             set newref [get_attribute -quiet [get_cells -exact $inst] ref_name]
-            set mv [ant_manhattan $nx0 $ny0 $cx0 $cy0]
+            if {$rmode eq "inplace"} { set mv [ant_manhattan $nx0 $ny0 $cx0 $cy0] } else { set mv [ant_manhattan $nx0 $ny0 $rl_x $rl_y] }
             set okc [expr {$newref eq $ref && $mv <= $POS_TOL}]
             puts [format ">>> 079 SIZE change %d: %s %s -> %s, fillers removed %d, origin (%.3f, %.3f) -> (%.3f, %.3f) %s" $idx $inst $oldref $newref [llength $rm] $cx0 $cy0 $nx0 $ny0 [expr {$okc ? "OK" : "FAILED"}]]
-            if {!$okc} { lappend ea_failed "change $idx: $inst now $newref, moved by [format %.3f $mv] um" } else { lappend ea_done [dict create idx $idx type size_cell cell $inst ref $ref] ; lappend ea_touched {*}[lmap e [ant072_pin_nets $inst] {lindex $e 1}] }
+            puts [eco097_size_line $idx $inst $oldref $newref $rmode $rl_shift $rl_x $rl_y $rl_r0 $rl_r1 $rl_dist]
+            set geom1 [eco097_geom $inst $sg_out]
+            puts [format ">>> 097   change %d geometry: driver (%s) -> (%s); driver-to-port distance %s -> %s um; driver-to-centroid of the %s loads %s -> %s um" $idx [join [lmap v [dict get $geom0 driver] {format %.2f $v}] {, }] [join [lmap v [dict get $geom1 driver] {format %.2f $v}] {, }] [expr {[dict get $geom0 port] eq {} ? {n/a} : [format %.1f [dict get $geom0 port]]}] [expr {[dict get $geom1 port] eq {} ? {n/a} : [format %.1f [dict get $geom1 port]]}] [dict get $geom1 nloads] [expr {[dict get $geom0 centroid] eq {} ? {n/a} : [format %.1f [dict get $geom0 centroid]]}] [expr {[dict get $geom1 centroid] eq {} ? {n/a} : [format %.1f [dict get $geom1 centroid]]}]]
+            if {$rmode eq "reloc"} {
+                set pf [eco097_port_flag [dict get $geom0 port] [dict get $geom1 port] $RESIZE_PORT_WARN_UM]
+                if {$pf ne ""} { puts ">>> 097   change $idx $pf" }
+            }
+            if {!$okc} { lappend ea_failed "change $idx: $inst now $newref, moved by [format %.3f $mv] um" } else {
+                lappend ea_done [dict create idx $idx type size_cell cell $inst ref $ref]
+                lappend ea_touched {*}[lmap e [ant072_pin_nets $inst] {lindex $e 1}]
+                if {$rmode eq "reloc"} {
+                    foreach fr $freed { lappend ea_ftable $fr }
+                    incr ea_freed_n [llength $freed]
+                    puts ">>> 097   change $idx: [llength $freed] free row(s) added to the occupancy table (the old footprint and the unused rest of the removed fillers); they are refilled with the other free sites at the end"
+                }
+            }
             continue
         }
         # ---- insert_buffer ----
@@ -1175,12 +1370,13 @@ redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
                 set cx [dict get $cd x]; set cy [dict get $cd y]
                 lappend tried [list $cx $cy]
                 set rmn [dict get $cd names]
-                set flc [get_cells -quiet -exact $rmn]
-                if {[sizeof_collection $flc] != [llength $rmn]} { set last_why "only [sizeof_collection $flc] of [llength $rmn] filler names found"; continue }
-                set ori0 [get_attribute -quiet [index_collection $flc 0] orientation]
-                remove_cells $flc
+                set rmr [eco097_real_names $rmn]   ;# 097: free sites left by a relocated cell are pseudo rows of the table, not filler instances
+                set flc ""; set nflc 0
+                if {[llength $rmr] > 0} { set flc [get_cells -quiet -exact $rmr]; set nflc [sizeof_collection $flc] }
+                if {$nflc != [llength $rmr]} { set last_why "only $nflc of [llength $rmr] filler names found"; continue }
+                if {$nflc > 0} { set ori0 [get_attribute -quiet [index_collection $flc 0] orientation]; remove_cells $flc } else { set ori0 [eco097_pseudo_ori $ea_ftable $rmn] }
                 set ea_ftable [ant_rows_remove $ea_ftable $rmn]
-                incr ea_removed [llength $rmn]
+                incr ea_removed [llength $rmr]
                 # PrimeTime's new names are kept; the full hierarchical name is tried first, then the leaf name
                 set cell_full [dict get $c cell]; set net_full [dict get $c net]
                 if {[catch {insert_buffer -lib_cell $lc -new_cell_names $cell_full -new_net_names $net_full $pobj} err ierr]} {   ;# VERIFY insert_buffer on a pin (driver or load) with hierarchical new names
