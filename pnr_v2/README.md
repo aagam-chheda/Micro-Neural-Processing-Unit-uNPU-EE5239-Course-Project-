@@ -6,8 +6,8 @@ Nothing here has been run: the user runs it on the server.
 
 ## Run order
 
-Server folder (ASSUMED, decision D1): `/storage/EE5239G1/aagams_workspace2/unpu`, with this repo cloned there. Outputs go to `<BASE>/pnr_icc2/` (`blocks logs reports outputs`; git-ignored).
-If the folder differs: `sed -i 's#/storage/EE5239G1/aagams_workspace2/unpu#<real path>#' pnr_v2/*.tcl`
+**RUN_DIR** is the folder of the clone you run in (for example `/storage/EE5239G1/aagams_workspace2/unpu_run2`; the name does not matter, run 1 is the clone `unpu`). Set it once per terminal (csh): `setenv RUN_DIR <full path of the clone>`. In the `scp` lines (typed on your own machine) write the path itself where `<RUN_DIR>` stands. The Tcl scripts do NOT read `RUN_DIR`: each derives its own root from where the script file lives (task 082, `pnr_v2/run_root.tcl`) and prints `>>> RUN ROOT: <path>` at its start and in its log; if that line shows another clone than the one you meant, stop. A WARNING line is printed if the shell's current directory is inside a different clone than the script's.
+Outputs go to `<RUN_DIR>/pnr_icc2/` (`blocks logs reports outputs`; git-ignored), the synthesis output to `<RUN_DIR>/syn/out/`, the Calibre databases to `<RUN_DIR>/pv/drc/`: all inside the clone. `VERIFY V19` (task 082): `[info script]` returns the script path inside `icc2_shell -f <file>` and `source <file>` (`pt_shell` scripts already rely on it; ICC2 is untested). If it is empty the script stops at its first lines with `ERROR 082: cannot load run_root.tcl ...`: then start it with `source <file>` inside the shell. Since task 082 no `sed` on the scripts is needed for a new run: clone the repository to a new folder and start there. Each run folder is self-contained; the old one is never written.
 
 | Step | Script | Tool |
 |---|---|---|
@@ -44,7 +44,7 @@ Routing cannot shorten a net whose pin is far from its load, but pin position ca
 ### Run sequence for step 4b (csh, from the server; one command per line)
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cd $RUN_DIR/pnr_icc2
 cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_pinplace
 icc2_shell -f ../pnr_v2/pin_replace.tcl |& tee pin_replace_console.log
 ```
@@ -80,7 +80,7 @@ The script reads the Calibre antenna database of a Calibre run, finds the port n
 One command per line (csh, from the server). Take the databases from a NEW Calibre run of the current `unpu_top_routed.gds`; never repeat the loop on a stale database:
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cd $RUN_DIR/pnr_icc2
 cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_portbuf
 cp calibre/run1/ant/unpu_top.ant.db ../pv/drc/unpu_top_antenna_bkp.db
 cp calibre/run1/drc/unpu_top.drc.db ../pv/drc/unpu_top_drc_bkp.db
@@ -93,7 +93,7 @@ icc2_shell -f ../pnr_v2/pv.tcl |& tee pv_console.log
 Then the two Calibre runs of `pnr_v2/calibre/README.md` (sections 4 and 5), in a NEW run folder so the earlier results stay:
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu
+cd $RUN_DIR
 mkdir -p pnr_icc2/calibre/run2/drc pnr_icc2/calibre/run2/ant
 cp pnr_v2/calibre/drc.ctrl pnr_icc2/calibre/run2/drc/
 cp pnr_v2/calibre/ant.ctrl pnr_icc2/calibre/run2/ant/
@@ -116,7 +116,7 @@ What to read after each step:
 - `metal_fill_console.log` and `pv_console.log` as before; the exported netlist and GDS now contain the buffers.
 - Calibre: `drc.log` 0 results, `ant.log` the number of results per rule and which nets remain. A net that remains after its buffer is a new finding, not a reason to repeat the script on the old database.
 
-If `antenna_port_buffers.tcl` reports `0 usable candidates` or a net FAILED: run the read-only diagnostic `pnr_v2/diag_filler_runs.tcl` (task 070; net = `DIAG_NET` at its top, nothing is saved): `cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2`, then `icc2_shell -f ../pnr_v2/diag_filler_runs.tcl |& tee diag_filler_runs_console.log`, then `exit`.
+If `antenna_port_buffers.tcl` reports `0 usable candidates` or a net FAILED: run the read-only diagnostic `pnr_v2/diag_filler_runs.tcl` (task 070; net = `DIAG_NET` at its top, nothing is saved): `cd <RUN_DIR>/pnr_icc2`, then `icc2_shell -f ../pnr_v2/diag_filler_runs.tcl |& tee diag_filler_runs_console.log`, then `exit`.
 
 ### Step 6d: the `clk` antenna result (task 071)
 
@@ -125,7 +125,7 @@ After step 6c the only Calibre antenna result left is the `clk` port net (rule `
 One command per line (csh, from the server). The database is the one of the last Calibre antenna run (here `run2`; take the folder of the run that reported the `clk` result):
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cd $RUN_DIR/pnr_icc2
 cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_clkroot
 cp calibre/run2/ant/unpu_top.ant.db ../pv/drc/unpu_top_antenna_bkp.db
 icc2_shell -f ../pnr_v2/antenna_clk_root.tcl |& tee antenna_clk_root_console.log
@@ -152,7 +152,7 @@ The exported layout is DRC 0 and antenna 0 in Calibre but setup WNS is -0.10 ns 
 One command per line (csh, from the server):
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cd $RUN_DIR/pnr_icc2
 cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_closure
 icc2_shell -f ../pnr_v2/timing_closure.tcl |& tee timing_closure_console.log
 icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
@@ -196,7 +196,7 @@ Order on the server (the setup probe first, because its change file is the optio
 2. ICC2, one command per line (csh):
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cd $RUN_DIR/pnr_icc2
 cp -r blocks/unpu_top.dlib blocks/unpu_top.dlib.bak_pre_pteco
 icc2_shell -f ../pnr_v2/pt_eco_apply.tcl |& tee pt_eco_apply_console.log
 icc2_shell -f ../pnr_v2/metal_fill.tcl |& tee metal_fill_console.log
@@ -227,7 +227,7 @@ What to read after each: `pt_eco_apply_console.log` (lines `>>> 079`): `referenc
 
 ## Decided (user, 2026-11-02)
 
-- **D1** BASE path `/storage/EE5239G1/aagams_workspace2/unpu` is right (no change to the scripts).
+- **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.
 - **D2** `HOLD_SLACK_GOAL` and `SETUP_SLACK_GOAL` are 0.0 in `cts.tcl` and `route.tcl` (task 065; the example had 0.70 and 0.3/0.30), so the optimiser sees exactly the course constraints (setup 1.5, hold 0.5). Lines marked `065`.
 - **D3** Pin ORDER (bits ascending, handoff 18.9 Q5) is not enforced by the example's commands; only sides, layers and spacing are. The tool's placement was accepted after the floorplan (handoff 18.32, `pins_floorplan.txt`). Task 067 (step 4b, `pin_replace.tcl`) was tried and PARKED (task 068), so the decided pin positions are the floorplan's (`pins_floorplan.txt`); that is what the top-level team gets.
 

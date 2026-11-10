@@ -3,7 +3,9 @@
 Nothing here has been run. The user runs it on the server, csh only, one command per line. Every item marked `VERIFY` is untested; they are collected at the end.
 
 Input: `pnr_icc2/outputs/unpu_top_routed.gds`, written by `pnr_v2/pv.tcl` from the block `unpu_top_filled` (`write_gds -units 1000 -fill include -hierarchy all -long_names`, kit layer map, standard-cell GDS and the I/O pad GDS merged; handoff 18.32). About 59 MB (the old GDS without metal fill was 15.7 MB).
-Base folder on the server: `/storage/EE5239G1/aagams_workspace2/unpu` (called BASE below). The three control files are in this repository folder `pnr_v2/calibre/`; they reach BASE with `git pull` after they are committed (Planning/user decide when), or copy them by hand.
+**RUN_DIR** is the folder of the clone you run in (for example `/storage/EE5239G1/aagams_workspace2/unpu_run2`; run 1 is the clone `unpu`, never use it for a new run). Set it once per terminal (csh): `setenv RUN_DIR <full path of the clone>`; in the `scp` lines (typed on your own machine) write the path itself where `<RUN_DIR>` stands. It is called BASE below. The three control files are in this repository folder `pnr_v2/calibre/`; they reach BASE with `git pull` after they are committed (Planning/user decide when), or copy them by hand.
+
+**Task 082, `LAYOUT PATH` is RELATIVE** (`../../../outputs/unpu_top_routed.gds`). A control file cannot compute a path, and a typed absolute path would silently read the GDS of another clone (the old one). The relative path is safe because each check is started from its own run folder `<RUN_DIR>/pnr_icc2/calibre/run1/{drc,ant,lvs}/` (step 2), from where `../../../outputs` is that clone's `pnr_icc2/outputs`; no per-run edit is needed. Calibre resolving `LAYOUT PATH` from the folder it is started in is `VERIFY V18` (evidence: `SOURCE PATH "unpu_top.sp"` and `MASK SVDB DIRECTORY "svdb"` in `lvs.ctrl` are also relative; the first Calibre run will show it: `drc.log` must name the GDS you expect). Before each run the commands in step 2 print the `LAYOUT PATH` line and the file it resolves to; compare the printed folder with `$RUN_DIR`.
 
 Decks are the kit's, read-only: the working copy `/storage/EE5239G1/aagams_workspace/calibre_run/scr` (handoff 18.24) is the path the control files `INCLUDE`. If the old workspace `/storage/EE5239G1/aagams_workspace` is removed, copy that folder first and change the `INCLUDE` path in the three control files. No rule is disabled and no waiver is written.
 
@@ -28,12 +30,27 @@ Why: `/home/Siemens_cshrc` has CRLF line endings (hence the cleaned copy); the i
 Three folders under `pnr_icc2/calibre/run1/` (git-ignored with `pnr_icc2/`), one per check, so that the reports, databases and `svdb` of one check never overwrite another. Each check is run from its own folder.
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu
+cd $RUN_DIR
 mkdir -p pnr_icc2/calibre/run1/drc pnr_icc2/calibre/run1/ant pnr_icc2/calibre/run1/lvs
 cp pnr_v2/calibre/drc.ctrl pnr_icc2/calibre/run1/drc/
 cp pnr_v2/calibre/ant.ctrl pnr_icc2/calibre/run1/ant/
 cp pnr_v2/calibre/lvs.ctrl pnr_icc2/calibre/run1/lvs/
 ls -l pnr_icc2/outputs/unpu_top_routed.gds
+```
+
+Before EACH of the three checks (from its run folder; the first line prints which clone you are in, the third resolves the relative `LAYOUT PATH`; the folder printed must be `$RUN_DIR`):
+
+```
+cd $RUN_DIR/pnr_icc2/calibre/run1/drc
+pwd -P
+grep '^LAYOUT PATH' drc.ctrl
+ls -lL ../../../outputs/unpu_top_routed.gds
+cd ../../../outputs ; pwd -P ; cd -
+```
+
+The deck folder (once):
+
+```
 ls /storage/EE5239G1/aagams_workspace/calibre_run/scr
 ```
 
@@ -44,7 +61,7 @@ The `ls` of the GDS must show about 59 MB; the `ls` of the deck folder must list
 `LAYOUT PRIMARY` in the control files must equal the top cell name inside the GDS. The control files say `unpu_top`. Reason it should be right: the old GDS was written from blocks named `unpu_top_fill2`, `unpu_top_final2`, ... (made with `save_block -as`) and its top cell was `unpu_top`; the new block `unpu_top_filled` is made the same way. But `-hierarchy all -long_names` is new, and the name is `VERIFY V3`.
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1
+cd $RUN_DIR/pnr_icc2/calibre/run1
 strings -n 3 ../../outputs/unpu_top_routed.gds | grep -n "^unpu_top" > gds_names.txt
 cat gds_names.txt
 ```
@@ -68,7 +85,7 @@ sed -i 's/^LAYOUT PRIMARY .*/LAYOUT PRIMARY "NAME"/' drc/drc.ctrl ant/ant.ctrl l
 ## 4. DRC
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/drc
+cd $RUN_DIR/pnr_icc2/calibre/run1/drc
 calibre -drc -hier drc.ctrl |& tee drc.log
 ```
 
@@ -92,7 +109,7 @@ grep -n -A40 "ORIGINAL LAYER STATISTICS" drc.log
 ## 5. Antenna
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/ant
+cd $RUN_DIR/pnr_icc2/calibre/run1/ant
 calibre -drc -hier ant.ctrl |& tee ant.log
 ```
 
@@ -114,8 +131,8 @@ ls antenna_results.ant
 - `pnr_v2/fix_antenna.tcl` reads the antenna database from `BASE/pv/drc/unpu_top_antenna_bkp.db` (edit E11). After a run with results, put the ASCII database there:
 
 ```
-mkdir -p /storage/EE5239G1/aagams_workspace2/unpu/pv/drc
-cp unpu_top.ant.db /storage/EE5239G1/aagams_workspace2/unpu/pv/drc/unpu_top_antenna_bkp.db
+mkdir -p $RUN_DIR/pv/drc
+cp unpu_top.ant.db $RUN_DIR/pv/drc/unpu_top_antenna_bkp.db
 ```
 
 The script parses lines `AN.<rule>` and `p <id> <nverts>` followed by vertex lines, dividing coordinates by 1000 (database units of `-units 1000`). Check the format first: `grep -c "^p " unpu_top.ant.db` must be non-zero when there are results (`VERIFY V10`).
@@ -136,7 +153,7 @@ Facts about the deck found in the run:
 To print the deck lines again (for a new deck or a new switch):
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/lvs
+cd $RUN_DIR/pnr_icc2/calibre/run1/lvs
 grep -n -i "#ifdef\|#ifndef\|#define\|MUST\|ERROR" /storage/EE5239G1/aagams_workspace/calibre_run/scr/LVS_TS18SL_SCL_CALIBRE | head -60
 grep -n -i "^ *LVS REPORT\|^ *SOURCE \|^ *LAYOUT \|^ *LVS POWER\|^ *LVS GROUND\|^ *MASK SVDB\|VIRTUAL CONNECT\|DWN2PSUB" /storage/EE5239G1/aagams_workspace/calibre_run/scr/LVS_TS18SL_SCL_CALIBRE | head -60
 ```
@@ -160,7 +177,7 @@ v2lvs -h
 - `v2lvs -h` prints its options; the command below worked as written in the first run.
 
 ```
-v2lvs -v /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs/unpu_top_pnr_pg.v -s /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/cdl/scl18fs120_supply_pins.cdl -s0 VSS -s1 VDD -o unpu_top.sp |& tee v2lvs.log
+v2lvs -v $RUN_DIR/pnr_icc2/outputs/unpu_top_pnr_pg.v -s /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/cdl/scl18fs120_supply_pins.cdl -s0 VSS -s1 VDD -o unpu_top.sp |& tee v2lvs.log
 grep -n -i "^\.subckt unpu_top" unpu_top.sp
 grep -n -i "error\|warning\|not found\|undefined" v2lvs.log
 ```
@@ -197,17 +214,17 @@ The user types the password at the prompt; nothing here contains it. `~/server_p
 
 ```
 mkdir -p ~/server_pull/calibre/run1/drc ~/server_pull/calibre/run1/ant ~/server_pull/calibre/run1/lvs
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/gds_names.txt ~/server_pull/calibre/run1/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/drc/drc.log ~/server_pull/calibre/run1/drc/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/drc/unpu_top.drc.rpt ~/server_pull/calibre/run1/drc/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/drc/unpu_top.drc.db ~/server_pull/calibre/run1/drc/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/ant/ant.log ~/server_pull/calibre/run1/ant/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/ant/unpu_top.ant.rpt ~/server_pull/calibre/run1/ant/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/ant/unpu_top.ant.db ~/server_pull/calibre/run1/ant/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/lvs/v2lvs.log ~/server_pull/calibre/run1/lvs/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/lvs/lvs.log ~/server_pull/calibre/run1/lvs/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/lvs/unpu_top.lvs.rpt ~/server_pull/calibre/run1/lvs/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/calibre/run1/lvs/unpu_top.sp ~/server_pull/calibre/run1/lvs/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/gds_names.txt ~/server_pull/calibre/run1/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/drc/drc.log ~/server_pull/calibre/run1/drc/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/drc/unpu_top.drc.rpt ~/server_pull/calibre/run1/drc/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/drc/unpu_top.drc.db ~/server_pull/calibre/run1/drc/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/ant/ant.log ~/server_pull/calibre/run1/ant/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/ant/unpu_top.ant.rpt ~/server_pull/calibre/run1/ant/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/ant/unpu_top.ant.db ~/server_pull/calibre/run1/ant/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/lvs/v2lvs.log ~/server_pull/calibre/run1/lvs/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/lvs/lvs.log ~/server_pull/calibre/run1/lvs/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/lvs/unpu_top.lvs.rpt ~/server_pull/calibre/run1/lvs/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/calibre/run1/lvs/unpu_top.sp ~/server_pull/calibre/run1/lvs/
 ```
 
 Also copy `antenna_results.ant` from the `ant` folder if `ls` found it, and the (edited) control files if any were changed in the run folders. Do not copy the `svdb` folder (large). `unpu_top.drc.db` and `unpu_top.ant.db` are small when there are no results and large when there are many.
@@ -216,7 +233,7 @@ Also copy `antenna_results.ant` from the `ant` folder if `ls` found it, and the 
 
 | Path | Where documented |
 |---|---|
-| `/storage/EE5239G1/aagams_workspace2/unpu` (BASE) | handoff 18.31, 18.32; `pnr_v2/README.md` D1 |
+| `<RUN_DIR>` (BASE) | handoff 18.31, 18.32; `pnr_v2/README.md` D1 |
 | `BASE/pnr_icc2/outputs/unpu_top_routed.gds` | CREATED by `pnr_v2/pv.tcl` (`OUT_DIR`, `DESIGN_NAME_routed.gds`); handoff 18.32 |
 | `BASE/pnr_icc2/outputs/unpu_top_pnr_pg.v` | CREATED by `pnr_v2/pv.tcl` (`write_verilog`, then `sed`) |
 | `BASE/pnr_icc2/calibre/run1/{drc,ant,lvs}` | CREATED by step 2 |
@@ -248,5 +265,6 @@ Also copy `antenna_results.ant` from the `ant` folder if `ls` found it, and the 
 | V15 | SETTLED: report structure and wording as in section 8 | `unpu_top.lvs.rpt` |
 | V16 | SETTLED: the fillers have no devices, instance counts are equal (67,472); the only layout extra was the parasitic diode `D(DWN2PSUB)` of the filler N-wells, handled by `FILTER_DWN2PSUB` | the instance table of the report |
 | V17 | The CDL file exists at the assembled full path | the `ls -l` in step 7 |
+| V18 | Calibre resolves the relative `LAYOUT PATH` (`../../../outputs/unpu_top_routed.gds`) from the folder it is started in (task 082) | the printed `ls -lL` of step 2, and the GDS name in the first lines of `drc.log` |
 | deck switches | SETTLED: `#define 4M1L` and `#define FILTER_DWN2PSUB` are the switches; the `VIRTUAL CONNECT` lines of `drc.ctrl` must NOT be in `lvs.ctrl` (error SPC1); `LVS REPORT` and `MASK SVDB DIRECTORY` did not clash | `lvs.log` first errors |
 | `3V` | the DRC voltage option stays an assumption (18.24) | not testable from the layout |

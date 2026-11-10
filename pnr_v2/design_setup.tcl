@@ -1,12 +1,15 @@
 # ==============================================================================
 # Script: design_setup.tcl
-# Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/design_setup.tcl   ;# 063 E1: new path
+# Path  : <RUN_DIR>/pnr_v2/design_setup.tcl   ;# 063 E1: new path
 # Stage : Design Setup, Library Creation & MCMM Initialization
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
 
 set DESIGN_NAME     "unpu_top"   ;# 063 E2: design name
-set PROJ_DIR        "/storage/EE5239G1/aagams_workspace2/unpu"   ;# 063 E3b: project directory
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PROJ_DIR        $RUN_ROOT   ;# 063 E3b: project directory
 set SYN_OUT_DIR     "${PROJ_DIR}/syn/out/legacy"   ;# 063 E4: syn/out/legacy/ is produced by the next task (synthesis with the old constraints: 20 ns, setup uncertainty 1.5, hold uncertainty 0.5)
 set PNR_DIR         "${PROJ_DIR}/pnr_icc2"
 set BLOCKS_DIR      "${PNR_DIR}/blocks"
@@ -16,6 +19,7 @@ file mkdir $BLOCKS_DIR
 file mkdir $LOG_DIR
 
 redirect -tee -file ${LOG_DIR}/1_design_setup.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
 
     set NETLIST_FILE    "${SYN_OUT_DIR}/unpu_top_cn.dc.v"   ;# 063 E4: netlist name
     set SDC_FILE        "${SYN_OUT_DIR}/unpu_top_cn.sdc"   ;# 063 E4: SDC name

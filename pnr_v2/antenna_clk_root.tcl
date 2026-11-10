@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: antenna_clk_root.tcl
-# Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/antenna_clk_root.tcl   ;# 071: new script (flow step 6d, after antenna_port_buffers.tcl, before metal_fill.tcl)
+# Path  : <RUN_DIR>/pnr_v2/antenna_clk_root.tcl   ;# 071: new script (flow step 6d, after antenna_port_buffers.tcl, before metal_fill.tcl)
 # Stage : Antenna fix of the `clk` port net: replace the CTS root inverter by a larger inverter (size-only change)
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
@@ -23,11 +23,14 @@
 # 071: no timing option, uncertainty, goal or limit is changed; no diode; no waiver; no change to a Calibre rule or control file.
 
 set DESIGN_NAME "unpu_top"   ;# 071: design name (as the other scripts)
-set PNR_DIR     "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2"   ;# 071: ICC2 work directory (as the other scripts)
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 071: ICC2 work directory (as the other scripts)
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
-set SCRIPT_DIR  "/storage/EE5239G1/aagams_workspace2/unpu/pnr_v2"   ;# 071: where antenna_port_buffers.tcl is: its procs (LEF parser, polygon ranking, filler table, check_routes parser) are read from its text, not copied
-set ANT_DB      "/storage/EE5239G1/aagams_workspace2/unpu/pv/drc/unpu_top_antenna_bkp.db"   ;# 071: the same file as fix_antenna.tcl / antenna_port_buffers.tcl
+set SCRIPT_DIR  "${RUN_ROOT}/pnr_v2"   ;# 071: where antenna_port_buffers.tcl is: its procs (LEF parser, polygon ranking, filler table, check_routes parser) are read from its text, not copied
+set ANT_DB      "${RUN_ROOT}/pv/drc/unpu_top_antenna_bkp.db"   ;# 071: the same file as fix_antenna.tcl / antenna_port_buffers.tcl
 set ANT_DECK    "/storage/EE5239G1/aagams_workspace/calibre_run/scr/ANTENNA_TS18SL_SCL_CALIBRE"   ;# 071: OPTIONAL: the kit deck; the weight and the limit are read from its rule text when it can be read (handoff 18.24: working copy of the kit decks)
 set STD_LEF     "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef"   ;# 071: kit LEF (as pnr_v2/build_ndm_std.tcl)
 set STD_LIB     "scl180_std"   ;# 071: reference library name (as cts.tcl)
@@ -296,6 +299,7 @@ proc ant071_net_layer_length {netname} {   ;# 071: {layer total_length_um shapes
 file mkdir $LOG_DIR
 
 redirect -tee -file ${LOG_DIR}/6d_antenna_clk_root.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
 
     set cr_failures {}
 

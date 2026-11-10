@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: timing_closure.tcl
-# Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/timing_closure.tcl   ;# 072: new script (flow step 6e, after antenna_clk_root.tcl, before metal_fill.tcl)
+# Path  : <RUN_DIR>/pnr_v2/timing_closure.tcl   ;# 072: new script (flow step 6e, after antenna_clk_root.tcl, before metal_fill.tcl)
 # Stage : Final timing pass after the antenna ECOs: route_opt again, ECO cells protected, fillers out of the way
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
@@ -18,10 +18,13 @@
 # 072: every command or option not shown in a usage text in ~/server_pull/rpt/help (the real help of this tool version) is marked VERIFY.
 
 set DESIGN_NAME "unpu_top"   ;# 072: design name (as the other scripts)
-set PNR_DIR     "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2"   ;# 072: ICC2 work directory (as the other scripts)
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 072: ICC2 work directory (as the other scripts)
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
-set SCRIPT_DIR  "/storage/EE5239G1/aagams_workspace2/unpu/pnr_v2"   ;# 072: where antenna_port_buffers.tcl is: its ICC2 helper procs are read from its text, not copied
+set SCRIPT_DIR  "${RUN_ROOT}/pnr_v2"   ;# 072: where antenna_port_buffers.tcl is: its ICC2 helper procs are read from its text, not copied
 set STD_LEF     "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef"   ;# 072: kit LEF (as pnr_v2/build_ndm_std.tcl): the filler master sizes
 set STD_LIB     "scl180_std"
 set FILLER_LIB  "scl180_filler"   ;# 072: as route.tcl
@@ -313,6 +316,7 @@ proc ant072_stats {label filler_filter site_w lef filler_refs} {   ;# 072: cells
 file mkdir $LOG_DIR
 
 redirect -tee -file ${LOG_DIR}/6e_timing_closure.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
 
     set tc_failures {}
 

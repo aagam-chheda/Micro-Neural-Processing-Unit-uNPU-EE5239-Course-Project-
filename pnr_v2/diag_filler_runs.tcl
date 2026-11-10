@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: diag_filler_runs.tcl
-# Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/diag_filler_runs.tcl   ;# 070: new script, READ-ONLY diagnostic for antenna_port_buffers.tcl
+# Path  : <RUN_DIR>/pnr_v2/diag_filler_runs.tcl   ;# 070: new script, READ-ONLY diagnostic for antenna_port_buffers.tcl
 # Stage : none (nothing is saved, no ECO)
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
@@ -12,10 +12,13 @@
 # 070: it opens the block `unpu_top_route` and changes nothing; it does not save. Leave icc2_shell with `exit` (no save) afterwards.
 
 set DESIGN_NAME "unpu_top"   ;# 070: as the other scripts
-set PNR_DIR     "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2"
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
-set SCRIPT_DIR  "/storage/EE5239G1/aagams_workspace2/unpu/pnr_v2"   ;# 070: where antenna_port_buffers.tcl is (its procs are read from it)
+set SCRIPT_DIR  "${RUN_ROOT}/pnr_v2"   ;# 070: where antenna_port_buffers.tcl is (its procs are read from it)
 set STD_LEF     "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef"
 set FILLER_REFS {feedth feedth3 feedth9}
 
@@ -39,6 +42,7 @@ eval [string range $dg_src $dg_b $dg_e]
 eval [string range $dg_src $dg_h [expr {$dg_f - 1}]]
 
 redirect -tee -file ${LOG_DIR}/diag_filler_runs.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
 
     set open_blk [get_blocks -quiet *]
     if {[sizeof_collection $open_blk] > 0} { close_blocks -force $open_blk }

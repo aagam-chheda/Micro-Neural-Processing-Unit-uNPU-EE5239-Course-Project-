@@ -150,7 +150,8 @@ set rt [split [read_file $here/route.tcl] "\n"]
 set tc [split $src "\n"]
 proc trimmed {lines} { set o {}; foreach l $lines { set t [string trim [regsub {\s+;# 072.*$} $l ""]]; if {$t ne "" && ![string match "#*" $t]} { lappend o $t } }; return $o }
 set tcl_t [trimmed $tc]
-set ranges {{36 36} {42 57} {59 83} {85 132} {142 143} {147 152} {158 192}}
+# 082: route.tcl gained 3 lines before these ranges (the run-root bootstrap replaced one line by three, and one RUN ROOT puts line follows the redirect line): every range moved down by 3
+set ranges {{39 39} {45 60} {62 86} {88 135} {145 146} {150 155} {161 195}}
 set ptr 0
 foreach r $ranges {
     lassign $r a z

@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: pt_eco_apply.tcl
-# Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/pt_eco_apply.tcl   ;# 079: new script (flow step 6g, after timing_closure.tcl (6e), before metal_fill.tcl)
+# Path  : <RUN_DIR>/pnr_v2/pt_eco_apply.tcl   ;# 079: new script (flow step 6g, after timing_closure.tcl (6e), before metal_fill.tcl)
 # Stage : Apply PrimeTime's own ECO (hold: insert_buffer; optional setup: size_cell) to the routed block
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
@@ -23,10 +23,13 @@
 # 079: every command or option not shown in a usage text in ~/server_pull/rpt/help is marked VERIFY. No constraint, uncertainty, goal, limit or app option is changed. No diode.
 
 set DESIGN_NAME "unpu_top"
-set PNR_DIR     "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2"
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
-set SCRIPT_DIR  "/storage/EE5239G1/aagams_workspace2/unpu/pnr_v2"   ;# 079: where antenna_port_buffers.tcl and timing_closure.tcl are: their helper procs are read from their text, not copied
+set SCRIPT_DIR  "${RUN_ROOT}/pnr_v2"   ;# 079: where antenna_port_buffers.tcl and timing_closure.tcl are: their helper procs are read from their text, not copied
 set STD_LEF     "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef"   ;# 079: kit LEF (as build_ndm_std.tcl): cell widths
 set STD_LIB     "scl180_std"
 set FILLER_LIB  "scl180_filler"
@@ -747,6 +750,7 @@ proc eco079_in2out_state {label} {   ;# 080: {wns num source}: setup WNS of the 
 file mkdir $LOG_DIR
 
 redirect -tee -file ${LOG_DIR}/6g_pt_eco_apply.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
 
     set ea_failures {}
 

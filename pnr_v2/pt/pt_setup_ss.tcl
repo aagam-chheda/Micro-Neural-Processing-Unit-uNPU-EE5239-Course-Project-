@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: pt_setup_ss.tcl   (task 074)  -- PrimeTime SETUP sign-off, slow corner (ss)
-# Run   : cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+# Run   : cd <RUN_DIR>/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
 # Reads : library tsl18fs120_scl_ss, the netlist, the SPEF of corner_ss (decided from unpu_top_spef.spef_scenario at run time), unpu_top_pnr_ss.sdc.
 # Does  : nothing but read and analyse; no constraint is added or changed. Ends with `exit` (0 = finished, 1 = stopped with a PT ERROR line).
 # ==============================================================================

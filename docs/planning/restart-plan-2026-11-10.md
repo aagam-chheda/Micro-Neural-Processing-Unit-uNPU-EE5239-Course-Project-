@@ -28,12 +28,20 @@ Decision (user, 2026-11-09, late evening): redo the whole process from synthesis
 
 ## 4. Proposed order of work (to confirm tomorrow)
 
-0. Preserve run 1: on the server `cd /storage/EE5239G1/aagams_workspace2/unpu ; cp -r pnr_icc2 pnr_icc2_run1` (large; or `mv` after confirming nothing needs the old path) and note the repo hash.
+0. Preserve run 1 (decision 2026-11-10): the old clone `/storage/EE5239G1/aagams_workspace2/unpu` stays UNTOUCHED as run 1 (no copy needed). Run 2 = a fresh `git clone` in `/storage/EE5239G1/aagams_workspace2/unpu_run2` (name does not matter once task 082 makes every script derive its root from its own location). Order: task 082 (relocation) -> commit -> `git pull` in the new clone -> run. Task 083 (L1/L2 research, I/O-only margin, default OFF) runs in parallel. Note: a global uncertainty increase (friend's idea) = raising `SETUP_SLACK_GOAL`/`HOLD_SLACK_GOAL`, which already exist as ICC2-only margins (0.0 by decision 2026-11-02); not recommended globally, see 083.
 1. Decide L1, L3, L7, L8 with the user (15 minutes); send the PM question.
 2. Execution: tasks for the changes that need scripts (research of ICC2 options for L1/L2; port buffering and pin placement for L3).
 3. Run the flow in the same order as run 1 (synthesis -> GLS -> NDM -> setup -> floorplan -> power -> placement -> CTS -> route), with PrimeTime and Calibre checkpoints (L5).
 4. Fill, export, LEF/SDF checks, the three Calibre checks, both PrimeTime runs, the post-layout simulation.
 5. Write the "what we did differently" section for the course report from this file and the progress log.
+
+## 4b. Decisions taken 2026-11-10 (user: "lets go with your recommendations")
+
+- L1/L2: task 083 (research, then I/O-only margin default OFF; values still need the user's yes before they are non-zero). No global uncertainty increase.
+- L3: buffer every input port early (first step after placement, same method as `antenna_port_buffers.tcl`, with the clock root cell sized from the start); re-placing pins after placement with the 8 um spacing is optional and only if the buffers alone are not enough.
+- L7: keep the 0.40 ns clock-path limit as a CTS target and try to meet it; it stays in the exported SDC unless the PM rules otherwise. PM question sent.
+- L8: re-run DC with the same legacy constraints; check the DMA output paths with a latency allowance as a REPORT only. A synthesis margin only if the report shows a problem, and then only with the user's approval.
+- Parked 059/062 files: left as they are.
 
 ## 5. What I need from the user tomorrow
 

@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: pt_hold_ff.tcl   (task 074)  -- PrimeTime HOLD sign-off, fast corner (ff)
-# Run   : cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+# Run   : cd <RUN_DIR>/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
 # Reads : library tsl18fs120_scl_ff, the netlist, the SPEF of corner_ff (decided from unpu_top_spef.spef_scenario at run time), unpu_top_pnr_ff.sdc.
 # Does  : nothing but read and analyse; no constraint is added or changed. Ends with `exit` (0 = finished, 1 = stopped with a PT ERROR line).
 # ==============================================================================

@@ -1,5 +1,5 @@
 # ==============================================================================
-# File: /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/build_ndm_std.tcl   ;# 063 E1: new path
+# File: <RUN_DIR>/pnr_v2/build_ndm_std.tcl   ;# 063 E1: new path
 # Tool: Synopsys IC Compiler II Library Manager (icc2_lm_shell)
 # Process: SCL 180nm (4M1IL) with Embedded TLUPlus (Standard Cells)
 # ==============================================================================
@@ -25,7 +25,10 @@ set TIMING_DBS     [list \
 
 # Output Configuration
 set WORKSPACE_NAME "scl180_std_workspace"
-set OUT_NDM_DIR    "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2"   ;# 063 E3: output directory
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set OUT_NDM_DIR    "${RUN_ROOT}/pnr_icc2"   ;# 063 E3: output directory
 set OUT_NDM        "${OUT_NDM_DIR}/scl180_std.ndm"
 
 file mkdir $OUT_NDM_DIR

@@ -19,11 +19,13 @@ Inputs (written by `pv.tcl` into `pnr_icc2/outputs/`): `unpu_top_pnr_sim.v` (the
 
 ## 1. Environment (a terminal of its own for Synopsys tools; Calibre needs another)
 
+**RUN_DIR** is the folder of the clone you run in (for example `/storage/EE5239G1/aagams_workspace2/unpu_run2`; the name does not matter, run 1 is the clone `unpu`). Set it once per terminal (csh): `setenv RUN_DIR <full path of the clone>`. In the `scp` lines (typed on your own machine) write the path itself where `<RUN_DIR>` stands. The Tcl scripts do NOT read `RUN_DIR`: each derives its own root from where the script file lives (task 082, `pnr_v2/run_root.tcl`) and prints `>>> RUN ROOT: <path>` at its start and in its log; if that line shows another clone than the one you meant, stop. A WARNING line is printed if the shell's current directory is inside a different clone than the script's.
+
 ```
 source ~/cad_cshrc
 source ~/synopsys_cshrc
 which pt_shell
-cd /storage/EE5239G1/aagams_workspace2/unpu
+cd $RUN_DIR
 git pull
 mkdir -p pnr_icc2/pt
 cd pnr_icc2/pt
@@ -114,12 +116,12 @@ The user types the password at the prompt; nothing here contains it.
 
 ```
 mkdir -p ~/server_pull/pt
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_setup_ss.log ~/server_pull/pt/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_hold_ff.log ~/server_pull/pt/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_setup_ss_violators.rpt ~/server_pull/pt/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_hold_ff_violators.rpt ~/server_pull/pt/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_hold_ff_paths_worst20.rpt ~/server_pull/pt/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs/unpu_top_spef.spef_scenario ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/pt/pt_setup_ss.log ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/pt/pt_hold_ff.log ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/pt/pt_setup_ss_violators.rpt ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/pt/pt_hold_ff_violators.rpt ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/pt/pt_hold_ff_paths_worst20.rpt ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/outputs/unpu_top_spef.spef_scenario ~/server_pull/pt/
 ```
 
 Hold violators have their own files: copy `pt_hold_ff_violated_*.rpt` too (`scp ... pt_hold_ff_violated_*.rpt` needs the quotes escaped in csh; or copy the folder with `scp -r`).
@@ -139,8 +141,8 @@ Both sign-off scripts now also write `pt_setup_ss_violations.csv` and `pt_hold_f
 Copy back (laptop terminal, the user types the password):
 
 ```
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_hold_ff_violations.csv ~/server_pull/pt/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/pt_setup_ss_violations.csv ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/pt/pt_hold_ff_violations.csv ~/server_pull/pt/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/pt/pt_setup_ss_violations.csv ~/server_pull/pt/
 ```
 
 ## 8. ECO probe (`pt_eco_probe.tcl`): can PrimeTime's own ECO commands be used here?
@@ -148,7 +150,7 @@ scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt/p
 Read-only for the design: it proposes netlist changes in PrimeTime's memory, writes reports and change files into `pnr_icc2/pt/`, and ends with `exit 0` whatever the answer. Run (one command per line, in the PrimeTime terminal as for the other scripts):
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt
+cd $RUN_DIR/pnr_icc2/pt
 pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe.log
 ```
 
@@ -179,7 +181,7 @@ The LAST block of the log is the answer:
 `pt_eco_setup_probe.tcl` is the setup twin of the hold probe, at the slow corner (`pt_prepare_session setup ss`): the same help and licence printing, then `fix_eco_timing -type setup -methods {size_cell}` for all setup violators (one is expected: `dma_addr[31]`, -0.2423 ns, last stage `HFSINV_13_284 (inv0d4)` into the 1.0 pF load), `write_changes` into `pt_eco_setup_changes.tcl` / `pt_eco_setup_changes_icc2.tcl` / `pt_eco_setup_changes.txt`, the AFTER setup status in PrimeTime's memory, and the same three-way `PROBE RESULT` line. It reuses the log parser, the outcome classes and the write loop of `pt_common.tcl`.
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt
+cd $RUN_DIR/pnr_icc2/pt
 pt_shell -f ../../pnr_v2/pt/pt_eco_setup_probe.tcl |& tee pt_eco_setup_probe.log
 ```
 
@@ -208,7 +210,7 @@ The probe also writes `pt_eco_hold_expected_count.txt` (the number of commands P
 Rerun sequence after the incident (the user restores the library first):
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2
+cd $RUN_DIR/pnr_icc2
 rm -rf blocks/unpu_top.dlib
 cp -r blocks/unpu_top.dlib.bak_pre_pteco blocks/unpu_top.dlib
 cd pt

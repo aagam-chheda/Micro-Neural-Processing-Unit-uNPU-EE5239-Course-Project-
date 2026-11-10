@@ -1,6 +1,6 @@
 # ==============================================================================
 # File : pt_common.tcl   (task 074: PrimeTime sign-off of the final layout)
-# Path : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/pt/pt_common.tcl
+# Path : <RUN_DIR>/pnr_v2/pt/pt_common.tcl
 # Tool : Synopsys PrimeTime (pt_shell T-2022.03-SP2 per handoff 18.2)
 # Use  : sourced by pt_setup_ss.tcl and pt_hold_ff.tcl; it holds the paths and parameters in ONE place and the procs. At the top level it only SETs variables and
 #        defines procs (no PrimeTime command is run on sourcing), so the pure-Tcl procs can be tested with tclsh (pnr_v2/pt/test_pt_common.tcl).
@@ -11,7 +11,10 @@
 # ------------------------------------------------------------------------------
 # 1. Paths and parameters (ONE place)
 # ------------------------------------------------------------------------------
-set PT_BASE      "/storage/EE5239G1/aagams_workspace2/unpu"
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file dirname [file normalize [info script]]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PT_BASE      $RUN_ROOT
 set PT_OUT_DIR   "${PT_BASE}/pnr_icc2/outputs"      ;# files written by pv.tcl
 set PT_RPT_DIR   "${PT_BASE}/pnr_icc2/pt"           ;# all PrimeTime reports; created by the scripts
 set PT_KIT       "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180"

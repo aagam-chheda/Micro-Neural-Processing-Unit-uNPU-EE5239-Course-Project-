@@ -1,7 +1,7 @@
 # PARKED (task 068): see README
 # ==============================================================================
 # Script: pin_replace.tcl
-# Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/pin_replace.tcl   ;# 067: new script (flow step 4b, between placement.tcl and cts.tcl)
+# Path  : <RUN_DIR>/pnr_v2/pin_replace.tcl   ;# 067: new script (flow step 4b, between placement.tcl and cts.tcl)
 # Stage : Re-place the pins once the cells are placed, re-optimise, check, save _pinplace
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
@@ -13,7 +13,10 @@
 # 067: every command or option not shown in a usage text in ~/server_pull/rpt/help (the real help of this tool version) is marked VERIFY.
 
 set DESIGN_NAME "unpu_top"   ;# 067: as in the other scripts
-set PNR_DIR     "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2"   ;# 067: as in the other scripts (the one BASE literal)
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 067: as in the other scripts (the one BASE literal)
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
 set RPT_DIR     "${PNR_DIR}/reports"   ;# 067: pins_before_replace.txt and pins_after_replace.txt go here (task 067)
@@ -137,6 +140,7 @@ proc pr_loads_text {l} {
 }
 
 redirect -tee -file ${LOG_DIR}/4b_pin_replace.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
 
     set open_blk [get_blocks -quiet *]
     if {[sizeof_collection $open_blk] > 0} {

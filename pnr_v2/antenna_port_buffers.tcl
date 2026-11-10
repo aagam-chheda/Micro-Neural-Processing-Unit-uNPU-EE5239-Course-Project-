@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: antenna_port_buffers.tcl
-# Path  : /storage/EE5239G1/aagams_workspace2/unpu/pnr_v2/antenna_port_buffers.tcl   ;# 068: new script (flow step 6c, after fix_antenna.tcl, before metal_fill.tcl)
+# Path  : <RUN_DIR>/pnr_v2/antenna_port_buffers.tcl   ;# 068: new script (flow step 6c, after fix_antenna.tcl, before metal_fill.tcl)
 # Stage : Targeted antenna fix: one buffer next to the pin of each long INPUT PORT net
 # Tool  : Synopsys ICC2 (U-2022.12-SP3)
 # ==============================================================================
@@ -24,12 +24,15 @@
 # 068: no timing option, uncertainty, goal or limit is changed; no diode; no waiver; no change to a Calibre rule or control file.
 
 set DESIGN_NAME "unpu_top"   ;# 068: design name (as the other scripts)
-set PNR_DIR     "/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2"   ;# 068: ICC2 work directory (as the other scripts)
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 068: ICC2 work directory (as the other scripts)
 set BLOCKS_DIR  "${PNR_DIR}/blocks"
 set LOG_DIR     "${PNR_DIR}/logs"
 set RPT_DIR     "${PNR_DIR}/reports"
-set ANT_DB      "/storage/EE5239G1/aagams_workspace2/unpu/pv/drc/unpu_top_antenna_bkp.db"   ;# 068: the same file as fix_antenna.tcl (README step 6c copies the NEW Calibre run there)
-set DRC_DB      "/storage/EE5239G1/aagams_workspace2/unpu/pv/drc/unpu_top_drc_bkp.db"   ;# 068: OPTIONAL Calibre DRC database (README copies it); only used to locate leftover DRC markers
+set ANT_DB      "${RUN_ROOT}/pv/drc/unpu_top_antenna_bkp.db"   ;# 068: the same file as fix_antenna.tcl (README step 6c copies the NEW Calibre run there)
+set DRC_DB      "${RUN_ROOT}/pv/drc/unpu_top_drc_bkp.db"   ;# 068: OPTIONAL Calibre DRC database (README copies it); only used to locate leftover DRC markers
 set STD_LEF     "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/lef/scl18fs120_std.lef"   ;# 068: kit LEF with ANTENNAGATEAREA / ANTENNADIFFAREA (same path as pnr_v2/build_ndm_std.tcl)
 set STD_LIB     "scl180_std"   ;# 068: reference library name (as cts.tcl: scl180_std/*)
 set FILLER_LIB  "scl180_filler"   ;# 068: as route.tcl
@@ -572,6 +575,7 @@ file mkdir $LOG_DIR
 file mkdir $RPT_DIR
 
 redirect -tee -file ${LOG_DIR}/6c_antenna_port_buffers.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
 
     set ab_failures {}
 

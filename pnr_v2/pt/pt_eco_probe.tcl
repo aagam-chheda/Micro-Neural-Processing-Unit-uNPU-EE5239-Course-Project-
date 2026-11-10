@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: pt_eco_probe.tcl   (task 078)  -- PROBE of PrimeTime's own ECO commands, hold at the fast corner (ff)
-# Run   : cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe.log
+# Run   : cd <RUN_DIR>/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_eco_probe.tcl |& tee pt_eco_probe.log
 # Does  : the same preparation as pt_hold_ff.tcl (pt_prepare_session), then asks: does fix_eco_timing / fix_eco_hold + write_changes work here (licence, behaviour, output format)?
 #         It proposes netlist changes IN MEMORY only. It writes reports and the change files into pnr_icc2/pt/; no design file, SDC, SPEF or netlist is written or changed.
 # Ends  : with ONE line  `PROBE RESULT: ECO NOT AVAILABLE: <message>`, `PROBE RESULT: ECO RAN BUT PROPOSED NO CHANGES: <PrimeTime's first messages>` or

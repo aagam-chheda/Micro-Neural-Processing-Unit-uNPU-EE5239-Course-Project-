@@ -22,9 +22,11 @@ The zero-delay gate-level run (commit `e3e7f2a`, `ALL CHECKS PASSED`, 343,341 ch
 
 ## 1. Environment (the Cadence simulator; a terminal of its own, not the Calibre one)
 
+**RUN_DIR** is the folder of the clone you run in (for example `/storage/EE5239G1/aagams_workspace2/unpu_run2`; the name does not matter, run 1 is the clone `unpu`). Set it once per terminal (csh): `setenv RUN_DIR <full path of the clone>`. In the `scp` lines (typed on your own machine) write the path itself where `<RUN_DIR>` stands. The Tcl scripts do NOT read `RUN_DIR`: each derives its own root from where the script file lives (task 082, `pnr_v2/run_root.tcl`) and prints `>>> RUN ROOT: <path>` at its start and in its log; if that line shows another clone than the one you meant, stop. A WARNING line is printed if the shell's current directory is inside a different clone than the script's.
+
 ```
 source ~/cad_cshrc
-cd /storage/EE5239G1/aagams_workspace2/unpu
+cd $RUN_DIR
 git pull
 which xrun
 ls model/vectors | head -3
@@ -88,7 +90,7 @@ The cell delays are real now, so the absolute timing of the testbench matters: t
 - **Cure:** since task 076 `pv.tcl` rewrites the header line of both files to `(SDFVERSION "3.0")` (only the first 60 lines are edited, the entries are not touched; 3.0 is a superset of 2.1) and stops with `ERROR 076` if the result is not exactly one `SDFVERSION "3.0"` line. Re-run `pv.tcl` (the layout is unchanged, so the Calibre results stay valid), or fix the existing files by hand:
 
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/outputs
+cd $RUN_DIR/pnr_icc2/outputs
 sed -i '1,60s/(SDFVERSION "[^"]*")/(SDFVERSION "3.0")/' unpu_top_ss.sdf
 sed -i '1,60s/(SDFVERSION "[^"]*")/(SDFVERSION "3.0")/' unpu_top_ff.sdf
 head -n 5 unpu_top_ss.sdf
@@ -122,12 +124,12 @@ Copy the logs back from a LAPTOP terminal (the user types the password):
 
 ```
 mkdir -p ~/server_pull/sim
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/sim/pl_ss_nochecks.log ~/server_pull/sim/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/sim/pl_ss_nochecks_annotate.log ~/server_pull/sim/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/sim/pl_ss_nochecks.sdfcmd ~/server_pull/sim/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/sim/pl_ss_checks.log ~/server_pull/sim/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/sim/pl_ff_nochecks.log ~/server_pull/sim/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/sim/pl_ff_checks.log ~/server_pull/sim/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/sim/pl_ss_nochecks.log ~/server_pull/sim/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/sim/pl_ss_nochecks_annotate.log ~/server_pull/sim/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/sim/pl_ss_nochecks.sdfcmd ~/server_pull/sim/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/sim/pl_ss_checks.log ~/server_pull/sim/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/sim/pl_ff_nochecks.log ~/server_pull/sim/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/pnr_icc2/sim/pl_ff_checks.log ~/server_pull/sim/
 ```
 
 ## 7. Test of the verdict logic (local, no server)

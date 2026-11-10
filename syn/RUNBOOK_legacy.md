@@ -6,8 +6,10 @@ Old numbers: period 20 ns, setup uncertainty 1.5, hold uncertainty 0.5, APB 35/3
 
 ## 1. Run (from the repo root of the server clone)
 
+**RUN_DIR** is the folder of the clone you run in (for example `/storage/EE5239G1/aagams_workspace2/unpu_run2`; the name does not matter, run 1 is the clone `unpu`). Set it once per terminal (csh): `setenv RUN_DIR <full path of the clone>`. In the `scp` lines (typed on your own machine) write the path itself where `<RUN_DIR>` stands. (The DC script of this runbook uses the current directory, so start it in the clone you mean.)
+
 ```
-cd /storage/EE5239G1/aagams_workspace2/unpu
+cd $RUN_DIR
 git pull
 source ~/cad_cshrc
 source ~/synopsys_cshrc
@@ -61,8 +63,8 @@ Expected:
 
 ```
 mkdir -p ~/server_pull/syn
-scp -r EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/syn/out/legacy ~/server_pull/syn/
-scp EE5239G1@172.16.82.70:/storage/EE5239G1/aagams_workspace2/unpu/syn/out/legacy_dc.log ~/server_pull/syn/legacy/dc.log
+scp -r EE5239G1@172.16.82.70:<RUN_DIR>/syn/out/legacy ~/server_pull/syn/
+scp EE5239G1@172.16.82.70:<RUN_DIR>/syn/out/legacy_dc.log ~/server_pull/syn/legacy/dc.log
 ```
 
 ## 4. Follow-up

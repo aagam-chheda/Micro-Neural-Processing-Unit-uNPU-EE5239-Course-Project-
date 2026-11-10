@@ -1,6 +1,6 @@
 # ==============================================================================
 # Script: pt_eco_setup_probe.tcl   (task 079, part 1)  -- PROBE of PrimeTime's setup ECO (size_cell) at the slow corner (ss)
-# Run   : cd /storage/EE5239G1/aagams_workspace2/unpu/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_eco_setup_probe.tcl |& tee pt_eco_setup_probe.log
+# Run   : cd <RUN_DIR>/pnr_icc2/pt ; pt_shell -f ../../pnr_v2/pt/pt_eco_setup_probe.tcl |& tee pt_eco_setup_probe.log
 # Does  : the preparation of pt_setup_ss.tcl (pt_prepare_session setup ss), the same help / licence printing as pt_eco_probe.tcl, then
 #         fix_eco_timing -type setup -methods {size_cell}  for ALL setup violators (one is expected: dma_addr[31], -0.2423 ns; last stage HFSINV_13_284 (inv0d4) into the 1.0 pF load).
 #         Writes pt_eco_setup_changes.tcl / pt_eco_setup_changes_icc2.tcl / pt_eco_setup_changes.txt, prints the AFTER setup status in PrimeTime's memory and ends with the same
