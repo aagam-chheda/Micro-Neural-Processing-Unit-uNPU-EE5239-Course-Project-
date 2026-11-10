@@ -450,5 +450,21 @@ chk "main prints the approved classes at the start" $(echo "$out" | grep -q 'SDF
 unset -f xrun
 [ "$HAD_XO" = 0 ] && rmdir "$REPO/xrun_out" 2>/dev/null
 
+# 13. experiments (PL_SDF, PL_LABEL, XRUN_FLAGS): the default is unchanged, a label keeps the standard logs apart, bad values are exit 2
+d=$(DRY_RUN=1 bash "$HERE/run_postlayout_sim.sh" ss checks 2>&1)
+chk "default dry run: no EXPERIMENT line, the standard names" $(! echo "$d" | grep -q 'EXPERIMENT run' && echo "$d" | grep -q -- '-l pnr_icc2/sim/pl_ss_checks.log' && echo 1 || echo 0)
+d=$(DRY_RUN=1 PL_LABEL=negtchk XRUN_FLAGS="-define neg_tchk -neg_tchk" bash "$HERE/run_postlayout_sim.sh" ss checks 2>&1)
+chk "PL_LABEL: every file name gets the suffix (log, sdfcmd, annotation log, xmlibdirname), the flags are in the xrun line" $(echo "$d" | grep -q -- '-l pnr_icc2/sim/pl_ss_checks_negtchk.log' && echo "$d" | grep -q 'pl_ss_checks_negtchk.sdfcmd' && echo "$d" | grep -q -- '-xmlibdirname xrun_out/pl_ss_checks_negtchk' && echo "$d" | grep -q -- '-define neg_tchk -neg_tchk' && echo 1 || echo 0)
+chk "PL_LABEL: printed as an EXPERIMENT run, the standard logs are not touched" $(echo "$d" | grep -q "EXPERIMENT run: SDF pnr_icc2/outputs/unpu_top_ss.sdf, label 'negtchk'" && echo "$d" | grep -q 'standard logs are not touched' && echo 1 || echo 0)
+printf '(DELAYFILE\n(SDFVERSION "3.0")\n)\n' > "$T/copy.sdf"
+d=$(DRY_RUN=1 PL_SDF="$T/copy.sdf" PL_LABEL=eqeq bash "$HERE/run_postlayout_sim.sh" ss nochecks 2>&1)
+chk "PL_SDF: the SDF of the command file is the copy, printed, with the label" $(echo "$d" | grep -q "SDF_FILE = \"$T/copy.sdf\"" && echo "$d" | grep -q "(PL_SDF)" && echo "$d" | grep -q -- '-l pnr_icc2/sim/pl_ss_nochecks_eqeq.log' && echo 1 || echo 0)
+out=$(PL_LABEL="bad label" bash "$HERE/run_postlayout_sim.sh" ss checks 2>&1); rc=$?
+chk "an invalid PL_LABEL is exit 2" $([ $rc -eq 2 ] && echo "$out" | grep -q "PL_LABEL='bad label' must be" && echo 1 || echo 0)
+out=$(PL_LABEL=abcdefghijklmnopqrstuvwxyz bash "$HERE/run_postlayout_sim.sh" ss checks 2>&1); rc=$?
+chk "a PL_LABEL of 26 characters is exit 2" $([ $rc -eq 2 ] && echo 1 || echo 0)
+out=$(PL_SDF="$T/nope.sdf" bash "$HERE/run_postlayout_sim.sh" ss checks 2>&1); rc=$?
+chk "PL_SDF that does not exist: exit 2 (input missing)" $([ $rc -eq 2 ] && echo "$out" | grep -q "nope.sdf missing or empty" && echo 1 || echo 0)
+
 echo "RESULT: $npass passed, $nfail failed"
 [ "$nfail" -eq 0 ]

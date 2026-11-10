@@ -160,9 +160,78 @@ env SDF_ACCEPT="nl1_neg net_remrec nep_cond" bash pnr_v2/sim/run_postlayout_sim.
 env LICENSE_RETRIES=6 LICENSE_WAIT_S=600 SDF_ACCEPT="nl1_neg net_remrec nep_cond" bash pnr_v2/sim/run_postlayout_sim.sh ff checks |& tee pnr_icc2/sim/runD_console.txt
 ```
 
-To check the licence server by hand before a run: `echo $LM_LICENSE_FILE` and the FlexNet tool of the Cadence installation (`lmutil lmstat -c <port@host> -a`, VERIFY the path). **Tests:** `bash pnr_v2/sim/test_postlayout_verdict.sh` (122 checks; the 73 older ones unchanged).
+To check the licence server by hand before a run: `echo $LM_LICENSE_FILE` and the FlexNet tool of the Cadence installation (`lmutil lmstat -c <port@host> -a`, VERIFY the path). **Tests:** `bash pnr_v2/sim/test_postlayout_verdict.sh` (129 checks; the 73 older ones unchanged).
 
 **VERIFY (task 094):** V13 the text of a REAL timing-check violation of this Xcelium (invented in the tests); V14 the optional message-cap option; V15 `-define neg_tchk` with `-neg_tchk` removes `nl1_neg`/`net_remrec` (experiment); V16 changing `===` to `==` in the COND lines of the SDF makes the `nep_cond` entries annotate (experiment).
+
+## Experiments that remove the causes instead of approving the classes (task 094, for the final layout)
+
+Final layout (SI round, commit 779283a): the post-layout simulation A to D passed every check (343,341, 0 FAIL, 0 `*E/*F`, 0 violations, 25,065 checks / 0 disabled) and the verdict is FAIL only for the classes that are not approved: `nep_cond` 19,024, `nl1_neg` 8,589 (ss checks) / 7,150 (ff checks), `net_remrec` 7,395. Two experiments test whether the CAUSE can be removed. Both are optional; nothing below changes the default behaviour or any original file. Two environment variables of `run_postlayout_sim.sh` serve them (both optional, validated, printed as `=== EXPERIMENT run ...`): `PL_LABEL=<word>` (1 to 23 letters, digits, underscore) puts a suffix on every file name of the run (`pl_ss_checks_<word>.log`, `.console`, `.sdfcmd`, `_annotate.log`, `xrun_out/pl_ss_checks_<word>`), so the standard logs are never overwritten; `PL_SDF=<file>` is the SDF to use instead of `pnr_icc2/outputs/unpu_top_<corner>.sdf` (a path relative to `$RUN_DIR`, the script only READS it). The extra compile/elaborate flags go through the existing `XRUN_FLAGS`. The verdict reads the SDF that was used. **Read the numbers, not the verdict word, in an experiment:** a removed cause changes Xcelium's warning total, and the reconciliation then reports `MISMATCH` (exactly the removed count): that is the result, not an error of the run.
+
+### Experiment 1: `nl1_neg` and `net_remrec` (negative timing checks with `neg_tchk`)
+
+**What it is.** The reset-flop models (`dfcrn1/2`, `dfcrq2`, `decrq1` in `tsl18fs120_scl.v`) have two versions of the checks: the default (`$setup`, `$hold`, `$recovery`, which take one non-negative limit and have no `$removal`) and an `ifdef neg_tchk` version with `$setuphold` and `$recrem` and the delayed signals `d_CP`, `d_D`, `d_CDN`, which accept negative limits and map the SDF `SETUP`/`HOLD` and `RECOVERY`/`REMOVAL` entries. Defining `neg_tchk` selects the second one. Only the checks runs (B and D) are affected; the nochecks runs have no timing checks.
+
+**SDF: no new `write_sdf` is needed.** The SDF of the run already holds the negative `HOLD` / `RECOVERY` values and the `REMOVAL` / `RECOVERY` entries (that is what Xcelium complained about). The `write_sdf` of this ICC2 has no option that writes another form (its usage text: `-include` takes `cell_delays, net_delays, timing_checks, input_port_nets, output_port_nets, disabled_arcs`, no `SETUPHOLD`/`RECREM`), so a new file from the saved `unpu_top_pv` block would be the same. VERIFY V15: Xcelium maps separate `SETUP` and `HOLD` entries onto one `$setuphold` and the `RECOVERY`/`REMOVAL` pair onto `$recrem` (SDF 3.0 allows it). If it does not, the messages stay and the experiment is negative.
+
+**The Xcelium option.** The define is certain (`ifdef neg_tchk` in the model). The simulator option that enables negative-limit checking is `-neg_tchk` in my memory, NOT read from a usage text: first list the real options, then use the one that is printed:
+
+```
+cd $RUN_DIR
+xrun -helpall |& grep -i neg | head -20
+```
+
+Run B and D with the define and the option (replace `-neg_tchk` by the option the list shows if it differs; if the list shows none, run with the define alone and say so in the report):
+
+```
+cd $RUN_DIR
+env PL_LABEL=negtchk XRUN_FLAGS="-define neg_tchk -neg_tchk" bash pnr_v2/sim/run_postlayout_sim.sh ss checks |& tee pnr_icc2/sim/runB_negtchk_console.txt
+env PL_LABEL=negtchk XRUN_FLAGS="-define neg_tchk -neg_tchk" LICENSE_RETRIES=6 LICENSE_WAIT_S=600 bash pnr_v2/sim/run_postlayout_sim.sh ff checks |& tee pnr_icc2/sim/runD_negtchk_console.txt
+grep -c "SDFNL1" pnr_icc2/sim/pl_ss_checks_negtchk.log pnr_icc2/sim/pl_ff_checks_negtchk.log
+grep -c "SDFNET" pnr_icc2/sim/pl_ss_checks_negtchk.log pnr_icc2/sim/pl_ff_checks_negtchk.log
+grep "Annotation completed\|ALL CHECKS PASSED\|checked \|Timing violation\|TCHKVIO" pnr_icc2/sim/pl_ss_checks_negtchk.log
+grep "Annotation completed\|ALL CHECKS PASSED\|checked \|Timing violation\|TCHKVIO" pnr_icc2/sim/pl_ff_checks_negtchk.log
+```
+
+**Time.** B about 6.6 minutes (run 3 final: 6 min 37 s), D about the same plus the licence wait (the retry variables are the ones of the NOLICN fix); the `neg_tchk` version of the models has delayed signals and may be slower: read the `wall-clock time` line.
+
+**What changes the decision.**
+- `SDFNL1` and `SDFNET` counts 0, `Annotation completed with 0 Errors and N Warnings` with N = 22,534 (ss and ff: only the SDFNEP warnings remain, so the difference to the 38,516 / 37,079 of the default runs is 15,982 / 14,545), `ALL CHECKS PASSED` 343,341, no violation message: the cause is removed, `nl1_neg` and `net_remrec` need NO approval, and the checks runs are STRONGER than before (the true negative limits, the true removal limits). Report B and D with this evidence and keep the default runs as the record.
+- The messages remain (the define or the option has no effect): nothing is learned, the approval question stays as proposed.
+- New `Timing violation` / `*W,TCHKVIO` messages, or `ALL CHECKS PASSED` missing: with the real limits a check is violated. That is a REAL finding (a hold or removal violation the clamped limits hid at ff, or a failing reset path): it goes to Planning before any approval, because it can mean a design problem the default runs cannot see.
+
+### Experiment 2: `nep_cond` (`===` to `==` in a COPY of the SDF)
+
+**What it is.** In the SDF the 19,024 conditional arcs of the full adders and the 3-input XOR are written `(COND B===1'b0 && CI===1'b0 (IOPATH A S ...))`; the model's path conditions are `if ((CI == 1'b0) && (B == 1'b0))`. The only visible difference is `===` against `==` (and the operand order, which an SDF condition does not depend on). The experiment changes `===` to `==` in the COND lines of a COPY and runs the simulation on the copy. The original stays unchanged and stays the file of record (it is the ICC2 output); the copy is for the simulation only. `===` (case equality) and `==` give the same result for 0 and 1; they differ only for X/Z, which the adders see only during reset/initialisation.
+
+**Make the copies (all 19,024 lines with `===` are COND lines; the original is only READ):**
+
+```
+cd $RUN_DIR/pnr_icc2
+mkdir -p sdf_experiment
+sed '/(COND/ s/===/==/g' outputs/unpu_top_ss.sdf > sdf_experiment/unpu_top_ss_eqeq.sdf
+sed '/(COND/ s/===/==/g' outputs/unpu_top_ff.sdf > sdf_experiment/unpu_top_ff_eqeq.sdf
+grep -c "===" outputs/unpu_top_ss.sdf sdf_experiment/unpu_top_ss_eqeq.sdf
+diff outputs/unpu_top_ss.sdf sdf_experiment/unpu_top_ss_eqeq.sdf | grep -c "^<"
+ls -l outputs/unpu_top_ss.sdf sdf_experiment/unpu_top_ss_eqeq.sdf
+```
+
+Expected: 19024 and 0 for the two `grep -c`, 19024 for the `diff` count (only the COND lines differ), and the copy is shorter by one byte per replaced `===` (the run-3 ss file has 38,048 of them: 9,464,184 bytes become 9,426,136; the numbers of your final layout may differ slightly: read them, do not assume). Run the nochecks simulation on the copy (the SDFNEP warnings are in the nochecks runs; A about 4.4 minutes, C about 4.5 minutes):
+
+```
+cd $RUN_DIR
+env PL_SDF=pnr_icc2/sdf_experiment/unpu_top_ss_eqeq.sdf PL_LABEL=eqeq bash pnr_v2/sim/run_postlayout_sim.sh ss nochecks |& tee pnr_icc2/sim/runA_eqeq_console.txt
+env PL_SDF=pnr_icc2/sdf_experiment/unpu_top_ff_eqeq.sdf PL_LABEL=eqeq bash pnr_v2/sim/run_postlayout_sim.sh ff nochecks |& tee pnr_icc2/sim/runC_eqeq_console.txt
+grep "Annotation completed\|Pathdelays\|ALL CHECKS PASSED\|checked " pnr_icc2/sim/pl_ss_nochecks_eqeq.log
+grep -c "SDFNEP.*COND" pnr_icc2/sim/pl_ss_nochecks_eqeq.log
+```
+
+**What changes the decision.**
+- `Annotation completed with 0 Errors and 3510 Warnings` (22,534 minus 19,024: only the edge-form class remains), the `Pathdelays ... Annotated` figure rises from 47.56% (30,122 of 63,337) to about 77.6% (49,146 of 63,337, my expectation from the counts of run 3), `grep -c "SDFNEP.*COND"` is 0 and the run passes (343,341 checks): the adder-sum arcs now carry their SDF delays, `nep_cond` needs NO approval, and the simulation is a stronger timing proof (the multiplier sums are no longer zero delay). If the results of the copy differ from the default run in a functional check (`FAIL`), the delayed sums expose a real race: report to Planning, do not approve anything.
+- The COND warnings remain (same 22,534): the difference was not the cause; `nep_cond` stays an approval question (the alternative is to leave the class unapproved and say that 36% of the arcs run at zero delay).
+- The warnings drop but another SDF message appears: report it with the first 5 lines.
+
+The verdict of these runs will say FAIL with `Xcelium counted 3510 SDF warnings, the SDF explains 22534 ... MISMATCH` when the experiment works: that is the removed class showing up as a difference between Xcelium and the prediction from the SDF (the prediction reads the SDF that was used and still lists the COND entries as unmatched). The numbers above are the result.
 
 ## 6. After the runs
 

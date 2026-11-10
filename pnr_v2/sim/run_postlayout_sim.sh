@@ -24,6 +24,7 @@
 # Exit status: 0 = PASS, 1 = FAIL, 2 = usage / environment problem (nothing was judged): a bad argument, an invalid SDF_ACCEPT, or a run that died on the licence only (*F,NOLICN as the only *E/*F line).
 # Task 094 (run 3): environment variables, all optional.
 #   SDF_ACCEPT="nep_cond nl1_neg net_remrec"  the SDF warning classes THE USER has approved (default none): README "Task 094". Printed at the start and in the verdict words.
+#   PL_SDF=<file> PL_LABEL=<word>             an experiment on a COPY of the SDF and/or with extra XRUN_FLAGS: the SDF to use and a suffix for all file names (pl_<corner>_<mode>_<label>.log ...), README "Experiments that remove the causes".
 #   LICENSE_RETRIES=<n> LICENSE_WAIT_S=<s>    after a licence-only death, wait and run again up to n times (default 0 = no retry, 600 s); each failed attempt's log is kept as .attemptN.log.
 #   The verdict reads the SDF of the run (JUDGE_SDF, set here) to count the unmatched entries TRUE, because Xcelium prints at most 500 lines per message id, and checks the counts against Xcelium's own "Annotation completed with N Errors and M Warnings".
 #
@@ -438,7 +439,15 @@ main() {
   local dry="${DRY_RUN:-0}"
   local OUT="${PL_OUT_DIR:-$OUT_DIR_DEFAULT}" SIM="${PL_SIM_DIR:-$SIM_DIR_DEFAULT}" MODEL="${GLS_MODEL:-$MODEL_DEFAULT}"
   local NET="$OUT/unpu_top_pnr_sim.v" SDF="$OUT/unpu_top_$corner.sdf" TB=tb/unpu_top_tb.sv
-  local TAG="pl_${corner}_${mode}" LOG="$SIM/pl_${corner}_${mode}.log" CMD="$SIM/pl_${corner}_${mode}.sdfcmd" ANN="$SIM/pl_${corner}_${mode}_annotate.log" XM="xrun_out/pl_${corner}_${mode}"
+  # task 094 experiments (README "Experiments that remove the causes"): PL_SDF = another SDF (a COPY, never the original) and PL_LABEL = a suffix for every file name of the run, so that the standard logs are never overwritten. Both optional, validated, printed.
+  local label="${PL_LABEL:-}" sfx=""
+  if [ -n "$label" ]; then
+    case "$label" in *[!A-Za-z0-9_]*|????????????????????????*) echo "run_postlayout_sim.sh: PL_LABEL='$label' must be 1 to 23 letters, digits or underscores" >&2; return 2 ;; esac
+    sfx="_$label"
+  fi
+  if [ -n "${PL_SDF:-}" ]; then SDF="$PL_SDF"; fi
+  if [ -n "${PL_SDF:-}${label}" ]; then echo "=== EXPERIMENT run: SDF $SDF$( [ -n "${PL_SDF:-}" ] && echo ' (PL_SDF)' ), label '${label:-none}' (every file of this run ends in '${sfx:-}'; the standard logs are not touched)"; fi
+  local TAG="pl_${corner}_${mode}${sfx}" LOG="$SIM/pl_${corner}_${mode}${sfx}.log" CMD="$SIM/pl_${corner}_${mode}${sfx}.sdfcmd" ANN="$SIM/pl_${corner}_${mode}${sfx}_annotate.log" XM="xrun_out/pl_${corner}_${mode}${sfx}"
   local flags=(-sv -64bit -access +r -timescale 1ns/1ps -top unpu_top_tb -define "GLS_CLK_HALF_NS=$GLS_CLK_HALF_NS")
   [ "$mode" = nochecks ] && flags+=(-notimingchecks)
   flags+=(-sdf_cmd_file "$CMD" -sdf_verbose -xmlibdirname "$XM")
