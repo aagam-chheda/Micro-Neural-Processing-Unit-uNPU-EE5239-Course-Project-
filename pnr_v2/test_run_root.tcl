@@ -85,7 +85,7 @@ proc bootstrap_of {text} {
     return [join [lrange $l $b [expr {$b + 2}]] "\n"]
 }
 proc strip_comment {s} { return [regsub -all {\s+;# 082:[^\n]*} $s ""] }
-set level0 {build_ndm_std build_ndm_filler floorplanning powerplanning placement pin_replace cts route fix_antenna antenna_port_buffers antenna_clk_root timing_closure pt_eco_apply metal_fill pv diag_filler_runs design_setup}
+set level0 {build_ndm_std build_ndm_filler floorplanning powerplanning placement pin_replace cts route fix_antenna antenna_port_buffers antenna_clk_root timing_closure pt_eco_apply metal_fill pv diag_filler_runs design_setup diag_io_latency}
 set ref0 [bootstrap_of [read_file $here/cts.tcl]]
 check "the reference bootstrap (cts.tcl) has 3 lines" {[llength [split $ref0 "\n"]] == 3}
 check "it sources run_root.tcl from the folder of the script itself" {[string first {[file dirname [file normalize [info script]]] run_root.tcl} $ref0] >= 0}

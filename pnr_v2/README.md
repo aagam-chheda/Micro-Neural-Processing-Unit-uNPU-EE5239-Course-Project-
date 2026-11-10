@@ -225,6 +225,28 @@ What to read after each: `pt_eco_apply_console.log` (lines `>>> 079`): `referenc
 | E10 | `metal_fill.tcl` | step 2 (remove-fill window of the example's own layout) commented out |
 | E11 | `fix_antenna.tcl` | `ANT_DB` = `<BASE>/pv/drc/unpu_top_antenna_bkp.db` |
 
+## diag_io_latency.tcl (task 084): read-only look at ICC2's I/O latency (run it before CTS of a new run)
+
+Why: PrimeTime launches/captures the I/O at the clk pin with zero latency; ICC2 seems to count the clock-tree latency there (hypothesis H1, see `IO_LATENCY_RESEARCH.md`). The script prints ICC2's own path reports and ends with a verdict table (H1 CONFIRMED / REFUTED / INCONCLUSIVE). It SAVES NOTHING and refuses to start if the library is not inside this clone, so run 1 (the fallback) is never opened for writing.
+
+Steps (csh, one command per line; `<RUN_DIR>` = this clone, `<RUN1_DIR>` = the run-1 clone):
+
+```
+ls -ld --time-style=full-iso <RUN1_DIR>/pnr_icc2/blocks/unpu_top.dlib
+mkdir -p $RUN_DIR/pnr_icc2/blocks_diag
+cp -r <RUN1_DIR>/pnr_icc2/blocks/unpu_top.dlib $RUN_DIR/pnr_icc2/blocks_diag/
+cd $RUN_DIR/pnr_icc2
+icc2_shell -f ../pnr_v2/diag_io_latency.tcl |& tee diag_io_latency_console.log
+```
+
+then type `exit`. Afterwards run the first `ls -ld` again: the time must be unchanged (run 1 untouched). The copy is large; the library of run 1 holds all its backup blocks (`bak_*`), which the script does not touch (only `unpu_top_route` is opened).
+
+What to read: the table at the end of the console log (`ICC2 launch clock latency at the input port path ... H1 ...`), then `pnr_icc2/diag/hold_input_port.rpt`, `setup_dma_addr31.rpt` (the launch and capture clock lines) and `diag/sdc_*.sdc` (the I/O delay lines and whether `-network_latency_included` / `set_clock_latency` appear). The help texts `diag/help_*.txt` turn the `[M]` items of the research into `[L]`. Send the console log and the table to Planning. The last line before `exit` gives the number of reports that failed (a failing report is printed raw and the script goes on).
+
+Parameters at the top of the script: `DIAG_LIB` (the copy), `DIAG_BLOCK` (default `unpu_top_route`), the ports/pins of the four examples, the scenario patterns (`*ss*`, `*ff*`; the names are read from the design and must match exactly one), `H1_MIN_LATENCY_NS 0.05`. Test: `tclsh pnr_v2/test_diag_io_latency.tcl`.
+
+VERIFY list (task 084): V20 `open_lib -read` / `open_block -read` accept the copied library (usage text [L]; the option behaviour is not); V21 `get_blocks -all -quiet` lists the blocks of the library and `get_object_name` gives `lib:block`, `lib:block/label.view` or `block` (all three are accepted); V22 `redirect -variable` captures the text of the report commands; V23 `report_timing -path_type full_clock_expanded -input_pins -nets` prints the clock path in the form the parser reads (rows `name incr path [r|f]`, `clock network delay`, `input external delay`); if not, the verdict says `n/a`/INCONCLUSIVE and the raw report is in `diag/`; V24 `report_clocks`, `report_clock_tree_options`, the attribute `is_propagated` and `help <command>` forms; V25 `write_sdc -scenario <s> -output <file>` works on a read-only block (usage text [L]).
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.
