@@ -45,6 +45,8 @@ set PREDICT_MARGIN  0.8    ;# 085: BUFFER when the predicted ratio exceeds this 
                            ;# 085: observed route / estimate ratio could not be recovered from the repo (no placement of run 1 is stored), so the first run prints the estimates to the CSV and the
                            ;# 085: Calibre antenna database after the route calibrates this number. 0.8 is a stated assumption, not a measurement.
 set PREDICT_WEIGHT  "m23"  ;# 085: which weight decides: m23 (ANT_WEIGHT_PINWIRE 0.54: the pins sit on M2/M3 and the router uses them for the pin wire) or top (ANT_WEIGHT_TOPM 0.84, the most conservative). Both ratios are always printed.
+set CONE_POLICY     "skip"  ;# 087: skip (DEFAULT) = a BUFFER net that lies on an input-to-output cone is NOT buffered here (decision CONE-SKIPPED, listed in one block, left for the post-route repair antenna_port_buffers.tcl / the Calibre antenna run);
+                           ;# 087: buffer = buffer it too (the 085 behaviour). Reason (user's real run of 085, 59 BUFFER nets, 5 on the cone paddr[11],[9],[7],[5],[3]): the gate stopped the run, in2out WNS 0.0206 -> -0.1198 ns, nothing saved.
 set GATE_TOL_IN2OUT 0.005  ;# 085: ns; the in2out WNS (ss) after the buffers may be at most this much below the value before (same value and reason as GATE_TOL_SETUP in pt_eco_apply.tcl: a few ps are estimation noise)
 set GATE_TOL_SETUP  0.005  ;# 085: ns; the same for the worst setup slack of the whole design in the setup scenario
 set EARLY_PREFIX    "earlybuf"   ;# 085: instance name base. It must NOT be antbuf: antenna_port_buffers.tcl counts the cells named antbuf_* against its own targets (hard check) and pt_eco_apply.tcl protects antbuf_* cells
@@ -219,14 +221,46 @@ proc pbe085_prefix_ok {a b} {
     return [expr {$a ne $b && ![string match "${b}_*" "${a}_x"] && ![string match "${a}_*" "${b}_x"]}]
 }
 
+# pbe085_cone_decide <policy skip|buffer> <decision> <on the cone 0|1> <reason> -> {decision reason}
+# Only a BUFFER decision on a cone net changes: with policy skip it becomes CONE-SKIPPED (the net is left for the post-route repair); with policy buffer nothing changes.
+proc pbe085_cone_decide {policy dec incone why} {
+    if {$dec eq "BUFFER" && $incone && $policy eq "skip"} {
+        return [list CONE-SKIPPED "$why; the net is on an input-to-output cone: NOT buffered here (CONE_POLICY skip), left for the post-route repair antenna_port_buffers.tcl / the Calibre antenna run"]
+    }
+    return [list $dec $why]
+}
+
+# pbe085_fastest <candidate rows of ant_eval_buffers> -> the name of the passing plain buffer with the highest drive strength (buf*d<N>, ties: smaller area), "" when none. INFORMATION ONLY: the drive number
+# is taken from the cell name; its delay is not measured.
+proc pbe085_fastest {rows} {
+    set best ""; set bd -1; set ba 0
+    foreach r $rows {
+        if {[dict get $r verdict] ne "PASS"} continue
+        if {![regexp {^buf[a-z]*d([0-9]+)$} [dict get $r name] -> d]} continue
+        set a [dict get $r area]
+        if {$d > $bd || ($d == $bd && $a < $ba)} { set best [dict get $r name]; set bd $d; set ba $a }
+    }
+    return $best
+}
+
+# pbe085_cone_block <rows> -> the lines of the CONE-SKIPPED block: one line per net (port, predicted ratio of the deciding weight, longest pin-to-load distance); "" list when there is none
+proc pbe085_cone_block {rows weight} {
+    set o {}
+    foreach r $rows {
+        if {[dict get $r decision] ne "CONE-SKIPPED"} continue
+        lappend o [format "%-14s predicted ratio %8.1f (%s weight)  longest pin-to-load %7.1f um  loads %d" [dict get $r port] [dict get $r [expr {$weight eq "top" ? "ratio_top" : "ratio_m23"}]] [expr {$weight eq "top" ? "TOP_M" : "M2/M3"}] [dict get $r maxd] [dict get $r loads]]
+    }
+    return $o
+}
+
 # pbe085_line <row dict> -> one table line. keys: port loads maxd ratio_m23 ratio_top decision reason
 proc pbe085_line {r} {
     return [format "%-14s loads %3d  longest %7.1f um  ratio M2/M3 %8.1f  TOP_M %8.1f  %-11s %s" [dict get $r port] [dict get $r loads] [dict get $r maxd] [dict get $r ratio_m23] [dict get $r ratio_top] [dict get $r decision] [dict get $r reason]]
 }
 
-# pbe085_totals <rows> -> dict BUFFER OK NO-LOADS CLOCK-SKIPPED total (every row counted exactly once)
+# pbe085_totals <rows> -> dict BUFFER OK NO-LOADS CLOCK-SKIPPED CONE-SKIPPED total (every row counted exactly once)
 proc pbe085_totals {rows} {
-    set t [dict create BUFFER 0 OK 0 NO-LOADS 0 CLOCK-SKIPPED 0 total 0]
+    set t [dict create BUFFER 0 OK 0 NO-LOADS 0 CLOCK-SKIPPED 0 CONE-SKIPPED 0 total 0]
     foreach r $rows { dict incr t [dict get $r decision]; dict incr t total }
     return $t
 }
@@ -241,7 +275,7 @@ proc pbe085_csv {rows} {
 
 # optional overrides from the environment (csh: setenv UNPU_PBE_PLAN_ONLY 1 ... unsetenv UNPU_PBE_PLAN_ONLY): the clone stays clean, no edit of this file is needed on the server
 set pb_param_src {}
-foreach {nm envname kind} {PLAN_ONLY UNPU_PBE_PLAN_ONLY flag PREDICT_MARGIN UNPU_PBE_PREDICT_MARGIN margin PREDICT_WEIGHT UNPU_PBE_PREDICT_WEIGHT word:m23|top} {
+foreach {nm envname kind} {PLAN_ONLY UNPU_PBE_PLAN_ONLY flag PREDICT_MARGIN UNPU_PBE_PREDICT_MARGIN margin PREDICT_WEIGHT UNPU_PBE_PREDICT_WEIGHT word:m23|top CONE_POLICY UNPU_PBE_CONE_POLICY word:skip|buffer} {
     set ev [expr {[info exists ::env($envname)] ? $::env($envname) : "NONE"}]
     lassign [pbe085_env_resolve $nm [set $nm] $kind $ev $envname] val srcx
     set $nm $val
@@ -374,6 +408,9 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
     set pb_outset [pbe085_names [all_outputs]]
 
     set pb_ab_gate_unknown 0
+    update_timing -full   ;# 087: the cone check below needs timing before the table
+    array set pb_cone {}
+    array set pb_slack0 {}
     set pb_table {}
     array set pb_xy {}
     array set pb_loads_n {}
@@ -400,16 +437,38 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
         }
         lassign [pbe085_decide [dict get $pr nloads] [expr {$PREDICT_WEIGHT eq "top" ? $rt : $rm}] $ANT_RATIO_LIMIT $PREDICT_MARGIN $gk] dec why
         if {[dict get $pr nunknown] > 0} { append why [format " (%d of %d load gate areas unknown)" [dict get $pr nunknown] [dict get $pr nloads]] }
+        set incone 0
+        if {$dec eq "BUFFER"} {   ;# 087: the cone is decided here, before the table, because it can change the decision
+            set s_struct [pbe085_cone_struct $p $pb_outset]
+            set s0 [pbe085_port_slack $SETUP_SCEN $p]
+            set s_time [expr {$s0 ne "n/a"}]
+            if {$s_struct != $s_time} { puts ">>> 085 cone DISAGREEMENT for $p: structural fanout says $s_struct, timing paths say $s_time: treated as ON the cone (the safe side)" }
+            set incone [expr {$s_struct || $s_time}]
+            set pb_slack0($p) $s0
+        }
+        set pb_cone($p) $incone
+        lassign [pbe085_cone_decide $CONE_POLICY $dec $incone $why] dec why
         lappend pb_table [dict create port $p loads [dict get $pr nloads] maxd [dict get $pr maxd] mst [dict get $pr mst] gmin $gm ratio_m23 $rm ratio_top $rt decision $dec reason $why]
     }
     puts ">>> 085 ===== PREDICTION TABLE (port, loads, longest pin-to-load distance from the placement, predicted ratio, decision) ====="
     foreach r $pb_table { puts ">>> 085 [pbe085_line $r]" }
     set pb_tot [pbe085_totals $pb_table]
-    puts ">>> 085 TOTALS: ports [dict get $pb_tot total] = BUFFER [dict get $pb_tot BUFFER] + OK [dict get $pb_tot OK] + NO-LOADS [dict get $pb_tot NO-LOADS] + CLOCK-SKIPPED [dict get $pb_tot CLOCK-SKIPPED]"
+    puts ">>> 085 TOTALS: ports [dict get $pb_tot total] = BUFFER [dict get $pb_tot BUFFER] + OK [dict get $pb_tot OK] + NO-LOADS [dict get $pb_tot NO-LOADS] + CLOCK-SKIPPED [dict get $pb_tot CLOCK-SKIPPED] + CONE-SKIPPED [dict get $pb_tot CONE-SKIPPED]"
     if {[dict get $pb_tot total] != [llength $pb_inputs]} { error "ERROR 085: table totals ([dict get $pb_tot total]) differ from the number of input ports ([llength $pb_inputs])" }
     set csv ${RPT_DIR}/port_buffers_early_table.csv
     set fp [open $csv w]; puts -nonewline $fp [pbe085_csv $pb_table]; close $fp
     puts ">>> 085 estimates written to $csv (compare with the Calibre antenna database after the route to calibrate PREDICT_MARGIN)"
+
+    # 087: the CONE-SKIPPED block (nothing is silent) and the fastest suitable buffer as information
+    proc pbe085_print_cone_block {rows weight rowsbuf chosen} {
+        set lines [pbe085_cone_block $rows $weight]
+        puts ">>> 085 ===== CONE-SKIPPED NETS ([llength $lines]): on an input-to-output cone, NOT buffered here, left for the post-route repair (antenna_port_buffers.tcl / the Calibre antenna run) ====="
+        foreach l $lines { puts ">>> 085   $l" }
+        if {[llength $lines] > 0} {
+            set fb [pbe085_fastest $rowsbuf]
+            puts ">>> 085 information only (not used): the fastest suitable buffer by drive strength would be [expr {$fb eq {} ? {n/a (no passing buf*d<N> cell)} : $fb}]; the cell chosen for the other nets is $chosen. Its delay was not measured (VERIFY with a trial before using it on a cone net)."
+        }
+    }
 
     # 4. the clock port: print only
     foreach ckp $pb_clock_ports {
@@ -434,12 +493,13 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
 
     if {$PLAN_ONLY} {
         puts ">>> 085 PLAN_ONLY 1: nothing was inserted or saved. BUFFER count [dict get $pb_tot BUFFER]. Set PLAN_ONLY 0 (and decide PREDICT_MARGIN with a written reason) to apply."
+        pbe085_print_cone_block $pb_table $PREDICT_WEIGHT $pb_rows $pb_lc_name
         puts ">>> STAGE 4c PLAN ONLY: ${IN_BLOCK} unchanged, ${OUT_BLOCK} NOT created. Log: ${LOG_DIR}/4c_port_buffers_early.log"
     }
     if {!$PLAN_ONLY} {   ;# everything below changes the block (no `return` inside the redirect body)
     set pb_targets {}
     foreach r $pb_table { if {[dict get $r decision] eq "BUFFER"} { lappend pb_targets [dict get $r port] } }
-    if {[llength $pb_targets] == 0} { error "ERROR 085: no net needs a buffer by this prediction: nothing to do. Check PREDICT_MARGIN; the block ${OUT_BLOCK} is not created" }
+    if {[llength $pb_targets] == 0} { error "ERROR 085: no net needs a buffer by this prediction: nothing to do. Check PREDICT_MARGIN and CONE_POLICY (cone nets are skipped with CONE_POLICY skip); the block ${OUT_BLOCK} is not created" }
 
     # --------------------------------------------------------------------------
     # 5. Measurements before, and the input-to-output cone
@@ -449,19 +509,9 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
     set pb_s0 [pbe085_wns $SETUP_SCEN max]; set pb_h0 [pbe085_wns $HOLD_SCEN min]
     lassign [pbe085_in2out $SETUP_SCEN $pb_from] pb_io0 pb_ion0
     puts ">>> 085 BEFORE: setup WNS ($SETUP_SCEN) $pb_s0, hold WNS ($HOLD_SCEN) $pb_h0, in2out WNS ($SETUP_SCEN) $pb_io0 with $pb_ion0 violating endpoints"
-    array set pb_cone {}
-    array set pb_slack0 {}
     set pb_cone_nets {}
-    foreach p $pb_targets {
-        set s_struct [pbe085_cone_struct $p $pb_outset]
-        set s0 [pbe085_port_slack $SETUP_SCEN $p]
-        set s_time [expr {$s0 ne "n/a"}]
-        if {$s_struct != $s_time} { puts ">>> 085 cone DISAGREEMENT for $p: structural fanout says $s_struct, timing paths say $s_time: treated as ON the cone (the safe side)" }
-        set pb_cone($p) [expr {$s_struct || $s_time}]
-        set pb_slack0($p) $s0
-        if {$pb_cone($p)} { lappend pb_cone_nets $p }
-    }
-    puts ">>> 085 BUFFER nets on an input-to-output cone ([llength $pb_cone_nets]): $pb_cone_nets"
+    foreach p $pb_targets { if {$pb_cone($p)} { lappend pb_cone_nets $p } }
+    puts ">>> 085 BUFFER nets on an input-to-output cone that ARE buffered (CONE_POLICY $CONE_POLICY) ([llength $pb_cone_nets]): $pb_cone_nets"
 
     # --------------------------------------------------------------------------
     # 6. Free sites (no fillers yet) and the insertions
@@ -594,6 +644,7 @@ redirect -tee -file ${LOG_DIR}/4c_port_buffers_early.log {
 
     save_block -as ${OUT_BLOCK}
     save_lib
+    pbe085_print_cone_block $pb_table $PREDICT_WEIGHT $pb_rows $pb_lc_name
     puts ">>> STAGE 4c COMPLETE: [llength $pb_targets] input-port nets buffered with $pb_lc_name, ${OUT_BLOCK} saved (${IN_BLOCK} unchanged). Next: cts.tcl (it opens ${OUT_BLOCK}). Log: ${LOG_DIR}/4c_port_buffers_early.log"
     }
 }

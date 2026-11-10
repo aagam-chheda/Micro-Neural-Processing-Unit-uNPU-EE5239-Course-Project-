@@ -181,6 +181,38 @@ check "env: a default is never validated as input (the file's defaults are check
 check "the script reads exactly the three variables named by Planning" {[string first "UNPU_PBE_PLAN_ONLY" $src] > 0 && [string first "UNPU_PBE_PREDICT_MARGIN" $src] > 0 && [string first "UNPU_PBE_PREDICT_WEIGHT" $src] > 0}
 check "the parameters line prints where each value came from" {[string first "\[join \$pb_param_src" $src] > 0}
 
+# ---- 9. CONE_POLICY (task 087) ----------------------------------------------------------------------------------------------------------------
+check "cone policy: default parameter is skip" {[pbe085_param $src CONE_POLICY] eq "skip"}
+check "cone policy env: skip and buffer accepted, source named" {[pbe085_env_resolve CONE_POLICY skip word:skip|buffer buffer UNPU_PBE_CONE_POLICY] eq {buffer {environment UNPU_PBE_CONE_POLICY}}}
+check "cone policy env: not set -> default" {[pbe085_env_resolve CONE_POLICY skip word:skip|buffer NONE UNPU_PBE_CONE_POLICY] eq {skip default}}
+foreach bad {SKIP both none "" "skip "} {
+    check "cone policy env: '$bad' -> ERROR 085 listing skip, buffer" {[catch {pbe085_env_resolve CONE_POLICY skip word:skip|buffer $bad UNPU_PBE_CONE_POLICY} m] && [string match "ERROR 085*UNPU_PBE_CONE_POLICY*one of skip, buffer*" $m]}
+}
+check "the script reads UNPU_PBE_CONE_POLICY in the loop with the other three" {[string first "CONE_POLICY UNPU_PBE_CONE_POLICY word:skip|buffer" $src] > 0}
+lassign [pbe085_cone_decide skip BUFFER 1 "predicted ratio 940.7 > 0.80 x limit 400 = 320.0"] d w
+check "policy skip: BUFFER on the cone -> CONE-SKIPPED" {$d eq "CONE-SKIPPED"}
+check "the reason keeps the predicted ratio and names the repair" {[string match "*940.7*input-to-output cone*antenna_port_buffers.tcl*Calibre antenna run*" $w]}
+check "policy skip: BUFFER off the cone stays BUFFER" {[lindex [pbe085_cone_decide skip BUFFER 0 r] 0] eq "BUFFER"}
+check "policy buffer: BUFFER on the cone stays BUFFER (the 085 behaviour)" {[lindex [pbe085_cone_decide buffer BUFFER 1 r] 0] eq "BUFFER"}
+foreach dec {OK NO-LOADS CLOCK-SKIPPED} {
+    check "policy skip: $dec on the cone is never changed" {[lindex [pbe085_cone_decide skip $dec 1 r] 0] eq $dec}
+}
+set tbl2 {}
+foreach {p dec} {a BUFFER b CONE-SKIPPED c OK d NO-LOADS e CLOCK-SKIPPED f CONE-SKIPPED} {
+    lappend tbl2 [dict create port $p loads 2 maxd 120.5 mst 150.0 gmin 0.194 ratio_m23 650.2 ratio_top 1011.5 decision $dec reason r]
+}
+set tot2 [pbe085_totals $tbl2]
+check "totals count CONE-SKIPPED and the sum is the number of ports" {[dict get $tot2 CONE-SKIPPED] == 2 && [dict get $tot2 BUFFER] == 1 && [dict get $tot2 total] == 6 && ([dict get $tot2 BUFFER] + [dict get $tot2 OK] + [dict get $tot2 NO-LOADS] + [dict get $tot2 CLOCK-SKIPPED] + [dict get $tot2 CONE-SKIPPED]) == [dict get $tot2 total]}
+check "the TOTALS line of the script names CONE-SKIPPED" {[string first "+ CONE-SKIPPED \[dict get \$pb_tot CONE-SKIPPED\]" $src] > 0}
+set cb [pbe085_cone_block $tbl2 m23]
+check "cone block: one line per CONE-SKIPPED net with ratio and distance" {[llength $cb] == 2 && [string match "b *650.2*M2/M3*120.5*" [lindex $cb 0]]}
+check "cone block with the TOP_M weight prints the TOP_M ratio" {[string match "*1011.5*TOP_M*" [lindex [pbe085_cone_block $tbl2 top] 0]]}
+check "cone block: none when no net is skipped" {[llength [pbe085_cone_block [lrange $tbl2 0 0] m23]] == 0}
+set rows_f [ant_eval_buffers [dict create buffd1 [dict create w 2.24 h 5.6 pins [dict create I [dict create dir INPUT use SIGNAL gate 0.19 diff {}] Z [dict create dir OUTPUT use SIGNAL gate {} diff 0.25]]] buffd4 [dict create w 4.48 h 5.6 pins [dict create I [dict create dir INPUT use SIGNAL gate 0.5 diff {}] Z [dict create dir OUTPUT use SIGNAL gate {} diff 0.6]]] buffd2 [dict create w 3.36 h 5.6 pins [dict create I [dict create dir INPUT use SIGNAL gate 0.3 diff {}] Z [dict create dir OUTPUT use SIGNAL gate {} diff 0.4]]]] {buffd1 buffd2 buffd4} {adiode} 0.1 0.2]
+check "fastest: the highest drive among the passing buffers" {[pbe085_fastest $rows_f] eq "buffd4"}
+check "fastest: a failing cell is not chosen (dont-use pattern)" {[pbe085_fastest [ant_eval_buffers [dict get [dict create x [dict create buffd4 [dict create w 4.48 h 5.6 pins [dict create I [dict create dir INPUT use SIGNAL gate 0.5 diff {}] Z [dict create dir OUTPUT use SIGNAL gate {} diff 0.6]]]]] x] {buffd4} {buffd4} 0.1 0.2]] eq ""}
+check "fastest: none -> empty" {[pbe085_fastest {}] eq ""}
+
 puts "RESULT: $npass passed, $nfail failed"
 if {$nfail > 0} { exit 1 }
 exit 0
