@@ -466,5 +466,49 @@ chk "a PL_LABEL of 26 characters is exit 2" $([ $rc -eq 2 ] && echo 1 || echo 0)
 out=$(PL_SDF="$T/nope.sdf" bash "$HERE/run_postlayout_sim.sh" ss checks 2>&1); rc=$?
 chk "PL_SDF that does not exist: exit 2 (input missing)" $([ $rc -eq 2 ] && echo "$out" | grep -q "nope.sdf missing or empty" && echo 1 || echo 0)
 
+# 14. run_experiments.sh (one command for both experiments): the SDF copies, the checks of the originals, the dry run, the summary reading
+EX="$T/ex"; mkdir -p "$EX/out"
+for c in ss ff; do printf '(DELAYFILE\n(CELL\n(CELLTYPE "ad01d0")\n(INSTANCE u/U1 )\n(DELAY (ABSOLUTE\n(COND B===1'"'"'b0 && CI===1'"'"'b0 (IOPATH A S (0.2::0.2)(0.3::0.3)))\n(COND B===1'"'"'b1 && CI===1'"'"'b0 (IOPATH A S (0.2::0.2)(0.3::0.3)))\n(IOPATH A CO (0.1::0.1)(0.1::0.1))\n))\n)\n)\n' > "$EX/out/unpu_top_$c.sdf"; done
+cks0=$(cksum < "$EX/out/unpu_top_ss.sdf")
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim" EXP_DIR="$EX/exp" bash "$HERE/run_experiments.sh" all 2>&1); rc=$?
+chk "run_experiments dry run: exit 0" $([ $rc -eq 0 ] && echo 1 || echo 0)
+chk "the copies exist, have no ===, differ in exactly the 2 COND lines, and the report says so" $([ -s "$EX/exp/unpu_top_ss_eqeq.sdf" ] && [ -s "$EX/exp/unpu_top_ff_eqeq.sdf" ] && [ "$(grep -c '===' "$EX/exp/unpu_top_ss_eqeq.sdf")" = 0 ] && echo "$out" | grep -q 'ss: lines with === in the original 2 (COND lines 2), in the copy 0, lines that differ 2' && echo 1 || echo 0)
+chk "the original SDF is unchanged (checksum) and the summary says so" $([ "$cks0" = "$(cksum < "$EX/out/unpu_top_ss.sdf")" ] && echo "$out" | grep -q 'unpu_top_ss.sdf unchanged: YES' && echo 1 || echo 0)
+chk "the dry run covers the four runs (labels, the copies) and the xrun line of B carries the neg_tchk flags (console file)" $(echo "$out" | grep -q "SDF $EX/exp/unpu_top_ss_eqeq.sdf (PL_SDF), label 'eqeq'" && echo "$out" | grep -q "SDF $EX/exp/unpu_top_ff_eqeq.sdf (PL_SDF), label 'eqeq'" && echo "$out" | grep -q "label 'negtchk'" && grep -q -- '-define neg_tchk -neg_tchk' "$EX/sim/runB_negtchk_console.txt" && grep -q 'pl_ff_nochecks_eqeq.log' "$EX/sim/runC_eqeq_console.txt" && echo 1 || echo 0)
+chk "the summary block is printed and written to the file" $(echo "$out" | grep -q 'EXPERIMENT SUMMARY (paste this block)' && grep -q 'END OF SUMMARY' "$EX/sim/experiments_summary.txt" && echo 1 || echo 0)
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim" EXP_DIR="$EX/exp" bash "$HERE/run_experiments.sh" eqeq 2>&1)
+chk "argument eqeq: experiment 2 only (no neg_tchk line)" $(! echo "$out" | grep -q 'neg_tchk' && echo "$out" | grep -q 'experiment 2' && echo 1 || echo 0)
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim" EXP_DIR="$EX/exp" bash "$HERE/run_experiments.sh" negtchk 2>&1)
+chk "argument negtchk: experiment 1 only (no SDF copies made again)" $(echo "$out" | grep -q 'experiment 1' && ! echo "$out" | grep -q 'SDF copies' && echo 1 || echo 0)
+out=$(bash "$HERE/run_experiments.sh" bogus 2>&1); rc=$?
+chk "a bad argument is exit 2" $([ $rc -eq 2 ] && echo 1 || echo 0)
+out=$(PL_OUT_DIR="$EX/nothere" PL_SIM_DIR="$EX/sim" EXP_DIR="$EX/exp" bash "$HERE/run_experiments.sh" 2>&1); rc=$?
+chk "a missing SDF is exit 2 before anything runs" $([ $rc -eq 2 ] && echo "$out" | grep -q 'missing or empty' && echo 1 || echo 0)
+printf '(CELL\n(INSTANCE u )\n(X===1)\n)\n' > "$EX/out/unpu_top_ss.sdf"
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim" EXP_DIR="$EX/exp2" bash "$HERE/run_experiments.sh" eqeq 2>&1); rc=$?
+chk "a === outside a COND line stops the script (the sed would change more than the COND arcs)" $([ $rc -eq 2 ] && echo "$out" | grep -q 'are not COND lines' && echo 1 || echo 0)
+# the reading of the summary on sample logs: the cause removed
+mk_eq() { printf '\tAnnotation completed with 0 Errors and %s Warnings\n\t\t No. of Pathdelays = 63337   \t No. of Disabled Pathdelays = 0        Annotated = %s (49146/63337) \nchecked 343341 value(s)/assertion(s) total\nALL CHECKS PASSED\n' "$1" "$2"; }
+mkdir -p "$EX/sim2"
+mk_eq 3510 77.60% > "$EX/sim2/pl_ss_nochecks_eqeq.log"; mk_eq 3510 77.60% > "$EX/sim2/pl_ff_nochecks_eqeq.log"
+printf '(DELAYFILE\n(CELL\n(INSTANCE u )\n(COND A===1 (IOPATH A S (1::1)(1::1)))\n)\n)\n' > "$EX/out/unpu_top_ss.sdf"; cp "$EX/out/unpu_top_ss.sdf" "$EX/out/unpu_top_ff.sdf"
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" eqeq 2>&1)
+chk "summary reading: warnings 3510, no COND, passed -> 'the === was the cause'" $(echo "$out" | grep -q 'READING: the === was the cause' && echo 1 || echo 0)
+mk_eq 22534 47.56% > "$EX/sim2/pl_ss_nochecks_eqeq.log"; for i in 1 2; do echo "xmelab: *W,SDFNEP: Unable to annotate to non-existent path (COND ((B===0)&&(CI===0)) (IOPATH A S)) of instance a of module ad01d0 <x>." >> "$EX/sim2/pl_ss_nochecks_eqeq.log"; done
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" eqeq 2>&1)
+chk "summary reading: 22534 warnings -> 'unchanged ... NOT the cause'" $(echo "$out" | grep -q 'READING: unchanged (22534 warnings)' && echo 1 || echo 0)
+mk_ng() { printf '\tAnnotation completed with 0 Errors and %s Warnings\nchecked 343341 value(s)/assertion(s) total\nALL CHECKS PASSED\n%s' "$1" "$2"; }
+mk_ng 22534 "" > "$EX/sim2/pl_ss_checks_negtchk.log"; mk_ng 22534 "" > "$EX/sim2/pl_ff_checks_negtchk.log"
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" negtchk 2>&1)
+chk "summary reading: SDFNL1 = SDFNET = 0 and passed in both -> 'need NO approval'" $(echo "$out" | grep -q 'READING: both classes are gone' && echo 1 || echo 0)
+mk_ng 22534 'Warning!  Timing violation
+' > "$EX/sim2/pl_ff_checks_negtchk.log"
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" negtchk 2>&1)
+chk "summary reading: a violation line -> 'REAL finding ... BEFORE any approval'" $(echo "$out" | grep -q 'READING: TIMING-CHECK VIOLATIONS appeared' && echo 1 || echo 0)
+mk_ng 38518 'xmelab: *W,SDFNL1 (m.v,1|5): x
+' > "$EX/sim2/pl_ss_checks_negtchk.log"; mk_ng 22534 "" > "$EX/sim2/pl_ff_checks_negtchk.log"
+out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" negtchk 2>&1)
+chk "summary reading: the SDFNL1 messages remain -> 'nothing learned'" $(echo "$out" | grep -q 'READING: the messages remain' && echo 1 || echo 0)
+
 echo "RESULT: $npass passed, $nfail failed"
 [ "$nfail" -eq 0 ]
