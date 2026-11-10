@@ -664,6 +664,48 @@ unsetenv UNPU_PT_SI
 
 **VERIFY (task 095), read in the logs:** V69 `help fix_eco_drc` exists in T-2022.03-SP2 and accepts `-type max_transition -methods {size_cell insert_buffer} -buffer_list` (the form that ran is printed); V70 the licence for `fix_eco_drc` (PT-002 'PrimeTime-ECO' is printed for `get_license` but `fix_eco_timing` worked: the command itself decides); V71 `report_constraint -all_violators -max_transition -max_capacitance -min_pulse_width` prints the headings `max_transition` etc. (the parser is checked on the real run-3 text); V72 `is_clock_network` on pins and nets and the protection read-back (`clock network protected: N clock cells`); V73 `get_nets -of_objects <port>` and `all_connected` give the net and the load count for the net table; V74 the buffer names `U_PTECO_*` of `fix_eco_drc` (the apply counts new cells by NAME with the marker `PTECO`, hold cells `PTECO_HOLD` excluded); V75 the hold WNS of ICC2 before/after the ECO in the apply log, then PrimeTime hold; V76 `UNPU_PT_SI=1`: `get_license PrimeTime-SI` and `si_enable_analysis` are accepted.
 
+## Option B: the 0.40 ns clock-path max_transition stays out of the exported SDC; PrimeTime against the legacy SDC; sdc_compare.tcl (task 096)
+
+**Decision (user, 2026-11-10 night).** `set_max_transition 0.4 [get_clocks {clk}] -clock_path` comes from the example `cts.tcl` (the CTS TARGET: `set_max_transition 0.40 -clock_path $real_clks`, unchanged there), is not in the legacy constraints or in the instructor's guidance, and the final tree misses it (0.43 to 0.48 ns at ss; 424 entries in the PrimeTime design-rule report of run 3). It is NOT carried into the exported SDC. A target of the example script, not a course constraint; the tree's actual values stay in the reports.
+
+**Part 1: `pv.tcl`.** Before the first `write_sdc`, for each scenario (`func_ss`, `func_ff`) `pv096_remove_clock_path`: a temporary SDC of the scenario is written and read back (and deleted) to count the clock-path lines and the design-wide limit lines before and after; the removal command is tried in this order, for the commands that exist: `remove_max_transition -clock_path <clocks>`, `remove_max_transition <clocks> -clock_path`, `reset_max_transition -clock_path <clocks>`, `remove_max_transition <clocks>` (VERIFY V77: the form that worked is printed; none worked = `ERROR 096` with the `help *max_transition*` text and NOTHING exported). A form that also removes the design-wide lines is detected and those exact lines are restored from the state before. Printed per scenario: `>>> 096 func_ss: clock-path max_transition lines before 1, after 0; design-wide lines after: set_max_transition 3 [current_design] | set_max_capacitance 2 [current_design]`. After the last `write_sdc` the two exported files are read again: any clock-path max_transition line is `ERROR 096`; the design-wide `set_max_transition` and `set_max_capacitance` lines must be present and equal to the ones the block had before the removal (`>>> 096 CHECK exported SDCs`). The block that is saved at the end (`unpu_top_pv`, or `unpu_top_pv_<tag>`) loses the limit too: that is intended, it is the exported block; `unpu_top_filled`, `unpu_top_route` and the CTS target are not touched. The layout, the GDS, the SPEF and the SDF are unchanged, so the Calibre results stay valid; only `pv.tcl` has to be re-run.
+
+**Part 2: `UNPU_PT_SDC` (PrimeTime against the legacy constraints themselves).** `exported` (default, today) or `legacy` (anything else is `PT ERROR`; the source is printed in `>>> 096 SDC source`). With `legacy`, `pt_setup_ss.tcl` and `pt_hold_ff.tcl` read `constraints/legacy/unpu_top_legacy.sdc` (path derived from the run root) for both corners, apply the same single change as today (`set_propagated_clock [all_clocks]`, proved from a timing report), and write to `pnr_icc2/pt_<tag>_legacy` (with SI also: `..._legacy_si`); the SUMMARY prints `SDC: legacy (<path>)`. The legacy file keeps its numbers in variables (`set CLK_UNCERT_SETUP 1.5`, `set MAX_TRANSITION 3.0`): `pt_sdc_resolve_vars` substitutes them for the text checks (period, uncertainties, limits), PrimeTime evaluates the file itself. A command PrimeTime rejects is a `PT ERROR` with its message (existing check on `Error:` in the `read_sdc` text). Why: an independent proof that the layout meets the constraints AS GIVEN, not as rewritten by the tool. The ECO probes refuse `UNPU_PT_SDC=legacy` (their change files are read by the apply from the exported-SDC folder). csh:
+
+```
+cd $RUN_DIR/pnr_icc2
+mkdir -p pt_legacy
+cd pt_legacy
+setenv UNPU_PT_SDC legacy
+pt_shell -f ../../pnr_v2/pt/pt_setup_ss.tcl |& tee pt_setup_ss.log
+pt_shell -f ../../pnr_v2/pt/pt_hold_ff.tcl |& tee pt_hold_ff.log
+unsetenv UNPU_PT_SDC
+```
+
+For a checkpoint (`route4`): `mkdir -p pt_route4_legacy`, `cd` into it, `setenv UNPU_PT_TAG route4` as well. With the legacy SDC there is no clock-path limit, so the design-rule block shows only the data-limit entries (86 until the ECO of task 095 is applied).
+
+**Part 3: `sdc_compare.tcl`.** `tclsh pnr_v2/sdc_compare.tcl constraints/legacy/unpu_top_legacy.sdc pnr_icc2/outputs/unpu_top_pnr_ss.sdc` (and `_ff.sdc`). Pure Tcl, no EDA tool: both files are evaluated in a SAFE Tcl interpreter in which every SDC command only records its arguments (so the variables and `expr` of the legacy file are resolved by Tcl), then compared: `create_clock` (period and waveform), clock uncertainty, clock transition, input and output delays (-min/-max, per port), driving cells, loads, `max_transition` (design-wide and `-clock_path`), `max_capacitance`, propagated clock. Port patterns of the legacy file are expanded against the port names of the exported file; `all_inputs`/`all_outputs` = the ports that carry an input/output delay there. The table is `constraint | legacy | exported | status` (the same value on many ports is one line with the count); status `SAME`, `DIFFERENT`, `ONLY-IN-LEGACY`, `ONLY-IN-EXPORTED` or `EXPECTED` (listed by name in the script with a reason: `set_propagated_clock`, the explicit `-waveform`, `set_operating_conditions`, `set_units`); anything else is a difference. Commands that are not compared are named. Exit 0 equal, 1 a difference, 2 an unreadable file.
+
+**Result on the run-3 exports (ss and ff give the same table):** 723 constraints compared; SAME 718 (clock 20, uncertainty setup 1.5 / hold 0.5, clock transition 0.6, input delays 7 on 67 APB ports / 8 on 34 DMA+reset ports / 0 min, output delays 7 on 33 / 8 on 69 / -0.5 min on 102, driving cell `buffd1`/`Z` on 101 ports, loads 1 pF on 102 and 0.2 pF on 101 ports, `max_transition` 3 and `max_capacitance` 2 design-wide); EXPECTED 4 (propagated clock, waveform, operating conditions, units); **DIFFERENCES 1: `max_transition clock_path` 0.4 on `clk`, only in the exported file** = the line that option B removes. With that line deleted the verdict is `EQUAL apart from the 4 expected difference(s)` (tested on a copy).
+
+**Tests:** `tclsh pnr_v2/test_sdc_limits.tcl` (65 checks: the pure parts of `pv.tcl` on the real exported SDC, the variables of the legacy SDC, `UNPU_PT_SDC` also in a child `tclsh`, `sdc_compare.tcl` on the real files and on changed copies). Test data: `pnr_v2/testdata/096_run3_exported_{ss,ff}.sdc` (comment lines stripped). `test_clock_latency` has one source check re-pointed at the export `write_sdc` (the 096 helper writes a temporary one before it).
+
+**csh for the server (after task 095's ECO or on the current layout):**
+
+```
+cd $RUN_DIR/pnr_icc2
+icc2_shell -f ../pnr_v2/pv.tcl < /dev/null |& tee pv_console.log
+grep ">>> 096\|ERROR" pv_console.log
+grep -c "clock_path" outputs/unpu_top_pnr_ss.sdc outputs/unpu_top_pnr_ff.sdc
+cd $RUN_DIR
+tclsh pnr_v2/sdc_compare.tcl constraints/legacy/unpu_top_legacy.sdc pnr_icc2/outputs/unpu_top_pnr_ss.sdc
+tclsh pnr_v2/sdc_compare.tcl constraints/legacy/unpu_top_legacy.sdc pnr_icc2/outputs/unpu_top_pnr_ff.sdc
+```
+
+Read: `clock-path max_transition lines before 1, after 0` for both scenarios, `the form that worked: ...`, `CHECK exported SDCs`; the two `grep -c` give 0; both comparisons end with `EQUAL apart from the 4 expected difference(s)`.
+
+**VERIFY (task 096):** V77 the removal command and its form (`remove_max_transition` / `reset_max_transition`; the form that worked is printed; the temporary-SDC read-back is the proof); V78 `write_sdc -scenario <s> -output <tmp>` works for a scenario that is not the only one (it is what `pv.tcl` already does for the export); V79 PrimeTime `read_sdc` accepts the legacy file as it is (variables, `expr`, `get_ports $LIST`, `set_driving_cell -lib_cell buffd1 -pin Z` without `-library`): an `Error:` stops the run with the text; V80 with the legacy SDC `check_timing` and the clock proof of `pt_checks_and_clock` still pass (the clock is made propagated by the same single change).
+
 ## Decided (user, 2026-11-02)
 
 - **D1** BASE path: was one typed literal per script (the clone `unpu`); since task 082 it is derived from the script location (`<RUN_DIR>` = the clone), so a second clone is a second, independent run.

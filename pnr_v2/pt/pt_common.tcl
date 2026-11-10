@@ -25,11 +25,32 @@ proc pt_tag_problem {tag} {
     return ""
 }
 # 095: with SI (crosstalk) analysis ON (UNPU_PT_SI=1) the REPORTS go to a folder of their own (pt_<tag>_si, or pt_si without a tag) so that an SI-on run never overwrites the SI-off reports; the inputs stay the same.
-proc pt_tag_paths {base tag {si 0}} {   ;# {out_dir rpt_dir}
-    set sfx [expr {$si ? "_si" : ""}]
+proc pt_tag_paths {base tag {si 0} {sdc exported}} {   ;# {out_dir rpt_dir}
+    set sfx "[expr {$sdc eq {legacy} ? {_legacy} : {}}][expr {$si ? {_si} : {}}]"   ;# 096: UNPU_PT_SDC legacy -> pt_<tag>_legacy (and _si after it)
     if {$tag eq ""} { return [list ${base}/pnr_icc2/outputs ${base}/pnr_icc2/pt${sfx}] }
     return [list ${base}/pnr_icc2/outputs_${tag} ${base}/pnr_icc2/pt_${tag}${sfx}]
 }
+# 096: UNPU_PT_SDC (exported = the SDC that ICC2 wrote, the DEFAULT and the behaviour until now; legacy = constraints/legacy/unpu_top_legacy.sdc itself). envl: {} when the variable is not set. Returns {mode source}.
+proc pt_sdc_mode_resolve {envl} {
+    if {[llength $envl] == 0} { return [list exported default] }
+    set v [lindex $envl 0]
+    if {$v ni {exported legacy}} { error "PT ERROR: UNPU_PT_SDC='$v' is not valid: it must be 'exported' (the SDC written by ICC2, the default) or 'legacy' (constraints/legacy/unpu_top_legacy.sdc)" }
+    return [list $v {environment UNPU_PT_SDC}]
+}
+# 096: the numeric value of the simple `set NAME value` lines of an SDC (the legacy SDC keeps its numbers in variables: set CLK_UNCERT_SETUP 1.5, set MAX_TRANSITION 3.0) substituted into the later lines that use
+# 096: $NAME or ${NAME}, so that pt_sdc_values can read the numbers. Only a value that is a plain number or a plain word is substituted (a list or an expression is left alone). Returns the new text.
+proc pt_sdc_resolve_vars {text} {
+    set vars [dict create]
+    set out {}
+    foreach l [split $text "\n"] {
+        set t [string trim $l]
+        if {[regexp {^set\s+([A-Za-z_][A-Za-z0-9_]*)\s+(-?[0-9][0-9.eE+-]*|[A-Za-z_][A-Za-z0-9_]*)\s*(;|#|$)} $t -> n v]} { dict set vars $n $v }
+        dict for {n v} $vars { set l [string map [list "\$\{$n\}" $v "\$$n" $v] $l] }
+        lappend out $l
+    }
+    return [join $out "\n"]
+}
+
 # 095: the reports of ICC2 that were written for the same export (pv.tcl: reports[_<tag>]); the ICC2 reference of the summary is read from there (never typed in this file)
 proc pt_reports_dir {base tag} {
     if {$tag eq ""} { return ${base}/pnr_icc2/reports }
@@ -52,10 +73,15 @@ if {[info exists ::env(UNPU_PT_TAG)]} {
 set pt_si_envl {}
 if {[info exists ::env(UNPU_PT_SI)]} { set pt_si_envl [list [string trim $::env(UNPU_PT_SI)]] }
 lassign [pt_si_resolve $pt_si_envl] PT_SI_ENABLE PT_SI_SOURCE
-lassign [pt_tag_paths $PT_BASE $PT_TAG $PT_SI_ENABLE] PT_OUT_DIR PT_RPT_DIR
+# 096: UNPU_PT_SDC (exported = default, legacy = the legacy constraints themselves); the reports of a legacy run go to pt_<tag>_legacy
+set pt_sdc_envl {}
+if {[info exists ::env(UNPU_PT_SDC)]} { set pt_sdc_envl [list [string trim $::env(UNPU_PT_SDC)]] }
+lassign [pt_sdc_mode_resolve $pt_sdc_envl] PT_SDC_MODE PT_SDC_SOURCE
+lassign [pt_tag_paths $PT_BASE $PT_TAG $PT_SI_ENABLE $PT_SDC_MODE] PT_OUT_DIR PT_RPT_DIR
 set PT_REPORTS_DIR [pt_reports_dir $PT_BASE $PT_TAG]   ;# 095: ICC2's reports of the same export
 if {$PT_TAG ne "" && ![file isdirectory $PT_OUT_DIR]} { error "PT ERROR: UNPU_PT_TAG=$PT_TAG but the folder $PT_OUT_DIR does not exist: run pv.tcl with UNPU_PV_TAG $PT_TAG first (README, checkpoint after route)" }
 if {$PT_TAG ne ""} { puts ">>> 091 PT CHECKPOINT tag $PT_TAG: inputs from $PT_OUT_DIR, reports in $PT_RPT_DIR (run pt_shell from that reports folder: parasitics_command.log is written to the current directory)" } else { puts ">>> 091 PT inputs from $PT_OUT_DIR, reports in $PT_RPT_DIR (no UNPU_PT_TAG: the final export)" }
+puts ">>> 096 SDC source: $PT_SDC_MODE ($PT_SDC_SOURCE)"
 puts ">>> 095 SI (crosstalk) analysis: [expr {$PT_SI_ENABLE ? {ON} : {OFF}}] (source: $PT_SI_SOURCE); ICC2 reference reports from $PT_REPORTS_DIR"
 set PT_KIT       "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180"
 set PT_DESIGN    "unpu_top"
@@ -75,6 +101,12 @@ set PT_CORNER(ss,db)    "${PT_KIT}/stdcell/fs120/4M1IL/liberty/lib_flow_ss/tsl18
 set PT_CORNER(ff,db)    "${PT_KIT}/stdcell/fs120/4M1IL/liberty/lib_flow_ff/tsl18fs120_scl_ff.db"
 set PT_CORNER(ss,sdc)   "${PT_OUT_DIR}/${PT_DESIGN}_pnr_ss.sdc"
 set PT_CORNER(ff,sdc)   "${PT_OUT_DIR}/${PT_DESIGN}_pnr_ff.sdc"
+# 096: UNPU_PT_SDC legacy: PrimeTime reads the legacy constraints themselves (an independent proof that the layout meets the constraints AS GIVEN); the path is derived from the run root, not typed
+set PT_LEGACY_SDC "${PT_BASE}/constraints/legacy/unpu_top_legacy.sdc"
+if {$PT_SDC_MODE eq "legacy"} {
+    set PT_CORNER(ss,sdc) $PT_LEGACY_SDC
+    set PT_CORNER(ff,sdc) $PT_LEGACY_SDC
+}
 set PT_CLOCK     "clk"
 
 # Manual SPEF choice. EMPTY = decide from unpu_top_spef.spef_scenario (the only normal case). Set a file name ONLY after reading the printed content of the .spef_scenario file when the
@@ -1452,7 +1484,7 @@ proc pt_banner {kind corner lib db spef sdc netlist} {
     puts "   library : $lib   ($db)"
     puts "   netlist : $netlist"
     puts "   SPEF    : $spef"
-    puts "   SDC     : $sdc"
+    puts "   SDC     : $sdc   ([expr {[info exists ::PT_SDC_MODE] ? $::PT_SDC_MODE : {exported}}])"
     puts "   date    : [clock format [clock seconds]]"
     puts "   SI      : [expr {$::PT_SI_ENABLE ? {ON} : {OFF (default)}}]"
     puts "==============================================================================\n"
@@ -1575,7 +1607,7 @@ proc pt_read_sdc_and_check {kind corner} {
     set fp [open $sdc r]
     set sdctext [read $fp]
     close $fp
-    set v [pt_sdc_values $sdctext]
+    set v [pt_sdc_values [pt_sdc_resolve_vars $sdctext]]   ;# 096: the legacy SDC keeps its numbers in variables
     redirect -variable pt_sdc_txt { read_sdc $sdc }
     puts $pt_sdc_txt
     if {[regexp {(^|\n)Error:} $pt_sdc_txt]} { error "PT ERROR: errors while reading $sdc (text above)" }
@@ -1630,7 +1662,8 @@ proc pt_check_opcond {corner} {
 # 074: signal integrity switch with licence check
 # 095: the ECO probes are run SI off: their change files are read by pt_eco_apply.tcl from the SI-off folder, and an SI-on probe would write to pt_<tag>_si. A run with UNPU_PT_SI=1 is refused (nothing is silently redirected).
 proc pt_probe_si_guard {script} {
-    global PT_SI_ENABLE PT_SI_SOURCE
+    global PT_SI_ENABLE PT_SI_SOURCE PT_SDC_MODE PT_SDC_SOURCE
+    if {$PT_SDC_MODE ne "exported"} { error "PT ERROR: $script is an ECO probe and runs on the exported SDC: UNPU_PT_SDC=$PT_SDC_MODE ($PT_SDC_SOURCE) would write its change files to the _legacy folder where pt_eco_apply.tcl does not look. Unset UNPU_PT_SDC (csh: unsetenv UNPU_PT_SDC)" }
     if {$PT_SI_ENABLE} { error "PT ERROR: $script is an ECO probe and runs with SI off: UNPU_PT_SI=1 ($PT_SI_SOURCE) would write its change files to the SI folder where pt_eco_apply.tcl does not look. Unset UNPU_PT_SI (csh: unsetenv UNPU_PT_SI)" }
 }
 proc pt_si_setup {} {
@@ -2317,6 +2350,8 @@ proc pt_print_summary {kind corner wns tns num icc2_wns} {
     puts " SUMMARY"
     puts "   [pt_summary_line $kind $corner $wns $tns $num], SI [expr {$PT_SI_ENABLE ? {ON} : {OFF}}]"
     puts "   [string toupper $kind]: $v[expr {$v eq {UNKNOWN} ? { (a number could not be read, see the log above)} : {}}]"
+    global PT_SDC_MODE PT_CORNER
+    puts "   SDC: $PT_SDC_MODE ([expr {[info exists PT_CORNER($corner,sdc)] ? $PT_CORNER($corner,sdc) : {?}}])"
     puts "   [pt_compare_line $kind $wns $icc2_wns]"
     global PT_SUMMARY_EXTRA
     if {[info exists PT_SUMMARY_EXTRA]} { foreach l $PT_SUMMARY_EXTRA { puts "   $l" } }   ;# 078: e.g. the violations-file line

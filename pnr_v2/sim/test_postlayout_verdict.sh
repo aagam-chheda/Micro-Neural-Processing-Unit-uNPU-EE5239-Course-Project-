@@ -224,5 +224,231 @@ ALL CHECKS PASSED
 judge limcnt nochecks; chk "a wrong check count next to the accepted class is still FAIL" $([ $rc -eq 1 ] && echo 1 || echo 0)
 chk "the allowed cell list is the one approved in run A3" $([ "$SDFNEP_ALLOWED_CELLS" = "mx02d0 mx02d1 mi02d0 mi02d1 ah01d1 ad01d0 xr02d1 xn02d1" ] && echo 1 || echo 0)
 
+# ======================================================================================================================
+# 12. Task 094 (run 3, final layout): COND-form SDFNEP, SDFNL1 / SDFNET with source-context lines, the violation count, the true counts from the SDF, NOLICN, SDF_ACCEPT, the retry loop
+# ======================================================================================================================
+# a fake cell model: the module dfcrn2 starts at line 11670 (the lines 11679..11681 of the real model are three checks of dfcrn2); a second module below it
+{ for i in $(seq 1 11669); do echo "// pad"; done; echo "module dfcrn2 (D,CP,CDN,QN);"; for i in $(seq 1 20); do echo "// body"; done; echo "endmodule"; echo "module other (A,Z);"; for i in $(seq 1 20); do echo "// body"; done; echo "endmodule"; } > "$T/model.v"
+CTX=' $hold  (posedge CP &&& (CDN==1'"'"'b1),posedge D &&& (CDN==1'"'"'b1),th_cp_d_l,notifier);
+     |
+'
+nl1() { printf '%sxmelab: *W,SDFNL1 (%s,%s|5): Attempt to annotate a negative value to a 1 limit timing check in instance (unpu_top_tb.dut.u_seq.cycle_reg_1_), setting to 0 <\n' "$CTX" "$T/model.v" "$1"; }
+NL1="$(nl1 11681)"$'\n'"$(nl1 11680)"$'\n'"$(nl1 11679)"$'\n'   # command substitution strips the last newline: put it back
+NET1='xmelab: *W,SDFNET: Unable to annotate to non-existent timing check (REMOVAL (posedge CDN) (posedge CP) (0.43)) of instance unpu_top_tb.dut.u_seq.cycle_reg_1_ of module dfcrn2 <./pnr_icc2/outputs/unpu_top_ss.sdf, line 6634>.
+xmelab: *W,SDFNET: Unable to annotate to non-existent timing check (REMOVAL (negedge CDN) (posedge CP) (0)) of instance unpu_top_tb.dut.u_seq.cycle_reg_1_ of module dfcrn2 <./pnr_icc2/outputs/unpu_top_ss.sdf, line 6635>.
+xmelab: *W,SDFNET: Unable to annotate to non-existent timing check (RECOVERY (negedge CDN) (posedge CP) (0)) of instance unpu_top_tb.dut.u_seq.cycle_reg_1_ of module dfcrn2 <./pnr_icc2/outputs/unpu_top_ss.sdf, line 6637>.
+'
+COND1='xmelab: *W,SDFNEP: Unable to annotate to non-existent path (COND ((B===0)&&(CI===0)) (IOPATH A S)) of instance unpu_top_tb.dut.u_dma.mult_117_U4 of module ad01d0 <./pnr_icc2/outputs/unpu_top_ss.sdf, line 31439>.
+xmelab: *W,SDFNEP: Unable to annotate to non-existent path (COND ((B===0)&&(CI===1)) (IOPATH A S)) of instance unpu_top_tb.dut.u_dma.mult_117_U4 of module ad01d0 <./pnr_icc2/outputs/unpu_top_ss.sdf, line 31440>.
+'
+STATS='	Annotation completed with 0 Errors and 9 Warnings
+	SDF statistics:
+		 No. of Pathdelays = 63337   	 No. of Disabled Pathdelays = 0        Annotated = 47.56% (30122/63337)
+		 No. of Tchecks    = 25065   	 No. of Disabled Tchecks    = 0        Annotated = 60.66% (15205/25065)
+'
+# 12a. the COND form: a FAIL by default (needs approval), PASS with the approval; the verdict words name it
+mklog "$GOODBODY$NCAP$NEP1$COND1" cond
+judge cond nochecks
+chk "COND-form SDFNEP on ad01d0: FAIL by default, class nep_cond not approved" $([ $rc -eq 1 ] && echo "$out" | grep -q 'SDF class nep_cond: 2 warning(s) (printed lines only), NOT approved' && echo 1 || echo 0)
+chk "COND-form lines are counted as their own class, not as 'not of the form IOPATH'" $(echo "$out" | grep -q 'COND form (class nep_cond, needs approval): 2 (printed lines)' && ! echo "$out" | grep -q 'not of the form IOPATH' && echo 1 || echo 0)
+out=$(SDF_ACCEPT=nep_cond judge_log "$T/cond.log" nochecks 2>&1); rc=$?
+chk "with SDF_ACCEPT=nep_cond: PASS and the verdict words name the class" $([ $rc -eq 0 ] && echo "$out" | grep -q "PASS (with documented SDF limitations, SDF_ACCEPT='nep_cond': 1 SDFNEP edge-form arcs" && echo "$out" | grep -q '2 SDFNEP COND-form arcs' && echo 1 || echo 0)
+out=$(SDF_ACCEPT="nep_cond,nl1_neg" judge_log "$T/cond.log" nochecks 2>&1); rc=$?
+chk "SDF_ACCEPT also takes commas" $([ $rc -eq 0 ] && echo 1 || echo 0)
+NEPCONDBAD='xmelab: *W,SDFNEP: Unable to annotate to non-existent path (COND ((B===0)&&(CI===0)) (IOPATH A S)) of instance unpu_top_tb.dut.u_x.U9 of module nd02d1 <./x.sdf, line 5>.
+'
+mklog "$GOODBODY$NCAP$NEP1$NEPCONDBAD" condbad
+out=$(SDF_ACCEPT=nep_cond judge_log "$T/condbad.log" nochecks 2>&1); rc=$?
+chk "an approved class does not cover a COND arc on a cell outside its list (nd02d1): FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'cell type nd02d1 is not in the COND list' && echo 1 || echo 0)
+# 12b. SDFNL1 / SDFNET with source-context lines (checks mode): FAIL by default, PASS when all three classes are approved; the context lines are NOT violations
+mklog "$GOODBODY$NCAP$NEP1$COND1$NL1$NET1" chk
+judge chk checks
+chk "checks mode, run-3 shape: the 9 source-context lines are not violations" $(echo "$out" | grep -q 'timing-check violations (checks mode): 0 ' && echo 1 || echo 0)
+chk "SDFNL1 and SDFNET are named by class in the reasons (not 'an id that is not accepted')" $([ $rc -eq 1 ] && echo "$out" | grep -q 'SDF class nl1_neg: 3 warning' && echo "$out" | grep -q 'SDF class net_remrec: 3 warning' && ! echo "$out" | grep -q 'of an id that is not accepted' && echo 1 || echo 0)
+out=$(SDF_ACCEPT="nep_cond nl1_neg net_remrec" judge_log "$T/chk.log" checks 2>&1); rc=$?
+chk "all three classes approved (printed lines only, model attribution of the SDFNL1 lines): PASS" $([ $rc -eq 0 ] && echo "$out" | grep -q 'negative hold/recovery limits of reset flops were clamped to 0' && echo "$out" | grep -q 'REMOVAL/RECOVERY(negedge) entries of reset flops were not annotated' && echo 1 || echo 0)
+out=$(SDF_ACCEPT="nep_cond net_remrec" judge_log "$T/chk.log" checks 2>&1); rc=$?
+chk "a class that is not approved stays a FAIL even with the others approved" $([ $rc -eq 1 ] && echo "$out" | grep -q 'SDF class nl1_neg' && ! echo "$out" | grep -q 'SDF class net_remrec' && echo 1 || echo 0)
+# SDFNL1 whose model line is in another module
+mklog "$GOODBODY$NCAP$NEP1$(nl1 11700)"$'\n' nl1other
+out=$(SDF_ACCEPT=nl1_neg judge_log "$T/nl1other.log" checks 2>&1); rc=$?
+chk "an SDFNL1 whose model line (11700) is in module 'other' (not a reset flop): FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q "module 'other', not in the reset-flop list" && echo 1 || echo 0)
+mklog "$GOODBODY$NCAP$NEP1"'xmelab: *W,SDFNL1 (/no/such/model.v,11681|5): Attempt to annotate a negative value to a 1 limit timing check in instance (unpu_top_tb.dut.u_seq.f1), setting to 0 <
+' nl1nomodel
+out=$(SDF_ACCEPT=nl1_neg judge_log "$T/nl1nomodel.log" checks 2>&1); rc=$?
+chk "an SDFNL1 whose model file cannot be read cannot be attributed: FAIL, never a silent pass" $([ $rc -eq 1 ] && echo "$out" | grep -q "module 'unknown'" && echo 1 || echo 0)
+out=$(JUDGE_MODEL="$T/model.v" SDF_ACCEPT=nl1_neg judge_log "$T/nl1nomodel.log" checks 2>&1); rc=$?
+chk "the same with JUDGE_MODEL pointing at the model: attributed to dfcrn2" $([ $rc -eq 0 ] && echo 1 || echo 0)
+# 12c. a REAL violation (invented in the form of the NC-Verilog / Xcelium violation message; VERIFY on the first real one) is found next to the context lines
+REALV='Warning!  Timing violation
+		$setup( posedge D:5000 ps, posedge CP:5050 ps, 140 ps );
+File: /storage/PDK/tsl18fs120_scl.v, line = 11940
+Scope: unpu_top_tb.dut.u_seq.cycle_reg_1_
+Time: 5050 PS
+'
+mklog "$GOODBODY$NCAP$NEP1$NL1$REALV" realv
+out=$(SDF_ACCEPT=nl1_neg judge_log "$T/realv.log" checks 2>&1); rc=$?
+chk "a real violation message is counted once (message and check line are one event) and is a FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'timing-check violations (checks mode): 1 (message lines 1, check lines with times 1' && echo "$out" | grep -q '1 timing-check violations' && echo 1 || echo 0)
+chk "the violation lines are printed, the source-context lines are not" $(echo "$out" | grep -q 'Warning!  Timing violation' && echo "$out" | grep -q 'posedge D:5000 ps' && ! echo "$out" | sed -n '/^--- timing-check violations/,/^--- timing checks/p' | grep -q 'notifier' && echo 1 || echo 0)
+mklog "$GOODBODY$NCAP$NEP1$NL1" noviol
+out=$(SDF_ACCEPT=nl1_neg judge_log "$T/noviol.log" checks 2>&1); rc=$?
+chk "a log with the context lines and 0 real violations: PASS" $([ $rc -eq 0 ] && echo 1 || echo 0)
+# 12d. the timing checks must really be on in a checks run
+mklog "$GOODBODY$NCAP$NEP1"'	No. of Tchecks    = 25065   	 No. of Disabled Tchecks    = 25065    Annotated = 0.00% (0/0)
+' tcoff
+judge tcoff checks
+chk "checks run with all timing checks disabled: FAIL (0 violations would mean nothing)" $([ $rc -eq 1 ] && echo "$out" | grep -q 'timing checks are DISABLED in a checks run (25065 of 25065)' && echo 1 || echo 0)
+judge tcoff nochecks
+chk "the same statistics in a nochecks run are fine" $([ $rc -eq 0 ] && echo 1 || echo 0)
+mklog "$GOODBODY$NCAP$NEP1"'	No. of Tchecks    = 25065   	 No. of Disabled Tchecks    = 0        Annotated = 60.66% (15205/25065)
+' tcon
+judge tcon checks
+chk "checks run with 0 disabled: PASS and the statistics are printed" $([ $rc -eq 0 ] && echo "$out" | grep -q 'timing checks in this run (Xcelium.s statistics): 25065 checks, disabled 0' && echo 1 || echo 0)
+judge good checks
+chk "no statistics line in a checks log: only a NOTE, not a FAIL" $([ $rc -eq 0 ] && echo "$out" | grep -q "NOTE: the log has no 'No. of Tchecks'" && echo 1 || echo 0)
+# 12e. the true counts from the SDF, reconciled with Xcelium's total
+cat > "$T/fake.sdf" <<'SDFEOF'
+(DELAYFILE
+(SDFVERSION "3.0")
+(CELL
+  (CELLTYPE "mx02d0")
+  (INSTANCE u_x/U1 )
+  (DELAY
+    (ABSOLUTE
+    (IOPATH I0 Z (0.3::0.3)(0.4::0.4))
+    (IOPATH (posedge S) Z (0.3::0.3)(0.4::0.4))
+    (IOPATH (negedge S) Z (0.3::0.3)(0.4::0.4))
+    )
+  )
+)
+(CELL
+  (CELLTYPE "ad01d0")
+  (INSTANCE u_x/U2 )
+  (DELAY
+    (ABSOLUTE
+    (IOPATH A CO (0.42::0.42)(0.57::0.59))
+    (COND B===1'b0 && CI===1'b0 (IOPATH A S (0.28::0.28)(0.47::0.48)))
+    (COND B===1'b0 && CI===1'b1 (IOPATH A S (0.62::0.64)(0.49::0.49)))
+    )
+  )
+)
+(CELL
+  (CELLTYPE "dfcrn2")
+  (INSTANCE u_seq/f1 )
+  (DELAY
+    (ABSOLUTE
+    (IOPATH (posedge CP) QN (0.59::0.59)(0.63::0.63))
+    )
+  )
+  (TIMINGCHECK
+    (HOLD (posedge D)  (posedge CP) (-0.07::-0.07))
+    (HOLD (negedge D)  (posedge CP) (-0.00::-0.00))
+    (SETUP (posedge D)  (posedge CP) (0.11::0.11))
+    (REMOVAL (posedge CDN)  (posedge CP) (0.43::0.43))
+    (REMOVAL (negedge CDN)  (posedge CP) (0.00::0.00))
+    (RECOVERY (posedge CDN)  (posedge CP) (-0.32::-0.32))
+    (RECOVERY (negedge CDN)  (posedge CP) (0.00::0.00))
+  )
+)
+)
+SDFEOF
+ex=$(sdf_expect "$T/fake.sdf" ss)
+chk "sdf_expect: edge 2 on mx02d0 (the flop CP->QN edge is counted by the class but only the allowed cells are summed)" $([ "$(exp_sum "$ex" edge "mx02d0")" = 2 ] && [ "$(exp_sum "$ex" edge "$SDFNEP_ALLOWED_CELLS")" = 2 ] && echo 1 || echo 0)
+chk "sdf_expect: cond 2, net 3 (2 REMOVAL + RECOVERY negedge), nl1 2 (-0.07 and -0.32; -0.00 is not negative)" $([ "$(exp_sum "$ex" cond)" = 2 ] && [ "$(exp_sum "$ex" net)" = 3 ] && [ "$(exp_sum "$ex" nl1)" = 2 ] && echo 1 || echo 0)
+chk "exp_sum with a '!' list sums the cells NOT in it" $([ "$(exp_sum "$ex" cond '!ad01d0')" = 0 ] && [ "$(exp_sum "$ex" cond '!mx02d0')" = 2 ] && echo 1 || echo 0)
+# checks run: 2 edge + 2 cond + 3 net + 2 nl1 = 9 warnings, as in STATS
+mklog "$GOODBODY$NCAP$NEP1$COND1$NL1$NET1$STATS" rec
+out=$(JUDGE_SDF="$T/fake.sdf" JUDGE_CORNER=ss SDF_ACCEPT="nep_cond nl1_neg net_remrec" judge_log "$T/rec.log" checks 2>&1); rc=$?
+chk "reconciliation: 9 warnings of Xcelium = 9 explained by the SDF -> ok, PASS with the TRUE counts in the verdict words" $([ $rc -eq 0 ] && echo "$out" | grep -q 'explained by the SDF: 9; difference: 0  ->  reconciliation ok' && echo "$out" | grep -q "2 SDFNEP edge-form arcs" && echo "$out" | grep -q '2 SDFNEP COND-form arcs' && echo "$out" | grep -q '2 negative hold/recovery' && echo "$out" | grep -q '3 REMOVAL/RECOVERY' && echo 1 || echo 0)
+chk "the class table is printed with the cells" $(echo "$out" | grep -q 'nep_cond .*yes .*2  ad01d0 2' && echo "$out" | grep -q 'net_remrec .*yes .*3  dfcrn2 3' && echo 1 || echo 0)
+out=$(JUDGE_SDF="$T/fake.sdf" JUDGE_CORNER=ss judge_log "$T/rec.log" checks 2>&1); rc=$?
+chk "with the SDF but without approval: FAIL with the TRUE counts in the reasons (no 'printed lines only')" $([ $rc -eq 1 ] && echo "$out" | grep -q 'SDF class nep_cond: 2 warning(s), NOT approved' && ! echo "$out" | grep -q 'printed lines only' && echo 1 || echo 0)
+mklog "$GOODBODY$NCAP$NEP1$COND1$NL1$NET1${STATS/9 Warnings/12 Warnings}" recbad
+out=$(JUDGE_SDF="$T/fake.sdf" JUDGE_CORNER=ss SDF_ACCEPT="nep_cond nl1_neg net_remrec" judge_log "$T/recbad.log" checks 2>&1); rc=$?
+chk "Xcelium counts 12, the SDF explains 9: FAIL, the hidden part is not classified" $([ $rc -eq 1 ] && echo "$out" | grep -q 'Xcelium counted 12 SDF warnings, the SDF explains 9' && echo "$out" | grep -q 'MISMATCH' && echo 1 || echo 0)
+mklog "$GOODBODY$NCAP$NEP1$COND1${STATS/9 Warnings/4 Warnings}" recno
+out=$(JUDGE_SDF="$T/fake.sdf" JUDGE_CORNER=ss SDF_ACCEPT="nep_cond" judge_log "$T/recno.log" nochecks 2>&1); rc=$?
+chk "nochecks: only the SDFNEP classes are expected (2 + 2 = 4 = Xcelium's 4): PASS" $([ $rc -eq 0 ] && echo "$out" | grep -q 'explained by the SDF: 4; difference: 0' && echo "$out" | grep -q 'nl1_neg and net_remrec do not apply' && echo 1 || echo 0)
+# the message cap on SDFNL1 / SDFNET: acceptable only when the reconciliation proves the hidden part
+CAPS="xmelab: *W,MXWARN: Reached maximum warning limit for 'SDFNL1'(1000).
+xmelab: *W,MXWARN: Reached maximum warning limit for 'SDFNET'(1000).
+"
+mklog "$GOODBODY$NCAP$NEP1$COND1$NL1$NET1$CAPS$STATS" capok
+out=$(JUDGE_SDF="$T/fake.sdf" JUDGE_CORNER=ss SDF_ACCEPT="nep_cond nl1_neg net_remrec" judge_log "$T/capok.log" checks 2>&1); rc=$?
+chk "cap on SDFNL1/SDFNET with a reconciliation that holds: PASS" $([ $rc -eq 0 ] && echo 1 || echo 0)
+out=$(SDF_ACCEPT="nep_cond nl1_neg net_remrec" judge_log "$T/capok.log" checks 2>&1); rc=$?
+chk "the same cap WITHOUT the SDF to prove the hidden part: FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'message cap was reached for an SDF message id other than SDFNEP/SDFNCAP and the hidden part is not proven' && echo 1 || echo 0)
+mklog "$GOODBODY$NCAP$NEP1$COND1$NL1$NET1${STATS/0 Errors/3 Errors}" errs
+out=$(JUDGE_SDF="$T/fake.sdf" JUDGE_CORNER=ss SDF_ACCEPT="nep_cond nl1_neg net_remrec" judge_log "$T/errs.log" checks 2>&1); rc=$?
+chk "'Annotation completed with 3 Errors' is a FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q "Xcelium's annotation reports 3 Errors" && echo 1 || echo 0)
+# cells outside the approved list, seen in the SDF (an adder cell that is not in SDFNEP_COND_CELLS)
+sed 's/"ad01d0"/"ad01d9"/' "$T/fake.sdf" > "$T/fake2.sdf"
+out=$(JUDGE_SDF="$T/fake2.sdf" JUDGE_CORNER=ss SDF_ACCEPT="nep_cond nl1_neg net_remrec" judge_log "$T/rec.log" checks 2>&1); rc=$?
+chk "an approved class with entries on a cell outside its list (ad01d9 in the SDF) is a FAIL" $([ $rc -eq 1 ] && echo "$out" | grep -q 'SDF class nep_cond: 2 COND-form entries are on cells outside the approved list' && echo 1 || echo 0)
+# invalid SDF_ACCEPT
+out=$(SDF_ACCEPT="nep_cond everything" judge_log "$T/good.log" nochecks 2>&1); rc=$?
+chk "an unknown SDF_ACCEPT word is exit 2 with a text, nothing is judged" $([ $rc -eq 2 ] && echo "$out" | grep -q "SDF_ACCEPT contains 'everything', which is not an approvable class" && echo 1 || echo 0)
+chk "the approvable classes and cell lists are the documented ones" $([ "$SDF_APPROVABLE" = "nep_cond nl1_neg net_remrec" ] && [ "$SDFNEP_COND_CELLS" = "ad01d0 ad01d1 ad01d4 xr03d1" ] && [ "$SDFCHK_CELLS" = "dfcrn1 dfcrn2 dfcrq2 decrq1" ] && echo 1 || echo 0)
+chk "by default nothing new is accepted (SDF_ACCEPT is not set in the test environment)" $([ -z "${SDF_ACCEPT:-}" ] && echo 1 || echo 0)
+# 12f. NOLICN: exit 2 and the licence block; with any other *E/*F it is a plain FAIL
+LIC='Writing initial simulation snapshot: worklib.unpu_top_tb:sv
+
+Trying to check out license...
+	Xcelium_Limited_Single_Core 22.00 - Failed
+	Xcelium_Single_Core 22.00 - Failed
+xmsim: *F,NOLICN: Unable to checkout license for the simulation. '"'"'lic_error LMF-03015'"'"'.
+'
+mklog "$ANN$LIC" lic
+printf 'FlexNet Licensing checkout error: Cannot connect to license server system.\n The license server manager (lmgrd) has not been started yet,\nFeature:       Incisive_HDL_Simulator\nServer name:   10.0.0.1\nLicense path:  5280@10.0.0.1:\nFlexNet Licensing error:-15,570.  System Error: 115 "Operation now in progress"\nFeature:       Incisive_HDL_Simulator\nServer name:   10.0.0.1\nLicense path:  5280@10.0.0.1:\n' > "$T/lic.console"
+out=$(JUDGE_CONSOLE="$T/lic.console" judge_log "$T/lic.log" checks 2>&1); rc=$?
+chk "NOLICN as the only *F: exit status 2, not 1" $([ $rc -eq 2 ] && echo 1 || echo 0)
+chk "the licence block names the problem, prints the checkout lines and the log line" $(echo "$out" | grep -q 'ENVIRONMENT PROBLEM, nothing about the design was judged' && echo "$out" | grep -q 'Xcelium_Limited_Single_Core 22.00 - Failed' && echo "$out" | grep -q '\*F,NOLICN' && echo 1 || echo 0)
+chk "the licence block prints the FlexNet feature, server, path and error from the console, counted" $(echo "$out" | grep -qE '2 Feature: +Incisive_HDL_Simulator' && echo "$out" | grep -q 'License path:  5280@10.0.0.1:' && echo "$out" | grep -q 'FlexNet Licensing error:-15,570' && echo "$out" | grep -q 'Cannot connect to license server system' && echo 1 || echo 0)
+chk "no design verdict is printed for a licence-only death (no 'reasons:', no violation block)" $(! echo "$out" | grep -q 'reasons:' && ! echo "$out" | grep -q 'timing-check violations' && echo 1 || echo 0)
+out=$(judge_log "$T/lic.log" checks 2>&1); rc=$?
+chk "without a console file the block says what to paste" $([ $rc -eq 2 ] && echo "$out" | grep -q 'paste the lines around' && echo 1 || echo 0)
+mklog "$ANN$LIC"'xmelab: *E,CUVMUR: instance of module unresolved
+' licerr
+judge licerr checks
+chk "NOLICN together with another *E, line is a plain FAIL (exit 1)" $([ $rc -eq 1 ] && echo 1 || echo 0)
+mklog "$ANN$LIC"'FAIL [x]: something
+' licfail
+judge licfail checks
+chk "NOLICN together with a FAIL line is a plain FAIL (exit 1)" $([ $rc -eq 1 ] && echo 1 || echo 0)
+mklog "$GOODBODY$LIC" licpass
+judge licpass checks
+chk "NOLICN in a log that also has the check lines is a FAIL, never exit 2" $([ $rc -eq 1 ] && echo 1 || echo 0)
+# 12g. main: the retry loop, with a fake xrun that dies on the licence twice and then passes
+RT="$T/rt"; mkdir -p "$RT/out"
+printf '(DELAYFILE\n(SDFVERSION "3.0")\n)\n' > "$RT/out/unpu_top_ss.sdf"
+echo "module x; endmodule" > "$RT/out/unpu_top_pnr_sim.v"; echo "module m; endmodule" > "$RT/model.v"
+XCOUNT="$RT/count"; echo 0 > "$XCOUNT"
+xrun() {
+  local l="" a; local -a args=("$@"); local i
+  for ((i=0; i<${#args[@]}; i++)); do [ "${args[$i]}" = "-l" ] && l="${args[$((i+1))]}"; done
+  [ -n "$l" ] || { echo "fake xrun"; return 0; }   # `xrun -version` has no -l
+  local n; n=$(cat "$XCOUNT"); n=$((n+1)); echo "$n" > "$XCOUNT"
+  if [ "$n" -le "${FAKE_FAILS:-2}" ]; then printf 'Trying to check out license...\n\tXcelium_Single_Core 22.00 - Failed\nxmsim: *F,NOLICN: Unable to checkout license\n' > "$l"; return 2; fi
+  printf '%sANN\n' "" > /dev/null; printf '%s' "$GOODBODY" > "$l"; return 0
+}
+REPO="$(cd "$HERE/../.." && pwd)"; HAD_XO=0; [ -d "$REPO/xrun_out" ] && HAD_XO=1
+out=$(PL_OUT_DIR="$RT/out" PL_SIM_DIR="$RT/sim" GLS_MODEL="$RT/model.v" LICENSE_RETRIES=3 LICENSE_WAIT_S=0 main ss nochecks 2>&1); rc=$?
+chk "retry loop: two licence deaths then a pass -> exit 0 after 3 attempts" $([ $rc -eq 0 ] && [ "$(cat "$XCOUNT")" = 3 ] && echo "$out" | grep -q 'attempt 1 of 4 ended without a verdict' && echo "$out" | grep -q 'attempt 2 of 4' && echo "$out" | grep -qE '^=== PASS: post-layout ss nochecks' && echo 1 || echo 0)
+chk "retry loop: the failed attempts' logs are kept" $([ -s "$RT/sim/pl_ss_nochecks.attempt1.log" ] && [ -s "$RT/sim/pl_ss_nochecks.attempt2.log" ] && echo 1 || echo 0)
+echo 0 > "$XCOUNT"
+out=$(FAKE_FAILS=9 PL_OUT_DIR="$RT/out" PL_SIM_DIR="$RT/sim2" GLS_MODEL="$RT/model.v" LICENSE_RETRIES=1 LICENSE_WAIT_S=0 main ss nochecks 2>&1); rc=$?
+chk "retries used up: exit 2 with the environment text, not a FAIL" $([ $rc -eq 2 ] && [ "$(cat "$XCOUNT")" = 2 ] && echo "$out" | grep -q 'ENVIRONMENT PROBLEM (exit 2), NOT a FAIL of the design' && echo 1 || echo 0)
+echo 0 > "$XCOUNT"
+out=$(FAKE_FAILS=9 PL_OUT_DIR="$RT/out" PL_SIM_DIR="$RT/sim3" GLS_MODEL="$RT/model.v" main ss nochecks 2>&1); rc=$?
+chk "default: no retry (one attempt), exit 2" $([ $rc -eq 2 ] && [ "$(cat "$XCOUNT")" = 1 ] && echo 1 || echo 0)
+out=$(PL_OUT_DIR="$RT/out" PL_SIM_DIR="$RT/sim4" GLS_MODEL="$RT/model.v" LICENSE_RETRIES=x main ss nochecks 2>&1); rc=$?
+chk "LICENSE_RETRIES must be a number: exit 2" $([ $rc -eq 2 ] && echo "$out" | grep -q "LICENSE_RETRIES='x' is not a number" && echo 1 || echo 0)
+out=$(PL_OUT_DIR="$RT/out" PL_SIM_DIR="$RT/sim4" GLS_MODEL="$RT/model.v" SDF_ACCEPT=bogus main ss nochecks 2>&1); rc=$?
+chk "an invalid SDF_ACCEPT stops main with exit 2 before xrun runs" $([ $rc -eq 2 ] && echo "$out" | grep -q "SDF_ACCEPT contains 'bogus'" && [ "$(cat "$XCOUNT")" = 1 ] && echo 1 || echo 0)
+out=$(PL_OUT_DIR="$RT/out" PL_SIM_DIR="$RT/sim5" GLS_MODEL="$RT/model.v" SDF_ACCEPT="nep_cond" FAKE_FAILS=0 main ss nochecks 2>&1); rc=$?
+chk "main prints the approved classes at the start" $(echo "$out" | grep -q 'SDF classes approved by the user (SDF_ACCEPT): nep_cond' && echo 1 || echo 0)
+unset -f xrun
+[ "$HAD_XO" = 0 ] && rmdir "$REPO/xrun_out" 2>/dev/null
+
 echo "RESULT: $npass passed, $nfail failed"
 [ "$nfail" -eq 0 ]

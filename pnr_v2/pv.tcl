@@ -203,6 +203,107 @@ proc pv091_module_problem {modules design} {
     return ""
 }
 # ---- END PURE TCL 091 ----
+# ---- BEGIN PURE TCL 096 ----
+# 096: plain Tcl (tested by pnr_v2/test_sdc_limits.tcl). Decision of the user, 2026-11-10 (option B): the line `set_max_transition 0.4 [get_clocks {clk}] -clock_path` comes from the example cts.tcl (a CTS TARGET), it is
+# 096: not in the legacy constraints or in the instructor's guidance, and the final tree misses it (0.43 to 0.48 ns at ss, 424 PrimeTime entries): it is NOT carried into the exported SDC. cts.tcl keeps it as the target.
+# 096: the lines of an SDC text that are the clock-path max_transition (one `set_max_transition` word, the option -clock_path anywhere on the line)
+proc pv096_clockpath_lines {text} {
+    set out {}
+    foreach l [split $text "\n"] {
+        set t [string trim $l]
+        if {[regexp {^set_max_transition\M} $t] && [regexp -- {-clock_path\M} $t]} { lappend out $t }
+    }
+    return $out
+}
+# 096: the DESIGN-WIDE limit lines: set_max_transition without -clock_path and set_max_capacitance. Returned in file order.
+proc pv096_design_lines {text} {
+    set out {}
+    foreach l [split $text "\n"] {
+        set t [string trim $l]
+        if {[regexp {^set_max_transition\M} $t] && ![regexp -- {-clock_path\M} $t]} { lappend out $t }
+        if {[regexp {^set_max_capacitance\M} $t]} { lappend out $t }
+    }
+    return $out
+}
+# 096: the forms of the removal command that are tried, in order, for the commands that exist ({cmd ...} lists; %C = the clock collection). The first form that leaves 0 clock-path lines and the design-wide
+# 096: lines unchanged is used and printed. VERIFY (help *max_transition* is printed when none works).
+proc pv096_forms {existing} {
+    set out {}
+    foreach {cmd form} {
+        remove_max_transition {remove_max_transition -clock_path %C}
+        remove_max_transition {remove_max_transition %C -clock_path}
+        reset_max_transition  {reset_max_transition -clock_path %C}
+        remove_max_transition {remove_max_transition %C}
+    } {
+        if {[lsearch -exact $existing $cmd] >= 0} { lappend out $form }
+    }
+    return $out
+}
+# 096: the problems of an exported SDC text: any clock-path max_transition line; the design-wide lines must be the ones recorded before the removal (and there must be at least one set_max_transition and one
+# 096: set_max_capacitance among them). Returns the list of problems (empty = fine).
+proc pv096_export_problems {label text expected_design} {
+    set p {}
+    set cp [pv096_clockpath_lines $text]
+    if {[llength $cp] > 0} { lappend p "$label: [llength $cp] clock-path max_transition line(s) in the exported SDC: [lindex $cp 0]" }
+    set dl [pv096_design_lines $text]
+    set nt 0; set nc 0
+    foreach l $dl { if {[string match set_max_transition* $l]} { incr nt } else { incr nc } }
+    if {$nt == 0} { lappend p "$label: no design-wide set_max_transition line in the exported SDC" }
+    if {$nc == 0} { lappend p "$label: no set_max_capacitance line in the exported SDC" }
+    if {[lsort $dl] ne [lsort $expected_design]} { lappend p "$label: the design-wide limit lines differ from the ones the block had before the removal (before: [join $expected_design { | }]; exported: [join $dl { | }])" }
+    return $p
+}
+# ---- END PURE TCL 096 ----
+
+# 096 (ICC2 side): remove the clock-path max_transition of the CURRENT scenario from the block before write_sdc. The state is judged on a temporary SDC written for the scenario (the file is deleted again): the clock-path lines
+# 096: before and after, and the design-wide lines (they must stay). Returns the design-wide lines of the scenario (before the removal). The saved ${PV_SAVE} block loses the limit too (intended: it is the exported
+# 096: block; _filled, _route and cts.tcl's own target are not touched).
+proc pv096_sdc_text {scen tag} {
+    global OUT_DIR
+    set f ${OUT_DIR}/pv096_tmp_${tag}.sdc
+    file delete -force $f
+    write_sdc -scenario $scen -output $f
+    set fp [open $f r]; set t [read $fp]; close $fp
+    file delete -force $f
+    return $t
+}
+proc pv096_remove_clock_path {scen} {
+    current_scenario $scen
+    set t0 [pv096_sdc_text $scen pre_$scen]
+    set cp0 [pv096_clockpath_lines $t0]
+    set dl0 [pv096_design_lines $t0]
+    puts ">>> 096 $scen: clock-path max_transition lines before the removal [llength $cp0]; design-wide limit lines [llength $dl0]: [join $dl0 { | }]"
+    if {[llength $cp0] == 0} { puts ">>> 096 $scen: nothing to remove"; return $dl0 }
+    set clks [get_clocks -quiet -filter "is_virtual == false"]
+    if {[sizeof_collection $clks] == 0} { error "ERROR 096: $scen: no real clock found to remove the clock-path limit from" }
+    set existing {}
+    foreach c {remove_max_transition reset_max_transition} { if {[llength [info commands $c]] > 0} { lappend existing $c } }
+    puts ">>> 096 $scen: removal commands known to this icc2_shell: $existing"
+    set done 0
+    foreach form [pv096_forms $existing] {
+        set cmd [string map [list %C {$clks}] $form]
+        puts ">>> 096 $scen: trying: $form"
+        if {[catch {eval $cmd} err]} { puts ">>> 096 $scen: that form failed: $err"; continue }
+        set t1 [pv096_sdc_text $scen post_$scen]
+        set cp1 [pv096_clockpath_lines $t1]
+        set dl1 [pv096_design_lines $t1]
+        if {[lsort $dl1] ne [lsort $dl0]} {
+            puts ">>> 096 $scen: that form also changed the design-wide lines (now: [join $dl1 { | }]); they are restored from the state before"
+            foreach l $dl0 { if {[lsearch -exact $dl1 $l] < 0} { eval $l } }
+            set t1 [pv096_sdc_text $scen post2_$scen]
+            set cp1 [pv096_clockpath_lines $t1]
+            set dl1 [pv096_design_lines $t1]
+            if {[lsort $dl1] ne [lsort $dl0]} { puts ">>> 096 $scen: the design-wide lines could not be restored with this form (now: [join $dl1 { | }]): next form"; continue }
+        }
+        puts ">>> 096 $scen: clock-path max_transition lines before [llength $cp0], after [llength $cp1]; design-wide lines after: [join $dl1 { | }]"
+        if {[llength $cp1] == 0} { set done 1; puts ">>> 096 $scen: the form that worked: $form"; break }
+    }
+    if {!$done} {
+        catch {help *max_transition*}
+        error "ERROR 096: $scen: the clock-path max_transition could not be removed with any known form (the help text above lists the commands); the exported SDC would carry it, NOTHING exported"
+    }
+    return $dl0
+}
 
 # 091: checkpoint mode: the output places come from the optional variables (default = the final export, unchanged)
 set pv_env_block {}
@@ -431,6 +532,8 @@ redirect -tee -file ${LOG_DIR}/${PV_LOG} {
     
 
     unpu_remove_clock_latency pv-before-write_sdc   ;# 088: the exported SDC must not carry the tool-made set_clock_latency (the removal is repeated here in case a step since the open re-created it)
+    set pv096_design(ss) [pv096_remove_clock_path func_ss]   ;# 096: option B (user, 2026-11-10): the CTS target set_max_transition 0.4 -clock_path is not exported
+    set pv096_design(ff) [pv096_remove_clock_path func_ff]
     current_scenario func_ss
     write_sdc \
         -scenario func_ss \
@@ -445,6 +548,14 @@ redirect -tee -file ${LOG_DIR}/${PV_LOG} {
     write_sdc \
         -scenario func_ff \
         -output ${OUT_DIR}/${DESIGN_NAME}_pnr_ff.sdc
+    set pv096_probs {}   ;# 096: hard check of the exported files
+    foreach pv096_c {ss ff} {
+        set fp [open ${OUT_DIR}/${DESIGN_NAME}_pnr_${pv096_c}.sdc r]; set pv096_t [read $fp]; close $fp
+        foreach pv096_p [pv096_export_problems ${pv096_c} $pv096_t $pv096_design($pv096_c)] { lappend pv096_probs $pv096_p }
+        puts ">>> 096 exported ${OUT_DIR}/${DESIGN_NAME}_pnr_${pv096_c}.sdc: clock-path max_transition lines [llength [pv096_clockpath_lines $pv096_t]]; design-wide lines: [join [pv096_design_lines $pv096_t] { | }]"
+    }
+    if {[llength $pv096_probs] > 0} { error "ERROR 096: [join $pv096_probs {; }]" }
+    puts ">>> 096 CHECK exported SDCs: no clock-path max_transition line, the design-wide max_transition and max_capacitance lines are those of the block"
     unpu_clock_latency_grep pv-exported-sdc [list ${OUT_DIR}/${DESIGN_NAME}_pnr_ss.sdc ${OUT_DIR}/${DESIGN_NAME}_pnr_ff.sdc]   ;# 088: hard check of the exported SDCs: any set_clock_latency line ends the run with ERROR 088
     unc090_export_check pv-exported-sdc [list ${OUT_DIR}/${DESIGN_NAME}_pnr_ss.sdc ${OUT_DIR}/${DESIGN_NAME}_pnr_ff.sdc] $UNC090_SPEC_SETUP $UNC090_SPEC_HOLD   ;# 090: the exported SDC has only clock-level set_clock_uncertainty lines at the SPEC values (ERROR 090 otherwise)
     write_sdf \

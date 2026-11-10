@@ -283,3 +283,7 @@ The after-check of `pt_eco_probe.tcl` judges every proposed insertion by the NET
 - **DESIGN RULES block** in the log and in the SUMMARY of `pt_setup_ss.tcl` / `pt_hold_ff.tcl` (max_transition by limit: clock-path vs design, max_capacitance, min pulse width, `DESIGN RULES: MET` / `VIOLATED (N)` / `UNKNOWN`) and a line `SIGN-OFF IS NOT CLEAN` when they are violated; the setup/hold verdict words are unchanged. The ICC2 figure of the comparison line is read from ICC2's report of the same export (`reports[_<tag>]/unpu_top_final_{setup_ss,hold_ff}.rpt`); the source is printed.
 - **`UNPU_PT_SI=1`**: SI on, reports in `pt_<tag>_si` / `pt_si`; the ECO probes refuse it.
 - **`pt_eco_drc_probe.tcl`**: `fix_eco_drc -type max_transition` for the data limit with the in2out cone and the clock network `dont_touch`; applied with `setenv UNPU_ECO_KIND drc` in `pt_eco_apply.tcl`. Full text and the csh sequence: `pnr_v2/README.md`, section "Max-transition ECO for the DATA limit".
+
+## Task 096: `UNPU_PT_SDC` and the clock-path limit
+
+`UNPU_PT_SDC=legacy` makes `pt_setup_ss.tcl` / `pt_hold_ff.tcl` read `constraints/legacy/unpu_top_legacy.sdc` instead of the SDC that ICC2 wrote (same single change: `set_propagated_clock [all_clocks]`); the reports go to `pt_<tag>_legacy`. The exported SDC no longer carries the 0.40 ns clock-path `max_transition` (option B, `pv.tcl`). `pnr_v2/sdc_compare.tcl` compares the two SDCs. Details and csh commands: `pnr_v2/README.md`, section "Option B ...".

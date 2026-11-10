@@ -140,7 +140,7 @@ foreach f $users {
     }
 }
 set pv [read_file $here/pv.tcl]
-set pw1 [string first "write_sdc" $pv]
+set pw1 [string first "write_sdc \\\n        -scenario func_ss" $pv]   ;# 096: the export write_sdc (pv.tcl has a temporary write_sdc in its 096 helper too)
 set prem [string first "unpu_remove_clock_latency pv-before-write_sdc" $pv]
 check "pv.tcl: removes the line again before the first write_sdc" {$prem > 0 && $prem < $pw1}
 set pg [string first "unpu_clock_latency_grep pv-exported-sdc" $pv]
