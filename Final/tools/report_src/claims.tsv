@@ -1,0 +1,20 @@
+# file	needle (must occur in the document, U+2212 read as -)	keys (id[:round0|pct2|zero], comma-separated): each value must be contained in the needle
+16_docs_and_report/02_what_we_did_differently.md	404 rules, 0 results	drc_rules,drc_results
+16_docs_and_report/02_what_we_did_differently.md	16 rules, 0 results	ant_rules,ant_results
+16_docs_and_report/02_what_we_did_differently.md	44,560 nets matched	lvs_nets
+16_docs_and_report/02_what_we_did_differently.md	+0.1057 ns, 0 violators	pt_setup_off,pt_viol_off
+16_docs_and_report/02_what_we_did_differently.md	+0.0041 ns, 0 violators	pt_hold_off,pt_holdviol_off
+16_docs_and_report/02_what_we_did_differently.md	setup +0.0154 ns, hold +0.0038 ns, 0 violators	pt_setup_on,pt_hold_on,pt_viol_on,pt_holdviol_on
+16_docs_and_report/02_what_we_did_differently.md	identical numbers (+0.1057 / +0.0041 ns)	pt_setup_legacy,pt_hold_legacy,pt_viol_legacy
+16_docs_and_report/02_what_we_did_differently.md	2,465 flops, 442,296	syn_flops,syn_area:round0
+16_docs_and_report/03_explanation_and_viva_notes.md	| RTL check count | 343,341 (testbench) |	gls_checked
+16_docs_and_report/03_explanation_and_viva_notes.md	2,465 / 429,161 µm² / 442,296 µm²	syn_flops,syn_cell_area:round0,syn_area:round0
+16_docs_and_report/03_explanation_and_viva_notes.md	715,039 µm² core	total_area:round0
+16_docs_and_report/03_explanation_and_viva_notes.md	499,549 µm² (utilisation 69.86 %)	cell_area:round0,util:pct2
+16_docs_and_report/03_explanation_and_viva_notes.md	206 = 204 signal + VDD + VSS	lef_pins
+16_docs_and_report/03_explanation_and_viva_notes.md	2,465 sinks, 6 levels, 63 repeaters; ff latency 0.56 ns / skew 0.32 ns; ss latency 1.26 ns / skew 0.75 ns	clk_sinks,clk_levels,clk_repeaters,lat_ff,skew_ff,lat_ss,skew_ss
+16_docs_and_report/03_explanation_and_viva_notes.md	1.97 % (H 1.79, V 2.15)	cong_overflow,cong_h,cong_v
+16_docs_and_report/03_explanation_and_viva_notes.md	DRC 404 rules / 0; antenna 16 rules / 0; LVS correct (44,560 nets)	drc_rules,drc_results,ant_rules,ant_results,lvs_nets
+16_docs_and_report/03_explanation_and_viva_notes.md	crosstalk off +0.1057 / +0.0041 ns; crosstalk on +0.0154 / +0.0038 ns; original SDC +0.1057 / +0.0041 ns; 0 violators	pt_setup_off,pt_hold_off,pt_setup_on,pt_hold_on,pt_setup_legacy,pt_hold_legacy,pt_viol_off,pt_viol_on,pt_viol_legacy
+16_docs_and_report/03_explanation_and_viva_notes.md	each 343,341 checks, 0 failures, 0 violations; 25,065 timing checks active	sim_checks_A,sim_checks_B,sim_checks_C,sim_checks_D,sim_tchecks,sim_tdisabled:zero
+16_docs_and_report/03_explanation_and_viva_notes.md	3,510 + 19,024 delay arcs unmatched (42.8 % of 52,656), clamped limits 8,589 (ss) / 7,150 (ff), removal entries 7,395	sdf_edge,sdf_cond,sdf_nl1_ss,sdf_nl1_ff,sdf_remrec

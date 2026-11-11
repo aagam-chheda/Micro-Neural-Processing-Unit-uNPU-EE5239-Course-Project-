@@ -42,8 +42,10 @@ Built by `tools/build_final.py` from commit `e2469b1` and the raw server copy; c
 | Post-layout simulation D (ff checks) | PASS; 343341 checks | `15_post_layout_sim/sim/runD_console.txt:92` |
 | Simulation end time | ss 278003892 ns, ff 276701592 ns | `15_post_layout_sim/sim/pl_ss_nochecks.log:1242` |
 | Zero-delay GLS | 343341 checks, ALL CHECKS PASSED | `03_synthesis/logs/gls/xrun_cn.log:1680` |
-| Synthesis (legacy) | 2465 flops, total area 442295.849131 um2 | `03_synthesis/reports/unpu_top.area:32` |
+| Synthesis (legacy) | 2465 flops, total cell area 429161.242546 um2, total area 442295.849131 um2 | `03_synthesis/reports/unpu_top.area:32` |
 | Utilization | 0.6986 | `12_fill_and_export/reports/unpu_top_final_utilization.rpt:7` |
+| Clock insertion delay and skew | ff 0.56 ns / 0.32 ns, ss 1.26 ns / 0.75 ns | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| Routing | total wire length 830822 um, 135767 contacts, open nets (see the route check) | `12_fill_and_export/reports/unpu_top_check_routes.rpt:379` |
 | Area | cells (netlist) 499549.12 um2; cells + physical only 715039.36 um2; leaf cells 14674 | `12_fill_and_export/reports/unpu_top_final_qor.rpt:172` |
 | Congestion (global route) | overflow 1.97 percent (both directions) | `12_fill_and_export/reports/congestion.rpt:251` |
 | Clock tree | 2465 sinks | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
@@ -53,6 +55,92 @@ Built by `tools/build_final.py` from commit `e2469b1` and the raw server copy; c
 | ICC2 final QoR | 8 max-transition violating nets (clock-path limit; removed from the exported SDC, option B) | `12_fill_and_export/reports/unpu_top_final_qor.rpt:181` |
 
 Power caveat: the ICC2 power report is run with default activity (`No. of simulation cycles = 6`, `12_fill_and_export/reports/unpu_top_final_power.rpt:33`); the corner/voltage (ss, 1.62 V, 125 C) is from the progress log, not re-read here [unverified]: use the number as an order of magnitude only.
+
+### 2b. All key numbers (id, value, source line; each is re-read from the log by `verify_final.sh` check 7)
+
+| id | value | meaning | source |
+|---|---|---|---|
+| `syn_area` | `442295.849131` | synthesis total area (um2) | `03_synthesis/reports/unpu_top.area:32` |
+| `syn_flops` | `2465` | sequential cells (flops) | `03_synthesis/reports/unpu_top.area:20` |
+| `gls_checked` | `343341` | zero-delay GLS: checks | `03_synthesis/logs/gls/xrun_cn.log:1680` |
+| `gls_pass` | `ALL CHECKS PASSED` | zero-delay GLS: verdict | `03_synthesis/logs/gls/xrun_cn.log:1681` |
+| `route_hold` | `-0.0238` | route checkpoint PrimeTime hold WNS (ns), SI off | `10_routing/pt_route/pt_hold_ff.log:1149` |
+| `route3_hold` | `-0.0188` | route3 (antenna loop done) PrimeTime hold WNS (ns) | `10_routing/pt_route3/pt_hold_ff.log:1149` |
+| `route4_hold` | `+0.0002` | route4 (after the hold ECO) PrimeTime hold WNS (ns) | `10_routing/pt_route4/pt_hold_ff.log:548` |
+| `route4_setup` | `+0.1058` | route4 PrimeTime setup WNS (ns) | `10_routing/pt_route4/pt_setup_ss.log:1509` |
+| `lef_pins` | `206` | LEF check: PIN entries in the macro | `12_fill_and_export/logs/7_pv.log:8029` |
+| `util` | `0.6986` | utilization ratio | `12_fill_and_export/reports/unpu_top_final_utilization.rpt:7` |
+| `cell_area` | `499549.12` | cell area, netlist (um2) | `12_fill_and_export/reports/unpu_top_final_qor.rpt:172` |
+| `total_area` | `715039.36` | cell area, netlist and physical only (um2) | `12_fill_and_export/reports/unpu_top_final_qor.rpt:173` |
+| `leaf_cells` | `14674` | leaf cell count | `12_fill_and_export/reports/unpu_top_final_qor.rpt:134` |
+| `icc2_maxtran` | `8` | ICC2 final QoR: max transition violating nets | `12_fill_and_export/reports/unpu_top_final_qor.rpt:181` |
+| `power_dyn` | `8.42e+09 pW` | ICC2 total dynamic power (pW; default activity) | `12_fill_and_export/reports/unpu_top_final_power.rpt:56` |
+| `power_leak` | `6.80e+06 pW` | ICC2 cell leakage power (pW) | `12_fill_and_export/reports/unpu_top_final_power.rpt:58` |
+| `missing_vias` | `18` | check_pg_missing_vias: total missing vias | `12_fill_and_export/reports/unpu_top_check_pg_missing_vias.rpt:7` |
+| `cong_overflow` | `1.97` | global-route overflow, both directions (%) | `12_fill_and_export/reports/congestion.rpt:251` |
+| `clk_sinks` | `2465` | clock tree: sinks | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| `drc_rules` | `404` | Calibre DRC: rule checks executed | `13_signoff_calibre/final4/drc/unpu_top.drc.rpt:647` |
+| `drc_results` | `0` | Calibre DRC: results generated | `13_signoff_calibre/final4/drc/unpu_top.drc.rpt:648` |
+| `ant_rules` | `16` | Calibre antenna: rule checks executed | `13_signoff_calibre/final4/ant/unpu_top.ant.rpt:115` |
+| `ant_results` | `0` | Calibre antenna: results generated | `13_signoff_calibre/final4/ant/unpu_top.ant.rpt:116` |
+| `lvs_verdict` | `CORRECT` | Calibre LVS: verdict | `13_signoff_calibre/final4/lvs/unpu_top.lvs.rpt:45` |
+| `lvs_nets` | `44560` | Calibre LVS: nets matched (layout = source) | `13_signoff_calibre/final4/lvs/unpu_top.lvs.rpt:333` |
+| `sdc_ss_compared` | `722` | sdc_compare ss: constraints compared | `12_fill_and_export/reports/sdc_compare_ss.txt:29` |
+| `sdc_ss_same` | `718` | sdc_compare ss: SAME | `12_fill_and_export/reports/sdc_compare_ss.txt:29` |
+| `sdc_ss_diff` | `0` | sdc_compare ss: DIFFERENCES | `12_fill_and_export/reports/sdc_compare_ss.txt:29` |
+| `sdc_ss_expected` | `4` | sdc_compare ss: verdict, expected differences | `12_fill_and_export/reports/sdc_compare_ss.txt:30` |
+| `sdc_ff_compared` | `722` | sdc_compare ff: constraints compared | `12_fill_and_export/reports/sdc_compare_ff.txt:29` |
+| `sdc_ff_same` | `718` | sdc_compare ff: SAME | `12_fill_and_export/reports/sdc_compare_ff.txt:29` |
+| `sdc_ff_diff` | `0` | sdc_compare ff: DIFFERENCES | `12_fill_and_export/reports/sdc_compare_ff.txt:29` |
+| `sdc_ff_expected` | `4` | sdc_compare ff: verdict, expected differences | `12_fill_and_export/reports/sdc_compare_ff.txt:30` |
+| `syn_cell_area` | `429161.242546` | synthesis total cell area (um2) | `03_synthesis/reports/unpu_top.area:31` |
+| `open_nets` | `0` | open nets after routing | `12_fill_and_export/reports/unpu_top_check_routes.rpt:49` |
+| `wirelen` | `830822` | total wire length (um) | `12_fill_and_export/reports/unpu_top_check_routes.rpt:379` |
+| `contacts` | `135767` | total number of contacts | `12_fill_and_export/reports/unpu_top_check_routes.rpt:380` |
+| `lat_ff` | `0.56` | clock insertion delay, ff corner (ns) | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| `skew_ff` | `0.32` | clock skew, ff corner (ns) | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| `lat_ss` | `1.26` | clock insertion delay, ss corner (ns) | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:67` |
+| `skew_ss` | `0.75` | clock skew, ss corner (ns) | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:67` |
+| `clk_levels` | `6` | clock tree levels | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| `clk_repeaters` | `63` | clock tree repeaters | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| `cong_h` | `1.79` | global-route overflow, horizontal (%) | `12_fill_and_export/reports/congestion.rpt:252` |
+| `cong_v` | `2.15` | global-route overflow, vertical (%) | `12_fill_and_export/reports/congestion.rpt:253` |
+| `sim_tchecks` | `25065` | timing checks in the checks run (run B) | `15_post_layout_sim/sim/runB_console.txt:89` |
+| `sim_tdisabled` | `0` | disabled timing checks (run B) | `15_post_layout_sim/sim/runB_console.txt:89` |
+| `sdf_warn` | `22534` | SDF warnings explained (run A) | `15_post_layout_sim/sim/runA_console.txt:83` |
+| `sdf_edge` | `3510` | SDF class nep_edge (arcs) | `15_post_layout_sim/sim/runA_console.txt:80` |
+| `sdf_cond` | `19024` | SDF class nep_cond (arcs) | `15_post_layout_sim/sim/runA_console.txt:81` |
+| `sdf_nl1_ss` | `8589` | SDF class nl1_neg, ss (entries) | `15_post_layout_sim/sim/runB_console.txt:84` |
+| `sdf_nl1_ff` | `7150` | SDF class nl1_neg, ff (entries) | `15_post_layout_sim/sim/runD_console.txt:84` |
+| `sdf_remrec` | `7395` | SDF class net_remrec (entries) | `15_post_layout_sim/sim/runB_console.txt:85` |
+| `pt_setup_off` | `+0.1057` | PrimeTime setup ss WNS (ns), view off | `14_signoff_primetime/pt/pt_setup_ss.log:602` |
+| `pt_hold_off` | `+0.0041` | PrimeTime hold ff WNS (ns), view off | `14_signoff_primetime/pt/pt_hold_ff.log:544` |
+| `pt_viol_off` | `0` | PrimeTime setup violating endpoints, view off | `14_signoff_primetime/pt/pt_setup_ss.log:602` |
+| `pt_holdviol_off` | `0` | PrimeTime hold violating endpoints, view off | `14_signoff_primetime/pt/pt_hold_ff.log:544` |
+| `pt_rules_off` | `MET` | PrimeTime design rules, view off | `14_signoff_primetime/pt/pt_setup_ss.log:594` |
+| `pt_annot_off` | `16573` | PrimeTime annotation: pin-to-pin nets in total, view off | `14_signoff_primetime/pt/pt_setup_ss.log:216` |
+| `pt_setup_on` | `+0.0154` | PrimeTime setup ss WNS (ns), view on | `14_signoff_primetime/pt_si/pt_setup_ss.log:613` |
+| `pt_hold_on` | `+0.0038` | PrimeTime hold ff WNS (ns), view on | `14_signoff_primetime/pt_si/pt_hold_ff.log:555` |
+| `pt_viol_on` | `0` | PrimeTime setup violating endpoints, view on | `14_signoff_primetime/pt_si/pt_setup_ss.log:613` |
+| `pt_holdviol_on` | `0` | PrimeTime hold violating endpoints, view on | `14_signoff_primetime/pt_si/pt_hold_ff.log:555` |
+| `pt_rules_on` | `MET` | PrimeTime design rules, view on | `14_signoff_primetime/pt_si/pt_setup_ss.log:605` |
+| `pt_annot_on` | `16573` | PrimeTime annotation: pin-to-pin nets in total, view on | `14_signoff_primetime/pt_si/pt_setup_ss.log:223` |
+| `pt_setup_legacy` | `+0.1057` | PrimeTime setup ss WNS (ns), view legacy | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:602` |
+| `pt_hold_legacy` | `+0.0041` | PrimeTime hold ff WNS (ns), view legacy | `14_signoff_primetime/pt_legacy/pt_hold_ff.log:544` |
+| `pt_viol_legacy` | `0` | PrimeTime setup violating endpoints, view legacy | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:602` |
+| `pt_holdviol_legacy` | `0` | PrimeTime hold violating endpoints, view legacy | `14_signoff_primetime/pt_legacy/pt_hold_ff.log:544` |
+| `pt_rules_legacy` | `MET` | PrimeTime design rules, view legacy | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:594` |
+| `pt_annot_legacy` | `16573` | PrimeTime annotation: pin-to-pin nets in total, view legacy | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:216` |
+| `sim_verdict_A` | `PASS` | post-layout simulation run A verdict | `15_post_layout_sim/sim/runA_console.txt:88` |
+| `sim_checks_A` | `343341` | run A checks reported | `15_post_layout_sim/sim/runA_console.txt:86` |
+| `sim_verdict_B` | `PASS` | post-layout simulation run B verdict | `15_post_layout_sim/sim/runB_console.txt:92` |
+| `sim_checks_B` | `343341` | run B checks reported | `15_post_layout_sim/sim/runB_console.txt:90` |
+| `sim_verdict_C` | `PASS` | post-layout simulation run C verdict | `15_post_layout_sim/sim/runC_console.txt:88` |
+| `sim_checks_C` | `343341` | run C checks reported | `15_post_layout_sim/sim/runC_console.txt:86` |
+| `sim_verdict_D` | `PASS` | post-layout simulation run D verdict | `15_post_layout_sim/sim/runD_console.txt:92` |
+| `sim_checks_D` | `343341` | run D checks reported | `15_post_layout_sim/sim/runD_console.txt:90` |
+| `sim_end_ss` | `278003892` | simulation end time ss (ns) | `15_post_layout_sim/sim/pl_ss_nochecks.log:1242` |
+| `sim_end_ff` | `276701592` | simulation end time ff (ns) | `15_post_layout_sim/sim/pl_ff_nochecks.log:1242` |
 
 ## 3. Timeline of the repair loops (before -> after)
 
@@ -243,7 +331,7 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `02_tb_and_model/tb/unpu_skew_tb.sv` | 32187 | `66919b90617d20ff5ac0fcf94b5f6fcad0fae091f3202c318e34725e569db40a` |  | git:e2469b1:tb/unpu_skew_tb.sv |
 | `02_tb_and_model/tb/unpu_stall_tb.sv` | 39452 | `6982a969154bcb7daa8dbf35f4b41a5a5c682106222ec472fc1dff2290d0e69b` |  | git:e2469b1:tb/unpu_stall_tb.sv |
 | `02_tb_and_model/tb/unpu_top_tb.sv` | 47125 | `94c6f36a600a41d5ce4798cb6dd1c5fd729aaa8e463699d497c7d8f02a515a0b` |  | git:e2469b1:tb/unpu_top_tb.sv |
-| `03_synthesis/README.md` | 3697 | `463702b648d3250b6fc3e6898425309a5d2001f6112d1e1b13bef45214883fc0` |  | generated:build_final.py |
+| `03_synthesis/README.md` | 3793 | `7174d2348e8f1cf81608254e30abb1e105f6e03febb73e815743bd501a58a8f5` |  | generated:build_final.py |
 | `03_synthesis/docs/README.md` | 3099 | `56036fd6dc98715442cb2a2d6d5b91343fc634d40eb94070468d7d819cb8866e` |  | git:e2469b1:docs/planning/synthesis-reports/README.md |
 | `03_synthesis/docs/RUNBOOK.md` | 16257 | `a49bab7c40d3641aab33fa1c75ca5476747a5d082d9a348730940eb589bb8e56` |  | git:e2469b1:syn/RUNBOOK.md |
 | `03_synthesis/docs/RUNBOOK_legacy.md` | 5366 | `91bcb815650c680899bf9045f7f01849eeff0d4b3cea443bcc1e650f6e152229` |  | git:e2469b1:syn/RUNBOOK_legacy.md |
@@ -600,7 +688,7 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `11_eco_and_antenna/scripts/pt_eco_drc_probe.tcl` | 18548 | `5f82fb1b22156f08d655e7b81e9969a352bc0d1d6e3de5a0079c888591bb03c5` |  | git:ec39550:pnr_v2/pt/pt_eco_drc_probe.tcl |
 | `11_eco_and_antenna/scripts/pt_eco_probe.tcl` | 27920 | `1aeeb7692a629f8cd4309c4fbb71922d4c40f513f119e68c9b408f48492b57cd` |  | git:65ff234:pnr_v2/pt/pt_eco_probe.tcl |
 | `11_eco_and_antenna/scripts/pt_eco_setup_probe.tcl` | 15336 | `bafd349efc1009b3a387ff7bb40930cae4fe3d55bc153785f988ef7162e0d53e` |  | git:65ff234:pnr_v2/pt/pt_eco_setup_probe.tcl |
-| `12_fill_and_export/README.md` | 5819 | `d5f40b9a086975777836b7fe4cb65755d309091df1a15043b50b5e1055c465fe` |  | generated:build_final.py |
+| `12_fill_and_export/README.md` | 6933 | `227de91c7943e6281dd524c3c6f97753c040301ef5954fcfcffd82f2cb5fe302` |  | generated:build_final.py |
 | `12_fill_and_export/docs/096-drop-clock-path-limit-and-final-verification.md` | 4129 | `09440a5c56037f08e3eff15036b34e7231b1f2c92c5410357d465897d92da80e` |  | git:e2469b1:docs/planning/tasks/096-drop-clock-path-limit-and-final-verification.md |
 | `12_fill_and_export/logs/7_pv.log` | 477646 | `5ab3e02321c99af0278ee65258642fd5bf29c78d9bdc22425fdf25476ec195c4` |  | srv:pnr_icc2/logs/7_pv.log |
 | `12_fill_and_export/logs/metal_fill.log` | 4342 | `d8659e675b34df3b0b0b8e6aac27c41c70f5d87ae590827fd45ee16af4ae2f77` |  | srv:pnr_icc2/logs/metal_fill.log |
@@ -731,7 +819,7 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `13_signoff_calibre/scripts/ant.ctrl` | 686 | `ca7f8ebe3178447e35ff05cae1457550de4c44c44b1051c85828a1fe608d5139` |  | git:1a06fd4:pnr_v2/calibre/ant.ctrl |
 | `13_signoff_calibre/scripts/drc.ctrl` | 740 | `58c4e5d4da1c1dcef44f815f2dc3305b9658c40822d1159fe99570cf63675332` |  | git:1a06fd4:pnr_v2/calibre/drc.ctrl |
 | `13_signoff_calibre/scripts/lvs.ctrl` | 2759 | `43044f1d86745f6b89aea349206efdc0e0d70f410cc3b4070b745eea28e9ccab` |  | git:1a06fd4:pnr_v2/calibre/lvs.ctrl |
-| `14_signoff_primetime/README.md` | 6081 | `91f7189ba27ca80dfcc7292a8f13acd18f24e3e83ff9c31d9c00247c406d9dcb` |  | generated:build_final.py |
+| `14_signoff_primetime/README.md` | 6399 | `7860771be81c922bffc322c20b8ee44cf5bcd8f2d2b29e5c71b1073d36680f90` |  | generated:build_final.py |
 | `14_signoff_primetime/docs/074-primetime-signoff.md` | 9416 | `98da367e9ed99d4dd4234fac2eaf1ee5e22f5f523e9616eac9b0cc4ffe2e8cf7` |  | git:e2469b1:docs/planning/tasks/074-primetime-signoff.md |
 | `14_signoff_primetime/docs/README.md` | 45002 | `215f85741516e29143645fa449fb832bf5dee56f06f83e5fc862406b19989b41` |  | git:e2469b1:pnr_v2/pt/README.md |
 | `14_signoff_primetime/earlier/pt_before_si/pt_hold_ff.log` | 35381 | `5dd98078770f0480e6785e9791a652838cef2c72d087d8ce678cbca49d5ec7b5` |  | srv:pnr_icc2/pt_before_si/pt_hold_ff.log |
@@ -1003,7 +1091,7 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `14_signoff_primetime/scripts/pt_hold_ff.tcl` | 5314 | `6dfcc03fd4f7de5eed83f99022f308b861e84cd9fb073a305e275336cf5fa2b2` |  | git:ec39550:pnr_v2/pt/pt_hold_ff.tcl |
 | `14_signoff_primetime/scripts/pt_setup_ss.tcl` | 5080 | `e0e6bdae5221609a8326fb0ef793a4b00cf178a89385e5bb97de622a2a8bb69a` |  | git:ec39550:pnr_v2/pt/pt_setup_ss.tcl |
 | `14_signoff_primetime/scripts/test_pt_common.tcl` | 75651 | `70804ff01884f84f457bf587647cf26d9c49378c1b5b2c9de9df01d01654bc02` |  | git:6970448:pnr_v2/pt/test_pt_common.tcl |
-| `15_post_layout_sim/README.md` | 4573 | `e144747a6ffd5776e0922932a4aa0e2582993b1fa53273282b57bc39c7bcdfe1` |  | generated:build_final.py |
+| `15_post_layout_sim/README.md` | 5302 | `40c895272f35dbb8d7e44a73eab9847433db551659cd4577568c6b68fa48b795` |  | generated:build_final.py |
 | `15_post_layout_sim/docs/075-post-layout-simulation.md` | 8252 | `95e59c773b8b49c7b94342ec70dfae72382b08315210dcbba3fa5f022deb04ce` |  | git:e2469b1:docs/planning/tasks/075-post-layout-simulation.md |
 | `15_post_layout_sim/docs/094-post-layout-sim-verdict-checks-mode.md` | 5491 | `eae59ac0bdb92af360c228e4c0a5d0ce1ac10e496160af1eb1c4135c48ad08f5` |  | git:e2469b1:docs/planning/tasks/094-post-layout-sim-verdict-checks-mode.md |
 | `15_post_layout_sim/docs/README.md` | 44098 | `901b754e03eda3090e004948723172bafbc4a8be6e62079278b517570321af5e` |  | git:e2469b1:pnr_v2/sim/README.md |
@@ -1108,7 +1196,10 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `15_post_layout_sim/sim/runC_eqeq_console.txt` | 7029 | `0a2483ad69582d11ce9ec255b0872493ba4bad0f34e19b52ca501c8dc9532b15` |  | srv:pnr_icc2/sim/runC_eqeq_console.txt |
 | `15_post_layout_sim/sim/runD_console.txt` | 7973 | `d7951525dd44594ff25add02449ae7259484bc069c685dc977204a3aefeeb866` |  | srv:pnr_icc2/sim/runD_console.txt |
 | `15_post_layout_sim/sim/runD_negtchk_console.txt` | 7918 | `0afc33f9aea04d8f99bf4778f43a00de993f555166062a161f76b6fc6e15e3c4` |  | srv:pnr_icc2/sim/runD_negtchk_console.txt |
-| `16_docs_and_report/README.md` | 887 | `e85a9e7783536db6ba31259c104c3833e74211bd7a9b0b69dce600db86ea8e11` |  | generated:build_final.py |
+| `16_docs_and_report/01_project_report.md` | 51556 | `13e4c218d6ec085fd712ca88598eca2f2f7bc1b52a4dcc67b9243ad4470acf2b` |  | generated:build_final.py from tools/report_src/01_project_report.md (tokens from the logs) |
+| `16_docs_and_report/02_what_we_did_differently.md` | 21055 | `8cc86269e30b99baa661af160300526cd3066d72577855a373f89289a4d4bee0` |  | generated:build_final.py from tools/report_src/02_what_we_did_differently.md (tokens from the logs) |
+| `16_docs_and_report/03_explanation_and_viva_notes.md` | 23618 | `60c7669b5f6802a7f94f881ae89659482d695024f7c5750c913b62ab82efc26e` |  | generated:build_final.py from tools/report_src/03_explanation_and_viva_notes.md (tokens from the logs) |
+| `16_docs_and_report/README.md` | 1084 | `9a7ffb5aaa15beb28590a35c7046d7838bbfa69dd5f7d9988530a5aba4c6f9bb` |  | generated:build_final.py |
 | `16_docs_and_report/docs/099-final-folder.md` | 13416 | `3d20e8196eafbe30b1ceeff86c87ee45c8b7624f8d6b1889566911894b9ca695` |  | worktree:docs/planning/tasks/099-final-folder.md |
 | `16_docs_and_report/docs/CLAUDE.md` | 4298 | `063a7cb81eedae1ce9896a1c55f1a35d0973dc781ad9c96825ab4e92e1161258` |  | git:e2469b1:CLAUDE.md |
 | `16_docs_and_report/docs/RUN3_RUNBOOK.md` | 31347 | `144ba24149247ca0f4494ff5e9585f21aa86b9ddc869677c275246ce0f925bb3` |  | worktree:pnr_v2/RUN3_RUNBOOK.md |
@@ -1118,7 +1209,7 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `16_docs_and_report/docs/restart-plan-2026-11-10.md` | 8358 | `a8d9c5b663bfc2cfe8f17662d056c2187ec56346f182f61ee2520bfcea34fcf9` |  | git:e2469b1:docs/planning/restart-plan-2026-11-10.md |
 | `16_docs_and_report/docs/session-handoff.md` | 122135 | `e388d2d8f5c681c8b2de463e394e7389f6ace855b22245dc6fe73ecc381ce6f2` |  | git:e2469b1:docs/session-handoff.md |
 | `docs/CLAUDE.md` | 4298 | `063a7cb81eedae1ce9896a1c55f1a35d0973dc781ad9c96825ab4e92e1161258` |  | git:e2469b1:CLAUDE.md |
-| `docs/INDEX.md` | 39383 | `cab197f45b00294116ddbfcc1025dd22f546e445f116e05c698ec15045de729a` |  | generated:build_final.py |
+| `docs/INDEX.md` | 40266 | `e564c08bd48a5fc330ad65f27f0c559c0f5a53d93a218b2bd2b0039def5feaae` |  | generated:build_final.py |
 | `docs/README.md` | 29710 | `d8719f23d40fc748ba49b11747fea50f6ecf7e4b938c368b3453a2f681e1e7e2` |  | git:e2469b1:README.md |
 | `docs/docs/freeze-report-v2.md` | 43749 | `cb2d5c9f758374158cefb18ce5086ffd3b35708971fe4abcba82f217071dc621` |  | git:e2469b1:docs/freeze-report-v2.md |
 | `docs/docs/freeze-report.md` | 11900 | `5b0783f82312aa77f88915f44c67298a352bced6357d51b5e817dd4cdbb40ddf` |  | git:e2469b1:docs/freeze-report.md |
@@ -1259,6 +1350,9 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `docs/pnr_v2/calibre/README.md` | 23694 | `687b576c3d6a5483a1bc972ed9939bfa827bb6fcfc080fc7512e3027158683a5` |  | git:e2469b1:pnr_v2/calibre/README.md |
 | `docs/pnr_v2/pt/README.md` | 45002 | `215f85741516e29143645fa449fb832bf5dee56f06f83e5fc862406b19989b41` |  | git:e2469b1:pnr_v2/pt/README.md |
 | `docs/pnr_v2/sim/README.md` | 44098 | `901b754e03eda3090e004948723172bafbc4a8be6e62079278b517570321af5e` |  | git:e2469b1:pnr_v2/sim/README.md |
+| `docs/report/01_project_report.md` | 51556 | `13e4c218d6ec085fd712ca88598eca2f2f7bc1b52a4dcc67b9243ad4470acf2b` |  | generated:build_final.py from tools/report_src/01_project_report.md |
+| `docs/report/02_what_we_did_differently.md` | 21055 | `8cc86269e30b99baa661af160300526cd3066d72577855a373f89289a4d4bee0` |  | generated:build_final.py from tools/report_src/02_what_we_did_differently.md |
+| `docs/report/03_explanation_and_viva_notes.md` | 23618 | `60c7669b5f6802a7f94f881ae89659482d695024f7c5750c913b62ab82efc26e` |  | generated:build_final.py from tools/report_src/03_explanation_and_viva_notes.md |
 | `docs/syn/RUNBOOK.md` | 16257 | `a49bab7c40d3641aab33fa1c75ca5476747a5d082d9a348730940eb589bb8e56` |  | git:e2469b1:syn/RUNBOOK.md |
 | `docs/syn/RUNBOOK_legacy.md` | 5366 | `91bcb815650c680899bf9045f7f01849eeff0d4b3cea443bcc1e650f6e152229` |  | git:e2469b1:syn/RUNBOOK_legacy.md |
 | `scripts/MANIFEST.md` | 27625 | `cdce2367de1225195101e7e257ca933a73d1d6ad28d636a5e7870d0d585d6455` |  | generated:build_final.py |
@@ -1401,7 +1495,7 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `scripts/tb/unpu_skew_tb.sv` | 32187 | `66919b90617d20ff5ac0fcf94b5f6fcad0fae091f3202c318e34725e569db40a` |  | git:e2469b1:tb/unpu_skew_tb.sv |
 | `scripts/tb/unpu_stall_tb.sv` | 39452 | `6982a969154bcb7daa8dbf35f4b41a5a5c682106222ec472fc1dff2290d0e69b` |  | git:e2469b1:tb/unpu_stall_tb.sv |
 | `scripts/tb/unpu_top_tb.sv` | 47125 | `94c6f36a600a41d5ce4798cb6dd1c5fd729aaa8e463699d497c7d8f02a515a0b` |  | git:e2469b1:tb/unpu_top_tb.sv |
-| `tools/keys.tsv` | 6317 | `e6b5011ae020ef022691361bfb3e8c14c8a44a27f7ead719765d5452ebf2f76d` |  | generated:build_final.py |
+| `tools/keys.tsv` | 8960 | `c9ceac2a5a6daeaf78ac065e988809f6d4371bbe2dc76f82dfd52ec853a9e42d` |  | generated:build_final.py |
 <!-- FILES-END -->
 
 This file (`INDEX.md`) and `tools/verify_final.sh`, `tools/build_final.py`, `tools/stages.py` are not in the table (a file cannot carry its own hash; the tools are the checkers).

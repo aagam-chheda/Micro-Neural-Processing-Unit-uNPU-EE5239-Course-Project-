@@ -41,6 +41,14 @@ bash pnr_v2/sim/run_experiments.sh |& tee pnr_icc2/sim/experiments_console.txt
 
 | result | value | source (file:line) |
 |---|---|---|
+| timing checks in the checks run (run B) | `25065` | `15_post_layout_sim/sim/runB_console.txt:89` |
+| disabled timing checks (run B) | `0` | `15_post_layout_sim/sim/runB_console.txt:89` |
+| SDF warnings explained (run A) | `22534` | `15_post_layout_sim/sim/runA_console.txt:83` |
+| SDF class nep_edge (arcs) | `3510` | `15_post_layout_sim/sim/runA_console.txt:80` |
+| SDF class nep_cond (arcs) | `19024` | `15_post_layout_sim/sim/runA_console.txt:81` |
+| SDF class nl1_neg, ss (entries) | `8589` | `15_post_layout_sim/sim/runB_console.txt:84` |
+| SDF class nl1_neg, ff (entries) | `7150` | `15_post_layout_sim/sim/runD_console.txt:84` |
+| SDF class net_remrec (entries) | `7395` | `15_post_layout_sim/sim/runB_console.txt:85` |
 | post-layout simulation run A verdict | `PASS` | `15_post_layout_sim/sim/runA_console.txt:88` |
 | run A checks reported | `343341` | `15_post_layout_sim/sim/runA_console.txt:86` |
 | post-layout simulation run B verdict | `PASS` | `15_post_layout_sim/sim/runB_console.txt:92` |

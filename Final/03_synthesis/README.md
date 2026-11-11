@@ -44,6 +44,7 @@ mkdir -p syn/out ; dc_shell -f constraints/legacy/dc_script_legacy.tcl |& tee sy
 | sequential cells (flops) | `2465` | `03_synthesis/reports/unpu_top.area:20` |
 | zero-delay GLS: checks | `343341` | `03_synthesis/logs/gls/xrun_cn.log:1680` |
 | zero-delay GLS: verdict | `ALL CHECKS PASSED` | `03_synthesis/logs/gls/xrun_cn.log:1681` |
+| synthesis total cell area (um2) | `429161.242546` | `03_synthesis/reports/unpu_top.area:31` |
 
 ## 4. Decisions of this stage (date, who)
 

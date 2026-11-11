@@ -50,16 +50,19 @@ unsetenv UNPU_PT_SDC
 | PrimeTime setup ss WNS (ns), view off | `+0.1057` | `14_signoff_primetime/pt/pt_setup_ss.log:602` |
 | PrimeTime hold ff WNS (ns), view off | `+0.0041` | `14_signoff_primetime/pt/pt_hold_ff.log:544` |
 | PrimeTime setup violating endpoints, view off | `0` | `14_signoff_primetime/pt/pt_setup_ss.log:602` |
+| PrimeTime hold violating endpoints, view off | `0` | `14_signoff_primetime/pt/pt_hold_ff.log:544` |
 | PrimeTime design rules, view off | `MET` | `14_signoff_primetime/pt/pt_setup_ss.log:594` |
 | PrimeTime annotation: pin-to-pin nets in total, view off | `16573` | `14_signoff_primetime/pt/pt_setup_ss.log:216` |
 | PrimeTime setup ss WNS (ns), view on | `+0.0154` | `14_signoff_primetime/pt_si/pt_setup_ss.log:613` |
 | PrimeTime hold ff WNS (ns), view on | `+0.0038` | `14_signoff_primetime/pt_si/pt_hold_ff.log:555` |
 | PrimeTime setup violating endpoints, view on | `0` | `14_signoff_primetime/pt_si/pt_setup_ss.log:613` |
+| PrimeTime hold violating endpoints, view on | `0` | `14_signoff_primetime/pt_si/pt_hold_ff.log:555` |
 | PrimeTime design rules, view on | `MET` | `14_signoff_primetime/pt_si/pt_setup_ss.log:605` |
 | PrimeTime annotation: pin-to-pin nets in total, view on | `16573` | `14_signoff_primetime/pt_si/pt_setup_ss.log:223` |
 | PrimeTime setup ss WNS (ns), view legacy | `+0.1057` | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:602` |
 | PrimeTime hold ff WNS (ns), view legacy | `+0.0041` | `14_signoff_primetime/pt_legacy/pt_hold_ff.log:544` |
 | PrimeTime setup violating endpoints, view legacy | `0` | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:602` |
+| PrimeTime hold violating endpoints, view legacy | `0` | `14_signoff_primetime/pt_legacy/pt_hold_ff.log:544` |
 | PrimeTime design rules, view legacy | `MET` | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:594` |
 | PrimeTime annotation: pin-to-pin nets in total, view legacy | `16573` | `14_signoff_primetime/pt_legacy/pt_setup_ss.log:216` |
 

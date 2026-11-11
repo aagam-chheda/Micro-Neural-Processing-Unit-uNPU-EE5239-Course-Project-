@@ -84,6 +84,17 @@ unsetenv UNPU_PT_SDC
 | sdc_compare ff: SAME | `718` | `12_fill_and_export/reports/sdc_compare_ff.txt:29` |
 | sdc_compare ff: DIFFERENCES | `0` | `12_fill_and_export/reports/sdc_compare_ff.txt:29` |
 | sdc_compare ff: verdict, expected differences | `4` | `12_fill_and_export/reports/sdc_compare_ff.txt:30` |
+| open nets after routing | `0` | `12_fill_and_export/reports/unpu_top_check_routes.rpt:49` |
+| total wire length (um) | `830822` | `12_fill_and_export/reports/unpu_top_check_routes.rpt:379` |
+| total number of contacts | `135767` | `12_fill_and_export/reports/unpu_top_check_routes.rpt:380` |
+| clock insertion delay, ff corner (ns) | `0.56` | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| clock skew, ff corner (ns) | `0.32` | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| clock insertion delay, ss corner (ns) | `1.26` | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:67` |
+| clock skew, ss corner (ns) | `0.75` | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:67` |
+| clock tree levels | `6` | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| clock tree repeaters | `63` | `12_fill_and_export/reports/unpu_top_final_clock_qor.rpt:51` |
+| global-route overflow, horizontal (%) | `1.79` | `12_fill_and_export/reports/congestion.rpt:252` |
+| global-route overflow, vertical (%) | `2.15` | `12_fill_and_export/reports/congestion.rpt:253` |
 
 ## 4. Decisions of this stage (date, who)
 

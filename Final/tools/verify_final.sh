@@ -36,7 +36,7 @@ if [ "$n_index" -gt 0 ] && [ $miss -eq 0 ] && [ $badsize -eq 0 ] && [ $badsha -e
 else bad "1  INDEX.md vs files: $n_index rows, missing $miss, size $badsize, sha256 $badsha, original sha256 $badosha"; fi
 
 # 2. INDEX.md lists every file (nothing in the folder is missing from the table)
-(cd "$F" && find . -type f ! -path './INDEX.md' ! -path './tools/verify_final.sh' ! -path './tools/build_final.py' ! -path './tools/stages.py' ! -path '*/__pycache__/*' | sed 's|^\./||' | sort) > "$TMP/onDisk.txt"
+(cd "$F" && find . -type f ! -path './INDEX.md' ! -path './tools/verify_final.sh' ! -path './tools/build_final.py' ! -path './tools/stages.py' ! -path './tools/report_src/*' ! -path '*/__pycache__/*' | sed 's|^\./||' | sort) > "$TMP/onDisk.txt"
 cut -f1 "$TMP/index.tsv" | sort > "$TMP/inIndex.txt"
 if diff -q "$TMP/onDisk.txt" "$TMP/inIndex.txt" > /dev/null; then ok "2  INDEX.md lists every file of the folder and nothing else"
 else bad "2  files not in the table / rows without file: $(comm -23 "$TMP/onDisk.txt" "$TMP/inIndex.txt" | wc -l) / $(comm -13 "$TMP/onDisk.txt" "$TMP/inIndex.txt" | wc -l)"; comm -23 "$TMP/onDisk.txt" "$TMP/inIndex.txt" | head -3 | sed 's/^/      not indexed: /'; fi
@@ -81,12 +81,12 @@ else bad "6  $REPO is not a git repository: ignore check impossible"; fi
 
 # 7. the key numbers: each keys.tsv row is re-read from its file; the value must be in the cited line, at the recorded line number, in the stage README and (results) in INDEX.md
 nk=0; kbad=0
-while IFS=$'\t' read -r id stage file pattern value line; do
+while IFS=$'\t' read -r id stage file pattern nth value line; do
   case "$id" in '#'*|'') continue;; esac
   nk=$((nk+1))
   fp="$F/$file"
   if [ ! -f "$fp" ]; then kbad=$((kbad+1)); note "key $id: $file missing"; continue; fi
-  hit=$(grep -nE -m1 -- "$pattern" "$fp")
+  hit=$(grep -nE -- "$pattern" "$fp" | sed -n "${nth}p")
   ln=${hit%%:*}; txt=${hit#*:}
   if [ -z "$hit" ] || [ "$ln" != "$line" ] || ! printf '%s' "$txt" | grep -qF -- "$value"; then kbad=$((kbad+1)); note "key $id: '$value' not at $file:$line (found: ${hit:0:100})"; continue; fi
   grep -qF -- "\`$value\`" "$F/$stage/README.md" || { kbad=$((kbad+1)); note "key $id: value $value not in $stage/README.md"; continue; }
@@ -95,7 +95,7 @@ done < "$F/tools/keys.tsv"
 if [ "$nk" -gt 0 ] && [ "$kbad" -eq 0 ]; then ok "7  key numbers: $nk values equal the cited log lines and appear in the stage READMEs and INDEX.md"; else bad "7  key numbers: $kbad of $nk wrong"; fi
 
 # 8. independent re-counts (not taken from a log line that states them)
-lefv=$(awk -F'\t' '$1=="lef_pins"{print $5}' "$F/tools/keys.tsv")
+lefv=$(awk -F'\t' '$1=="lef_pins"{print $6}' "$F/tools/keys.tsv")
 lefn=$(grep -cE '^[[:space:]]*PIN ' "$F/12_fill_and_export/outputs/unpu_top.lef" 2>/dev/null)
 macros=$(grep -cE '^MACRO ' "$F/12_fill_and_export/outputs/unpu_top.lef" 2>/dev/null)
 if [ -n "$lefv" ] && [ "$lefn" = "$lefv" ] && [ "$macros" = 1 ]; then ok "8a LEF: one MACRO, $lefn PIN entries counted in the file = $lefv stated by the pv log"; else bad "8a LEF: counted PIN $lefn / MACRO $macros, log says $lefv"; fi
@@ -104,7 +104,7 @@ for r in A B C D; do
   [ "$c" = 1 ] && [ "$fl" = 0 ] || simbad=1
 done
 [ "${simbad:-0}" = 0 ] && ok "8b post-layout runs A-D: exactly one '=== PASS' line each, no '=== FAIL'" || bad "8b post-layout run console verdict lines"
-zs=$(awk -F'\t' '$1=="drc_results"||$1=="ant_results"{s+=$5} END{print s+0}' "$F/tools/keys.tsv")
+zs=$(awk -F'\t' '$1=="drc_results"||$1=="ant_results"{s+=$6} END{print s+0}' "$F/tools/keys.tsv")
 [ "$zs" = 0 ] && ok "8c Calibre final4 DRC + antenna results total 0 (from keys.tsv)" || bad "8c Calibre final4 results total $zs"
 
 # 9. every stage README has the five parts
@@ -150,6 +150,90 @@ else
     [ "$terr" -eq 0 ] && ok "12 script tests from a temporary copy of scripts/: $tn suites, $tsum numbered tests passed, 0 failed (+ test_syn_compare: ALL TESTS PASSED)" || bad "12 script tests: $terr of $tn suites failed"
   fi
 fi
+
+# 13. the report documents: tokens resolved from the logs (an unresolved token is a FAIL), every key used by a template appears with its value, section 14 and the [unverified] marks are present
+rep_bad=0; rep_n=0
+for t in "$F"/tools/report_src/*.md; do
+  [ -f "$t" ] || continue
+  b=$(basename "$t"); r="$F/16_docs_and_report/$b"; d="$F/docs/report/$b"; rep_n=$((rep_n+1))
+  [ -s "$r" ] || { rep_bad=$((rep_bad+1)); note "$b: no rendered copy in 16_docs_and_report"; continue; }
+  cmp -s "$r" "$d" || { rep_bad=$((rep_bad+1)); note "$b: docs/report copy differs"; }
+  if grep -q '@@' "$r"; then rep_bad=$((rep_bad+1)); note "$b: an unresolved @@token@@ is left"; fi
+  while IFS=$'\t' read -r id stage file pattern nth value line; do
+    case "$id" in '#'*|'') continue;; esac
+    if grep -q "@@${id}@@" "$t"; then grep -qF -- "$value" "$r" || { rep_bad=$((rep_bad+1)); note "$b: value of $id ($value) missing in the rendered report"; }; fi
+  done < "$F/tools/keys.tsv"
+done
+if [ -s "$F/16_docs_and_report/01_project_report.md" ]; then
+  grep -q '^## 14\. Limitations' "$F/16_docs_and_report/01_project_report.md" || { rep_bad=$((rep_bad+1)); note "01_project_report.md lacks section 14"; }
+  [ "$(grep -c '\[unverified' "$F/16_docs_and_report/01_project_report.md")" -ge 3 ] || { rep_bad=$((rep_bad+1)); note "01_project_report.md has fewer than 3 [unverified] marks"; }
+else rep_bad=$((rep_bad+1)); note "01_project_report.md missing"; fi
+[ "$rep_bad" -eq 0 ] && [ "$rep_n" -ge 1 ] && ok "13 report documents: $rep_n template(s) rendered, no unresolved token, every cited key value present, section 14 and [unverified] marks present" || bad "13 report documents: $rep_bad problems ($rep_n templates)"
+
+# 14. numbers cited in the report documents 02 and 03 (tables of 02 section 2 and 03 part B): each claim of report_src/claims.tsv must occur in the document and every key value it names must be contained in it
+cl_bad=0; cl_n=0
+while IFS=$'\t' read -r cfile needle spec; do
+  case "$cfile" in '#'*|'') continue;; esac
+  cl_n=$((cl_n+1)); doc="$F/$cfile"
+  [ -f "$doc" ] || { cl_bad=$((cl_bad+1)); note "claim $cl_n: $cfile missing"; continue; }
+  sed 's/−/-/g' "$doc" > "$TMP/doc.norm"
+  n2=$(printf '%s' "$needle" | sed 's/−/-/g')
+  grep -qF -- "$n2" "$TMP/doc.norm" || { cl_bad=$((cl_bad+1)); note "claim $cl_n: text not found in $(basename "$cfile"): ${n2:0:70}"; continue; }
+  nn=$(printf '%s' "$n2" | sed 's/,//g; s/ //g')
+  IFS=, read -ra items <<< "$spec"
+  for item in "${items[@]}"; do
+    id=${item%%:*}; tr=""; case "$item" in *:*) tr=${item#*:};; esac
+    val=$(awk -F'\t' -v id="$id" '$1==id{print $6}' "$F/tools/keys.tsv")
+    if [ -z "$val" ]; then cl_bad=$((cl_bad+1)); note "claim $cl_n: unknown key $id"; continue; fi
+    case "$tr" in
+      round0) vv=$(awk -v x="$val" 'BEGIN{printf "%.0f", x}');;
+      pct2)   vv=$(awk -v x="$val" 'BEGIN{printf "%.2f", x*100}');;
+      zero)   [ "$val" = 0 ] || { cl_bad=$((cl_bad+1)); note "claim $cl_n: $id is $val, the document says 0"; }; continue;;
+      *)      vv=${val#+};;
+    esac
+    printf '%s' "$nn" | grep -qF -- "$vv" || { cl_bad=$((cl_bad+1)); note "claim $cl_n: $id = $val ($vv) is not in: ${n2:0:80}"; }
+  done
+done < "$F/tools/report_src/claims.tsv"
+[ "$cl_n" -gt 0 ] && [ "$cl_bad" -eq 0 ] && ok "14 cited numbers: $cl_n claims of documents 02 and 03 found in the documents and equal to the key values read from the logs" || bad "14 cited numbers: $cl_bad problems in $cl_n claims"
+
+# 15. facts cited in 02 / 03 that are counted independently of keys.tsv
+f_bad=0
+lefc=$(awk '/^  PIN /{p=1;lay=""} p && /LAYER /{lay=$2} /^  END /{if(p)c[lay]++; p=0} END{print c["M3"]+0, c["M2"]+0}' "$F/12_fill_and_export/outputs/unpu_top.lef")
+[ "$lefc" = "102 102" ] || { f_bad=$((f_bad+1)); note "pins by layer in the LEF (M3 M2): $lefc, documents say 102 / 102"; }
+net="$F/12_fill_and_export/outputs/unpu_top_pnr_pg.v.gz"
+eb=$(gzip -dc "$net" | grep -cE '^[[:space:]]*[A-Za-z0-9_]+ earlybuf_[^ ]* \(')
+ab=$(gzip -dc "$net" | grep -cE '^[[:space:]]*[A-Za-z0-9_]+ antbuf_[^ ]* \(')
+hb=$(gzip -dc "$net" | grep -cE '^[[:space:]]*[A-Za-z0-9_]+ U_PTECO_HOLD_BUF[0-9]+ \(')
+rs=$(cat "$F"/11_eco_and_antenna/reports/data_limit_eco_9_resizes__run3_final/pt_eco_drc_changes.txt "$F"/11_eco_and_antenna/reports/si_round_probes__si_before_si/pt_eco_setup_changes.txt | grep -cE '^[[:space:]]+[0-9]+\. size_cell')
+[ "$eb $ab $hb $rs" = "54 1 11 10" ] || { f_bad=$((f_bad+1)); note "ECO cells (early, antenna, hold, resizes): $eb $ab $hb $rs, documents say 54 1 11 10"; }
+grep -q -- '-0.2423' "$F/docs/docs/planning/restart-plan-2026-11-10.md" && grep -q -- '-0.3468' "$F/docs/docs/planning/restart-plan-2026-11-10.md" && grep -q '263 endpoints' "$F/docs/docs/planning/restart-plan-2026-11-10.md" || { f_bad=$((f_bad+1)); note "run-1 sign-off numbers (-0.2423, -0.3468, 263 endpoints) not in the restart plan"; }
+grep -q '55 -> 50 -> 46 -> 1 -> 0' "$F/docs/docs/session-handoff.md" || { f_bad=$((f_bad+1)); note "run-1 antenna sequence 55 -> 50 -> 46 -> 1 -> 0 not in the handoff"; }
+grep -q -- '-0.5899' "$F/docs/docs/planning/progress-log-2026-11-09.md" || { f_bad=$((f_bad+1)); note "-0.5899 not in progress-log-2026-11-09.md"; }
+ar="$F/13_signoff_calibre/reports/all_runs.md"
+for rr in "route1:10" "route2:4" "route3:0" "final3:3" "final4:0"; do
+  run=${rr%%:*}; want=${rr##*:}
+  got=$(awk -F'|' -v r="$run" '{gsub(/ /,"",$2); if($2==r){split($7,a," "); print a[1]}}' "$ar")
+  [ "$got" = "$want" ] || { f_bad=$((f_bad+1)); note "Calibre antenna results of $run: $got, documents say $want"; }
+done
+grep -qE '52,656' "$F/docs/docs/planning/progress-log-2026-11-10.md" && awk -v a="$(awk -F'\t' '$1=="sdf_edge"{print $6}' "$F/tools/keys.tsv")" -v b="$(awk -F'\t' '$1=="sdf_cond"{print $6}' "$F/tools/keys.tsv")" 'BEGIN{p=100*(a+b)/52656; exit !(p>42.75 && p<42.85)}' || { f_bad=$((f_bad+1)); note "42.8 percent of 52,656 does not follow from the SDF class counts"; }
+sz=$(grep -m1 -E '^[[:space:]]*SIZE ' "$F/12_fill_and_export/outputs/unpu_top.lef" | awk '{print $2" "$4}')
+[ "$sz" = "885.6 885.6" ] || { f_bad=$((f_bad+1)); note "LEF size $sz"; }
+[ "$f_bad" -eq 0 ] && ok "15 independent counts: 102 + 102 pins on M3 / M2 in the LEF, ECO cells 54 / 1 / 11 / 10 from the netlist and the change lists, run-1 numbers in the records, Calibre antenna 10 / 4 / 0 / 3 / 0, 42.8 percent of 52,656" || bad "15 independent counts: $f_bad problems"
+
+# 16. approximate figures cited in documents 02 and 03 ("more than 80 key numbers", "about 1,200 files", "about 89 MB", "140 files in the deliverable zip")
+a_bad=0
+nkeys=$(grep -vc '^#' "$F/tools/keys.tsv")
+[ "$nkeys" -gt 80 ] || { a_bad=$((a_bad+1)); note "keys.tsv has $nkeys key values, the documents say more than 80"; }
+grep -q 'more than 80 key numbers' "$F/16_docs_and_report/02_what_we_did_differently.md" || { a_bad=$((a_bad+1)); note "02 does not say 'more than 80 key numbers'"; }
+nf=$(find "$F" -type f ! -path '*/__pycache__/*' | wc -l); mb=$(du -sm "$F" | cut -f1)
+[ "$nf" -ge 1140 ] && [ "$nf" -le 1260 ] || { a_bad=$((a_bad+1)); note "Final has $nf files, 03 says about 1,200"; }
+[ "$mb" -ge 86 ] && [ "$mb" -le 92 ] || { a_bad=$((a_bad+1)); note "Final is $mb MB, 03 says about 89 MB"; }
+grep -q 'about 1,200 files' "$F/16_docs_and_report/03_explanation_and_viva_notes.md" && grep -q '140 files in the deliverable zip' "$F/16_docs_and_report/03_explanation_and_viva_notes.md" || { a_bad=$((a_bad+1)); note "03 Records row not as expected"; }
+if [ -f "$HOME/uNPU_deliverables_2026-11-11.zip" ] && command -v python3 > /dev/null; then
+  zf=$(python3 -c "import zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); print(len([i for i in z.infolist() if not i.is_dir()]))" "$HOME/uNPU_deliverables_2026-11-11.zip")
+  [ "$zf" = 140 ] || { a_bad=$((a_bad+1)); note "the zip holds $zf files, 03 says 140"; }
+else note "(zip ~/uNPU_deliverables_2026-11-11.zip not present: its file count was not checked)"; fi
+[ "$a_bad" -eq 0 ] && ok "16 approximate figures: $nkeys key values (> 80), $nf files and $mb MB in Final/ (about 1,200 / about 89), zip file count as stated" || bad "16 approximate figures: $a_bad problems"
 
 echo
 echo "verify_final.sh: $npass PASS, $nfail FAIL"
