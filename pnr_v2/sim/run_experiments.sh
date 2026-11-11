@@ -84,26 +84,39 @@ fact() {   # fact <log> -> one line of numbers
   local pd; pd=$(grep -m1 'No. of Pathdelays' "$l" | sed -E 's/.*Annotated = ([0-9.]+%).*/\1/')
   echo "$w; pathdelays annotated ${pd:-n/a}; ALL CHECKS PASSED $(grep -c 'ALL CHECKS PASSED' "$l"); $(grep -oE 'checked [0-9]+ value' "$l" | tail -n1 | sed 's/ value//'); FAIL lines $(grep -c FAIL "$l"); *E/*F $(grep -cE '\*[EF],' "$l"); SDFNEP-COND $(grep -c 'SDFNEP.*COND' "$l"); SDFNL1 $(grep -c 'SDFNL1' "$l"); SDFNET $(grep -c 'SDFNET' "$l"); violation lines $(grep -ciE 'timing violation|TCHKVIO' "$l"); NOLICN $(grep -c NOLICN "$l")"
 }
+warn_of() { grep -m1 'Annotation completed' "$1" 2>/dev/null | sed -E 's/.*and ([0-9]+) Warnings?.*/\1/'; }   # the TRUE warning total of a log ("" when absent)
+# the baseline of a corner = the warnings of the DEFAULT nochecks run (SDFNEP only: the same SDFNEP warnings appear in the checks runs); read from the standard log, never typed
+base_of() { local f="$SIM/pl_${1}_nochecks.log"; [ -s "$f" ] && warn_of "$f"; }
 if [ "$WHAT" != negtchk ]; then
   say "--- experiment 2 (=== -> ==):"
   for c in ss ff; do m=nochecks; say "    $c $m: $(fact "$SIM/pl_${c}_${m}_eqeq.log")"; done
-  say "    reference (default runs of the final layout): warnings 22534, COND 19024 (printed 24), pathdelays annotated 47.56%"
+  Bss=$(base_of ss); ncond=$(grep -c '(COND' "$OUT/unpu_top_ss.sdf"); Wss=$(warn_of "$SIM/pl_ss_nochecks_eqeq.log")
+  say "    reference (the default nochecks run $SIM/pl_ss_nochecks.log): warnings ${Bss:-NOT AVAILABLE}; COND entries in the SDF $ncond"
   a=$(fact "$SIM/pl_ss_nochecks_eqeq.log")
-  if echo "$a" | grep -q 'warnings 3510;' && echo "$a" | grep -q 'SDFNEP-COND 0;' && echo "$a" | grep -q 'ALL CHECKS PASSED 1;'; then
-    say "    READING: the === was the cause: warnings fell to 3510, no COND warning left, the run passes -> nep_cond needs NO approval"
-  elif echo "$a" | grep -q 'warnings 22534;'; then say "    READING: unchanged (22534 warnings): the === was NOT the cause; nep_cond stays an approval question"
+  if [ -z "${Bss:-}" ] || [ -z "${Wss:-}" ]; then say "    READING: the default nochecks log or the experiment log has no 'Annotation completed' line: cannot compare, send this block to Planning"
+  elif [ "$Wss" -eq $((Bss - ncond)) ] && echo "$a" | grep -q 'SDFNEP-COND 0;' && echo "$a" | grep -q 'ALL CHECKS PASSED 1;'; then
+    say "    READING: the === was the cause: warnings fell from $Bss to $Wss (= minus the $ncond COND entries), no COND warning left, the run passes -> nep_cond needs NO approval"
+  elif [ "$Wss" -eq "$Bss" ] && echo "$a" | grep -q 'ALL CHECKS PASSED 1;'; then say "    READING: unchanged ($Wss warnings, the same as the default run) and the run passes: the === was NOT the cause; nep_cond stays an approval question (a documented limitation)"
   elif echo "$a" | grep -q 'ALL CHECKS PASSED 0;'; then say "    READING: the run did not pass: send the log to Planning (a real race or an environment problem)"
-  else say "    READING: another number: send this block to Planning"; fi
+  else say "    READING: another number (default $Bss, experiment $Wss): send this block to Planning"; fi
 fi
 if [ "$WHAT" != eqeq ]; then
   say "--- experiment 1 (neg_tchk, option '${NEGOPT:-none}'):"
   for c in ss ff; do m=checks; say "    $c $m: $(fact "$SIM/pl_${c}_${m}_negtchk.log")"; done
-  say "    reference (default runs of the final layout): warnings ss 38518 / ff 37079, SDFNL1 printed 500, SDFNET printed 500"
+  Bss=$(base_of ss); Bff=$(base_of ff); Wss=$(warn_of "$SIM/pl_ss_checks_negtchk.log"); Wff=$(warn_of "$SIM/pl_ff_checks_negtchk.log")
+  Dss=$(warn_of "$SIM/pl_ss_checks.log"); Dff=$(warn_of "$SIM/pl_ff_checks.log")
+  say "    reference (the default runs): nochecks warnings ss ${Bss:-n/a} / ff ${Bff:-n/a} (SDFNEP only); default checks warnings ss ${Dss:-n/a} / ff ${Dff:-n/a}. The printed SDFNL1 / SDFNET counts are capped at 500: the TRUE counts are the warning totals"
   b=$(fact "$SIM/pl_ss_checks_negtchk.log"); d=$(fact "$SIM/pl_ff_checks_negtchk.log")
   if echo "$b$d" | grep -qE 'violation lines [1-9]'; then say "    READING: TIMING-CHECK VIOLATIONS appeared with the real limits: a REAL finding, send this block and the logs to Planning BEFORE any approval"
   elif echo "$b$d" | grep -q 'NOLICN [1-9]'; then say "    READING: a run died on the licence: run again later"
-  elif echo "$b" | grep -q 'SDFNL1 0;' && echo "$b" | grep -q 'SDFNET 0;' && echo "$d" | grep -q 'SDFNL1 0;' && echo "$d" | grep -q 'SDFNET 0;' && echo "$b$d" | grep -q 'ALL CHECKS PASSED 1;'; then
-    say "    READING: both classes are gone and the checks pass -> nl1_neg and net_remrec need NO approval"
+  elif [ -z "${Wss:-}" ] || [ -z "${Wff:-}" ]; then say "    READING: a checks log has no 'Annotation completed' line: cannot compare, send this block to Planning"
+  elif echo "$b" | grep -q 'SDFNL1 0;' && echo "$d" | grep -q 'SDFNL1 0;' && echo "$b$d" | grep -q 'ALL CHECKS PASSED 1;' && ! echo "$b$d" | grep -q 'ALL CHECKS PASSED 0;'; then
+    if [ -z "${Bss:-}" ] || [ -z "${Bff:-}" ]; then say "    READING: neg_tchk removed nl1_neg (SDFNL1 0) and the checks pass; the remaining net_remrec count cannot be computed (no default nochecks log for the baseline): total warnings ss $Wss / ff $Wff"
+    else
+      Nss=$((Wss - Bss)); Nff=$((Wff - Bff))
+      if [ "$Nss" -le 0 ] && [ "$Nff" -le 0 ]; then say "    READING: both classes are gone and the checks pass -> nl1_neg and net_remrec need NO approval"
+      else say "    READING: neg_tchk removed nl1_neg (SDFNL1 0); net_remrec reduced to $Nss (ss) / $Nff (ff) removal/recovery warnings (= total $Wss / $Wff minus the nochecks baseline $Bss / $Bff); the checks pass with 0 violations; the verdict of this run says FAIL (reconciliation: Xcelium counted FEWER warnings than the SDF predicts) only because the prediction still counts the removed class"; fi
+    fi
   elif echo "$b" | grep -qE 'SDFNL1 [1-9]'; then say "    READING: the messages remain: the define / option had no effect; nothing learned, the approval question stays"
   else say "    READING: another outcome: send this block to Planning"; fi
 fi

@@ -487,28 +487,74 @@ chk "a missing SDF is exit 2 before anything runs" $([ $rc -eq 2 ] && echo "$out
 printf '(CELL\n(INSTANCE u )\n(X===1)\n)\n' > "$EX/out/unpu_top_ss.sdf"
 out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim" EXP_DIR="$EX/exp2" bash "$HERE/run_experiments.sh" eqeq 2>&1); rc=$?
 chk "a === outside a COND line stops the script (the sed would change more than the COND arcs)" $([ $rc -eq 2 ] && echo "$out" | grep -q 'are not COND lines' && echo 1 || echo 0)
-# the reading of the summary on sample logs: the cause removed
+# the reading of the summary on sample logs (baselines come from the DEFAULT nochecks logs, never typed)
 mk_eq() { printf '\tAnnotation completed with 0 Errors and %s Warnings\n\t\t No. of Pathdelays = 63337   \t No. of Disabled Pathdelays = 0        Annotated = %s (49146/63337) \nchecked 343341 value(s)/assertion(s) total\nALL CHECKS PASSED\n' "$1" "$2"; }
 mkdir -p "$EX/sim2"
+awk 'BEGIN{print "(DELAYFILE"; print "(CELL"; print "(INSTANCE u )"; for(i=0;i<19024;i++) print "(COND A===1 (IOPATH A S (1::1)(1::1)))"; print ")"; print ")"}' > "$EX/out/unpu_top_ss.sdf"; cp "$EX/out/unpu_top_ss.sdf" "$EX/out/unpu_top_ff.sdf"
+rx() { DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" "$1" 2>&1; }
+# no default nochecks log: no comparison is invented
 mk_eq 3510 77.60% > "$EX/sim2/pl_ss_nochecks_eqeq.log"; mk_eq 3510 77.60% > "$EX/sim2/pl_ff_nochecks_eqeq.log"
-printf '(DELAYFILE\n(CELL\n(INSTANCE u )\n(COND A===1 (IOPATH A S (1::1)(1::1)))\n)\n)\n' > "$EX/out/unpu_top_ss.sdf"; cp "$EX/out/unpu_top_ss.sdf" "$EX/out/unpu_top_ff.sdf"
-out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" eqeq 2>&1)
-chk "summary reading: warnings 3510, no COND, passed -> 'the === was the cause'" $(echo "$out" | grep -q 'READING: the === was the cause' && echo 1 || echo 0)
+out=$(rx eqeq)
+chk "without the default nochecks log the reading says it cannot compare (no hard-coded 22534)" $(echo "$out" | grep -q 'READING: the default nochecks log or the experiment log has no' && echo 1 || echo 0)
+mk_eq 22534 47.56% > "$EX/sim2/pl_ss_nochecks.log"; mk_eq 22534 47.56% > "$EX/sim2/pl_ff_nochecks.log"
+out=$(rx eqeq)
+chk "summary reading: baseline 22534 - 19024 COND = 3510, no COND warning, passed -> 'the === was the cause', numbers printed" $(echo "$out" | grep -q 'READING: the === was the cause: warnings fell from 22534 to 3510 (= minus the 19024 COND entries)' && echo 1 || echo 0)
 mk_eq 22534 47.56% > "$EX/sim2/pl_ss_nochecks_eqeq.log"; for i in 1 2; do echo "xmelab: *W,SDFNEP: Unable to annotate to non-existent path (COND ((B===0)&&(CI===0)) (IOPATH A S)) of instance a of module ad01d0 <x>." >> "$EX/sim2/pl_ss_nochecks_eqeq.log"; done
-out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" eqeq 2>&1)
-chk "summary reading: 22534 warnings -> 'unchanged ... NOT the cause'" $(echo "$out" | grep -q 'READING: unchanged (22534 warnings)' && echo 1 || echo 0)
+out=$(rx eqeq)
+chk "summary reading: warnings equal to the baseline and the run passes -> 'unchanged ... NOT the cause' (the real outcome of 2026-11-11)" $(echo "$out" | grep -q 'READING: unchanged (22534 warnings, the same as the default run) and the run passes: the === was NOT the cause' && echo 1 || echo 0)
+mk_eq 20000 47.56% > "$EX/sim2/pl_ss_nochecks_eqeq.log"
+out=$(rx eqeq)
+chk "summary reading: another number is named with both numbers" $(echo "$out" | grep -q 'READING: another number (default 22534, experiment 20000)' && echo 1 || echo 0)
 mk_ng() { printf '\tAnnotation completed with 0 Errors and %s Warnings\nchecked 343341 value(s)/assertion(s) total\nALL CHECKS PASSED\n%s' "$1" "$2"; }
 mk_ng 22534 "" > "$EX/sim2/pl_ss_checks_negtchk.log"; mk_ng 22534 "" > "$EX/sim2/pl_ff_checks_negtchk.log"
-out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" negtchk 2>&1)
-chk "summary reading: SDFNL1 = SDFNET = 0 and passed in both -> 'need NO approval'" $(echo "$out" | grep -q 'READING: both classes are gone' && echo 1 || echo 0)
-mk_ng 22534 'Warning!  Timing violation
+out=$(rx negtchk)
+chk "summary reading: SDFNL1 = 0 and total = baseline -> 'both classes are gone ... NO approval'" $(echo "$out" | grep -q 'READING: both classes are gone' && echo 1 || echo 0)
+# the real outcome of 2026-11-11: define only, SDFNL1 0, total 27464 in both corners (baseline 22534) -> net_remrec reduced to 4930
+mk_ng 27464 'xmelab: *W,SDFNET: Unable to annotate to non-existent timing check (REMOVAL (negedge CDN) (posedge CP) (0)) of instance a of module dfcrn2 <x>.
+' > "$EX/sim2/pl_ss_checks_negtchk.log"; cp "$EX/sim2/pl_ss_checks_negtchk.log" "$EX/sim2/pl_ff_checks_negtchk.log"
+mk_ng 38518 "" > "$EX/sim2/pl_ss_checks.log"; mk_ng 37079 "" > "$EX/sim2/pl_ff_checks.log"
+out=$(rx negtchk)
+chk "summary reading: SDFNL1 0, total 27464 vs baseline 22534 -> 'neg_tchk removed nl1_neg (SDFNL1 0); net_remrec reduced to 4930 (ss) / 4930 (ff)' (not 'another outcome')" $(echo "$out" | grep -q 'READING: neg_tchk removed nl1_neg (SDFNL1 0); net_remrec reduced to 4930 (ss) / 4930 (ff)' && ! echo "$out" | grep -q 'another outcome' && echo 1 || echo 0)
+chk "the reading names the totals, the baseline and why this run's verdict says FAIL" $(echo "$out" | grep -q 'total 27464 / 27464 minus the nochecks baseline 22534 / 22534' && echo "$out" | grep -q 'Xcelium counted FEWER warnings than the SDF predicts' && echo 1 || echo 0)
+chk "the reference line prints the default checks totals (38518 / 37079) and says the printed counts are capped" $(echo "$out" | grep -q 'default checks warnings ss 38518 / ff 37079' && echo "$out" | grep -q 'capped at 500' && echo 1 || echo 0)
+rm -f "$EX/sim2/pl_ss_nochecks.log"
+out=$(rx negtchk)
+chk "no baseline: the removed class is still reported, the remaining count is not invented" $(echo "$out" | grep -q 'neg_tchk removed nl1_neg (SDFNL1 0) and the checks pass; the remaining net_remrec count cannot be computed' && echo 1 || echo 0)
+mk_eq 22534 47.56% > "$EX/sim2/pl_ss_nochecks.log"
+mk_ng 27464 'Warning!  Timing violation
 ' > "$EX/sim2/pl_ff_checks_negtchk.log"
-out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" negtchk 2>&1)
+out=$(rx negtchk)
 chk "summary reading: a violation line -> 'REAL finding ... BEFORE any approval'" $(echo "$out" | grep -q 'READING: TIMING-CHECK VIOLATIONS appeared' && echo 1 || echo 0)
 mk_ng 38518 'xmelab: *W,SDFNL1 (m.v,1|5): x
 ' > "$EX/sim2/pl_ss_checks_negtchk.log"; mk_ng 22534 "" > "$EX/sim2/pl_ff_checks_negtchk.log"
-out=$(DRY_RUN=1 PL_OUT_DIR="$EX/out" PL_SIM_DIR="$EX/sim2" EXP_DIR="$EX/exp3" bash "$HERE/run_experiments.sh" negtchk 2>&1)
+out=$(rx negtchk)
 chk "summary reading: the SDFNL1 messages remain -> 'nothing learned'" $(echo "$out" | grep -q 'READING: the messages remain' && echo 1 || echo 0)
+# the verdict on an experiment-run log: FEWER warnings than the prediction is not "hidden by the cap"
+cat > "$T/fake3.sdf" <<'SDFEOF'
+(DELAYFILE
+(CELL
+  (CELLTYPE "mx02d0")
+  (INSTANCE u_x/U1 )
+  (DELAY (ABSOLUTE
+    (IOPATH (posedge S) Z (0.3::0.3)(0.4::0.4))
+    (IOPATH (negedge S) Z (0.3::0.3)(0.4::0.4))
+  ))
+)
+(CELL
+  (CELLTYPE "dfcrn2")
+  (INSTANCE u_seq/f1 )
+  (TIMINGCHECK
+    (HOLD (posedge D)  (posedge CP) (-0.07::-0.07))
+    (REMOVAL (posedge CDN)  (posedge CP) (0.43::0.43))
+    (REMOVAL (negedge CDN)  (posedge CP) (0.00::0.00))
+    (RECOVERY (negedge CDN)  (posedge CP) (0.00::0.00))
+  )
+)
+)
+SDFEOF
+mklog "$GOODBODY$NCAP$NEP1"$'\tAnnotation completed with 0 Errors and 4 Warnings\n\t\t No. of Tchecks = 25065 \t No. of Disabled Tchecks = 0\n' fewer
+out=$(JUDGE_SDF="$T/fake3.sdf" JUDGE_CORNER=ss judge_log "$T/fewer.log" checks 2>&1); rc=$?
+chk "fewer warnings than predicted (diff < 0): FAIL with the 'FEWER ... read the numbers' reason, not 'the hidden part of the cap is NOT classified'" $([ $rc -eq 1 ] && echo "$out" | grep -q 'FEWER than the 6 the SDF predicts (difference -2)' && ! echo "$out" | grep -q 'hidden part of the cap is NOT classified' && echo 1 || echo 0)
 
 echo "RESULT: $npass passed, $nfail failed"
 [ "$nfail" -eq 0 ]

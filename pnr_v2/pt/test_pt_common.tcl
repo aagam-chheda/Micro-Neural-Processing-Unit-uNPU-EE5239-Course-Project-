@@ -641,9 +641,10 @@ set reallog [file normalize ~/server_pull/run3/pnr_icc2/pt/pt_setup_ss.log]
 if {[file exists $reallog]} {
     set rl [read [set fp [open $reallog]]]; close $fp
     lassign [pt_check_log_text $rl 0.0] okr linesr
-    check "the REAL pt_setup_ss.log of run 3: the post-run check passes, 16571 pin-to-pin nets, 0 not annotated" {$okr == 1 && [llength [lsearch -all -glob $linesr "*pin-to-pin nets: 16571 in total*0 not annotated*"]] >= 1}
     set prl [pt_parse_annotation_table [pt_last_annotation_block $rl]]
-    check "the REAL log: the last report block parses (found), rows 6, total row 16984 0 0 16571 413" {[dict get $prl found] == 1 && [llength [dict get $prl rows]] == 6 && [dict get $prl total] eq "16984 0 0 16571 413"}
+    set nets_ann [lindex [dict get $prl total] 3]   ;# the file is replaced when a newer run is copied (16,571 nets in the first final, 16,573 in the last): the checks use the numbers OF THE FILE, the exact numbers are in the verbatim fixture above
+    check "the REAL pt_setup_ss.log of run 3: the post-run check passes, all pin-to-pin nets annotated" {$okr == 1 && [llength [lsearch -all -glob $linesr "*pin-to-pin nets: $nets_ann in total*0 not annotated*"]] >= 1}
+    check "the REAL log: the last report block parses (found), 6 rows, the pin-to-pin rows add up to the annotated total, nothing but driverless/loadless nets is unannotated" {[dict get $prl found] == 1 && [llength [dict get $prl rows]] == 6 && [expr {[lindex [dict get $prl rows] 0 2] + [lindex [dict get $prl rows] 3 2]}] == $nets_ann && [lindex [dict get $prl rows] 0 6] == 0 && [lindex [dict get $prl rows] 3 6] == 0}
 } else { puts "NOTE: ~/server_pull/run3/pnr_icc2/pt/pt_setup_ss.log not on this machine: the whole-log check was skipped" }
 
 puts "RESULT: $npass passed, $nfail failed"

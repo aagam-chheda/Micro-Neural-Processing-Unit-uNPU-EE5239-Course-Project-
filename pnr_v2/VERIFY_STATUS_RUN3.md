@@ -4,11 +4,11 @@ Scope: every `VERIFY` item of the four READMEs of the clean flow (`pnr_v2/README
 
 **Numbering.** The four READMEs number their items independently and overlap, so every item is written with its README: `main V19` to `main V89` (pnr_v2/README.md), `pt V1` to `pt V31` (pt/README.md), `sim V1` to `sim V16` (sim/README.md), `cal V1` to `cal V18` (calibre/README.md). `pt V19` (the `parasitics_log_file` variable) is a different item from `main V19` (`[info script]`).
 
-**Statuses.** `VERIFIED` = a log line of run 3 shows the behaviour directly. `VERIFIED (indirect)` = the step that depends on it ran and passed its own checks, and the dependency is named. `STILL OPEN` = no run-3 log shows it, with the reason. `NOT APPLICABLE` = the item belongs to a script or option that is not part of the run-3 chain.
+**Statuses.** `VERIFIED` = a log line of run 3 shows the behaviour directly. `VERIFIED (indirect)` = the step that depends on it ran and passed its own checks, and the dependency is named. `DISPROVED` = an experiment of run 3 measured the opposite of the stated hypothesis (one item). `STILL OPEN` = no run-3 log shows it, with the reason. `NOT APPLICABLE` = the item belongs to a script or option that is not part of the run-3 chain.
 
 **Evidence base.** Only the files that were copied to the PC: `~/server_pull/run3/pnr_icc2` (written `R3` below: `logs/`, `*_console.log`, `pt/`, `pt_si/`, `pt_legacy/`, `pt_route3/`, `pt_si_before_si/`, `pt_run3_final/`, `calibre/final4/`, `sim/`, `outputs*/`) and `~/server_pull/run3/syn`. `file:line` are lines of those files as copied on 2026-11-11. Nothing was run to produce this table; where the copied files do not show an item it is marked STILL OPEN, not assumed. Many probe logs echo the script source: only the output lines (`>>> NNN ...`) are cited.
 
-**Count.** 136 items: VERIFIED 105 (some of them partly: marked `(partly)` or `(value corrected)` in the table), VERIFIED (indirect) 8, STILL OPEN 14, NOT APPLICABLE 9 (main V33-V40 count 8, main V74 counts 1). See the summary at the end.
+**Count.** 136 items: VERIFIED 106 (some of them partly: marked `(partly)` or `(value corrected)` in the table), VERIFIED (indirect) 8, STILL OPEN 12, DISPROVED 1, NOT APPLICABLE 9 (main V33-V40 count 8, main V74 counts 1). Updated 2026-11-11 with the two SDF experiments (sim V15, V16). See the summary at the end.
 
 ---
 
@@ -91,10 +91,10 @@ Scope: every `VERIFY` item of the four READMEs of the clean flow (`pnr_v2/README
 | sim V10 | SDF header (TIMESCALE, DIVIDER, VOLTAGE, TEMPERATURE) matches the corner | VERIFIED (partly) | `sim/runA_console.txt` prints `(DIVIDER /)`, `(TIMESCALE 1ns)`, `(DESIGN "unpu_top")`; the SDF header written by this ICC2 has NO VOLTAGE / TEMPERATURE lines, so that part cannot be checked |
 | sim V11 | `-xmlibdirname xrun_out/...` | VERIFIED | `sim/pl_ss_nochecks.history:1` and `sim/runA_console.txt:26` |
 | sim V12 | netlist compiles with the combined model (benign messages) | VERIFIED | `sim/pl_ss_nochecks.log:1204` `*W,UDPRDT ... UDP table entry is redundant`; ids in the log: `DSEM2009 1, DSEMEL 1, MXWARN 1, SDFNCAP 220, SDFNEP 500, UDPRDT 1`; no `CUVWSP` any more |
-| sim V13 | text of a REAL violation | STILL OPEN | none seen (see sim V7). Detector accepts two forms; test sample is invented |
+| sim V13 | text of a REAL violation | STILL OPEN | none seen (see sim V7), also not with the true negative limits of the `neg_tchk` runs. Detector accepts two forms; test sample is invented |
 | sim V14 | an option that raises the message cap | STILL OPEN (not needed) | the cap (500 per id) was handled by the SDF-based reconciliation (difference 0 in all four runs); the option was not looked up |
-| sim V15 | `-define neg_tchk` with `-neg_tchk` removes `nl1_neg` / `net_remrec` | STILL OPEN | experiment not run (`pnr_v2/sim/run_experiments.sh negtchk` prepared) |
-| sim V16 | `===` -> `==` in a COPY of the SDF makes the COND entries annotate | STILL OPEN | experiment not run (`run_experiments.sh eqeq` prepared) |
+| sim V15 | `-define neg_tchk` with `-neg_tchk` removes `nl1_neg` / `net_remrec` | VERIFIED (partly: the define alone; the option does not exist) | experiment of 2026-11-11 (`run_experiments.sh negtchk`, summary in `docs/planning/progress-log-2026-11-10.md` 9.6, logs `pnr_icc2/sim/pl_{ss,ff}_checks_negtchk.log` on the server): `xrun -helpall` lists `-noneg_tchk`, `-negdelay`, `-ntc_neglim` and NO `-neg_tchk`; with `-define neg_tchk` alone runs B and D give `ALL CHECKS PASSED` 343,341, 0 violation lines, `SDFNL1` 0 (was 8,589 ss / 7,150 ff), warnings 27,464 in both corners (was 38,518 / 37,079), so `net_remrec` falls from 7,395 to 4,930 (= 27,464 - 22,534). Cost: 17 min 44 s (ss) / 13 min 36 s (ff) against 6 m 45 / 6 m 12. The log files are not among the copies on this PC: numbers from Planning's progress log |
+| sim V16 | `===` -> `==` in a COPY of the SDF makes the COND entries annotate | DISPROVED | experiment of 2026-11-11 (`run_experiments.sh eqeq`, progress log 9.6): runs A and C on the copies: warnings unchanged (22,534), COND warnings unchanged (19,024), `ALL CHECKS PASSED` 343,341, no race. The `===` is not the cause of the `nep_cond` class (cause still unknown). Logs on the server only |
 
 ## Main README (main V19-V89)
 
@@ -169,13 +169,14 @@ Scope: every `VERIFY` item of the four READMEs of the clean flow (`pnr_v2/README
 
 ## Summary and what the open items mean
 
-Counts by status (computed from the tables above): VERIFIED 105, VERIFIED (indirect) 8, STILL OPEN 14, NOT APPLICABLE 9; total 136.
+Counts by status (computed from the tables above): VERIFIED 106, VERIFIED (indirect) 8, STILL OPEN 12, DISPROVED 1, NOT APPLICABLE 9; total 136.
 
 STILL OPEN, grouped by reason:
 - **Diagnostics that were not run in run 3** (no log, not in the chain): main V20, V21, V23, V24; cal V5.
 - **Scopes not exercised**: main V53 (`all_outputs`; only the default scope `flops` ran).
 - **Never exercised by the final run**: main V31b (`remove_buffers` undo; the other half of V31b is verified), pt V28 (the physical-ECO options; the rest of V28 is verified), pt V25 (lib pin function and arc delays; the rest is verified); sim V7 / V13 (a REAL violation message did not occur, which is the good outcome), sim V14 (cap option, replaced by the reconciliation), sim V15 / V16 (the two optional experiments).
 - **Looked at and found different or unreadable**: pt V8 (`report_design` has no `Operating Conditions` line; a fallback is used), main V54 (in2out numbers before and after CTS differ), main V83 (**the driver-to-port distance of the relocated `dma_wdata` drivers was unreadable (`n/a`)**: the WARNING for port growth had nothing to test; the gates passed, the final PrimeTime/Calibre results are the proof).
+- **Experiments done after the first version of this table (2026-11-11):** sim V15 is VERIFIED for the define alone (`SDFNL1` 0, `net_remrec` 4,930; the option `-neg_tchk` does not exist in this xrun) and sim V16 is DISPROVED (`===` is not the cause). Consequence for the approvals: `nl1_neg` is removable by `-define neg_tchk` at a cost of about 2.2 to 2.6 times the run time; `net_remrec` is reduced, not removed; `nep_cond` stays a documented limitation.
 - **A fix to remember**: main V88 (the earlier resized drivers were not protected by name in the SI round because `pt/` had been moved; the apply prints this and continues). If this matters in a fresh run, the apply should read the 095 change file from a path that survives the `mv` steps.
 
 Notes on the evidence:

@@ -277,6 +277,13 @@ env SDF_ACCEPT="nl1_neg net_remrec nep_cond" LICENSE_RETRIES=6 LICENSE_WAIT_S=60
 - **Key output:** each console ends `=== PASS (with documented SDF limitations, SDF_ACCEPT='...')`; the logs `sim/pl_<corner>_<mode>.log`: `checked 343341`, `ALL CHECKS PASSED`, end time `278003892 NS` (ss) / `276701592 NS` (ff), `Annotation completed with 0 Errors and 22534 Warnings` (nochecks) / `38518` (ss checks) / `37079` (ff checks), `No. of Disabled Tchecks = 0` in the checks runs. Wall-clock (Planning's report of the approved reruns): A 4 m 29, B 6 m 45, C 4 m 11, D 6 m 12. Without `SDF_ACCEPT` the same logs give FAIL for exactly the three unapproved classes (re-judged on the PC: reconciliation difference 0 in all four).
 - **D** given the layout (the simulation is deterministic for the same netlist, SDF and testbench).
 
+### 12b. Optional experiments on the final layout (done 2026-11-11, not part of the sign-off)
+```
+cd $RUN_DIR
+bash pnr_v2/sim/run_experiments.sh |& tee pnr_icc2/sim/experiments_console.txt
+```
+Commit 3940802 (the READING logic of the summary block was refined afterwards, see `sim/README.md`). About 55 minutes in total. Outcome (progress log 9.6; the logs are on the server only): `===` -> `==` in a copy of the SDF changed nothing (warnings 22,534 unchanged, the hypothesis is disproved); `-define neg_tchk` alone (the option `-neg_tchk` does not exist in this xrun) removed `SDFNL1` (0 instead of 8,589 / 7,150) and reduced the total warnings to 27,464, i.e. `net_remrec` 4,930 instead of 7,395, with all 343,341 checks passing and 0 violations; wall-clock 17 m 44 s (ss) / 13 m 36 s (ff) against about 6.5 minutes. The official verdicts stay those of step 12.
+
 ---
 
 ## Traps (from the READMEs, the logs and csh semantics; the ones marked [Planning] come from your list and have no log of their own)

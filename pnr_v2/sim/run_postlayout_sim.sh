@@ -339,7 +339,9 @@ judge_log() {
   [ "$n_sdfc" -eq 0 ] || why+=("the SDF could not be compiled: check the SDFVERSION (needs 3.0 if it has REMOVAL/RECOVERY entries) and regenerate with pv.tcl")
   if [ "$mode" = checks ] && [ -n "$tchk_line" ] && [ "${tchk_dis:-0}" -gt 0 ]; then why+=("the timing checks are DISABLED in a checks run ($tchk_dis of $tchk_total)"); fi
   # the reconciliation: every warning Xcelium counted must be explained by a known class
-  if [ "$recon" = MISMATCH ]; then why+=("Xcelium counted $ann_w SDF warnings, the SDF explains $explained in the known classes (difference $recon_diff): the hidden part of the cap is NOT classified"); fi
+  if [ "$recon" = MISMATCH ] && [ "$recon_diff" -gt 0 ]; then why+=("Xcelium counted $ann_w SDF warnings, the SDF explains $explained in the known classes (difference $recon_diff): the hidden part of the cap is NOT classified")
+  elif [ "$recon" = MISMATCH ]; then why+=("Xcelium counted $ann_w SDF warnings, FEWER than the $explained the SDF predicts (difference $recon_diff): nothing is hidden by the cap, a class of the prediction is not warned about in this run (expected in an experiment run that removes a cause, e.g. XRUN_FLAGS=-define neg_tchk or a changed SDF: read the numbers); in a default run it means the prediction no longer fits the SDF / model pair")
+  fi
   # a message cap on an id: hidden lines. SDFNL1 / SDFNET are acceptable only when the reconciliation proves the hidden part; any other id is a FAIL as before
   local capid cap_bad=""
   while IFS= read -r capid; do
