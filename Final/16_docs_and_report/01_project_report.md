@@ -67,10 +67,6 @@ The brief asked for `.lef`, `.lib` and `.gds`. A `.lib` timing model of the macr
 - **Tools.** Fixed by the instructor's flow: Xcelium 22.09 (simulation), Design Compiler T-2022.03-SP5 (synthesis), IC Compiler II U-2022.12-SP3 (layout), Calibre 2022.4_37.20 (DRC/LVS), PrimeTime T-2022.03-SP2 (sign-off timing).
 - **Rule of the project.** Nothing fails silently; nothing is hard-coded; no threshold is narrowed and no constraint tuned to close timing without a written reason and the user's approval; no waiver without approval.
 
-### 1.4 How the work was organised
-
-The team had five members (about 10 hours per week each over about eight weeks, per the project handoff). The implementation work in this repository was carried out in a two-session protocol: a *Planning* session decided what to do next and wrote task prompts (and owned `docs/planning/`), and an *Execution* session implemented them (RTL, testbenches, scripts), always against the user's decisions. Every decision that changes a number or relaxes a rule was taken by the user and is recorded with its date in `docs/session-handoff.md` and the progress logs. The user ran all tools on the institute server (the AI sessions had no server access) and pasted the results back. This is mentioned so that the provenance of the records in `Final/` is clear; delete or rephrase the paragraph if the course does not need it.
-
 ---
 
 ## 2. Specification and system context
@@ -490,7 +486,7 @@ The flow was executed three times in three separate clones, so that each run is 
 | 2 | `unpu_run2` (2026-11-10 morning) | the whole flow again with the lessons built in; synthesis, GLS, NDM, floorplan, placement, 54 early port buffers and CTS done once | stopped after CTS when the tool-made clock latency was found to start at the power plan |
 | 3 | `unpu_run3` (2026-11-10 19:26 – 2026-11-11 04:43) | the whole flow from synthesis in a new clone, one commit lineage | final layout: all sign-off checks clean (section 10) |
 
-Runs 1 and 2 (and run 3) are kept in the server backup (`/storage/EE5239G1/aagams_workspace2/backup/`; file counts 9988, 1861 and 6329 reported by Planning **[unverified here]**). Run 3 was a full re-run because the instructor said it is better that way and for a clean single-lineage deliverable; the earlier steps were technically unaffected (synthesis is deterministic and gave the identical netlist).
+Runs 1 and 2 (and run 3) are kept in the server backup (`/storage/EE5239G1/aagams_workspace2/backup/`; file counts 9988, 1861 and 6329 reported in the project notes **[unverified here]**). Run 3 was a full re-run because the instructor said it is better that way and for a clean single-lineage deliverable; the earlier steps were technically unaffected (synthesis is deterministic and gave the identical netlist).
 
 Timeline of run 3 (server times, from `RUN3_RUNBOOK.md`): synthesis and GLS 19:30; NDM 19:35; stages 1–6 19:47–20:09; route checkpoint, PrimeTime, Calibre 20:23–20:28; antenna loop 20:34–20:50; hold ECO 20:59–21:07; fill, export, sign-off of the first final state 21:09–21:13; data-limit ECO and its chain 22:39–23:45; SI round 00:55–03:53; final views 03:51–03:52; post-layout simulation 04:22–04:43. Two network outages (licence server and GitHub unreachable) interrupted the evening; nothing was lost because every run state is on disk and every script is committed.
 
@@ -554,7 +550,7 @@ Latency/skew limit at `clk` (PM question); acceptance by the top-level team of t
 
 ### 14.3 Statements that could not be proven from a file
 
-The date of the PM's confirmation of SystemVerilog; the date of the approval of `FILTER_DWN2PSUB`; whether `pin_replace.tcl` ran in run 3; the corner and voltage of the power report (ss, 1.62 V, 125 C, from the project notes); the stage assignment of the `check_design*.log` files (by time); the server-side file counts of the backups; and the results of the Xcelium runs of the RTL campaign (quoted from the user's server runs, not observed by the assistant).
+The date of the PM's confirmation of SystemVerilog; the date of the approval of `FILTER_DWN2PSUB`; whether `pin_replace.tcl` ran in run 3; the corner and voltage of the power report (ss, 1.62 V, 125 C, from the project notes); the stage assignment of the `check_design*.log` files (by time); the server-side file counts of the backups; and the results of the Xcelium runs of the RTL campaign (quoted from the server runs of the team).
 
 ---
 

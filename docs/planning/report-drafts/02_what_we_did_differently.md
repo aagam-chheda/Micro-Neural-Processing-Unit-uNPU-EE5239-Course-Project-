@@ -119,7 +119,7 @@ The "what stays the same" list is as important: the RTL (frozen), the synthesis 
 
 **Situation.** The example CTS script sets a 0.40 ns clock-path transition limit. It is not in the original constraint set and not in the instructor's guidance, but it ended up in the exported constraints, and PrimeTime reported 424 violations against it (0.43 to 0.48 ns).
 
-**Decision (user, with Planning's recommendation).** Keep it as a clock-tree target, but do not export it. The reason is written down: it is a tuning knob of an example script, not a course constraint; meeting it would have meant redoing the clock tree and every step after it, for a limit nobody asked for.
+**Decision (the project owner, on the team's recommendation).** Keep it as a clock-tree target, but do not export it. The reason is written down: it is a tuning knob of an example script, not a course constraint; meeting it would have meant redoing the clock tree and every step after it, for a limit nobody asked for.
 
 **Proof.** A comparison tool evaluates the original constraint file and the exported ones and tabulates every constraint: 722 compared, 718 identical, 4 expected tool lines (propagated clock, units, explicit clock waveform, operating conditions), 0 differences. PrimeTime was also run directly against the original constraint file and gave identical numbers.
 

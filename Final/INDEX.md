@@ -1196,8 +1196,8 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `15_post_layout_sim/sim/runC_eqeq_console.txt` | 7029 | `0a2483ad69582d11ce9ec255b0872493ba4bad0f34e19b52ca501c8dc9532b15` |  | srv:pnr_icc2/sim/runC_eqeq_console.txt |
 | `15_post_layout_sim/sim/runD_console.txt` | 7973 | `d7951525dd44594ff25add02449ae7259484bc069c685dc977204a3aefeeb866` |  | srv:pnr_icc2/sim/runD_console.txt |
 | `15_post_layout_sim/sim/runD_negtchk_console.txt` | 7918 | `0afc33f9aea04d8f99bf4778f43a00de993f555166062a161f76b6fc6e15e3c4` |  | srv:pnr_icc2/sim/runD_negtchk_console.txt |
-| `16_docs_and_report/01_project_report.md` | 51556 | `13e4c218d6ec085fd712ca88598eca2f2f7bc1b52a4dcc67b9243ad4470acf2b` |  | generated:build_final.py from tools/report_src/01_project_report.md (tokens from the logs) |
-| `16_docs_and_report/02_what_we_did_differently.md` | 21055 | `8cc86269e30b99baa661af160300526cd3066d72577855a373f89289a4d4bee0` |  | generated:build_final.py from tools/report_src/02_what_we_did_differently.md (tokens from the logs) |
+| `16_docs_and_report/01_project_report.md` | 50685 | `31c57e53254dac8b040fddcb1349cf6f5acbc38c41e3f887c0bf255de45367f2` |  | generated:build_final.py from tools/report_src/01_project_report.md (tokens from the logs) |
+| `16_docs_and_report/02_what_we_did_differently.md` | 21066 | `361d9843592e07727307ae665fceab62e05bd45e8c6552445a2e313a3d42ced6` |  | generated:build_final.py from tools/report_src/02_what_we_did_differently.md (tokens from the logs) |
 | `16_docs_and_report/03_explanation_and_viva_notes.md` | 23618 | `60c7669b5f6802a7f94f881ae89659482d695024f7c5750c913b62ab82efc26e` |  | generated:build_final.py from tools/report_src/03_explanation_and_viva_notes.md (tokens from the logs) |
 | `16_docs_and_report/README.md` | 1084 | `9a7ffb5aaa15beb28590a35c7046d7838bbfa69dd5f7d9988530a5aba4c6f9bb` |  | generated:build_final.py |
 | `16_docs_and_report/docs/099-final-folder.md` | 13416 | `3d20e8196eafbe30b1ceeff86c87ee45c8b7624f8d6b1889566911894b9ca695` |  | worktree:docs/planning/tasks/099-final-folder.md |
@@ -1350,8 +1350,8 @@ Nothing below is inside `Final/` (`verify_final.sh` checks that). Locations (pat
 | `docs/pnr_v2/calibre/README.md` | 23694 | `687b576c3d6a5483a1bc972ed9939bfa827bb6fcfc080fc7512e3027158683a5` |  | git:e2469b1:pnr_v2/calibre/README.md |
 | `docs/pnr_v2/pt/README.md` | 45002 | `215f85741516e29143645fa449fb832bf5dee56f06f83e5fc862406b19989b41` |  | git:e2469b1:pnr_v2/pt/README.md |
 | `docs/pnr_v2/sim/README.md` | 44098 | `901b754e03eda3090e004948723172bafbc4a8be6e62079278b517570321af5e` |  | git:e2469b1:pnr_v2/sim/README.md |
-| `docs/report/01_project_report.md` | 51556 | `13e4c218d6ec085fd712ca88598eca2f2f7bc1b52a4dcc67b9243ad4470acf2b` |  | generated:build_final.py from tools/report_src/01_project_report.md |
-| `docs/report/02_what_we_did_differently.md` | 21055 | `8cc86269e30b99baa661af160300526cd3066d72577855a373f89289a4d4bee0` |  | generated:build_final.py from tools/report_src/02_what_we_did_differently.md |
+| `docs/report/01_project_report.md` | 50685 | `31c57e53254dac8b040fddcb1349cf6f5acbc38c41e3f887c0bf255de45367f2` |  | generated:build_final.py from tools/report_src/01_project_report.md |
+| `docs/report/02_what_we_did_differently.md` | 21066 | `361d9843592e07727307ae665fceab62e05bd45e8c6552445a2e313a3d42ced6` |  | generated:build_final.py from tools/report_src/02_what_we_did_differently.md |
 | `docs/report/03_explanation_and_viva_notes.md` | 23618 | `60c7669b5f6802a7f94f881ae89659482d695024f7c5750c913b62ab82efc26e` |  | generated:build_final.py from tools/report_src/03_explanation_and_viva_notes.md |
 | `docs/syn/RUNBOOK.md` | 16257 | `a49bab7c40d3641aab33fa1c75ca5476747a5d082d9a348730940eb589bb8e56` |  | git:e2469b1:syn/RUNBOOK.md |
 | `docs/syn/RUNBOOK_legacy.md` | 5366 | `91bcb815650c680899bf9045f7f01849eeff0d4b3cea443bcc1e650f6e152229` |  | git:e2469b1:syn/RUNBOOK_legacy.md |
