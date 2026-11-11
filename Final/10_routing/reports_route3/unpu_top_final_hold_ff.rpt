@@ -1,0 +1,2305 @@
+[icc2-lic Tue Nov 10 20:45:26 2026] Command 'report_timing' requires licenses
+[icc2-lic Tue Nov 10 20:45:26 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:45:26 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 20:45:26 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:45:26 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:45:26 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:45:26 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 20:45:26 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:45:26 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 20:45:26 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:45:26 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:45:26 2026] Check-out of alternate set of keys directly with queueing was successful
+Warning: Scenario func_ss is not configured for hold analysis: skipping. (UIC-058)
+****************************************
+Report : timing
+        -path_type full_clock_expanded
+        -delay_type min
+        -max_paths 50
+        -report_by design
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 20:45:26 2026
+****************************************
+Information: Timer using 'SI, Timing Window Analysis'. (TIM-050)
+
+  Startpoint: u_csr/dest_c_reg_reg_23_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[23] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_68008_2552/Z (buffda)                    0.13      0.37 r
+  u_csr/dest_c_reg_reg_23_/CP (dfcrn2)             0.00      0.37 r
+
+  u_csr/dest_c_reg_reg_23_/CP (dfcrn2)             0.00      0.37 r
+  u_csr/dest_c_reg_reg_23_/QN (dfcrn2)             0.22      0.59 r
+  u_csr/U77/ZN (oai222d1)                          0.09      0.68 f
+  ctmTdsLR_1_2972/Z (buffd7)                       0.25      0.93 f
+  prdata[23] (out)                                 0.06      0.98 f
+  data arrival time                                          0.98
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -0.98
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.02
+
+
+
+  Startpoint: u_csr/dest_c_reg_reg_9_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[9] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                    0.14      0.38 r
+  u_csr/dest_c_reg_reg_9_/CP (dfcrn2)              0.00      0.39 r
+
+  u_csr/dest_c_reg_reg_9_/CP (dfcrn2)              0.00      0.39 r
+  u_csr/dest_c_reg_reg_9_/QN (dfcrn2)              0.20      0.58 r
+  u_csr/U361/ZN (oai222d1)                         0.10      0.68 f
+  ctmTdsLR_1_2982/Z (buffd7)                       0.24      0.92 f
+  prdata[9] (out)                                  0.08      0.99 f
+  data arrival time                                          0.99
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -0.99
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.01
+
+
+
+  Startpoint: u_csr/src_a_reg_reg_21_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[21] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_68008_2552/Z (buffda)                    0.13      0.37 r
+  u_csr/src_a_reg_reg_21_/CP (dfcrn2)              0.00      0.37 r
+
+  u_csr/src_a_reg_reg_21_/CP (dfcrn2)              0.00      0.37 r
+  u_csr/src_a_reg_reg_21_/QN (dfcrn2)              0.21      0.58 r
+  u_csr/U74/ZN (oai222d1)                          0.10      0.68 f
+  u_apb/ctmTdsLR_1_2963/Z (buffd7)                 0.23      0.91 f
+  prdata[21] (out)                                 0.08      0.99 f
+  data arrival time                                          0.99
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -0.99
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.01
+
+
+
+  Startpoint: u_csr/dest_c_reg_reg_29_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[29] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                    0.14      0.38 r
+  u_csr/dest_c_reg_reg_29_/CP (dfcrn2)             0.00      0.39 r
+
+  u_csr/dest_c_reg_reg_29_/CP (dfcrn2)             0.00      0.39 r
+  u_csr/dest_c_reg_reg_29_/QN (dfcrn2)             0.22      0.61 r
+  u_csr/U376/ZN (oai222d1)                         0.13      0.74 f
+  ctmTdsLR_1_2984/Z (bufbdf)                       0.18      0.92 f
+  prdata[29] (out)                                 0.08      1.00 f
+  data arrival time                                          1.00
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.00
+  ------------------------------------------------------------------------
+  slack (VIOLATED)                                          -0.00
+
+
+
+  Startpoint: u_csr/src_b_reg_reg_12_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[12] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_69038_2549/Z (bufbd7)                    0.10      0.34 r
+  u_csr/src_b_reg_reg_12_/CP (dfcrn2)              0.00      0.35 r
+
+  u_csr/src_b_reg_reg_12_/CP (dfcrn2)              0.00      0.35 r
+  u_csr/src_b_reg_reg_12_/QN (dfcrn2)              0.20      0.55 r
+  u_csr/U398/ZN (oai222d2)                         0.16      0.70 f
+  ctmTdsLR_1_2965/Z (bufbd7)                       0.29      1.00 f
+  prdata[12] (out)                                 0.02      1.01 f
+  data arrival time                                          1.01
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.01
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.01
+
+
+
+  Startpoint: u_csr/src_a_reg_reg_17_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[17] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_68008_2552/Z (buffda)                    0.13      0.37 r
+  u_csr/src_a_reg_reg_17_/CP (dfcrn2)              0.00      0.37 r
+
+  u_csr/src_a_reg_reg_17_/CP (dfcrn2)              0.00      0.37 r
+  u_csr/src_a_reg_reg_17_/QN (dfcrn2)              0.22      0.59 r
+  u_csr/U72/ZN (oai222d1)                          0.13      0.72 f
+  ctmTdsLR_1_2970/Z (bufbda)                       0.23      0.95 f
+  prdata[17] (out)                                 0.07      1.02 f
+  data arrival time                                          1.02
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.02
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.02
+
+
+
+  Startpoint: u_dma/kind_lat_reg_1_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: dma_wstrb[3] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_77511_2541/Z (buffda)                    0.12      0.36 r
+  u_dma/kind_lat_reg_1_/CP (dfcrq2)                0.01      0.36 r
+
+  u_dma/kind_lat_reg_1_/CP (dfcrq2)                0.00      0.36 r
+  u_dma/kind_lat_reg_1_/Q (dfcrq2)                 0.25      0.61 f
+  u_dma/U71/Z (an03d4)                             0.33      0.94 f
+  dma_wstrb[3] (out)                               0.08      1.02 f
+  data arrival time                                          1.02
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.02
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.02
+
+
+
+  Startpoint: u_csr/dest_c_reg_reg_13_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[13] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_65445_2550/Z (buffd7)                    0.11      0.35 r
+  u_csr/dest_c_reg_reg_13_/CP (dfcrn2)             0.00      0.35 r
+
+  u_csr/dest_c_reg_reg_13_/CP (dfcrn2)             0.00      0.35 r
+  u_csr/dest_c_reg_reg_13_/QN (dfcrn2)             0.21      0.56 r
+  u_csr/U9/ZN (oai222d1)                           0.11      0.67 f
+  ctmTdsLR_1_2968/Z (buffd7)                       0.30      0.97 f
+  prdata[13] (out)                                 0.06      1.03 f
+  data arrival time                                          1.03
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.03
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.03
+
+
+
+  Startpoint: u_csr/dest_c_reg_reg_27_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[27] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                    0.14      0.38 r
+  u_csr/dest_c_reg_reg_27_/CP (dfcrn2)             0.00      0.39 r
+
+  u_csr/dest_c_reg_reg_27_/CP (dfcrn2)             0.00      0.39 r
+  u_csr/dest_c_reg_reg_27_/QN (dfcrn2)             0.21      0.60 r
+  u_csr/U79/ZN (oai222d1)                          0.09      0.69 f
+  ctmTdsLR_1_2974/Z (buffd7)                       0.29      0.98 f
+  prdata[27] (out)                                 0.04      1.03 f
+  data arrival time                                          1.03
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.03
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.03
+
+
+
+  Startpoint: u_csr/src_a_reg_reg_19_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[19] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_68008_2552/Z (buffda)                    0.13      0.37 r
+  u_csr/src_a_reg_reg_19_/CP (dfcrn2)              0.00      0.37 r
+
+  u_csr/src_a_reg_reg_19_/CP (dfcrn2)              0.00      0.37 r
+  u_csr/src_a_reg_reg_19_/QN (dfcrn2)              0.22      0.59 r
+  u_csr/U73/ZN (oai222d1)                          0.10      0.70 f
+  ctmTdsLR_1_2971/Z (bufbd7)                       0.26      0.95 f
+  prdata[19] (out)                                 0.07      1.03 f
+  data arrival time                                          1.03
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.03
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.03
+
+
+
+  Startpoint: u_dma/base_lat_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: dma_addr[0] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_77511_2541/Z (buffda)                    0.12      0.36 r
+  u_dma/base_lat_reg_0_/CP (dfcrq2)                0.01      0.36 r
+
+  u_dma/base_lat_reg_0_/CP (dfcrq2)                0.00      0.36 r
+  u_dma/base_lat_reg_0_/Q (dfcrq2)                 0.23      0.59 f
+  u_dma/ctmTdsLR_1_1382/Z (aor22d4)                0.41      1.00 f
+  dma_addr[0] (out)                                0.04      1.03 f
+  data arrival time                                          1.03
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.03
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.03
+
+
+
+  Startpoint: u_csr/dest_c_reg_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[4] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_csr/dest_c_reg_reg_4_/CP (dfcrq2)              0.02      0.25 r
+
+  u_csr/dest_c_reg_reg_4_/CP (dfcrq2)              0.00      0.25 r
+  u_csr/dest_c_reg_reg_4_/Q (dfcrq2)               0.23      0.48 f
+  u_csr/ctmTdsLR_2_2894/Z (aoim22d1)               0.07      0.56 r
+  u_csr/ctmTdsLR_1_2893/ZN (oai21d4)               0.45      1.01 f
+  prdata[4] (out)                                  0.05      1.05 f
+  data arrival time                                          1.05
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.05
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.05
+
+
+
+  Startpoint: u_dma/state_reg_2_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: dma_wstrb[2] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  u_dma/state_reg_2_/CP (dfcrq2)                   0.02      0.28 r
+
+  u_dma/state_reg_2_/CP (dfcrq2)                   0.00      0.28 r
+  u_dma/state_reg_2_/Q (dfcrq2)                    0.21      0.49 r
+  u_dma/U102/ZN (nr03d1)                           0.03      0.51 f
+  u_dma/copt_h_inst_5776/Z (buffd1)                0.12      0.64 f
+  u_dma/U59/Z (an12d4)                             0.41      1.04 f
+  dma_wstrb[2] (out)                               0.02      1.06 f
+  data arrival time                                          1.06
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.06
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.06
+
+
+
+  Startpoint: u_dma/state_reg_2_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: dma_wstrb[1] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  u_dma/state_reg_2_/CP (dfcrq2)                   0.02      0.28 r
+
+  u_dma/state_reg_2_/CP (dfcrq2)                   0.00      0.28 r
+  u_dma/state_reg_2_/Q (dfcrq2)                    0.21      0.49 r
+  u_dma/U102/ZN (nr03d1)                           0.03      0.51 f
+  u_dma/copt_h_inst_5776/Z (buffd1)                0.12      0.64 f
+  u_dma/U51/Z (an12d4)                             0.41      1.05 f
+  dma_wstrb[1] (out)                               0.03      1.08 f
+  data arrival time                                          1.08
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.08
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.08
+
+
+
+  Startpoint: u_dma/stage_reg_2__3_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_0__0__3_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  u_dma/ZCTSBUF_109329_2554/Z (buffd4)             0.15      0.41 r
+  u_dma/stage_reg_2__3_/CP (dfcrq2)                0.01      0.41 r
+
+  u_dma/stage_reg_2__3_/CP (dfcrq2)                0.00      0.41 r
+  u_dma/stage_reg_2__3_/Q (dfcrq2)                 0.21      0.62 r
+  u_dma/U1152/ZN (aoi22d1)                         0.04      0.66 f
+  u_dma/U1154/ZN (nd02d0)                          0.08      0.75 r
+  u_dma/U43/Z (an02d1)                             0.13      0.88 r
+  u_wbuf/U389/ZN (inv0d0)                          0.11      0.99 f
+  u_wbuf/U646/ZN (oai22d1)                         0.11      1.10 r
+  u_wbuf/bank_a_reg_0__0__3_/D (dfcrq2)           -0.01      1.09 r
+  data arrival time                                          1.09
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_25794_2515/Z (buffda)                    0.13      0.53 r
+  u_wbuf/bank_a_reg_0__0__3_/CP (dfcrq2)           0.00      0.53 r
+
+  clock uncertainty                                0.50      1.03
+  library hold time                               -0.03      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.09
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: u_csr/status_done_reg_reg (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[0] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  u_csr/status_done_reg_reg/CP (dfcrq2)            0.01      0.25 r
+
+  u_csr/status_done_reg_reg/CP (dfcrq2)            0.00      0.25 r
+  u_csr/status_done_reg_reg/Q (dfcrq2)             0.23      0.48 f
+  u_csr/U402/ZN (aoi322d1)                         0.06      0.54 r
+  u_csr/U401/ZN (oai211d4)                         0.49      1.03 f
+  prdata[0] (out)                                  0.06      1.09 f
+  data arrival time                                          1.09
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.09
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: u_grid/g_row_0__g_col_3__pe/weight_reg_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_0__g_col_3__pe/psum_out_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_grid/ZCTSBUF_90590_2525/Z (bufbd3)             0.18      0.41 r
+  u_grid/g_row_0__g_col_3__pe/weight_reg_reg_0_/CP (decrq1)
+                                                   0.00      0.41 r
+
+  u_grid/g_row_0__g_col_3__pe/weight_reg_reg_0_/CP (decrq1)
+                                                   0.00      0.41 r
+  u_grid/g_row_0__g_col_3__pe/weight_reg_reg_0_/Q (decrq1)
+                                                   0.18      0.59 r
+  u_grid/g_row_0__g_col_3__pe/gre_a_INV_1374_inst_5804/ZN (inv0d1)
+                                                   0.14      0.73 f
+  u_grid/g_row_0__g_col_3__pe/mult_28/U156/ZN (nr02d0)
+                                                   0.12      0.85 r
+  u_grid/g_row_0__g_col_3__pe/U18/Z (aor22d1)      0.08      0.93 r
+  u_grid/g_row_0__g_col_3__pe/psum_out_reg_0_/D (decrq1)
+                                                   0.00      0.93 r
+  data arrival time                                          0.93
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_57952_2521/Z (bufbda)                    0.16      0.39 r
+  u_grid/g_row_0__g_col_3__pe/psum_out_reg_0_/CP (decrq1)
+                                                   0.01      0.41 r
+
+  clock uncertainty                                0.50      0.91
+  library hold time                               -0.07      0.84
+  data required time                                         0.84
+  ------------------------------------------------------------------------
+  data required time                                         0.84
+  data arrival time                                         -0.93
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_2__pe/psum_out_reg_10_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_2__pe/psum_out_reg_11_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_grid/g_row_2__g_col_2__pe/ZCTSBUF_88487_2529/Z (buffd3)
+                                                   0.16      0.39 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_10_/CP (decrq1)
+                                                   0.00      0.39 r
+
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_10_/CP (decrq1)
+                                                   0.00      0.39 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_10_/Q (decrq1)
+                                                   0.23      0.62 r
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.13      0.75 r
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_11/S (ad01d0)
+                                                   0.15      0.90 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_11_/D (decrq1)
+                                                  -0.00      0.90 r
+  data arrival time                                          0.90
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_54466_2497/Z (buffda)                    0.14      0.37 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_11_/CP (decrq1)
+                                                   0.01      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                               -0.08      0.80
+  data required time                                         0.80
+  ------------------------------------------------------------------------
+  data required time                                         0.80
+  data arrival time                                         -0.90
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: u_seq/error_code_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[2] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  u_seq/error_code_reg_0_/CP (dfcrq2)              0.02      0.26 r
+
+  u_seq/error_code_reg_0_/CP (dfcrq2)              0.00      0.26 r
+  u_seq/error_code_reg_0_/Q (dfcrq2)               0.25      0.51 f
+  u_csr/U373/ZN (aoi322d1)                         0.06      0.57 r
+  u_csr/U206/ZN (oai211d4)                         0.49      1.06 f
+  prdata[2] (out)                                  0.03      1.09 f
+  data arrival time                                          1.09
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.09
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_2__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_2__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.05      0.28 r
+
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.00      0.28 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_31_/Q (decrq1)
+                                                   0.19      0.47 r
+  u_grid/g_row_3__g_col_2__pe/add_42/copt_h_inst_4488/Z (dl01d1)
+                                                   0.30      0.78 r
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_31/S (ad01d0)
+                                                   0.13      0.90 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00      0.91 r
+  data arrival time                                          0.91
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_54466_2497/Z (buffda)                    0.14      0.37 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.01      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                               -0.08      0.81
+  data required time                                         0.81
+  ------------------------------------------------------------------------
+  data required time                                         0.81
+  data arrival time                                         -0.91
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_2__pe/psum_out_reg_15_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_2__pe/psum_out_reg_15_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_15_/CP (decrq1)
+                                                   0.05      0.28 r
+
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_15_/CP (decrq1)
+                                                   0.00      0.28 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_15_/Q (decrq1)
+                                                   0.24      0.52 r
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_15/S (ad01d0)
+                                                   0.11      0.63 r
+  u_grid/g_row_3__g_col_2__pe/copt_h_inst_5259/Z (dl01d1)
+                                                   0.28      0.91 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_15_/D (decrq1)
+                                                  -0.00      0.91 r
+  data arrival time                                          0.91
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_54466_2497/Z (buffda)                    0.14      0.37 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_15_/CP (decrq1)
+                                                   0.02      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                               -0.07      0.82
+  data required time                                         0.82
+  ------------------------------------------------------------------------
+  data required time                                         0.82
+  data arrival time                                         -0.91
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_dma/m_lat_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_actbuf/m_lat_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  u_dma/m_lat_reg_0_/CP (dfcrn2)                   0.02      0.28 r
+
+  u_dma/m_lat_reg_0_/CP (dfcrn2)                   0.00      0.28 r
+  u_dma/m_lat_reg_0_/QN (dfcrn2)                   0.21      0.49 r
+  u_dma/U656/ZN (inv0d0)                           0.24      0.72 f
+  u_actbuf/U527/ZN (inv0d0)                        0.18      0.90 r
+  u_actbuf/U5/ZN (oai22d2)                         0.08      0.98 f
+  u_actbuf/m_lat_reg_0_/D (dfcrq2)                 0.00      0.98 f
+  data arrival time                                          0.98
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_108022_2574/ZN (invbdk)                  0.09      0.23 r
+  ZCTSBUF_107819_2573/Z (buffd3)                   0.14      0.37 r
+  u_actbuf/m_lat_reg_0_/CP (dfcrq2)                0.00      0.37 r
+
+  clock uncertainty                                0.50      0.87
+  library hold time                                0.01      0.89
+  data required time                                         0.89
+  ------------------------------------------------------------------------
+  data required time                                         0.89
+  data arrival time                                         -0.98
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_dma/stage_reg_1__7_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_b_reg_0__0__7_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  ZCTSBUF_110968_2561/Z (buffda)                   0.12      0.37 r
+  u_dma/stage_reg_1__7_/CP (dfcrq2)                0.01      0.38 r
+
+  u_dma/stage_reg_1__7_/CP (dfcrq2)                0.00      0.38 r
+  u_dma/stage_reg_1__7_/Q (dfcrq2)                 0.22      0.60 f
+  u_dma/U1162/ZN (aoi22d1)                         0.06      0.67 r
+  u_dma/U1163/ZN (nd02d0)                          0.09      0.76 f
+  u_dma/U39/Z (an02d1)                             0.13      0.88 f
+  u_wbuf/U396/ZN (inv0d0)                          0.19      1.07 r
+  u_wbuf/U380/ZN (oai22d1)                         0.07      1.14 f
+  u_wbuf/bank_b_reg_0__0__7_/D (dfcrq2)            0.00      1.14 f
+  data arrival time                                          1.14
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_51565_2499/Z (buffda)                    0.14      0.54 r
+  u_wbuf/bank_b_reg_0__0__7_/CP (dfcrq2)           0.00      0.54 r
+
+  clock uncertainty                                0.50      1.04
+  library hold time                               -0.00      1.04
+  data required time                                         1.04
+  ------------------------------------------------------------------------
+  data required time                                         1.04
+  data arrival time                                         -1.14
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_dma/stage_reg_0__28_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_b_reg_3__0__4_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  u_dma/stage_reg_0__28_/CP (dfcrq2)               0.02      0.28 r
+
+  u_dma/stage_reg_0__28_/CP (dfcrq2)               0.00      0.28 r
+  u_dma/stage_reg_0__28_/Q (dfcrq2)                0.22      0.50 r
+  u_dma/U1222/ZN (aoi22d1)                         0.03      0.53 f
+  u_dma/U1223/ZN (nd02d4)                          0.11      0.64 r
+  u_dma/U18/Z (an02d1)                             0.13      0.78 r
+  u_wbuf/U402/ZN (inv0d0)                          0.11      0.89 f
+  u_wbuf/U305/ZN (oai22d1)                         0.11      1.00 r
+  u_wbuf/bank_b_reg_3__0__4_/D (dfcrq2)           -0.01      0.99 r
+  data arrival time                                          0.99
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_41569_2506/Z (bufbdf)                    0.18      0.42 r
+  u_wbuf/bank_b_reg_3__0__4_/CP (dfcrq2)           0.01      0.42 r
+
+  clock uncertainty                                0.50      0.92
+  library hold time                               -0.03      0.89
+  data required time                                         0.89
+  ------------------------------------------------------------------------
+  data required time                                         0.89
+  data arrival time                                         -0.99
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_wbuf/bank_b_reg_2__3__1_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_2__pe/weight_reg_reg_1_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_53291_2502/Z (buffd7)                    0.11      0.50 r
+  u_wbuf/bank_b_reg_2__3__1_/CP (dfcrq2)           0.00      0.51 r
+
+  u_wbuf/bank_b_reg_2__3__1_/CP (dfcrq2)           0.00      0.51 r
+  u_wbuf/bank_b_reg_2__3__1_/Q (dfcrq2)            0.20      0.71 f
+  u_wbuf/U799/ZN (inv0d0)                          0.09      0.79 r
+  u_wbuf/copt_h_inst_4693/Z (buffd1)               0.07      0.86 r
+  u_wbuf/U17/ZN (oai22d1)                          0.06      0.92 f
+  u_grid/g_row_3__g_col_2__pe/weight_reg_reg_1_/D (decrq1)
+                                                  -0.00      0.92 f
+  data arrival time                                          0.92
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_54466_2497/Z (buffda)                    0.14      0.37 r
+  u_grid/g_row_3__g_col_2__pe/weight_reg_reg_1_/CP (decrq1)
+                                                   0.01      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                               -0.07      0.82
+  data required time                                         0.82
+  ------------------------------------------------------------------------
+  data required time                                         0.82
+  data arrival time                                         -0.92
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_skew/row3_q2_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_skew/row3_q3_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_108022_2574/ZN (invbdk)                  0.09      0.23 r
+  u_skew/row3_q2_reg_4_/CP (dfcrq2)                0.05      0.28 r
+
+  u_skew/row3_q2_reg_4_/CP (dfcrq2)                0.00      0.28 r
+  u_skew/row3_q2_reg_4_/Q (dfcrq2)                 0.24      0.52 f
+  u_skew/U10/Z (aor22d1)                           0.08      0.60 f
+  u_skew/copt_h_inst_3087/Z (dl02d1)               0.53      1.13 f
+  u_skew/row3_q3_reg_4_/D (dfcrq2)                 0.00      1.13 f
+  data arrival time                                          1.13
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_28593_2518/Z (buffda)                    0.14      0.53 r
+  u_skew/row3_q3_reg_4_/CP (dfcrq2)                0.01      0.54 r
+
+  clock uncertainty                                0.50      1.04
+  library hold time                               -0.01      1.03
+  data required time                                         1.03
+  ------------------------------------------------------------------------
+  data required time                                         1.03
+  data arrival time                                         -1.13
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_deskew/col2_q1_reg_25_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_deskew/col2_q1_reg_25_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_23079_2511/Z (bufbda)                    0.15      0.38 r
+  u_deskew/col2_q1_reg_25_/CP (dfcrq2)             0.01      0.40 r
+
+  u_deskew/col2_q1_reg_25_/CP (dfcrq2)             0.00      0.40 r
+  u_deskew/col2_q1_reg_25_/Q (dfcrq2)              0.19      0.59 r
+  u_deskew/copt_h_inst_5046/Z (dl01d1)             0.30      0.89 r
+  u_deskew/U157/Z (aor22d1)                        0.09      0.98 r
+  u_deskew/col2_q1_reg_25_/D (dfcrq2)              0.00      0.98 r
+  data arrival time                                          0.98
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_23079_2511/Z (bufbda)                    0.15      0.38 r
+  u_deskew/col2_q1_reg_25_/CP (dfcrq2)             0.01      0.40 r
+
+  clock uncertainty                                0.50      0.90
+  library hold time                               -0.02      0.88
+  data required time                                         0.88
+  ------------------------------------------------------------------------
+  data required time                                         0.88
+  data arrival time                                         -0.98
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_seq/c_dst_reg_2__2__19_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_seq/c_dst_reg_2__2__19_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  u_seq/ZCTSBUF_70914_2547/Z (buffd7)              0.10      0.34 r
+  u_seq/c_dst_reg_2__2__19_/CP (dfcrq2)            0.00      0.34 r
+
+  u_seq/c_dst_reg_2__2__19_/CP (dfcrq2)            0.00      0.34 r
+  u_seq/c_dst_reg_2__2__19_/Q (dfcrq2)             0.20      0.54 f
+  u_seq/copt_h_inst_4229/Z (dl01d1)                0.26      0.80 f
+  u_seq/U351/ZN (oaim22d2)                         0.14      0.94 f
+  u_seq/c_dst_reg_2__2__19_/D (dfcrq2)             0.00      0.94 f
+  data arrival time                                          0.94
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  u_seq/ZCTSBUF_70914_2547/Z (buffd7)              0.10      0.34 r
+  u_seq/c_dst_reg_2__2__19_/CP (dfcrq2)            0.00      0.34 r
+
+  clock uncertainty                                0.50      0.84
+  library hold time                                0.00      0.84
+  data required time                                         0.84
+  ------------------------------------------------------------------------
+  data required time                                         0.84
+  data arrival time                                         -0.94
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_wbuf/bank_b_reg_2__0__3_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_0__g_col_2__pe/weight_reg_reg_3_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  u_wbuf/bank_b_reg_2__0__3_/CP (dfcrq2)           0.01      0.41 r
+
+  u_wbuf/bank_b_reg_2__0__3_/CP (dfcrq2)           0.00      0.41 r
+  u_wbuf/bank_b_reg_2__0__3_/Q (dfcrq2)            0.21      0.62 f
+  u_wbuf/U719/ZN (inv0d0)                          0.06      0.68 r
+  u_wbuf/copt_h_inst_4117/Z (dl01d1)               0.34      1.02 r
+  u_wbuf/U111/ZN (oai22d1)                         0.06      1.09 f
+  u_grid/g_row_0__g_col_2__pe/weight_reg_reg_3_/D (decrq1)
+                                                  -0.00      1.08 f
+  data arrival time                                          1.08
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.15      0.54 r
+  u_grid/g_row_0__g_col_2__pe/weight_reg_reg_3_/CP (decrq1)
+                                                   0.01      0.55 r
+
+  clock uncertainty                                0.50      1.05
+  library hold time                               -0.07      0.98
+  data required time                                         0.98
+  ------------------------------------------------------------------------
+  data required time                                         0.98
+  data arrival time                                         -1.08
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_dma/base_lat_reg_11_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_dma/base_lat_reg_11_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_74777_2545/Z (buffda)                    0.14      0.38 r
+  u_dma/base_lat_reg_11_/CP (dfcrq2)               0.00      0.38 r
+
+  u_dma/base_lat_reg_11_/CP (dfcrq2)               0.00      0.38 r
+  u_dma/base_lat_reg_11_/Q (dfcrq2)                0.22      0.60 r
+  u_dma/copt_h_inst_4922/Z (dl01d1)                0.28      0.88 r
+  u_dma/U696/Z (mx02d1)                            0.08      0.96 r
+  u_dma/base_lat_reg_11_/D (dfcrq2)                0.00      0.96 r
+  data arrival time                                          0.96
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_74777_2545/Z (buffda)                    0.14      0.38 r
+  u_dma/base_lat_reg_11_/CP (dfcrq2)               0.00      0.38 r
+
+  clock uncertainty                                0.50      0.88
+  library hold time                               -0.02      0.86
+  data required time                                         0.86
+  ------------------------------------------------------------------------
+  data required time                                         0.86
+  data arrival time                                         -0.96
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_dma/stage_reg_2__16_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_2__0__0_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  ZCTSBUF_110968_2561/Z (buffda)                   0.12      0.37 r
+  u_dma/stage_reg_2__16_/CP (dfcrq2)               0.01      0.39 r
+
+  u_dma/stage_reg_2__16_/CP (dfcrq2)               0.00      0.39 r
+  u_dma/stage_reg_2__16_/Q (dfcrq2)                0.23      0.62 f
+  u_dma/U1188/ZN (aoi22d1)                         0.06      0.68 r
+  u_dma/U1190/ZN (nd02d4)                          0.14      0.82 f
+  u_dma/U30/Z (an02d1)                             0.11      0.93 f
+  u_wbuf/U361/ZN (inv0d0)                          0.23      1.16 r
+  u_wbuf/U478/ZN (oai22d1)                        -0.02      1.15 f
+  u_wbuf/bank_a_reg_2__0__0_/D (dfcrq2)            0.00      1.15 f
+  data arrival time                                          1.15
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_51565_2499/Z (buffda)                    0.14      0.54 r
+  u_wbuf/bank_a_reg_2__0__0_/CP (dfcrq2)           0.00      0.54 r
+
+  clock uncertainty                                0.50      1.04
+  library hold time                                0.00      1.05
+  data required time                                         1.05
+  ------------------------------------------------------------------------
+  data required time                                         1.05
+  data arrival time                                         -1.15
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_1__pe/psum_out_reg_24_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_1__pe/psum_out_reg_24_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.15      0.54 r
+  u_grid/g_row_2__g_col_1__pe/psum_out_reg_24_/CP (decrq1)
+                                                   0.01      0.55 r
+
+  u_grid/g_row_2__g_col_1__pe/psum_out_reg_24_/CP (decrq1)
+                                                   0.00      0.55 r
+  u_grid/g_row_2__g_col_1__pe/psum_out_reg_24_/Q (decrq1)
+                                                   0.23      0.79 r
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_24/S (ad01d0)
+                                                   0.13      0.91 r
+  u_grid/g_row_3__g_col_1__pe/psum_out_reg_24_/D (decrq1)
+                                                   0.00      0.91 r
+  data arrival time                                          0.91
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_43580_2504/Z (buffd7)                    0.15      0.38 r
+  u_grid/g_row_3__g_col_1__pe/psum_out_reg_24_/CP (decrq1)
+                                                   0.01      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                               -0.08      0.81
+  data required time                                         0.81
+  ------------------------------------------------------------------------
+  data required time                                         0.81
+  data arrival time                                         -0.91
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_wbuf/bank_a_reg_3__0__7_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_3__0__7_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  u_wbuf/bank_a_reg_3__0__7_/CP (dfcrq2)           0.01      0.24 r
+
+  u_wbuf/bank_a_reg_3__0__7_/CP (dfcrq2)           0.00      0.24 r
+  u_wbuf/bank_a_reg_3__0__7_/Q (dfcrq2)            0.18      0.42 r
+  u_wbuf/U549/ZN (inv0d0)                          0.07      0.49 f
+  u_wbuf/copt_h_inst_4063/Z (dl01d1)               0.26      0.75 f
+  u_wbuf/U617/ZN (oai22d1)                         0.07      0.83 r
+  u_wbuf/bank_a_reg_3__0__7_/D (dfcrq2)           -0.01      0.81 r
+  data arrival time                                          0.81
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  u_wbuf/bank_a_reg_3__0__7_/CP (dfcrq2)           0.01      0.24 r
+
+  clock uncertainty                                0.50      0.74
+  library hold time                               -0.03      0.71
+  data required time                                         0.71
+  ------------------------------------------------------------------------
+  data required time                                         0.71
+  data arrival time                                         -0.81
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_dma/state_reg_1_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_dma/state_reg_2_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  u_dma/state_reg_1_/CP (dfcrq2)                   0.02      0.28 r
+
+  u_dma/state_reg_1_/CP (dfcrq2)                   0.00      0.28 r
+  u_dma/state_reg_1_/Q (dfcrq2)                    0.24      0.51 f
+  u_dma/U662/ZN (nd03d0)                           0.34      0.85 r
+  u_dma/U487/ZN (oan211d1)                         0.04      0.89 f
+  u_dma/state_reg_2_/D (dfcrq2)                   -0.00      0.89 f
+  data arrival time                                          0.89
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.11      0.26 r
+  u_dma/state_reg_2_/CP (dfcrq2)                   0.02      0.28 r
+
+  clock uncertainty                                0.50      0.78
+  library hold time                                0.01      0.79
+  data required time                                         0.79
+  ------------------------------------------------------------------------
+  data required time                                         0.79
+  data arrival time                                         -0.89
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_2__pe/psum_out_reg_17_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_2__pe/psum_out_reg_19_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_17_/CP (decrq1)
+                                                   0.05      0.28 r
+
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_17_/CP (decrq1)
+                                                   0.00      0.28 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_17_/Q (decrq1)
+                                                   0.24      0.52 r
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.13      0.65 r
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.13      0.78 r
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_19/S (ad01d0)
+                                                   0.13      0.91 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_19_/D (decrq1)
+                                                   0.00      0.91 r
+  data arrival time                                          0.91
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_54466_2497/Z (buffda)                    0.14      0.37 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_19_/CP (decrq1)
+                                                   0.01      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                               -0.08      0.81
+  data required time                                         0.81
+  ------------------------------------------------------------------------
+  data required time                                         0.81
+  data arrival time                                         -0.91
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_wbuf/bank_b_reg_3__3__7_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_b_reg_3__3__7_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_41569_2506/Z (bufbdf)                    0.18      0.42 r
+  u_wbuf/bank_b_reg_3__3__7_/CP (dfcrq2)           0.01      0.42 r
+
+  u_wbuf/bank_b_reg_3__3__7_/CP (dfcrq2)           0.00      0.42 r
+  u_wbuf/bank_b_reg_3__3__7_/Q (dfcrq2)            0.19      0.61 r
+  u_wbuf/U813/ZN (inv0d0)                          0.05      0.67 f
+  u_wbuf/copt_h_inst_4999/Z (dl01d1)               0.26      0.93 f
+  u_wbuf/U323/ZN (oai22d1)                         0.07      1.00 r
+  u_wbuf/bank_b_reg_3__3__7_/D (dfcrq2)           -0.00      1.00 r
+  data arrival time                                          1.00
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_41569_2506/Z (bufbdf)                    0.18      0.42 r
+  u_wbuf/bank_b_reg_3__3__7_/CP (dfcrq2)           0.01      0.42 r
+
+  clock uncertainty                                0.50      0.92
+  library hold time                               -0.03      0.90
+  data required time                                         0.90
+  ------------------------------------------------------------------------
+  data required time                                         0.90
+  data arrival time                                         -1.00
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: paddr[4] (input port clocked by clk)
+  Endpoint: u_csr/src_b_reg_reg_9_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **in2reg_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.24
+  input external delay                             0.00      0.24 f
+  paddr[4] (in)                                    0.24      0.24 f
+  u_csr/ZBUF_13_inst_1692/Z (buffd3)               0.20      0.44 f
+  u_csr/U54/ZN (nr02d1)                            0.10      0.54 r
+  u_csr/U12/ZN (nd03d0)                            0.24      0.79 f
+  u_csr/HFSINV_8245_431/ZN (inv0da)                0.15      0.94 r
+  u_csr/U305/ZN (oai22d1)                          0.06      0.99 f
+  u_csr/src_b_reg_reg_9_/D (dfcrn2)                0.00      0.99 f
+  data arrival time                                          0.99
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                    0.14      0.38 r
+  u_csr/src_b_reg_reg_9_/CP (dfcrn2)               0.00      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                                0.01      0.89
+  data required time                                         0.89
+  ------------------------------------------------------------------------
+  data required time                                         0.89
+  data arrival time                                         -0.99
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_grid/g_row_0__g_col_2__pe/act_out_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_0__g_col_3__pe/act_out_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.15      0.54 r
+  u_grid/g_row_0__g_col_2__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.01      0.55 r
+
+  u_grid/g_row_0__g_col_2__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.00      0.55 r
+  u_grid/g_row_0__g_col_2__pe/act_out_reg_4_/Q (decrq1)
+                                                   0.36      0.91 r
+  u_grid/g_row_0__g_col_3__pe/copt_h_inst_4901/Z (buffd1)
+                                                   0.04      0.95 r
+  u_grid/g_row_0__g_col_3__pe/act_out_reg_4_/D (decrq1)
+                                                   0.00      0.95 r
+  data arrival time                                          0.95
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_grid/ZCTSBUF_90590_2525/Z (bufbd3)             0.18      0.41 r
+  u_grid/g_row_0__g_col_3__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.00      0.41 r
+
+  clock uncertainty                                0.50      0.91
+  library hold time                               -0.07      0.84
+  data required time                                         0.84
+  ------------------------------------------------------------------------
+  data required time                                         0.84
+  data arrival time                                         -0.95
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_grid/g_row_1__g_col_0__pe/psum_out_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_0__pe/psum_out_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_14245_2509/Z (bufbdf)                    0.18      0.42 r
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_4_/CP (decrq1)
+                                                   0.01      0.43 r
+
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_4_/CP (decrq1)
+                                                   0.00      0.43 r
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_4_/Q (decrq1)
+                                                   0.19      0.62 r
+  u_grid/g_row_2__g_col_0__pe/add_42/copt_h_inst_4584/Z (dl01d1)
+                                                   0.31      0.92 r
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_4/S (ad01d0)
+                                                   0.14      1.06 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_4_/D (decrq1)
+                                                  -0.01      1.06 r
+  data arrival time                                          1.06
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_28593_2518/Z (buffda)                    0.14      0.53 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_4_/CP (decrq1)
+                                                   0.01      0.54 r
+
+  clock uncertainty                                0.50      1.04
+  library hold time                               -0.08      0.95
+  data required time                                         0.95
+  ------------------------------------------------------------------------
+  data required time                                         0.95
+  data arrival time                                         -1.06
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_wbuf/bank_a_reg_1__2__6_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_wbuf/bank_a_reg_1__2__6_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.15      0.54 r
+  u_wbuf/bank_a_reg_1__2__6_/CP (dfcrq2)           0.01      0.55 r
+
+  u_wbuf/bank_a_reg_1__2__6_/CP (dfcrq2)           0.00      0.55 r
+  u_wbuf/bank_a_reg_1__2__6_/Q (dfcrq2)            0.18      0.73 r
+  u_wbuf/U456/ZN (inv0d0)                          0.06      0.79 f
+  u_wbuf/copt_h_inst_4466/Z (dl01d1)               0.27      1.06 f
+  u_wbuf/U455/ZN (oai22d1)                         0.09      1.15 r
+  u_wbuf/bank_a_reg_1__2__6_/D (dfcrq2)           -0.03      1.12 r
+  data arrival time                                          1.12
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.15      0.54 r
+  u_wbuf/bank_a_reg_1__2__6_/CP (dfcrq2)           0.01      0.55 r
+
+  clock uncertainty                                0.50      1.05
+  library hold time                               -0.03      1.02
+  data required time                                         1.02
+  ------------------------------------------------------------------------
+  data required time                                         1.02
+  data arrival time                                         -1.12
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_csr/src_b_reg_reg_20_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_csr/src_b_reg_reg_20_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_csr/src_b_reg_reg_20_/CP (dfcrn2)              0.03      0.26 r
+
+  u_csr/src_b_reg_reg_20_/CP (dfcrn2)              0.00      0.26 r
+  u_csr/src_b_reg_reg_20_/QN (dfcrn2)              0.20      0.45 r
+  u_csr/copt_h_inst_3584/Z (dl01d1)                0.36      0.81 r
+  u_csr/U316/ZN (oai22d1)                          0.05      0.87 f
+  u_csr/src_b_reg_reg_20_/D (dfcrn2)               0.00      0.87 f
+  data arrival time                                          0.87
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_csr/src_b_reg_reg_20_/CP (dfcrn2)              0.03      0.26 r
+
+  clock uncertainty                                0.50      0.76
+  library hold time                                0.01      0.76
+  data required time                                         0.76
+  ------------------------------------------------------------------------
+  data required time                                         0.76
+  data arrival time                                         -0.87
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_3__pe/psum_out_reg_9_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_3__pe/psum_out_reg_9_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_grid/g_row_2__g_col_3__pe/psum_out_reg_9_/CP (decrq1)
+                                                   0.05      0.28 r
+
+  u_grid/g_row_2__g_col_3__pe/psum_out_reg_9_/CP (decrq1)
+                                                   0.00      0.28 r
+  u_grid/g_row_2__g_col_3__pe/psum_out_reg_9_/Q (decrq1)
+                                                   0.19      0.47 r
+  u_grid/g_row_3__g_col_3__pe/add_42/copt_h_inst_4408/Z (dl01d1)
+                                                   0.32      0.78 r
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_9/S (ad01d0)
+                                                   0.13      0.91 r
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_9_/D (decrq1)
+                                                  -0.01      0.90 r
+  data arrival time                                          0.90
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  ZCTSBUF_86727_2532/Z (bufbd3)                    0.15      0.38 r
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_9_/CP (decrq1)
+                                                   0.00      0.38 r
+
+  clock uncertainty                                0.50      0.88
+  library hold time                               -0.08      0.80
+  data required time                                         0.80
+  ------------------------------------------------------------------------
+  data required time                                         0.80
+  data arrival time                                         -0.90
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_dma/beat_idx_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_dma/beat_idx_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_77511_2541/Z (buffda)                    0.12      0.36 r
+  u_dma/beat_idx_reg_0_/CP (dfcrq2)                0.01      0.37 r
+
+  u_dma/beat_idx_reg_0_/CP (dfcrq2)                0.00      0.37 r
+  u_dma/beat_idx_reg_0_/Q (dfcrq2)                 0.24      0.61 r
+  u_dma/U667/ZN (mi02d0)                           0.08      0.69 f
+  u_dma/copt_h_inst_5732/Z (dl01d1)                0.27      0.97 f
+  u_dma/beat_idx_reg_0_/D (dfcrq2)                -0.00      0.97 f
+  data arrival time                                          0.97
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_77511_2541/Z (buffda)                    0.12      0.36 r
+  u_dma/beat_idx_reg_0_/CP (dfcrq2)                0.01      0.37 r
+
+  clock uncertainty                                0.50      0.87
+  library hold time                               -0.01      0.86
+  data required time                                         0.86
+  ------------------------------------------------------------------------
+  data required time                                         0.86
+  data arrival time                                         -0.97
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_grid/g_row_3__g_col_1__pe/psum_out_reg_14_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_deskew/col1_q1_reg_14_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_14842_2507/Z (buffd3)                    0.14      0.38 r
+  u_grid/g_row_3__g_col_1__pe/psum_out_reg_14_/CP (decrq1)
+                                                   0.00      0.38 r
+
+  u_grid/g_row_3__g_col_1__pe/psum_out_reg_14_/CP (decrq1)
+                                                   0.00      0.38 r
+  u_grid/g_row_3__g_col_1__pe/psum_out_reg_14_/Q (decrq1)
+                                                   0.19      0.57 f
+  u_deskew/copt_h_inst_5298/Z (dl01d1)             0.34      0.90 f
+  u_deskew/U97/Z (aor22d1)                         0.08      0.99 f
+  u_deskew/col1_q1_reg_14_/D (dfcrq2)              0.00      0.99 f
+  data arrival time                                          0.99
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_23080_2513/Z (buffda)                    0.14      0.37 r
+  u_deskew/col1_q1_reg_14_/CP (dfcrq2)             0.00      0.37 r
+
+  clock uncertainty                                0.50      0.87
+  library hold time                                0.01      0.88
+  data required time                                         0.88
+  ------------------------------------------------------------------------
+  data required time                                         0.88
+  data arrival time                                         -0.99
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_csr/dest_c_reg_reg_26_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[26] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **reg2out_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  u_csr/dest_c_reg_reg_26_/CP (dfcrn2)             0.03      0.26 r
+
+  u_csr/dest_c_reg_reg_26_/CP (dfcrn2)             0.00      0.26 r
+  u_csr/dest_c_reg_reg_26_/QN (dfcrn2)             0.23      0.49 f
+  u_csr/U379/ZN (oai222d1)                         0.12      0.62 r
+  ctmTdsLR_1_2983/Z (buffd4)                       0.45      1.06 r
+  prdata[26] (out)                                 0.04      1.11 r
+  data arrival time                                          1.11
+
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.00
+  clock uncertainty                                0.50      0.50
+  output external delay                            0.50      1.00
+  data required time                                         1.00
+  ------------------------------------------------------------------------
+  data required time                                         1.00
+  data arrival time                                         -1.11
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.11
+
+
+
+  Startpoint: u_grid/g_row_0__g_col_0__pe/psum_out_reg_20_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_0__g_col_0__pe/psum_out_reg_20_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_14245_2509/Z (bufbdf)                    0.18      0.42 r
+  u_grid/g_row_0__g_col_0__pe/psum_out_reg_20_/CP (dfcrq2)
+                                                   0.01      0.42 r
+
+  u_grid/g_row_0__g_col_0__pe/psum_out_reg_20_/CP (dfcrq2)
+                                                   0.00      0.42 r
+  u_grid/g_row_0__g_col_0__pe/psum_out_reg_20_/Q (dfcrq2)
+                                                   0.19      0.61 r
+  u_grid/g_row_0__g_col_0__pe/copt_h_inst_3158/Z (dl01d1)
+                                                   0.33      0.94 r
+  u_grid/g_row_0__g_col_0__pe/U47/Z (aor22d1)      0.07      1.01 r
+  u_grid/g_row_0__g_col_0__pe/psum_out_reg_20_/D (dfcrq2)
+                                                   0.00      1.01 r
+  data arrival time                                          1.01
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_14245_2509/Z (bufbdf)                    0.18      0.42 r
+  u_grid/g_row_0__g_col_0__pe/psum_out_reg_20_/CP (dfcrq2)
+                                                   0.01      0.42 r
+
+  clock uncertainty                                0.50      0.92
+  library hold time                               -0.02      0.90
+  data required time                                         0.90
+  ------------------------------------------------------------------------
+  data required time                                         0.90
+  data arrival time                                         -1.01
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.11
+
+
+
+  Startpoint: u_grid/g_row_1__g_col_0__pe/psum_out_reg_3_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_0__pe/psum_out_reg_3_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_14245_2509/Z (bufbdf)                    0.18      0.42 r
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_3_/CP (decrq1)
+                                                   0.01      0.43 r
+
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_3_/CP (decrq1)
+                                                   0.00      0.43 r
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_3_/Q (decrq1)
+                                                   0.18      0.61 r
+  u_grid/g_row_2__g_col_0__pe/add_42/copt_h_inst_4344/Z (dl01d1)
+                                                   0.31      0.93 r
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_3/S (ad01d1)
+                                                   0.10      1.02 r
+  u_grid/g_row_2__g_col_0__pe/copt_h_inst_5628/Z (buffd1)
+                                                   0.05      1.07 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_3_/D (decrq1)
+                                                   0.00      1.07 r
+  data arrival time                                          1.07
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.13      0.16 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.08      0.23 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.16      0.40 r
+  ZCTSBUF_28593_2518/Z (buffda)                    0.14      0.53 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_3_/CP (decrq1)
+                                                   0.01      0.54 r
+
+  clock uncertainty                                0.50      1.04
+  library hold time                               -0.07      0.97
+  data required time                                         0.97
+  ------------------------------------------------------------------------
+  data required time                                         0.97
+  data arrival time                                         -1.07
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.11
+
+
+
+  Startpoint: u_seq/state_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_dma/base_lat_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_74777_2545/Z (buffda)                    0.14      0.38 r
+  u_seq/state_reg_0_/CP (dfcrq2)                   0.00      0.38 r
+
+  u_seq/state_reg_0_/CP (dfcrq2)                   0.00      0.38 r
+  u_seq/state_reg_0_/Q (dfcrq2)                    0.22      0.59 r
+  u_seq/U407/ZN (nr03d1)                           0.08      0.67 f
+  u_seq/U845/Z (aor222d1)                          0.18      0.85 f
+  u_dma/U707/Z (mx02d1)                            0.12      0.97 f
+  u_dma/base_lat_reg_0_/D (dfcrq2)                -0.00      0.97 f
+  data arrival time                                          0.97
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_77511_2541/Z (buffda)                    0.12      0.36 r
+  u_dma/base_lat_reg_0_/CP (dfcrq2)                0.01      0.36 r
+
+  clock uncertainty                                0.50      0.86
+  library hold time                                0.00      0.86
+  data required time                                         0.86
+  ------------------------------------------------------------------------
+  data required time                                         0.86
+  data arrival time                                         -0.97
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.11
+
+
+
+  Startpoint: paddr[4] (input port clocked by clk)
+  Endpoint: u_csr/src_b_reg_reg_17_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: **in2reg_default**
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.24
+  input external delay                             0.00      0.24 f
+  paddr[4] (in)                                    0.24      0.24 f
+  u_csr/ZBUF_13_inst_1692/Z (buffd3)               0.20      0.44 f
+  u_csr/U54/ZN (nr02d1)                            0.10      0.54 r
+  u_csr/U12/ZN (nd03d0)                            0.24      0.79 f
+  u_csr/HFSINV_8245_431/ZN (inv0da)                0.15      0.94 r
+  u_csr/U313/ZN (oai22d1)                          0.06      0.99 f
+  u_csr/src_b_reg_reg_17_/D (dfcrn2)               0.00      0.99 f
+  data arrival time                                          0.99
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                    0.14      0.38 r
+  u_csr/src_b_reg_reg_17_/CP (dfcrn2)              0.00      0.39 r
+
+  clock uncertainty                                0.50      0.89
+  library hold time                                0.00      0.89
+  data required time                                         0.89
+  ------------------------------------------------------------------------
+  data required time                                         0.89
+  data arrival time                                         -0.99
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.11
+
+
+
+  Startpoint: u_grid/g_row_3__g_col_3__pe/psum_out_reg_30_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_seq/c_dst_reg_1__3__30_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ff
+  Scenario: func_ff
+  Path Group: clk
+  Path Type: min
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.09      0.23 r
+  ZCTSBUF_82137_2534/Z (buffd4)                    0.14      0.37 r
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_30_/CP (decrq1)
+                                                   0.00      0.37 r
+
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_30_/CP (decrq1)
+                                                   0.00      0.37 r
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_30_/Q (decrq1)
+                                                   0.22      0.59 f
+  u_seq/U906/ZN (inv0d0)                           0.37      0.96 r
+  u_seq/U265/ZN (oaim22d1)                         0.01      0.97 f
+  u_seq/c_dst_reg_1__3__30_/D (dfcrq2)             0.00      0.97 f
+  data arrival time                                          0.97
+
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.03      0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.12      0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.10      0.24 r
+  ZCTSBUF_77511_2541/Z (buffda)                    0.12      0.36 r
+  u_seq/c_dst_reg_1__3__30_/CP (dfcrq2)            0.01      0.36 r
+
+  clock uncertainty                                0.50      0.86
+  library hold time                                0.00      0.87
+  data required time                                         0.87
+  ------------------------------------------------------------------------
+  data required time                                         0.87
+  data arrival time                                         -0.97
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.11
+
+
+1

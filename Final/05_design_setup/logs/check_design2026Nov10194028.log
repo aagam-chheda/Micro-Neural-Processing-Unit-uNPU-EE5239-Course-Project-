@@ -1,0 +1,312 @@
+****************************************
+ Report : check_design
+ Options: { pre_clock_tree_stage }
+ Design : unpu_top
+ Version: U-2022.12-SP3
+ Date   : Tue Nov 10 19:40:33 2026
+****************************************
+
+****************************************
+Report : Data Mismatches
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 19:40:33 2026
+****************************************
+No mismatches exist on the design.
+1
+[icc2-lic Tue Nov 10 19:40:33 2026] Command 'check_mv_design' requires licenses
+[icc2-lic Tue Nov 10 19:40:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 19:40:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 19:40:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Check-out of alternate set of keys directly with queueing was successful
+1
+[icc2-lic Tue Nov 10 19:40:33 2026] Command 'check_legality' requires licenses
+[icc2-lic Tue Nov 10 19:40:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 19:40:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 19:40:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:40:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:40:33 2026] Check-out of alternate set of keys directly with queueing was successful
+
+************************
+
+running check_legality
+
+Warning: Site master "unit" has neither X-Symmetry nor Y-Symmetry. The "legal orientations" for the standard cells will be limited. (LGL-031)
+PDC app_options settings =========
+	place.legalize.enable_prerouted_net_check: 1
+	place.legalize.num_tracks_for_access_check: 1
+	place.legalize.use_eol_spacing_for_access_check: 0
+	place.legalize.allow_touch_track_for_access_check: 1
+	place.legalize.reduce_conservatism_in_eol_check: 0
+	place.legalize.preroute_shape_merge_distance: 0.0
+	place.legalize.enable_non_preferred_direction_span_check: 0
+
+Layer M1: cached 0 shapes out of 1528 total shapes.
+Layer M2: cached 0 shapes out of 313 total shapes.
+Cached 4256 vias out of 14853 total vias.
+
+check_legality for block design unpu_top ... 
+Information: Initializing classic cellmap without advanced rules enabled and without PDC enabled
+Information: The following app options are used in cellmap
+        place.legalize.enable_color_aware_placement : false
+        place.legalize.use_nll_query_cm : false
+        place.legalize.enable_advanced_legalizer : false
+        place.legalize.enable_prerouted_net_check : true
+        place.legalize.enable_advanced_prerouted_net_check : false
+        place.legalize.always_continue : true
+        place.legalize.limit_legality_checks : false
+        place.common.pnet_aware_density : 1.0000
+        place.common.pnet_aware_min_width : 0.0000
+        place.common.pnet_aware_layers : {}
+        place.common.use_placement_model : false
+        place.common.enable_advanced_placement_model : true
+        cts.placement.cell_spacing_rule_style : maximum
+Total 0.1163 seconds to build cellmap data
+Information: Creating classic rule checker.
+=====> Processed 93 ref cells (0 fillers) from library
+Design has no advanced rules
+Checking legality
+Checking cell legality:
+0%....10%....20%....30%....40%....50%....60%....70%....80%....90%....100%
+Sorting rows.
+Checking spacing rule legality.
+0%....10%....20%....30%....40%....50%....60%....70%....80%....90%....100%
+Checking packing rule legality.
+
+
+****************************************
+  Report : Legality
+****************************************
+
+VIOLATIONS BY CATEGORY:
+   MOVABLE  APP-FIXED USER-FIXED  DESCRIPTION
+         0          0          0  Two objects overlap.
+         0          0          0  A cell violates a pnet.
+         0          0          0  A cell is illegal at a site.
+         0          0          0  A cell is not aligned with a site.
+         0          0          0  A cell has an illegal orientation.
+         0          0          0  A cell spacing rule is violated.
+         0          0          0  A layer rule is violated.
+         0          0          0  A cell is in the wrong region.
+         0          0          0  Two cells violate cts margins.
+         0          0          0  Two cells violate coloring.
+
+         0          0          0  TOTAL
+
+TOTAL 0 Violations.
+
+VIOLATIONS BY SUBCATEGORY:
+     MOVABLE  APP-FIXED USER-FIXED  DESCRIPTION
+
+         0          0          0    Two objects overlap.
+           0          0          0    Two cells overlap.
+           0          0          0    Two cells have overlapping keepout margins.
+           0          0          0    A cell overlaps a blockage.
+           0          0          0    A cell keepout margin overlaps a blockage.
+
+         0          0          0    A cell violates a pnet.
+
+         0          0          0    A cell is illegal at a site.
+           0          0          0    A cell violates pin-track alignment rules.
+           0          0          0    A cell is illegal at a site.
+           0          0          0    A cell violates legal index rule.
+           0          0          0    A cell has the wrong variant for its location.
+
+         0          0          0    A cell is not aligned with a site.
+           0          0          0    A cell is not aligned with the base site.
+           0          0          0    A cell is not aligned with an overlaid site.
+
+         0          0          0    A cell has an illegal orientation.
+
+         0          0          0    A cell spacing rule is violated.
+           0          0          0    A spacing rule is violated in a row.
+           0          0          0    A spacing rule is violated between adjacent rows.
+           0          0          0    A cell violates vertical abutment rule.
+           0          0          0    A cell violates metal spacing rule.
+
+         0          0          0    A layer rule is violated.
+           0          0          0    A layer VTH rule is violated.
+           0          0          0    A layer OD rule is violated.
+           0          0          0    A layer OD max-width rule is violated.
+           0          0          0    A layer ALL_OD corner rule is violated.
+           0          0          0    A layer max-vertical-length rule is violated.
+           0          0          0    A layer TPO rule is violated.
+           0          0          0    Filler cell insertion cannot satisfy layer rules.
+
+         0          0          0    A cell is in the wrong region.
+           0          0          0    A cell is outside its hard bound.
+           0          0          0    A cell is in the wrong voltage area.
+           0          0          0    A cell violates an exclusive movebound.
+
+         0          0          0    Two cells violate cts margins.
+
+         0          0          0    Two cells violate coloring.
+
+
+check_legality for block design unpu_top succeeded!
+
+
+check_legality succeeded.
+
+**************************
+
+1
+Information: Timer using 1 threads
+1
+[icc2-lic Tue Nov 10 19:40:34 2026] Command 'check_clock_trees' requires licenses
+[icc2-lic Tue Nov 10 19:40:34 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:34 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 19:40:34 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:34 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:40:34 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:34 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 19:40:34 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:34 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:40:34 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:40:34 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:40:34 2026] Check-out of alternate set of keys directly with queueing was successful
+Information: CTS will work on the following scenarios. (CTS-101)
+   func_ff	(Mode: mode_func; Corner: corner_ff)
+   func_ss	(Mode: mode_func; Corner: corner_ss)
+Information: CTS will work on all clocks in active scenarios, including 1 master clocks and 0 generated clocks. (CTS-107)
+Output units used in this log:
+   Time        : 1.00ns
+   Resistance  : 1.00kOhm
+   Capacitance : 1.00pF
+   Power       : 1.00pW
+   Length      : 1.00um
+Information: Clock derating is disabled
+
+CTS related app options set by user:
+   No CTS related app option is set.
+
+****************************************
+Report : check_clock_tree
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 19:40:34 2026
+****************************************
+
+=================================================
+Summary
+=================================================
+
+Tag           Count     Solution  Description
+--------------------------------------------------------------------------------
+
+---------------------------------------------
+       Clock Definitions & Propagation
+---------------------------------------------
+CTS-002       0         None      There are active CTS scenarios with no clock definition.
+CTS-004       0         None      There are generated clocks that cannot be reached by their master clock.
+CTS-005       0         None      Generated clocks defined on bidirectional pins
+CTS-019       0         None      Clocks propagate to output ports
+CTS-905       0         None      There are clocks with no sinks
+CTS-906       0         None      There are sinks with no clock
+CTS-907       0         None      There are disabled timing arcs in the clock network
+
+---------------------------------------------
+               Reference Cells
+---------------------------------------------
+CTS-007       0         None      Failed to specify any clock buffers or inverters for CTS
+CTS-008       0         None      Clock reference cells have dont_touch or dont_use
+CTS-903       0         None      Cells instantiated in the clock network are not in the clock reference list
+CTS-904       0         None      Some clock reference cells have no LEQ cell specified for resizing
+
+---------------------------------------------
+               Skew Balancing
+---------------------------------------------
+CTS-006       0         None      Balancing conflicts exist between different clocks
+CTS-009       0         None      Cell instances in the clock tree have multiple conditional delay arcs between the same pins
+CTS-908       0         None      Large phase delay in abstracted sub-blocks
+CTS-910       0         None      Balance point constraints are defined downstream of another balance point or ignore point constraint
+CTS-911       0         None      Clock pins downstream of a balance point or ignore point have been added to a skew group
+CTS-913       0         None      Explicit ignore points have been added to a skew group, and will not be balanced
+CTS-917       0         None      Implicit ignore points have been added to a skew group, and will be balanced
+CTS-967       0         None      %s is sink for generated clock %s but pass through for master clock.
+
+---------------------------------------------
+                Multi-Voltage
+---------------------------------------------
+CTS-901       0         None      Clock nets have MV violations
+CTS-902       0         None      No AON (always-on) buffers or inverters available for CTS
+CTS-918       0         None      Voltage area blocked for buffering.
+
+---------------------------------------------
+    Capacitance & Transition Constraints
+---------------------------------------------
+CTS-909       0         None      set_load constraints detected in the clock tree
+CTS-912       0         None      set_load constraints on output clock ports exceed the max capacitance limit
+CTS-914       0         None      set_input_transition on clock ports exceeds the max transition limit
+CTS-915       0         None      Excessively small max capacitance constraints in the clock network
+CTS-916       0         None      Excessively small max transition constraints in the clock network
+
+---------------------------------------------
+                Other issues
+---------------------------------------------
+CTS-012       0         None      Nets in the clock network have a dont_touch constraint
+CTS-013       0         None      Cells in the clock network have a dont_touch constraint
+CTS-015       0         None      set_max_delay or set_min_delay constraints are defined in the clock network
+CTS-900       0         None      Clock routing rules are outside of allowable layers
+=================================================
+                     Details
+=================================================
+1
+1
+
+  *** EMS Message summary ***
+  ----------------------------------------------------------------------------------------------------
+  Rule         Type   Count      Message
+  ----------------------------------------------------------------------------------------------------
+  DFT-011      Info   1          The design has no scan chain defined in the scandef.
+  DMM-104      Info   91         Mismatch type %mmtype is detected on object type %objtype at obj...
+  TCK-001      Warn   1          The reported endpoint '%endpoint' is unconstrained. Reason: '%re...
+  ----------------------------------------------------------------------------------------------------
+  Total 93 EMS messages : 0 errors, 1 warnings, 92 info.
+  ----------------------------------------------------------------------------------------------------
+
+  *** Non-EMS message summary *** 
+  ----------------------------------------------------------------------------------------------------
+   Rule         Type   Count      Message
+  ----------------------------------------------------------------------------------------------------
+       CTS-101   Info          1 %s will work on the following scenarios.
+       CTS-107   Info          1 %s will work on all clocks in active scenarios, including %d mas...
+       LGL-031   Warn          1 Site master "%s" has neither X-Symmetry nor Y-Symmetry. The "leg...
+       PDC-003   Warn          2 Routing direction of metal layer %s is neither "horizontal" nor ...
+       PVT-032   Info          2 Corner %s: no PVT mismatches.
+  ----------------------------------------------------------------------------------------------------
+  Total 7 non-EMS messages : 0 errors, 3 warnings, 4 info.
+  ----------------------------------------------------------------------------------------------------

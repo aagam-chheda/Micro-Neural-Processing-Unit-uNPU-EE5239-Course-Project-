@@ -1,0 +1,59 @@
+# id	stage	file	pattern(grep -E)	value	line
+syn_area	03_synthesis	03_synthesis/reports/unpu_top.area	^Total area:	442295.849131	32
+syn_flops	03_synthesis	03_synthesis/reports/unpu_top.area	^Number of sequential cells:	2465	20
+gls_checked	03_synthesis	03_synthesis/logs/gls/xrun_cn.log	^checked [0-9]+ value	343341	1680
+gls_pass	03_synthesis	03_synthesis/logs/gls/xrun_cn.log	^ALL CHECKS PASSED	ALL CHECKS PASSED	1681
+route_hold	10_routing	10_routing/pt_route/pt_hold_ff.log	HOLD corner ff: WNS	-0.0238	1149
+route3_hold	10_routing	10_routing/pt_route3/pt_hold_ff.log	HOLD corner ff: WNS	-0.0188	1149
+route4_hold	10_routing	10_routing/pt_route4/pt_hold_ff.log	HOLD corner ff: WNS	+0.0002	548
+route4_setup	10_routing	10_routing/pt_route4/pt_setup_ss.log	SETUP corner ss: WNS	+0.1058	1509
+lef_pins	12_fill_and_export	12_fill_and_export/logs/7_pv.log	073 LEF CHECK PASSED	206	8029
+util	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_utilization.rpt	^Utilization Ratio:	0.6986	7
+cell_area	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_qor.rpt	^Cell Area \(netlist\):	499549.12	172
+total_area	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_qor.rpt	^Cell Area \(netlist and physical only\):	715039.36	173
+leaf_cells	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_qor.rpt	^Leaf Cell Count:	14674	134
+icc2_maxtran	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_qor.rpt	^Max Trans Violations:	8	181
+power_dyn	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_power.rpt	^Total Dynamic Power	8.42e+09 pW	56
+power_leak	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_power.rpt	^Cell Leakage Power	6.80e+06 pW	58
+missing_vias	12_fill_and_export	12_fill_and_export/reports/unpu_top_check_pg_missing_vias.rpt	Total number of missing vias	18	7
+cong_overflow	12_fill_and_export	12_fill_and_export/reports/congestion.rpt	^phase1\. Both Dirs: Overflow	1.97	251
+clk_sinks	12_fill_and_export	12_fill_and_export/reports/unpu_top_final_clock_qor.rpt	^clk\s+M,D\s+[0-9]+	2465	51
+drc_rules	13_signoff_calibre	13_signoff_calibre/final4/drc/unpu_top.drc.rpt	^TOTAL DRC RuleChecks Executed	404	647
+drc_results	13_signoff_calibre	13_signoff_calibre/final4/drc/unpu_top.drc.rpt	^TOTAL DRC Results Generated	0	648
+ant_rules	13_signoff_calibre	13_signoff_calibre/final4/ant/unpu_top.ant.rpt	^TOTAL DRC RuleChecks Executed	16	115
+ant_results	13_signoff_calibre	13_signoff_calibre/final4/ant/unpu_top.ant.rpt	^TOTAL DRC Results Generated	0	116
+lvs_verdict	13_signoff_calibre	13_signoff_calibre/final4/lvs/unpu_top.lvs.rpt	^\s+CORRECT\s+unpu_top	CORRECT	45
+lvs_nets	13_signoff_calibre	13_signoff_calibre/final4/lvs/unpu_top.lvs.rpt	^\s+Nets:\s+[0-9]+\s+[0-9]+\s*$	44560	333
+sdc_ss_compared	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ss.txt	^constraints compared:	722	29
+sdc_ss_same	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ss.txt	^constraints compared:	718	29
+sdc_ss_diff	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ss.txt	^constraints compared:	0	29
+sdc_ss_expected	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ss.txt	^SDC COMPARE: EQUAL apart from the	4	30
+sdc_ff_compared	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ff.txt	^constraints compared:	722	29
+sdc_ff_same	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ff.txt	^constraints compared:	718	29
+sdc_ff_diff	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ff.txt	^constraints compared:	0	29
+sdc_ff_expected	12_fill_and_export	12_fill_and_export/reports/sdc_compare_ff.txt	^SDC COMPARE: EQUAL apart from the	4	30
+pt_setup_off	14_signoff_primetime	14_signoff_primetime/pt/pt_setup_ss.log	SETUP corner ss: WNS	+0.1057	602
+pt_hold_off	14_signoff_primetime	14_signoff_primetime/pt/pt_hold_ff.log	HOLD corner ff: WNS	+0.0041	544
+pt_viol_off	14_signoff_primetime	14_signoff_primetime/pt/pt_setup_ss.log	SETUP corner ss: WNS	0	602
+pt_rules_off	14_signoff_primetime	14_signoff_primetime/pt/pt_setup_ss.log	>>> 095\s+DESIGN RULES:	MET	594
+pt_annot_off	14_signoff_primetime	14_signoff_primetime/pt/pt_setup_ss.log	074 ANNOTATION: pin-to-pin nets	16573	216
+pt_setup_on	14_signoff_primetime	14_signoff_primetime/pt_si/pt_setup_ss.log	SETUP corner ss: WNS	+0.0154	613
+pt_hold_on	14_signoff_primetime	14_signoff_primetime/pt_si/pt_hold_ff.log	HOLD corner ff: WNS	+0.0038	555
+pt_viol_on	14_signoff_primetime	14_signoff_primetime/pt_si/pt_setup_ss.log	SETUP corner ss: WNS	0	613
+pt_rules_on	14_signoff_primetime	14_signoff_primetime/pt_si/pt_setup_ss.log	>>> 095\s+DESIGN RULES:	MET	605
+pt_annot_on	14_signoff_primetime	14_signoff_primetime/pt_si/pt_setup_ss.log	074 ANNOTATION: pin-to-pin nets	16573	223
+pt_setup_legacy	14_signoff_primetime	14_signoff_primetime/pt_legacy/pt_setup_ss.log	SETUP corner ss: WNS	+0.1057	602
+pt_hold_legacy	14_signoff_primetime	14_signoff_primetime/pt_legacy/pt_hold_ff.log	HOLD corner ff: WNS	+0.0041	544
+pt_viol_legacy	14_signoff_primetime	14_signoff_primetime/pt_legacy/pt_setup_ss.log	SETUP corner ss: WNS	0	602
+pt_rules_legacy	14_signoff_primetime	14_signoff_primetime/pt_legacy/pt_setup_ss.log	>>> 095\s+DESIGN RULES:	MET	594
+pt_annot_legacy	14_signoff_primetime	14_signoff_primetime/pt_legacy/pt_setup_ss.log	074 ANNOTATION: pin-to-pin nets	16573	216
+sim_verdict_A	15_post_layout_sim	15_post_layout_sim/sim/runA_console.txt	^=== (PASS|FAIL)	PASS	88
+sim_checks_A	15_post_layout_sim	15_post_layout_sim/sim/runA_console.txt	checks reported: [0-9]+	343341	86
+sim_verdict_B	15_post_layout_sim	15_post_layout_sim/sim/runB_console.txt	^=== (PASS|FAIL)	PASS	92
+sim_checks_B	15_post_layout_sim	15_post_layout_sim/sim/runB_console.txt	checks reported: [0-9]+	343341	90
+sim_verdict_C	15_post_layout_sim	15_post_layout_sim/sim/runC_console.txt	^=== (PASS|FAIL)	PASS	88
+sim_checks_C	15_post_layout_sim	15_post_layout_sim/sim/runC_console.txt	checks reported: [0-9]+	343341	86
+sim_verdict_D	15_post_layout_sim	15_post_layout_sim/sim/runD_console.txt	^=== (PASS|FAIL)	PASS	92
+sim_checks_D	15_post_layout_sim	15_post_layout_sim/sim/runD_console.txt	checks reported: [0-9]+	343341	90
+sim_end_ss	15_post_layout_sim	15_post_layout_sim/sim/pl_ss_nochecks.log	Simulation complete via	278003892	1242
+sim_end_ff	15_post_layout_sim	15_post_layout_sim/sim/pl_ff_nochecks.log	Simulation complete via	276701592	1242

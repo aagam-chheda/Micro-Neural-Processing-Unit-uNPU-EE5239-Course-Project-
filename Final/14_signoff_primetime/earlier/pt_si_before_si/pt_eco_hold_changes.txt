@@ -1,0 +1,3 @@
+Change list, formatted as text:
+  1. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U361/C2' named 'net_PTECO_HOLD_NET10' 'U_PTECO_HOLD_BUF10'
+

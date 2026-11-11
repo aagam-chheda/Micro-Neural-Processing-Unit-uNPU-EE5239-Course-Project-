@@ -1,0 +1,11 @@
+Change list, formatted as text:
+  1. insert_buffer in u_csr: added one 'dl01d1' 'I' to 'Z' on pin 'U77/A2' named 'net_PTECO_HOLD_NET1' 'U_PTECO_HOLD_BUF1'
+  2. insert_buffer in u_csr: added one 'dl01d1' 'I' to 'Z' on pin 'U77/C2' named 'net_PTECO_HOLD_NET2' 'U_PTECO_HOLD_BUF2'
+  3. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U9/B2' named 'net_PTECO_HOLD_NET3' 'U_PTECO_HOLD_BUF3'
+  4. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U77/B2' named 'net_PTECO_HOLD_NET4' 'U_PTECO_HOLD_BUF4'
+  5. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U74/C2' named 'net_PTECO_HOLD_NET5' 'U_PTECO_HOLD_BUF5'
+  6. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U361/B2' named 'net_PTECO_HOLD_NET6' 'U_PTECO_HOLD_BUF6'
+  7. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U79/B2' named 'net_PTECO_HOLD_NET7' 'U_PTECO_HOLD_BUF7'
+  8. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U72/C2' named 'net_PTECO_HOLD_NET8' 'U_PTECO_HOLD_BUF8'
+  9. insert_buffer in u_csr: added one 'buffd1' 'I' to 'Z' on pin 'U398/A2' named 'net_PTECO_HOLD_NET9' 'U_PTECO_HOLD_BUF9'
+

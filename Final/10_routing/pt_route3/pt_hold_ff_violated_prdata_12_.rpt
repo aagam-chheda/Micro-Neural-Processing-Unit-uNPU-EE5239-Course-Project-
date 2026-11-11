@@ -1,0 +1,47 @@
+****************************************
+Report : timing
+	-path_type full_clock_expanded
+	-delay_type min
+	-max_paths 1
+	-sort_by slack
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 20:45:55 2026
+****************************************
+
+
+  Startpoint: u_csr/src_b_reg_reg_12_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[12] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_69038_2549/Z (bufbd7)                           0.11 &     0.34 r
+  u_csr/src_b_reg_reg_12_/CP (dfcrn2)                     0.00 &     0.34 r
+  u_csr/src_b_reg_reg_12_/QN (dfcrn2)                     0.20 &     0.54 r
+  u_csr/U398/ZN (oai222d2)                                0.16 &     0.70 f
+  ctmTdsLR_1_2965/Z (bufbd7)                              0.28 &     0.98 f
+  prdata[12] (out)                                        0.02 &     1.00 f
+  data arrival time                                                  1.00
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -1.00
+  ------------------------------------------------------------------------------
+  slack (VIOLATED: increase significant digits)                     -0.00
+
+

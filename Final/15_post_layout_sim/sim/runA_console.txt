@@ -1,0 +1,88 @@
+=== post-layout simulation: corner ss, mode nochecks, clock half period 10 ns (20 ns clock), expected checks 343341
+=== tool: TOOL:	xrun(64)	22.09-s003 
+=== SDF pnr_icc2/outputs/unpu_top_ss.sdf: [9464184 bytes]
+    (SDFVERSION "3.0")
+    (DESIGN "unpu_top")
+    (DATE "Wed Nov 11 03:49:20 2026")
+    (PROGRAM "Synopsys icc2")
+    (VERSION "U-2022.12-SP3")
+    (DIVIDER /)
+    (TIMESCALE 1ns)
+    counts: IOPATH 52658, INTERCONNECT 37167, SETUPHOLD 0, SETUP 6370, HOLD 6370, RECOVERY 4930, REMOVAL 4930, WIDTH 0
+    SDF version line: (SDFVERSION "3.0"); REMOVAL + RECOVERY entries: 9860
+    first INSTANCE lines:
+          (INSTANCE HFSINV_13_284 )
+          (INSTANCE u_apb/U4 )
+          (INSTANCE earlybuf_rst_n_1_a2 )
+    triples sampled: 8896, with min != max: 297 (they differ: MTM_CONTROL matters)
+=== SDF command file pnr_icc2/sim/pl_ss_nochecks.sdfcmd:
+    SDF_FILE = "pnr_icc2/outputs/unpu_top_ss.sdf",
+      SCOPE = unpu_top_tb.dut,
+      MTM_CONTROL = "MAXIMUM",
+      SCALE_FACTORS = "1.0:1.0:1.0",
+      SCALE_TYPE = "FROM_MTM",
+      LOG_FILE = "pnr_icc2/sim/pl_ss_nochecks_annotate.log";
+=== VERIFY: the SDF command file statement, -sdf_cmd_file and -sdf_verbose are Xcelium syntax not read from a usage text here (README table)
+=== command: xrun -sv -64bit -access +r -timescale 1ns/1ps -top unpu_top_tb -define GLS_CLK_HALF_NS=10 -notimingchecks -sdf_cmd_file pnr_icc2/sim/pl_ss_nochecks.sdfcmd -sdf_verbose -xmlibdirname xrun_out/pl_ss_nochecks pnr_icc2/outputs/unpu_top_pnr_sim.v /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v tb/unpu_top_tb.sv -l pnr_icc2/sim/pl_ss_nochecks.log 
+=== SDF classes approved by the user (SDF_ACCEPT): nl1_neg net_remrec nep_cond  [the documented SDFNEP edge-form acceptance of 2026-11-09 is always on]; licence retries: 0, wait 600 s
+=== xrun exit code 0 (informational: the verdict is judged from the log); wall-clock time 4 min 29 s
+--- first 5 FAIL lines:
+--- first 5 *E,/*F, lines:
+--- SDF annotation lines (Xcelium's own counts; SDF warning lines are not counted as evidence; 14683 lines; the annotated number must be large, 'unannotated'/'not annotated' counts are printed as they are):
+    	Annotating SDF timing data:
+    		Log file:              pnr_icc2/sim/pl_ss_nochecks_annotate.log
+    		Backannotation scope:  unpu_top_tb.dut
+    	Annotation completed with 0 Errors and 22534 Warnings
+    		 No. of Pathdelays = 63339   	 No. of Disabled Pathdelays = 0        Annotated = 47.56% (30124/63339) 
+    		 No. of Tchecks    = 25065   	 No. of Disabled Tchecks    = 25065    Annotated = 0.00% (0/0) 
+    Annotating SDF timing data:
+      Log file:              pnr_icc2/sim/pl_ss_nochecks_annotate.log
+      Backannotation scope:  unpu_top_tb.dut
+    Annotating to instance HFSINV_13_284 of module invbd4
+    Annotating to instance u_apb.U4 of module buffd3
+    Annotating to instance u_apb.U25 of module buffd3
+--- SDF messages by id (all of them, before classification; the lines Xcelium PRINTED: it prints a fixed number per id and then stops, the true counts are below):
+        220 *W,SDFNCAP
+        500 *W,SDFNEP
+--- *W,SDFNCAP (INFORMATION, not a failure: the interconnect source is separated by a unidirectional continuous assign; the port annotation still occurs): 220; the first 3:
+    xmelab: *W,SDFNCAP (./pnr_icc2/outputs/unpu_top_pnr_sim.v,37605|5): The interconnect source unpu_top_tb.dut.paddr[11] is separated by a unidirectional continuous assign from the destination unpu_top_tb.dut.u_csr.U66.A1.  The port annotation will still occur.
+    xmelab: *W,SDFNCAP (./pnr_icc2/outputs/unpu_top_pnr_sim.v,37606|5): The interconnect source unpu_top_tb.dut.paddr[9] is separated by a unidirectional continuous assign from the destination unpu_top_tb.dut.u_csr.U66.A3.  The port annotation will still occur.
+    xmelab: *W,SDFNCAP (./pnr_icc2/outputs/unpu_top_pnr_sim.v,37608|5): The interconnect source unpu_top_tb.dut.paddr[5] is separated by a unidirectional continuous assign from the destination unpu_top_tb.dut.u_csr.U25.A1.  The port annotation will still occur.
+--- *W,SDFNEP: total 500; in the accepted class (IOPATH edge form on a cell of: mx02d0 mx02d1 mi02d0 mi02d1 ah01d1 ad01d0 xr02d1 xn02d1): 476; outside it: 0; COND form (class nep_cond, needs approval): 24 (printed lines)
+    count per cell type:
+            224 mx02d0
+            104 ah01d1
+             90 mx02d1
+             48 xr02d1
+              6 mi02d1
+              4 xn02d1
+    count per arc form:
+            157 (posedge S) Z
+            157 (negedge S) Z
+             26 (posedge B) S
+             26 (posedge A) S
+             26 (negedge B) S
+             26 (negedge A) S
+             12 (posedge A2) Z
+             12 (posedge A1) Z
+             12 (negedge A2) Z
+             12 (negedge A1) Z
+              3 (posedge S) ZN
+              3 (negedge S) ZN
+              1 (posedge A2) ZN
+              1 (posedge A1) ZN
+              1 (negedge A2) ZN
+              1 (negedge A1) ZN
+    NOTE: the message cap of 1000 was reached: the real count is higher (the count above is a lower bound; the rule is applied to the printed lines; the true counts below are checked against Xcelium's total):
+        xmelab: *W,MXWARN: Reached maximum warning limit for 'SDFNEP'(1000).
+--- SDF warning classes, TRUE counts from pnr_icc2/outputs/unpu_top_ss.sdf (corner ss, mode nochecks), checked against Xcelium's own total:
+    class        approved    entries  cells (entries)
+    nep_edge     always         3510  ah01d1 676, xn02d1 72, xr02d1 2280, mx02d0 312, mx02d1 162, mi02d0 2, mi02d1 6  [the cells of SDFNEP_ALLOWED_CELLS only; edge arcs of flops match]
+    nep_cond     yes           19024  ad01d0 18232, ad01d1 720, ad01d4 60, xr03d1 12
+    (nl1_neg and net_remrec do not apply: the timing checks are off in this mode)
+    Xcelium: 'Annotation completed with 0 Errors and 22534 Warnings'; explained by the SDF: 22534; difference: 0  ->  reconciliation ok
+--- SDF warnings of unknown id or form: 0; not-found / unmatched text lines: 0; the first 5 of both:
+--- timing-check violations: not judged in nochecks mode (-notimingchecks switches the checks off)
+--- FAIL lines: 0; *E/*F lines: 0; 'ALL CHECKS PASSED' lines: 1; checks reported: 343341 (expected 343341); SDF annotation lines: 14683; SDFNCAP (info): 220; SDFNEP accepted/outside: 476/0; other-id SDF warnings: 0; SDF not-found text lines: 0; violations: 0; simulated end: at time 278003892 NS
+--- PASS (with documented SDF limitations, SDF_ACCEPT='nl1_neg net_remrec nep_cond': 3510 SDFNEP edge-form arcs on mux-select, XOR/XNOR and adder-sum ran at zero delay; 19024 SDFNEP COND-form arcs (adder sum on ad01*, xr03d1) ran at zero delay; the simulation is optimistic on the zero-delay arcs; timing sign-off is PrimeTime)
+=== PASS (with documented SDF limitations, SDF_ACCEPT='nl1_neg net_remrec nep_cond': 3510 SDFNEP edge-form arcs on mux-select, XOR/XNOR and adder-sum ran at zero delay; 19024 SDFNEP COND-form arcs (adder sum on ad01*, xr03d1) ran at zero delay; the simulation is optimistic on the zero-delay arcs; timing sign-off is PrimeTime): post-layout ss nochecks (wall-clock 4 min 29 s)

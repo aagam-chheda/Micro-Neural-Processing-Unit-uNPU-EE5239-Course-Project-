@@ -1,0 +1,60 @@
+****************************************
+ Report : check_design
+ Options: { pre_placement_stage }
+ Design : unpu_top
+ Version: U-2022.12-SP3
+ Date   : Tue Nov 10 19:46:47 2026
+****************************************
+
+****************************************
+Report : Data Mismatches
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 19:46:47 2026
+****************************************
+No mismatches exist on the design.
+1
+[icc2-lic Tue Nov 10 19:46:47 2026] Command 'check_mv_design' requires licenses
+[icc2-lic Tue Nov 10 19:46:47 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:47 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:47 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:47 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:47 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:47 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:47 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:47 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:47 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:47 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:47 2026] Check-out of alternate set of keys directly with queueing was successful
+1
+Information: There are no relative placement groups in the design. (NDMUI-173)
+Information: Timer using 1 threads
+1
+1
+
+  *** EMS Message summary ***
+  ----------------------------------------------------------------------------------------------------
+  Rule         Type   Count      Message
+  ----------------------------------------------------------------------------------------------------
+  DFT-011      Info   1          The design has no scan chain defined in the scandef.
+  DMM-104      Info   91         Mismatch type %mmtype is detected on object type %objtype at obj...
+  TCK-001      Warn   1          The reported endpoint '%endpoint' is unconstrained. Reason: '%re...
+  ----------------------------------------------------------------------------------------------------
+  Total 93 EMS messages : 0 errors, 1 warnings, 92 info.
+  ----------------------------------------------------------------------------------------------------
+
+  *** Non-EMS message summary *** 
+  ----------------------------------------------------------------------------------------------------
+   Rule         Type   Count      Message
+  ----------------------------------------------------------------------------------------------------
+     NDMUI-173   Info          1 There are no relative placement groups in the design.
+       PVT-032   Info          2 Corner %s: no PVT mismatches.
+  ----------------------------------------------------------------------------------------------------
+  Total 3 non-EMS messages : 0 errors, 0 warnings, 3 info.
+  ----------------------------------------------------------------------------------------------------

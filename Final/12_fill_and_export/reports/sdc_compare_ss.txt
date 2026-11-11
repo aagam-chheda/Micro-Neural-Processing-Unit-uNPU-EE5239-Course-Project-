@@ -1,0 +1,30 @@
+# tclsh scripts/pnr_v2/sdc_compare.tcl scripts/constraints/legacy/unpu_top_legacy.sdc 12_fill_and_export/outputs/unpu_top_pnr_ss.sdc
+# exit status 0 (0 = equal apart from the expected differences)
+constraint                   | legacy                     | exported                   | status
+----------------------------------------------------------------------------------------------------
+clock                        | 20                         | 20                         | SAME  clk
+clock_transition             | 0.6                        | 0.6                        | SAME  clk
+driving_cell                 | buffd1 pin Z               | buffd1 pin Z               | SAME  dma_rdata[0] dma_rdata[10] dma_rdata[11] dma_rdata[12] ... (101)
+input_delay max              | 0 clock clk                | 0 clock clk                | SAME  clk
+input_delay max              | 8 clock clk                | 8 clock clk                | SAME  dma_rdata[0] dma_rdata[10] dma_rdata[11] dma_rdata[12] ... (34)
+input_delay max              | 7 clock clk                | 7 clock clk                | SAME  paddr[0] paddr[10] paddr[11] paddr[12] ... (67)
+input_delay min              | 0 clock clk                | 0 clock clk                | SAME  clk dma_rdata[0] dma_rdata[10] dma_rdata[11] ... (102)
+load                         | 1 pin                      | 1 pin                      | SAME  dma_addr[0] dma_addr[10] dma_addr[11] dma_addr[12] ... (102)
+load                         | 0.2 pin                    | 0.2 pin                    | SAME  dma_rdata[0] dma_rdata[10] dma_rdata[11] dma_rdata[12] ... (101)
+max_capacitance              | 2                          | 2                          | SAME  design
+max_transition design        | 3                          | 3                          | SAME  design
+opcond                       | -                          | -library tsl18fs120_scl_ss -analysis_type on_chip_variation tsl18fs120_scl_ss | EXPECTED  opcond
+      expected: set_operating_conditions: library/analysis setting of the tool (OCV), not a design constraint; the legacy SDC is pure constraints by design
+output_delay max             | 8 clock clk                | 8 clock clk                | SAME  dma_addr[0] dma_addr[10] dma_addr[11] dma_addr[12] ... (69)
+output_delay max             | 7 clock clk                | 7 clock clk                | SAME  prdata[0] prdata[10] prdata[11] prdata[12] ... (33)
+output_delay min             | -0.5 clock clk             | -0.5 clock clk             | SAME  dma_addr[0] dma_addr[10] dma_addr[11] dma_addr[12] ... (102)
+propagated                   | -                          | yes                        | EXPECTED  clk
+      expected: set_propagated_clock: cts.tcl makes the clock propagated after CTS (the tree is real); the legacy SDC has the ideal clock. PrimeTime applies it too (pt_read_sdc_and_check)
+uncertainty hold             | 0.5                        | 0.5                        | SAME  clk
+uncertainty setup            | 1.5                        | 1.5                        | SAME  clk
+units                        | -time ns -capacitance pF   | -time ns -resistance kOhm -capacitance pF -voltage V -current uA | EXPECTED  units
+      expected: set_units: the exported SDC writes the library units; the legacy file declares time/capacitance only
+waveform                     | (default)                  | 0,10                       | EXPECTED  clk
+      expected: create_clock -waveform: the exported SDC writes the default waveform {0 period/2} explicitly; the legacy file leaves it implicit
+constraints compared: 722; SAME 718; EXPECTED differences 4; DIFFERENCES 0
+SDC COMPARE: EQUAL apart from the 4 expected difference(s)

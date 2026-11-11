@@ -1,0 +1,71 @@
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/blocks/unpu_top.dlib' (FILE-007)
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_std.ndm' (FILE-007)
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_filler.ndm' (FILE-007)
+Information: User units loaded from library 'scl180_std' (LNK-040)
+Opening block 'unpu_top.dlib:unpu_top_route.design' in edit mode
+Using libraries: unpu_top.dlib scl180_std scl180_filler
+Visiting block unpu_top.dlib:unpu_top_route.design
+Design 'unpu_top' was successfully linked.
+>>> 088 metal_fill func_ff: set_clock_latency lines before 0, after 0
+>>> 088 metal_fill func_ss: set_clock_latency lines before 0, after 0
+>>> 088 metal_fill: 2 scenarios checked, 0 set_clock_latency line(s) removed, none left
+Option for density blockage handling will be ignored.
+Running ICV version check
+ICV version check ok.
+Num filler cells found = 0, skipped = 0
+
+TrackFill Flow: Creating init setup...
+TrackFill Flow: Creating init setup... done.
+Creating track fill shapes by skipping 1 track between signal and fill shapes for layers: M1 M2 M3 TOP_M 
+TrackFill Flow: Default parameters written to file: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/signoff_fill_run/track_fill_params.rh
+Saving top-block before calling ICV
+Information: Saving block 'unpu_top.dlib:unpu_top_route.design'
+
+Start to run ICV ...
+Running new impl for popen..
+............................................. 1% complete [0:00:01]
+............................................. 5% complete [0:00:06]
+............................................. 5% complete [0:00:06]
+............................................. 10% complete [0:00:07]
+............................................. 10% complete [0:00:07]
+............................................. 15% complete [0:00:07]
+............................................. 20% complete [0:00:08]
+............................................. 20% complete [0:00:08]
+............................................. 25% complete [0:00:09]
+............................................. 25% complete [0:00:09]
+............................................. 30% complete [0:00:11]
+............................................. 30% complete [0:00:11]
+............................................. 35% complete [0:00:12]
+............................................. 40% complete [0:00:14]
+............................................. 40% complete [0:00:14]
+............................................. 45% complete [0:00:17]
+............................................. 50% complete [0:00:20]
+............................................. 50% complete [0:00:20]
+............................................. 55% complete [0:00:22]
+............................................. 60% complete [0:00:23]
+............................................. 60% complete [0:00:23]
+............................................. 65% complete [0:00:25]
+............................................. 70% complete [0:00:28]
+............................................. 70% complete [0:00:28]
+............................................. 75% complete [0:00:30]
+............................................. 75% complete [0:00:30]
+............................................. 80% complete [0:00:32]
+............................................. 85% complete [0:00:34]
+............................................. 85% complete [0:00:34]
+............................................. 90% complete [0:00:35]
+............................................. 95% complete [0:00:36]
+............................................. 95% complete [0:00:36]
+..........Updated tech file has been written at: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/signoff_fill_run/icv_run_1/tech.tf
+
+
+
+Total icv runtime = Overall engine Time=0:00:52 Highest command Mem=0.217 GB 
+
+Info: Starting compress metal fill stage.
+
+Info: compress metal fill finished successfully : 0 seconds
+
+Information: Overwriting block 'unpu_top_filled.design' in library 'unpu_top.dlib'. (DES-025)
+Saving library 'unpu_top.dlib'
+>>> METAL FILL COMPLETE: unpu_top_filled saved. Log: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs/metal_fill.log

@@ -1,0 +1,73 @@
+[icc2-lic Tue Nov 10 21:03:31 2026] Command 'report_clock_qor' requires licenses
+[icc2-lic Tue Nov 10 21:03:31 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 21:03:31 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 21:03:31 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 21:03:31 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 21:03:31 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 21:03:31 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 21:03:31 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 21:03:31 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 21:03:31 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 21:03:31 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 21:03:31 2026] Check-out of alternate set of keys directly with queueing was successful
+ Info: Initializing timer in CLOCK_SYN_REPORT_MODE
+Warning: time.si_enable_analysis is on, it could increase the runtime and memory usage. 
+Warning: The scenario func_ff has max transition DRC fixing disabled using the set_scenario_status command.  High DRC count may be expected.
+Warning: The scenario func_ff has max capacitance DRC fixing disabled using the set_scenario_status command.  High DRC count may be expected.
+****************************************
+Report : clock qor
+        -type summary
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 21:03:32 2026
+****************************************
+
+Attributes
+===========
+M Master Clock
+G Generated Clock
+& Internal Generated Clock
+U User Defined Skew Group
+D Default Skew Group
+* Generated Clock Balanced Separately
+
+================================================
+==== Summary Reporting for Corner corner_ff ====
+================================================
+
+========================================================== Summary Table for Corner corner_ff ==========================================================
+Clock /                               Attrs     Sinks Levels    Clock     Clock     Clock       Max    Global  Trans DRC  Cap DRC      Wire
+Skew Group                                                   Repeater  Repeater   Stdcell   Latency      Skew     Count     Count    Length
+                                                                Count      Area      Area
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+### Mode: mode_func, Scenario: func_ff
+clk                                     M,D      2465      6       63   2104.26   2104.26      0.56      0.32         0         0  36255.23
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+All Clocks                                       2465      6       63   2104.26   2104.26      0.56      0.32         0         0  36255.23
+
+
+Warning: Please use -largest / -smallest / -all switches with -show_verbose_paths / -show_paths to report the clock paths. (CTS-956)
+================================================
+==== Summary Reporting for Corner corner_ss ====
+================================================
+
+========================================================== Summary Table for Corner corner_ss ==========================================================
+Clock /                               Attrs     Sinks Levels    Clock     Clock     Clock       Max    Global  Trans DRC  Cap DRC      Wire
+Skew Group                                                   Repeater  Repeater   Stdcell   Latency      Skew     Count     Count    Length
+                                                                Count      Area      Area
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+### Mode: mode_func, Scenario: func_ss
+clk                                     M,D      2465      6       63   2104.26   2104.26      1.26      0.75         6         0  36255.23
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+All Clocks                                       2465      6       63   2104.26   2104.26      1.26      0.75         6         0  36255.23
+
+
+Warning: Please use -largest / -smallest / -all switches with -show_verbose_paths / -show_paths to report the clock paths. (CTS-956)
+1

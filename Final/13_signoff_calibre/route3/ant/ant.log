@@ -1,0 +1,2880 @@
+//  Calibre v2022.4_37.20    Fri Dec 2 17:43:09 PST 2022
+//  Calibre Utility Library   v0-10_13-2017-1    Thu Jul 29 11:33:17 PDT 2021
+//  Litho Libraries v2022.4_37.20  Fri Dec 2 17:43:09 PST 2022
+//
+//                   Copyright Siemens 1996-2022
+//                       All Rights Reserved.
+//   THIS WORK CONTAINS TRADE SECRET AND PROPRIETARY INFORMATION
+//      WHICH IS THE PROPERTY OF MENTOR GRAPHICS CORPORATION
+//        OR ITS LICENSORS AND IS SUBJECT TO LICENSE TERMS.
+//
+//  The registered trademark Linux is used pursuant to a sublicense from LMI, the
+//  exclusive licensee of Linus Torvalds, owner of the mark on a world-wide basis.
+//
+//  Mentor Graphics software executing under x86-64 Linux
+//
+//  Running on Linux lalita.iitg.ac.in (192.168.64.40) 4.18.0-80.el8.x86_64 #1 SMP Wed Mar 13 12:02:46 UTC 2019 x86_64 glibc 2.28/NPTL 2.28
+//  OS: Red Hat Enterprise Linux release 8.0 (Ootpa)[4.18.0-80.el8.x86_64]
+//
+//  Entries in /proc/meminfo:
+//
+//  MemTotal:       263550840 kB
+//  MemFree:        34342816 kB
+//  MemAvailable:   252360432 kB
+//  Buffers:              12 kB
+//  Cached:         205615068 kB
+//  SwapCached:        54960 kB
+//  Active:         27743840 kB
+//  Inactive:       180714136 kB
+//  Active(anon):    2683292 kB
+//  Inactive(anon):   637000 kB
+//  Active(file):   25060548 kB
+//  Inactive(file): 180077136 kB
+//  Unevictable:       34148 kB
+//  Mlocked:           34148 kB
+//  SwapTotal:      67108860 kB
+//  SwapFree:       65118948 kB
+//  Dirty:               144 kB
+//  Writeback:             0 kB
+//  AnonPages:       2811056 kB
+//  Mapped:          1113600 kB
+//  Shmem:            463656 kB
+//  Slab:           18091312 kB
+//  SReclaimable:   14666320 kB
+//  SUnreclaim:      3424992 kB
+//  KernelStack:       43392 kB
+//  PageTables:        78544 kB
+//  NFS_Unstable:          4 kB
+//  Bounce:                0 kB
+//  WritebackTmp:          0 kB
+//  CommitLimit:    198884280 kB
+//  Committed_AS:   13670872 kB
+//  VmallocTotal:   13743895347199 kB
+//  VmallocUsed:           0 kB
+//  VmallocChunk:          0 kB
+//  HardwareCorrupted:     0 kB
+//  AnonHugePages:   1896448 kB
+//  ShmemHugePages:        0 kB
+//  ShmemPmdMapped:        0 kB
+//  HugePages_Total:       0
+//  HugePages_Free:        0
+//  HugePages_Rsvd:        0
+//  HugePages_Surp:        0
+//  Hugepagesize:       2048 kB
+//  Hugetlb:               0 kB
+//  DirectMap4k:     6297036 kB
+//  DirectMap2M:    250286080 kB
+//  DirectMap1G:    13631488 kB
+//
+//  User limits:
+//
+//  Data size: unlimited
+//  RSS: unlimited
+//  Stack size: 8192 kB
+//  Max user processes: 1028216
+//  VM: unlimited
+//  Current active profile: throughput-performance
+//  nf_conntrack_max: 262144
+//
+WARNING: Please increase descriptors limit for best performance (1024)
+//
+//  Processor Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz [061066] (4th generation)
+//  CPU Info: Cores = 48, SMT enabled with 48 additional virtual processors
+//  Max file descriptors: 1024
+//  64 bit virtual addressing enabled
+//  Running aok_cal_2022.4_37.20/pkgs/icv/pvt/calibre -drc -hier ant.ctrl
+//  Process ID: 60683
+//
+//  Starting time: Tue Nov 10 20:49:23 2026
+//
+
+--- CALIBRE_* ENVIRONMENT VARIABLES:
+
+CALIBRE_ATOMIC_LVHEAP=0
+CALIBRE_CMD_LINE='/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv/pvt/calibre  -drc -hier ant.ctrl'
+CALIBRE_HOME=/home/mentor_tools/calibre/aok_cal_2022.4_37.20
+CALIBRE_INITIAL_CMD_LINE='/home/mentor_tools/calibre/aok_cal_2022.4_37.20/bin/calibre -drc -hier ant.ctrl'
+CALIBRE_READDB_LD_LIBRARY_PATH=/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv/julia/1.5/lib/julia:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv/julia/1.5/lib:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/shared/pkgs/icv/tools/calibre_client/lib/64:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/calibre_base/lib64:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv_lib/lib64:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv_qt5_comp/plugins:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv_oa/22.41p004/lib/linux_rhel68_gcc44x_64/opt
+CALIBRE_SKIP_OS_CHECKS=
+//  Running on 1 CPU (pending licensing) 
+//
+//
+
+--- CALIBRE::DRC-H - Tue Nov 10 20:49:23 2026
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-----          STANDARD VERIFICATION RULE FILE COMPILATION MODULE          -----
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+--- RULE FILE = ant.ctrl
+
+#define 4M1L
+// 082: RELATIVE on purpose (VERIFY V18: Calibre resolves LAYOUT PATH from the folder it is started in, like SOURCE PATH / MASK SVDB DIRECTORY). Start it from <RUN_DIR>/pnr_icc2/calibre/run1/ant/ (README step 2): ../../../outputs is then THIS clone's pnr_icc2/outputs, never another clone's.
+LAYOUT PATH "../../../outputs_route3/unpu_top_routed.gds"
+LAYOUT PRIMARY "unpu_top"
+LAYOUT SYSTEM GDSII
+DRC SUMMARY REPORT "unpu_top.ant.rpt" REPLACE HIER
+DRC RESULTS DATABASE "unpu_top.ant.db" ASCII
+DRC MAXIMUM RESULTS ALL
+DRC MAXIMUM VERTEX ALL
+DRC CELL NAME YES CELL SPACE XFORM
+DRC ICSTATION YES
+INCLUDE "/storage/EE5239G1/aagams_workspace/calibre_run/scr/ANTENNA_TS18SL_SCL_CALIBRE"
+
+
+--- STANDARD VERIFICATION RULE FILE COMPILATION MODULE COMPLETED.  CPU TIME = 0  REAL TIME = 0  LVHEAP = 1/3/3
+
+--- CALIBRE_* ENVIRONMENT VARIABLES:
+
+CALIBRE_ATOMIC_LVHEAP=0
+CALIBRE_CMD_LINE='/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv/pvt/calibre  -drc -hier ant.ctrl'
+CALIBRE_HOME=/home/mentor_tools/calibre/aok_cal_2022.4_37.20
+CALIBRE_INITIAL_CMD_LINE='/home/mentor_tools/calibre/aok_cal_2022.4_37.20/bin/calibre -drc -hier ant.ctrl'
+CALIBRE_READDB_LD_LIBRARY_PATH=/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv/julia/1.5/lib/julia:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv/julia/1.5/lib:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/shared/pkgs/icv/tools/calibre_client/lib/64:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/calibre_base/lib64:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv_lib/lib64:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv_qt5_comp/plugins:/home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv_oa/22.41p004/lib/linux_rhel68_gcc44x_64/opt
+CALIBRE_SKIP_OS_CHECKS=
+
+
+--- VARIABLES:
+    MT_THICK 0.84
+
+--- SELECTED RULE CHECKS:
+    AN.GC.1
+    AN.CS.1
+    AN.MTL.1.M1
+    AN.MTL.2.M1
+    AN.VIA.1.V2
+    AN.VIA.2.V2
+    AN.MTL.1.M2
+    AN.MTL.2.M2
+    AN.VIA.1.V3
+    AN.VIA.2.V3
+    AN.MTL.1.M3
+    AN.MTL.2.M3
+    AN.VIA.1.VT
+    AN.VIA.2.VT
+    AN.MTL.1.MT
+    AN.MTL.2.MT
+
+--- UNSELECTED RULE CHECKS (IMPLICIT):
+
+--- UNSELECTED RULE CHECKS (EXPLICIT):
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-----                  CALIBRE::DRC-H - LICENSING MODULE                   -----
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+
+//  Applying licensing policy...
+//  calibrehdrc license acquired.
+//  calibredrc license acquired.
+
+//  Licensed Products
+//  -----------------
+//  Base products running on 1 core:
+//  - DRC (Hierarchical)
+
+--- CALIBRE::DRC-H LICENSING MODULE COMPLETED.  CPU TIME = 0  REAL TIME = 1
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-----                   CALIBRE LAYOUT DATA INPUT MODULE                   -----
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+--- LAYOUT SYSTEM = GDS
+--- LAYOUT MAGNIFICATION = 1
+
+--------------------------------------------------------------------------------
+-----                     GDS FILE SUMMARY INFORMATION                     -----
+--------------------------------------------------------------------------------
+
+GDS FILENAME:        ../../../outputs_route3/unpu_top_routed.gds
+GDS VERSION:         5
+LIBRARY NAME:        unpu_top_routed.gds
+LAST MODIFIED:       ON 2026/11/10 AT 20:45:28
+LAST ACCESSED:       ON 2026/11/10 AT 20:45:28
+DATABASE PRECISION:  0.001 user units per database unit
+PHYSICAL PRECISION:  1e-09 meters per database unit
+MAGNIFICATION:       1
+
+--------------------------------------------------------------------------------
+-----                 GDS INPUT DATA FOR INDIVIDUAL CELLS                  -----
+--------------------------------------------------------------------------------
+     CELL NAME                  PLACEMENTS   ARRAYS   POLYGONS    PATHS    TEXTS
+--------------------------------------------------------------------------------
+subil_cornerarray                     1700        0          3        0        0
+subil_padmetal                         146        0          8        0        0
+subil_psegment                        3285        0       1099        0        0
+subil_pad                                2        0          1        0        0
+M3_M2$$44665900                          0        0          4        0        0
+subil_pngatebuff                         0        0        570        0        0
+subil_pngate2buff                        2        0          1        0        0
+subil_pngatering                         0        0        162        0        0
+subil_pnbuff                            14        0          1        0        0
+subil_ppolyres                          28        0          7        0        0
+subil_pbbuffcon                        531        0         10        0        0
+subil_powermetal                     21738        0         16        0        0
+subil_nwellres                           4        0          9        0        0
+M2_M1$$44664876                          0        0          4        0        0
+subil_n100                              36        0          5        0        0
+subil_ppwellbias                        54        0         22        0        0
+subil_iorule                             0        0          3        0        0
+subil_ppgate2buffend                     0        0        438        0        0
+subil_ppgatebotring                     47        0        177        0        0
+subil_ppgatebuff                         0        0        312        0        0
+subil_ppgate2buff                        2        0          0        0        0
+subil_ppgate2bufftop                     0        0        429        0        0
+subil_ppgatering                         2        0        301        0        0
+subil_ppbuff                           248        0          2        0        0
+VCELLA31                                 2        0          0        0        0
+VCELLA48                                 6        0          0        0        0
+pc3b21eu                                 5        0          2        0       47
+tsl18cio250_4lm_ab_pc3b21eu              3        0          1        0        0
+subil_pvdicon_ESD                     2613        0        137        0        0
+cnwnmos_thn2t$$44657708                  0        0         70        0        0
+subil_pcappower                        175        0          7        0        0
+subil_m_via2_545                         0        0          2        0        0
+subil_m_via_546                          0        0          2        0        0
+subil_pdiodepower                      387        0         41        0        0
+subil_powerbase_1                     1511        0         12        0        0
+subil_powerbase_ESD1                    99        0          2        0        0
+subil_powermetalring_ESD1             7085        0         84        0        0
+subil_presistorpower                     4        0          9        0        0
+subil_powerbasecon_ESD                  38        0         43        0        0
+subil_ppgateringpower_0di                0        0        383        0        0
+subil_ppgatebotringpower_0di            43        0        200        0        0
+subil_ppgatebuffpower_0di_ESD22          0        0        185        0        0
+subil_ppgate2buffpower_0di_ESD22         2        0          1        0        0
+subil_ppbuffpower_0di_ESD22              8        0          1        0        0
+subil_iorulepower                        0        0          4        0        0
+subil_pngatering22                       0        0        161        0        0
+subil_pngatebuff_ESD122                  0        0        566        0        0
+subil_pngate2buff_ESD122                 2        0          1        0        0
+subil_pnbuff_ESD122                      8        0          1        0        0
+subil_pviblockcell                       0        0          1        0        0
+pvdi                                     9        0          3        0       40
+tsl18cio250_4lm_ab_pvdi                  3        0          1        0        0
+subil_pvdccon_ESD                      823        0        137        0        0
+subil_ppgateringpower                    0        0        384        0        0
+subil_ppgatebuffpower                    0        0        186        0        0
+subil_ppgate2buffpower                   2        0          1        0        0
+subil_ppgatebotringpower                43        0        201        0        0
+subil_ppbuffpower                        8        0          1        0        0
+subil_pngatebuff_ESD1                    0        0        567        0        0
+subil_pngate2buff_ESD1                   2        0          1        0        0
+subil_pnbuff_ESD1                        8        0          1        0        0
+pvdc                                     9        0          3        0       40
+tsl18cio250_4lm_ab_pvdc                  3        0          1        0        0
+subil_powermetalring                  7085        0         84        0        0
+subil_powerbasevsso                    203        0          3        0        0
+subil_pvdacon_ESD                     4261        0        131        0        0
+subil_pvblockcell                        0        0          1        0        0
+pvda                                     9        0          3        0       37
+tsl18cio250_4lm_ab_pvda                  3        0          1        0        0
+pvcf                                     0        0        303        0        6
+tsl18cio250_4lm_ab_pvcf                  3        0          1        0        0
+pvce                                     0        0        306        0       12
+tsl18cio250_4lm_ab_pvce                  3        0          1        0        0
+subil_4via_ESD                          45        0          1        0        0
+subil_pv0icon_ESD                     2633        0        172        0        0
+subil_powerbaseconvsso_ESD1             33        0         43        0        0
+subil_powerbase_ESD2                   152        0          3        0        0
+subil_powermetalring_ESD2             7161        0         84        0        0
+subil_pngatering_ESD22                   0        0        154        0        0
+subil_pngatebuff_ESD22                   0        0        431        0        0
+subil_pngate2buff_ESD22                  2        0          1        0        0
+subil_pnbuff_ESD22                       8        0          1        0        0
+pv0i                                     9        0          2        0       40
+tsl18cio250_4lm_ab_pv0i                  3        0          1        0        0
+subil_pv0fcon_ESD                     5619        0        206        0        0
+subil_powerbase_ESD                    107        0          3        0        0
+subil_pngatering_4DRC                    0        0        162        0        0
+subil_pngatebuff_ESD4DRC                 0        0        555        0        0
+subil_pngate2buff_ESD4DRC                2        0          1        0        0
+subil_pnbuff_ESD4DRC                     8        0          1        0        2
+subil_powerbaseconvsso_ESD              37        0         42        0        0
+subil_powermetalring_ESD              6885        0         84        0        0
+pv0f                                     9        0          1        0       37
+tsl18cio250_4lm_ab_pv0f                  3        0          1        0        0
+subil_powerbase_10c                   1442        0         12        0        0
+subil_powerbase0c_ESD                  113        0          3        0        0
+subil_powerbasecon0c_ESD                29        0         48        0        0
+subil_pv0ccon_ESD                     1117        0        151        0        0
+subil_powermetalring0c_ESD1           7161        0         85        0        0
+pv0c                                     9        0          4        0       40
+tsl18cio250_4lm_ab_pv0c                  3        0          1        0        0
+subil_pv0acon_ESD                     3462        0        241        0        0
+subil_powerbasevsso_ESD                195        0          3        0        0
+subil_pngatebuff_ESD                     0        0        555        0        0
+subil_pngate2buff_ESD                    2        0          1        0        0
+subil_pnbuff_ESD                         8        0          1        0        0
+pv0a                                     9        0          2        0       37
+tsl18cio250_4lm_ab_pv0a                  3        0          1        0        0
+subil_pullup05                          27        0         10        0        0
+M2_M1$$44656684                          0        0         10        0        0
+subil_levelshifti                       74        0        207        0        0
+subil_levelshift                        83        0        184        0        0
+subil_pp18esd                          215        0         60        0        0
+M3_M2$$46622764                          0        0         50        0        0
+subil_ppdrive                          636        0         46        0        0
+subil_slewrate1                        116        0        131        0        0
+subil_invert                            68        0         17        0        0
+subil_slewrate05                         8        0          3        0        0
+subil_pp18oencntl5x                    246        0        292        0        0
+subil_pp18input_3t                     221        0         85        0        0
+subil_p18vdd                            50        0         16        0        0
+subil_vddring                          210        0          9        0        0
+subil_vddcellt                           8        0          2        0        0
+subil_ptdrive05                         25        0         14        0        1
+subil_pct05con                          48        0         22        0        0
+subil_ptblockcell                        9        0          9        0        0
+VCELLA50                                 7        0          0        0        0
+pt3t03u                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pt3t03u               3        0          1        0        0
+subil_pulldown                          16        0         14        0        0
+pt3t03d                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pt3t03d               3        0          1        0        0
+pt3t03                                   3        0          2        0       43
+tsl18cio250_4lm_ab_pt3t03                3        0          1        0        0
+subil_pullup                            32        0         10        0        0
+subil_ptdrive03                         24        0         14        0        0
+subil_pct03con                          39        0         21        0        0
+pt3t02u                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pt3t02u               3        0          1        0        0
+pt3t02d                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pt3t02d               3        0          1        0        0
+pt3t02                                   3        0          2        0       43
+tsl18cio250_4lm_ab_pt3t02                3        0          1        0        0
+subil_ptdrive01                         23        0         14        0        0
+subil_pct01con                          14        0         42        0        0
+pt3t01u                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pt3t01u               3        0          1        0        0
+pt3t01d                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pt3t01d               3        0          1        0        0
+pt3t01                                   3        0          3        0       43
+tsl18cio250_4lm_ab_pt3t01                3        0          1        0        0
+subil_pobuffcon                        510        0          7        0        0
+subil_p3obulkcon                        22        0         13        0        0
+subil_poblockcell                        7        0          7        0        0
+subil_ppwellbiaso03                     41        0         11        0        0
+subil_levelshiftio                      74        0        207        0        0
+subil_p100vdd                           28        0         10        0        0
+subil_vddcello                           8        0          3        0        0
+subil_ppdriveo                         639        0         47        0        0
+M1_PO$$46611500                          0        0          8        0        0
+subil_pp18oencntl5                     224        0        231        0        0
+subil_podrive05                          5        0          1        0        0
+M3_M2$$46618668                          0        0          6        0        0
+subil_pco05con                          15        0         30        0        0
+VCELLA25                                 2        0          0        0        0
+pt3o03                                   9        0          2        0       41
+tsl18cio250_4lm_ab_pt3o03                3        0          1        0        0
+subil_podrive03                          5        0          1        0        0
+subil_pco03con                          16        0         30        0        0
+pt3o02                                   9        0          2        0       41
+tsl18cio250_4lm_ab_pt3o02                3        0          1        0        0
+subil_ppwellbiaso                       40        0         10        0        0
+subil_pp18oencntl                      114        0        269        0        0
+subil_podrive01                          4        0          1        0        0
+subil_pco01con                          18        0         25        0        0
+pt3o01                                   9        0          2        0       41
+tsl18cio250_4lm_ab_pt3o01                3        0          1        0        0
+subil_pp18input01                      231        0        111        0        0
+subil_p32vdd                            72        0          8        0        0
+subil_vddcell                            9        0          2        0        0
+subil_pbdrive05                         22        0         14        0        0
+subil_pcb05con                          28        0         25        0        0
+subil_blockcell                         19        0         17        0        0
+VCELLA49                                 2        0          0        0        0
+pt3b03u                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pt3b03u               3        0          1        0        0
+pt3b03d                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pt3b03d               3        0          1        0        0
+pt3b03                                   3        0          2        0       45
+tsl18cio250_4lm_ab_pt3b03                3        0          1        0        0
+subil_pbdrive03                         22        0         14        0        0
+subil_pcb03con                          28        0         24        0        0
+pt3b02u                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pt3b02u               3        0          1        0        0
+pt3b02d                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pt3b02d               3        0          1        0        0
+pt3b02                                   3        0          2        0       45
+tsl18cio250_4lm_ab_pt3b02                3        0          1        0        0
+subil_pbdrive01                         21        0         14        0        0
+subil_pcb01con                          16        0         33        0        0
+pt3b01u                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pt3b01u               3        0          1        0        0
+pt3b01d                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pt3b01d               3        0          1        0        0
+pt3b01                                   3        0          2        0       45
+tsl18cio250_4lm_ab_pt3b01                3        0          1        0        0
+subil_midconer2                          0        0        473        0        0
+pfrelr                                   2        0          1        0       28
+tsl18cio250_4lm_ab_pfrelr                3        0          1        0        0
+pfeed30000                               0        0        473        0        0
+tsl18cio250_4lm_ab_pfeed30000            3        0          1        0        0
+pfeed10000                               0        0        473        0        0
+tsl18cio250_4lm_ab_pfeed10000            3        0          1        0        0
+pfeed02000                               0        0        473        0        0
+tsl18cio250_4lm_ab_pfeed02000            3        0          1        0        0
+pfeed01000                               0        0        254        0        0
+tsl18cio250_4lm_ab_pfeed01000            3        0          1        0        0
+pfeed00540                               0        0        254        0        0
+tsl18cio250_4lm_ab_pfeed00540            3        0          1        0        0
+pfeed00010                               0        0         35        0        0
+pfeed00120                              12        0          1        0        0
+tsl18cio250_4lm_ab_pfeed00120            3        0          1        0        0
+pfeed00040                               4        0          1        0        0
+tsl18cio250_4lm_ab_pfeed00040            3        0          1        0        0
+tsl18cio250_4lm_ab_pfeed00010            3        0          1        0        0
+subil_oscblock_ESD                      10        0         10        0        0
+subil_pngatering_440                     0        0        162        0        0
+subil_pngatebuffsing_503                 0        0        553        0        0
+subil_pngate2buffsing                    2        0          1        0        0
+subil_pnbuff3d00                         8        0          1        0        0
+asubil_pdiodepower                     313        0         33        0        0
+subil_dio2                             341        0          1        0        0
+subil_nwellres1000                       4        0          9        0        0
+subil_ppwellbias3d00                    47        0         12        0        0
+subil_pobuffcon_291                    510        0          7        0        0
+subil_powermetal_OC                  21738        0         15        0        0
+subil_pngatebuffz_ESD                   46        0         73        0        0
+subil_pxinbulkcon                       12        0         12        0        0
+subil_pxin1conn                        206        0         28        0        0
+subil_presidexin                       297        0         13        0        0
+subil_presidexinl                      283        0         14        0        0
+subil_ppdrivexin                       615        0         40        0        0
+subil_ppgatebuffz_ESD_v1                98        0         65        0        0
+subil_ppolyres_2                        12        0          7        0        0
+subil_ppbuff3d00_OC                    696        0          3        0        0
+subil_pxin1_ESD                         16        0          5        0       14
+subil_pxcon_rev1                       474        0        117        0        0
+subil_powermetalx_ESD_oc             21427        0         16        0        0
+subil_iorule1                            0        0          3        0        0
+subil_n40                               13        0          5        0        0
+subil_pp18xalinvz                       66        0        324        0        0
+subil_pp18xalinven                      42        0         77        0        0
+subil_pp18xalinven1                     42        0         77        0        0
+subil_pxbias                            18        0          9        0        0
+subil_pngate3d00                        30        0         51        0        0
+subil_pxdriveout_ESD                  1006        0         50        0        0
+subil_ppgate2buffx_rev1                  5        0        368        0        0
+subil_ppgate2buffxtop_rev1               5        0        364        0        0
+subil_ppgateringx                      365        0        207        0        0
+subil_ppgate2buffxtop                    5        0        368        0        0
+subil_ppgatebotringx                    15        0        171        0        0
+subil_ppgate2buffx                       5        0        372        0        0
+subil_ppbuffx_rev3                       8        0          1        0        0
+subil_pxout3con                         22        0         83        0        0
+subil_pngatebuffx_ESD                    0        0        545        0        0
+subil_pngate2buff3x_ESD                  2        0          1        0        0
+subil_pngatebuffx                        0        0        443        0        0
+subil_pngate2buff3x_ESDL                 2        0        112        0        0
+subil_pngate2buff3x_ESD1                 2        0        112        0        0
+subil_pngate2buff3x_ESDR1                2        0        223        0        0
+subil_pngate2buff3x                      2        0          1        0        0
+subil_pnbuffx_ESD1                       8        0          1        0        0
+subil_pxout3_ESD_rev1                   15        0          1        0       14
+pc3x13                                   3        0          2        0       42
+tsl18cio250_4lm_ab_pc3x13                3        0          1        0        0
+subil_ppbuffx_rev2                       8        0          1        0        0
+subil_pxout2con                         27        0         74        0        0
+subil_pnbuffx_ESD2                       8        0          1        0        0
+subil_pxout2_ESD_rev1                   15        0          1        0       15
+pc3x12                                   3        0          2        0       42
+tsl18cio250_4lm_ab_pc3x12                3        0          1        0        0
+subil_ppbuffx_rev1                       8        0          1        0        0
+subil_pxout1con                         23        0         75        0        0
+subil_pngate2buff3x_ESDR                 2        0        112        0        0
+subil_pnbuffx_ESD                        8        0          1        0        0
+subil_pxout1_ESD_rev1                   15        0          1        0       15
+pc3x11                                   3        0          2        0       42
+tsl18cio250_4lm_ab_pc3x11                3        0          1        0        0
+pc3t05u                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t05u               3        0          1        0        0
+pc3t05d                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t05d               3        0          1        0        0
+pc3t05                                   3        0          2        0       43
+tsl18cio250_4lm_ab_pc3t05                3        0          1        0        0
+subil_ppwellbias04                      54        0         21        0        0
+subil_ptdrive04                         24        0         14        0        0
+subil_pct04con                          30        0         23        0        0
+VCELLA23                                 2        0          0        0        0
+VCELLA42                                 4        0          0        0        0
+pc3t04u                                  7        0          2        0       43
+tsl18cio250_4lm_ab_pc3t04u               3        0          1        0        0
+pc3t04d                                  7        0          2        0       43
+tsl18cio250_4lm_ab_pc3t04d               3        0          1        0        0
+pc3t04                                   6        0          2        0       43
+tsl18cio250_4lm_ab_pc3t04                3        0          1        0        0
+pc3t03u                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t03u               3        0          1        0        0
+pc3t03d                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t03d               3        0          1        0        0
+pc3t03                                   3        0          2        0       43
+tsl18cio250_4lm_ab_pc3t03                3        0          1        0        0
+subil_ptdrive02                         24        0         14        0        0
+subil_pct02con                          16        0         32        0        0
+pc3t02u                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t02u               3        0          1        0        0
+pc3t02d                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t02d               3        0          1        0        0
+pc3t02                                   3        0          2        0       43
+tsl18cio250_4lm_ab_pc3t02                3        0          1        0        0
+pc3t01u                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t01u               3        0          1        0        0
+pc3t01d                                  4        0          2        0       43
+tsl18cio250_4lm_ab_pc3t01d               3        0          1        0        0
+pc3t01                                   3        0          2        0       43
+tsl18cio250_4lm_ab_pc3t01                3        0          1        0        0
+pc3o05                                   9        0          2        0       41
+tsl18cio250_4lm_ab_pc3o05                3        0          1        0        0
+subil_podrive04                          5        0          1        0        0
+subil_pco04con                          25        0         20        0        0
+pc3o04                                  10        0          3        0       41
+tsl18cio250_4lm_ab_pc3o04                3        0          1        0        0
+pc3o03                                   9        0          2        0       41
+tsl18cio250_4lm_ab_pc3o03                3        0          1        0        0
+subil_podrive02                          5        0          1        0        0
+subil_pco02con                          23        0         21        0        0
+pc3o02                                   9        0          2        0       41
+tsl18cio250_4lm_ab_pc3o02                3        0          1        0        0
+subil_n60                               21        0          5        0        0
+subil_n50o                              17        0          5        0        0
+subil_levelshiftiohv                    93        0         78        0        0
+subil_p100vddhv                         27        0         10        0        0
+subil_vddcellohv                         8        0          3        0        0
+subil_podrive01hv                        4        0          1        0        0
+pc3o01hv                                 9        0          2        0       41
+tsl18cio250_4lm_ab_pc3o01hv              3        0          1        0        0
+pc3o01                                   9        0          2        0       41
+tsl18cio250_4lm_ab_pc3o01                3        0          1        0        0
+subil_pdwellbias                        55        0         11        0        0
+subil_pdblockcell                       12        0         11        0        0
+subil_pcd31con                          24        0         12        0        0
+M2_M1$$46617644                          0        0          3        0        0
+subil_pp18esdinp                       307        0         98        0        0
+subil_p36vdd                             8        0         79        0        0
+subil_vddcell2                           8        0          4        0        0
+M1_PO$$46614572                          0        0          5        0        0
+M2_M1$$46613548                          0        0         14        0        0
+M1_PO$$46612524                          0        0          6        0        0
+subil_pp18input31_rev1                  80        0        507        0        0
+subil_pd31drive_rev1                    17        0         14        0        0
+pc3d31u                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d31u               3        0          1        0        0
+pc3d31d                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d31d               3        0          1        0        0
+pc3d31                                   6        0          2        0       41
+tsl18cio250_4lm_ab_pc3d31                3        0          1        0        0
+M2_M1$$46615596                          0        0         14        0        0
+subil_pp18input21                      299        0         96        0        0
+subil_pd21drive                         17        0         14        0        0
+pc3d21u                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d21u               3        0          1        0        0
+subil_pdwellbias21eu                    52        0         12        0        0
+subil_pullup21                         215        0         47        0        0
+subil_pp18input21eu                    319        0         93        0        0
+subil_p36vdd21eu                         8        0         79        0        0
+subil_vddring21eu                      210        0          9        0        0
+subil_vddcell221eu                       8        0          3        0        0
+subil_ppdrive21eu                      638        0         46        0        0
+subil_pd21driveeu                       17        0         11        0        0
+subil_pcd21eucon                        24        0         12        0        0
+subil_pdblockcell21eu                   16        0         15        0        0
+pc3d21eu                                 7        0          2        0       43
+tsl18cio250_4lm_ab_pc3d21eu              3        0          1        0        0
+pc3d21d                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d21d               3        0          1        0        0
+pc3d21                                   6        0          2        0       41
+tsl18cio250_4lm_ab_pc3d21                3        0          1        0        0
+subil_pcd21con                          27        0         16        0        0
+subil_p18vdd32                          72        0          8        0        0
+subil_vddcell1                           8        0          3        0        0
+subil_pp18input11                      100        0        473        0        0
+subil_pddrive11                          9        0          5        0        0
+pc3d11u                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d11u               3        0          1        0        0
+pc3d11d                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d11d               3        0          1        0        0
+pc3d11                                   6        0          2        0       41
+tsl18cio250_4lm_ab_pc3d11                3        0          1        0        0
+subil_pddrive01                         17        0         15        0        0
+pc3d01u                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d01u               3        0          1        0        0
+pc3d01d                                  7        0          2        0       41
+tsl18cio250_4lm_ab_pc3d01d               3        0          1        0        0
+pc3d01                                   6        0          2        0       41
+tsl18cio250_4lm_ab_pc3d01                3        0          1        0        0
+subil_pc3d00con_ESD                    215        0         37        0        0
+M3_M2$$46624812                          0        0          7        0        0
+M2_M1$$46619692                          0        0          7        0        0
+subil_pnesd3d00                          0        0         49        0        0
+subil_ppdrive3d00_ESD                  771        0         44        0        0
+subil_ppgate2buffend3d00_ESD           106        0        331        0        0
+subil_ppbuff3d00_ESD                   248        0          0        0        0
+subil_p3d00bulkcon                      12        0         11        0        0
+subil_p3d00block                        34        0          7        0        0
+pc3d00                                  12        0          2        0       41
+tsl18cio250_4lm_ab_pc3d00                3        0          1        0        0
+subil_clkpngatering                    650        0        159        0        0
+pfeedendringr                            0        0        473        0        0
+pfeedendringl                            0        0        473        0        0
+subil_m_via2                             0        0          2        0        0
+subil_m_via                              0        0          1        0        0
+subil_blockcell25                       24        0         22        0        0
+subil_m_cc                               0        0          1        0        0
+subil_m_ccp                              1        0          2        0        0
+subil_pullup25                          69        0         14        0        0
+M2_M1$$44663852                          0        0          5        0        0
+via12$$44654636                          0        0          3        0        0
+via12$$44653612                          0        0          3        0        0
+M1_PO$$46625836                          0        0          4        0        0
+rpmpoly2t$$44660780                      0        0         14        0        0
+subil_pp18bulkdrv                       63        0         72        0        0
+subil_pp18oencntl1x                    191        0        272        0        0
+M3_M2$$44666924                          0        0          6        0        0
+subil_m_via3                             0        0          2        0        0
+subil_preside                          298        0         14        0        0
+M2_M1$$44659756                          0        0          6        0        0
+M2_M1$$46623788                          0        0          8        0        0
+M3_M2$$46621740                          0        0         27        0        0
+M3_M2$$46620716                          0        0         62        0        0
+subil_ppdrive25                        604        0         43        0        0
+subil_p18vdd25                          65        0         22        0        0
+subil_vddring25                        222        0          9        0        0
+subil_p32vdd25                          82        0          8        0        0
+subil_vddcell25                          9        0          2        0        0
+subil_pp18esd25                        215        0         59        0        0
+M2_M1$$46616620                          0        0          6        0        0
+subil_levelshifti25                     73        0        190        0        0
+subil_levelshift21                     214        0        234        0        0
+subil_pp18input0121                    298        0        142        0        0
+subil_pbdrive21                         21        0         13        0        0
+subil_pcb21con                          12        0         31        0        0
+subil_m_via5                             0        0          1        0        0
+subil_via1array                       3570        0          2        0        0
+subil_m_via4                             0        0          1        0        0
+subil_via2array                       2312        0          2        0        0
+ora311d2                                 0        0         47        0       15
+ora311d4                                 0        0         49        0       15
+ora31d1                                  0        0         41        0       14
+ora31d2                                  0        0         43        0       14
+ora31d4                                  0        0         44        0       14
+sdbrb1                                   0        0        156        0       19
+sdbrb2                                   0        0        186        0       19
+sdcfq1                                   0        0        142        0       17
+sdcfq2                                   0        0        143        0       17
+sdcrb1                                   0        0        147        0       18
+sdcrb2                                   0        0        182        0       18
+sdcrn1                                   0        0        140        0       17
+sdcrn2                                   0        0        141        0       17
+sdcrq1                                   0        0        142        0       17
+sdcrq2                                   0        0        143        0       17
+sdnrb1                                   0        0        140        0       15
+sdnrb2                                   0        0        175        0       17
+sdnrn1                                   0        0        135        0       16
+sdnrn2                                   0        0        165        0       16
+sdnrq1                                   0        0        130        0       14
+sdnrq2                                   0        0        132        0       14
+asubil_iorule                            0        0          3        0        0
+asubil_pcd21con                        144        0         19        0        0
+asubil_ppgate2buffend                    0        0        412        0        0
+asubil_ppgatebotring                    30        0        194        0        0
+asubil_ppgatebuff                        0        0        313        0        0
+asubil_ppgate2buff                       2        0          1        0        0
+asubil_ppgate2bufftop                    0        0        430        0        0
+asubil_ppgatering                       19        0        302        0        0
+asubil_ppbuff                            8        0          4        0        0
+asubil_pdblock                           7        0          7        0        0
+apc3d01                                 20        0          4        0       45
+tsl18cio250_4lm_ab_apc3d01               3        0          1        0        0
+tsl18cio250_4lm                        113        0          1        0        0
+subil_pnclkbasebuff                    242        0         65        0        0
+subil_pnclkbuff                          8        0          3        0        0
+subil_pp18clkdrive                    3606        0         25        0        0
+subil_clkpowermetal                  18365        0         21        0        0
+subil_clkppgatebotring                  44        0        698        0        0
+subil_clkppbasebuff                      6        0         64        0        0
+subil_clkppgatering                      0        0        736        0        0
+subil_ppclkbuff                         52        0          5        0        0
+subil_clkblockcell                      46        0          5        0        0
+subil_dio46                              3        0          5        0        0
+subil_pp18clkout                       300        0        291        0        0
+subil_pp18clkin                        122        0         78        0        0
+subil_pp18clkinout                       2        0          8        0        0
+subil_clk4x                             10        0          9        0        0
+pc3c04                                   6        0          1        0       40
+tsl18cio250_4lm_ab_pc3c04                3        0          1        0        0
+subil_clk3x                            122        0         21        0        0
+pc3c03                                   6        0          1        0       40
+tsl18cio250_4lm_ab_pc3c03                3        0          1        0        0
+subil_clk2x                           1913        0         27        0        0
+pc3c02                                   6        0          1        0       40
+tsl18cio250_4lm_ab_pc3c02                3        0          1        0        0
+subil_clk1x                           3631        0         33        0        0
+pc3c01                                   6        0          1        0       40
+tsl18cio250_4lm_ab_pc3c01                3        0          1        0        0
+subil_levelshift25                     214        0        234        0        0
+subil_pp18bulkdrv25                     53        0         72        0        0
+subil_pp18input0125                    285        0        143        0        0
+subil_pbdrive25                         21        0         14        0        0
+subil_pcb05con25                        23        0         20        0        0
+pc3b25eu                                 5        0          2        0       47
+tsl18cio250_4lm_ab_pc3b25eu              3        0          1        0        0
+pc3b05u                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b05u               3        0          1        0        0
+pc3b05d                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b05d               3        0          1        0        0
+pc3b05                                   3        0          2        0       45
+tsl18cio250_4lm_ab_pc3b05                3        0          1        0        0
+subil_pbdrive04                         22        0         14        0        0
+subil_pcb04con                          31        0         28        0        0
+pc3b04u                                  7        0          2        0       45
+tsl18cio250_4lm_ab_pc3b04u               3        0          1        0        0
+pc3b04d                                  7        0          2        0       45
+tsl18cio250_4lm_ab_pc3b04d               3        0          1        0        0
+pc3b04                                   6        0          2        0       45
+tsl18cio250_4lm_ab_pc3b04                3        0          1        0        0
+pc3b03u                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b03u               3        0          1        0        0
+subil_pulldown03ed_rev1                 74        0         27        0        0
+subil_pp18input03ed                    226        0        112        0        0
+subil_p32vdd03                          72        0          8        0        0
+subil_vddcell03                          9        0          2        0        0
+subil_pbdrive03ed                       20        0         14        0        0
+subil_pcb03edcon                        29        0         25        0        0
+pc3b03ed                                 6        0          7        0       47
+tsl18cio250_4lm_ab_pc3b03ed              3        0          1        0        0
+pc3b03d                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b03d               3        0          1        0        0
+pc3b03                                   3        0          2        0       45
+tsl18cio250_4lm_ab_pc3b03                3        0          1        0        0
+subil_pbdrive02                         22        0         14        0        0
+subil_pcb02con                          16        0         36        0        0
+pc3b02u                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b02u               3        0          1        0        0
+pc3b02d                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b02d               3        0          1        0        0
+pc3b02                                   3        0          3        0       45
+tsl18cio250_4lm_ab_pc3b02                3        0          1        0        0
+pc3b01u                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b01u               3        0          1        0        0
+pc3b01d                                  4        0          2        0       45
+tsl18cio250_4lm_ab_pc3b01d               3        0          1        0        0
+pc3b01                                   3        0          2        0       45
+tsl18cio250_4lm_ab_pc3b01                3        0          1        0        0
+asubil_leaf                              0        0         10        0        0
+VCELLR1                                  2        0          0        0        0
+VCELLR10                                16        0          0        0        0
+apfeedendringl                          15        0        662        0        4
+apfeedendringr                           1        0          1        0        4
+subil_3via                               8        0          1        0        0
+subil_4via                              10        0          1        0        0
+asubil_pvdicon_ESD_di                 3106        0        136        0        0
+asubil_powerbasecon_ESD_di              41        0         42        0        0
+asubil_powermetalring_ESD_di          6123        0         86        0        0
+VCELLR3                                  4        0          0        0        0
+asubil_pcappower                       157        0          7        0        0
+asubil_powerbase_ESD_di                491        0        552        0        0
+asubil_ppgateringpower0di               22        0        312        0        0
+asubil_ppgatebotringpower0di            43        0        189        0        0
+asubil_ppgatebuffpower0di_ESD22          0        0        202        0        0
+asubil_ppgate2buffpower0di_ESD22         2        0          1        0        0
+asubil_ppbuffpower0di_ESD22              8        0          1        0        0
+asubil_iorulepower                       0        0          4        0        0
+asubil_ananwell                          0        0          2        0        0
+apvdi                                   10        0          3        0       46
+tsl18cio250_4lm_ab_apvdi                 3        0          1        0        0
+asubil_pvdacon_ESD_da                 5593        0        131        0        0
+asubil_powerbase_ESD_da                491        0        552        0        0
+asubil_powerbasecon_ESD_da              42        0         42        0        0
+asubil_powermetalring_ESD_da          6120        0         87        0        0
+asubil_ppgateringpower                  22        0        312        0        0
+asubil_ppgatebuffpower                   0        0        203        0        0
+asubil_ppgate2buffpower                  2        0          1        0        0
+asubil_ppgatebotringpower               43        0        190        0        0
+asubil_ppbuffpower                       8        0          1        0        0
+apvda                                   10        0          3        0       43
+tsl18cio250_4lm_ab_apvda                 3        0          1        0        0
+asubil_powerbaseconvsso_ESD_i           46        0         44        0        0
+asubil_powermetalring_ESD_i           5950        0         87        0        0
+asubil_powerbase_ESD_i                 432        0        552        0        0
+asubil_pv0icon_ESD                    2404        0        155        0        0
+apv0i                                   10        0          3        0       46
+tsl18cio250_4lm_ab_apv0i                 3        0          1        0        0
+asubil_powerbase_ESD                   428        0        552        0        0
+asubil_powermetalring_ESD             5850        0         87        0        0
+asubil_powerbaseconvsso_ESD             41        0         42        0        0
+asubil_pv0acon_ESD                    4817        0        246        0        0
+apv0a                                   10        0          3        0       41
+tsl18cio250_4lm_ab_apv0a                 3        0          1        0        0
+asubil_midconer2                         0        0        544        0        0
+apfrelr                                  2        0          1        0       32
+tsl18cio250_4lm_ab_apfrelr               3        0          1        0        0
+apfeed30000                              0        0       1089        0        0
+tsl18cio250_4lm_ab_apfeed30000           3        0          1        0        0
+apfeed10000                              0        0        561        0        0
+tsl18cio250_4lm_ab_apfeed10000           3        0          1        0        0
+apfeed02000                              0        0        545        0        0
+tsl18cio250_4lm_ab_apfeed02000           3        0          1        0        0
+apfeed01000                              0        0        294        0        0
+tsl18cio250_4lm_ab_apfeed01000           3        0          1        0        0
+apfeed00540                              0        0        294        0        0
+tsl18cio250_4lm_ab_apfeed00540           3        0          1        0        0
+apfeed00010                              0        0         43        0        0
+apfeed00120                             12        0          1        0        0
+tsl18cio250_4lm_ab_apfeed00120           3        0          1        0        0
+apfeed00040                              4        0          1        0        0
+tsl18cio250_4lm_ab_apfeed00040           3        0          1        0        0
+tsl18cio250_4lm_ab_apfeed00010           3        0          1        0        0
+M2_M1$$34933804                          0        0          5        0        0
+M3_M2$$34928684                          0        0          5        0        0
+M3_M2$$34927660                          0        0          6        0        0
+M3_M2$$34926636                          0        0          4        0        0
+asubil_pngatering                        0        0        162        0        0
+asubil_pnbuff                            8        0          1        0        0
+asubil_pdbuffcon                       523        0         10        0        0
+asubil_pdwellbias                       21        0         35        0        0
+asubil_dio2                            375        0          3        0        0
+asubil_pp18esd                         320        0        106        0        0
+asubil_vddring                         293        0          9        0        0
+asubil_vddcell1                          5        0          3        0        0
+asubil_pp18input01                     227        0         98        0        0
+asubil_preside                         280        0         15        0        0
+asubil_ppdrive                         543        0         28        0        0
+asubil_pddrive01                         5        0          3        0        0
+asubil_powermetal                    20511        0         19        0        0
+sdprb1                                   0        0        142        0       18
+sdprb2                                   0        0        144        0       18
+secrq1                                   0        0        192        0       18
+secrq2                                   0        0        194        0       18
+senrq1                                   0        0        185        0       17
+senrq2                                   0        0        187        0       17
+seprq1                                   0        0        194        0       18
+seprq2                                   0        0        196        0       18
+srlab1                                   0        0         46        0       13
+srlab2                                   0        0         75        0       13
+su01d0                                   0        0         74        0       14
+su01d1                                   0        0         74        0       14
+su01d2                                   0        0         76        0       14
+xn02d1                                   0        0         46        0       12
+xn02d2                                   0        0         48        0       12
+xn02d4                                   0        0         50        0       12
+xr02d1                                   0        0         42        0       12
+xr02d2                                   0        0         44        0       12
+xr02d4                                   0        0         46        0       12
+xr03d1                                   0        0         74        0       13
+xr03d2                                   0        0         76        0       13
+xr03d4                                   0        0         78        0       13
+tsl18fs120                             540        0          1        0        0
+ad01d4                                   0        0        139        0       14
+adp1d4                                   0        0        118        0       15
+ah01d4                                   0        0         58        0       13
+an02d7                                   0        0         41        0       12
+an02da                                   0        0         58        0       12
+an03d7                                   0        0         48        0       13
+an03da                                   0        0         51        0       18
+an04d7                                   0        0         54        0       14
+an04da                                   0        0         56        0       14
+bufbd2                                   0        0         30        0       11
+bufbd4                                   0        0         33        0       11
+bufbdf                                   0        0         95        0       20
+bufbdk                                   0        0         88        0       16
+buffd2                                   0        0         29        0       11
+buffd4                                   0        0         35        0       11
+cg01d4                                   0        0         48        0       13
+decfq4                                   0        0        141        0       14
+decrq4                                   0        0        141        0       14
+denrq4                                   0        0        157        0       13
+depfq4                                   0        0        125        0       14
+deprq4                                   0        0        136        0       14
+dfbfb4                                   0        0        114        0       15
+dfbrb4                                   0        0        110        0       15
+dfcfb4                                   0        0        103        0       14
+dfcfq4                                   0        0         95        0       13
+dfcrb4                                   0        0        117        0       14
+dfcrn4                                   0        0         92        0       13
+dfcrq4                                   0        0        109        0       13
+dfnfb4                                   0        0         97        0       13
+dfnrb4                                   0        0        115        0       13
+dfnrn4                                   0        0         83        0       12
+dfnrq4                                   0        0         86        0       12
+dfpfb4                                   0        0        103        0       14
+dfprb4                                   0        0        110        0       14
+dl01d2                                   0        0         42        0       11
+dl01d4                                   0        0         47        0       11
+dl02d2                                   0        0         42        0       11
+dl02d4                                   0        0         48        0       11
+dl03d2                                   0        0         53        0       11
+dl03d4                                   0        0         63        0       11
+dl04d2                                   0        0         58        0       11
+dl04d4                                   0        0         57        0       11
+gclfsn1                                  0        0         78        0       13
+gclfsn2                                  0        0         98        0       13
+gclfsn4                                  0        0        104        0       13
+gclfsn7                                  0        0         90        0       13
+gclfsna                                  0        0        104        0       18
+gclrsn1                                  0        0         75        0       13
+gclrsn2                                  0        0         84        0       13
+gclrsn4                                  0        0         89        0       13
+gclrsn7                                  0        0         93        0       13
+gclrsna                                  0        0        107        0       18
+gcnfnn1                                  0        0         31        0       12
+gcnfnn2                                  0        0         32        0       12
+gcnfnn4                                  0        0         39        0       12
+gcnfnn7                                  0        0         46        0       12
+gcnfnna                                  0        0         46        0       12
+gcnrnn1                                  0        0         32        0       12
+gcnrnn2                                  0        0         40        0       12
+gcnrnn4                                  0        0         48        0       12
+gcnrnn7                                  0        0         53        0       12
+gcnrnna                                  0        0         57        0       17
+invbd7                                   0        0         39        0       11
+invbda                                   0        0         42        0       16
+invbdf                                   0        0         63        0       16
+invbdk                                   0        0         75        0       16
+jkbrb4                                   0        0        134        0       16
+labhb4                                   0        0        105        0       15
+lachq4                                   0        0         75        0       13
+laclq4                                   0        0         76        0       13
+lanhb4                                   0        0         78        0       13
+lanhn4                                   0        0         76        0       12
+lanhq4                                   0        0         62        0       12
+lanht4                                   0        0         89        0       13
+lanlb4                                   0        0         73        0       13
+lanln4                                   0        0         72        0       12
+lanlq4                                   0        0         66        0       12
+mffnrb4                                  0        0        140        0       14
+mx08d1                                   0        0        132        0       21
+mx08d2                                   0        0        147        0       21
+mx08d4                                   0        0        160        0       21
+nd02d7                                   0        0         52        0       12
+nd02da                                   0        0         53        0       17
+nd03d7                                   0        0         57        0       13
+nd03da                                   0        0         61        0       18
+nd04d7                                   0        0         60        0       14
+nd04da                                   0        0         62        0       19
+nr02d7                                   0        0         51        0       12
+nr02da                                   0        0         56        0       12
+nr03d7                                   0        0         56        0       13
+nr03da                                   0        0         61        0       13
+nr04d7                                   0        0         61        0       14
+nr04da                                   0        0         75        0       14
+or02d7                                   0        0         43        0       12
+or02da                                   0        0         65        0       17
+or03d7                                   0        0         49        0       13
+or03da                                   0        0         57        0       18
+or04d7                                   0        0         51        0       14
+or04da                                   0        0         71        0       19
+sdbfb1                                   0        0        130        0       17
+sdbfb2                                   0        0        133        0       17
+sdbfb4                                   0        0        180        0       17
+sdbrb4                                   0        0        181        0       17
+sdcfb1                                   0        0        118        0       16
+sdcfb2                                   0        0        150        0       16
+sdcfb4                                   0        0        147        0       16
+sdcfq4                                   0        0        116        0       15
+sdcrb4                                   0        0        125        0       16
+sdcrn4                                   0        0        138        0       15
+sdcrq4                                   0        0        120        0       15
+sdnfb1                                   0        0        109        0       15
+sdnfb2                                   0        0        113        0       15
+sdnfb4                                   0        0        123        0       17
+sdnrb4                                   0        0        115        0       15
+sdnrn4                                   0        0        110        0       14
+sdnrq4                                   0        0        104        0       14
+sdpfb1                                   0        0        118        0       16
+sdpfb2                                   0        0        125        0       16
+sdpfb4                                   0        0        134        0       16
+sdprb4                                   0        0        155        0       16
+secfq1                                   0        0        151        0       16
+secfq2                                   0        0        160        0       16
+secfq4                                   0        0        175        0       16
+secrq4                                   0        0        132        0       16
+senrb1                                   0        0        127        0       16
+senrb2                                   0        0        130        0       16
+senrb4                                   0        0        166        0       16
+senrq4                                   0        0        132        0       15
+sepfq1                                   0        0        128        0       16
+sepfq2                                   0        0        154        0       16
+sepfq4                                   0        0        134        0       16
+seprq4                                   0        0        141        0       16
+skbrb1                                   0        0        161        0       18
+skbrb2                                   0        0        164        0       18
+skbrb4                                   0        0        172        0       18
+slbhb1                                   0        0        163        0       18
+slbhb2                                   0        0        165        0       18
+slbhb4                                   0        0        185        0       18
+slchq1                                   0        0        126        0       16
+slchq2                                   0        0        129        0       16
+slchq4                                   0        0        138        0       16
+slclq1                                   0        0        127        0       16
+slclq2                                   0        0        131        0       16
+slclq4                                   0        0        140        0       16
+slnhb1                                   0        0        110        0       16
+slnhb2                                   0        0        109        0       16
+slnhb4                                   0        0        118        0       16
+slnhn1                                   0        0        109        0       15
+slnhn2                                   0        0        124        0       15
+slnhn4                                   0        0        137        0       15
+slnhq1                                   0        0        106        0       15
+slnhq2                                   0        0        101        0       15
+slnhq4                                   0        0        109        0       15
+slnht1                                   0        0        123        0       17
+slnht2                                   0        0        130        0       17
+slnht4                                   0        0        145        0       17
+slnlb1                                   0        0        118        0       16
+slnlb2                                   0        0        121        0       16
+slnlb4                                   0        0        137        0       16
+slnln1                                   0        0        105        0       15
+slnln2                                   0        0        103        0       15
+slnln4                                   0        0        115        0       15
+slnlq1                                   0        0        107        0       15
+slnlq2                                   0        0        105        0       15
+slnlq4                                   0        0        115        0       15
+srlab4                                   0        0         57        0       13
+su01d4                                   0        0         89        0       14
+xn02d7                                   0        0         70        0       12
+xn02da                                   0        0         86        0       17
+xr02d7                                   0        0         66        0       12
+xr02da                                   0        0         82        0       18
+xr03d7                                   0        0         93        0       13
+xr03da                                   0        0        110        0       18
+ad01d0                                   0        0         73        0       14
+ad01d1                                   0        0         73        0       14
+ad01d2                                   0        0         73        0       14
+adiode                                   0        0         19        0       10
+adp1d0                                   0        0         96        0       15
+adp1d1                                   0        0         96        0       15
+adp1d2                                   0        0        108        0       15
+ah01d0                                   0        0         51        0       13
+ah01d1                                   0        0         51        0       13
+ah01d2                                   0        0         55        0       13
+an02d0                                   0        0         31        0       12
+an02d1                                   0        0         31        0       12
+an02d2                                   0        0         33        0       12
+an02d4                                   0        0         36        0       12
+an03d0                                   0        0         35        0       13
+an03d1                                   0        0         35        0       13
+an03d2                                   0        0         37        0       13
+an03d4                                   0        0         39        0       13
+an04d0                                   0        0         39        0       14
+an04d1                                   0        0         39        0       14
+an04d2                                   0        0         41        0       14
+an04d4                                   0        0         43        0       14
+an12d1                                   0        0         38        0       12
+an12d2                                   0        0         40        0       12
+an12d4                                   0        0         43        0       12
+aoi211d1                                 0        0         36        0       14
+aoi211d2                                 0        0         52        0       14
+aoi211d4                                 0        0         54        0       14
+aoi21d1                                  0        0         32        0       13
+aoi21d2                                  0        0         48        0       13
+aoi21d4                                  0        0         48        0       13
+aoi221d1                                 0        0         44        0       15
+aoi221d2                                 0        0         60        0       15
+aoi221d4                                 0        0         69        0       15
+aoi2222d1                                0        0         77        0       18
+aoi2222d2                                0        0         79        0       18
+aoi2222d4                                0        0         84        0       18
+aoi222d1                                 0        0         48        0       16
+aoi222d2                                 0        0         65        0       16
+aoi222d4                                 0        0         69        0       16
+aoi22d1                                  0        0         36        0       14
+aoi22d2                                  0        0         52        0       14
+aoi22d4                                  0        0         54        0       14
+aoi311d1                                 0        0         40        0       15
+aoi311d2                                 0        0         56        0       15
+aoi311d4                                 0        0         59        0       15
+aoi31d1                                  0        0         36        0       14
+aoi31d2                                  0        0         48        0       14
+aoi31d4                                  0        0         55        0       14
+aoi321d1                                 0        0         48        0       16
+aoi321d2                                 0        0         64        0       16
+aoi321d4                                 0        0         67        0       16
+aoi322d1                                 0        0         52        0       17
+aoi322d2                                 0        0         68        0       17
+aoi322d4                                 0        0         71        0       17
+aoim211d1                                0        0         39        0       14
+aoim211d2                                0        0         55        0       14
+aoim211d4                                0        0         57        0       14
+aoim21d1                                 0        0         35        0       13
+aoim21d2                                 0        0         51        0       13
+aoim21d4                                 0        0         53        0       13
+aoim22d1                                 0        0         41        0       14
+aoim22d2                                 0        0         48        0       14
+aoim22d4                                 0        0         50        0       14
+aoim2m11d1                               0        0         46        0       14
+aoim2m11d2                               0        0         62        0       14
+aoim2m11d4                               0        0         64        0       14
+aoim311d1                                0        0         45        0       15
+aoim311d2                                0        0         59        0       15
+aoim311d4                                0        0         62        0       15
+aoim31d1                                 0        0         39        0       14
+aoim31d2                                 0        0         55        0       14
+aoim31d4                                 0        0         57        0       14
+aoim3m11d1                               0        0         52        0       15
+aoim3m11d2                               0        0         66        0       15
+aoim3m11d4                               0        0         70        0       15
+aon211d1                                 0        0         38        0       14
+aon211d2                                 0        0         54        0       14
+aon211d4                                 0        0         56        0       14
+aor211d1                                 0        0         43        0       14
+aor211d2                                 0        0         44        0       14
+aor211d4                                 0        0         47        0       14
+aor21d1                                  0        0         39        0       13
+aor21d2                                  0        0         41        0       13
+aor21d4                                  0        0         43        0       13
+aor221d1                                 0        0         51        0       15
+aor221d2                                 0        0         53        0       15
+aor221d4                                 0        0         56        0       15
+aor222d1                                 0        0         57        0       16
+aor222d2                                 0        0         59        0       16
+aor222d4                                 0        0         62        0       16
+aor22d1                                  0        0         43        0       14
+aor22d2                                  0        0         45        0       14
+aor22d4                                  0        0         48        0       14
+aor311d1                                 0        0         47        0       15
+aor311d2                                 0        0         49        0       15
+aor311d4                                 0        0         50        0       15
+aor31d1                                  0        0         41        0       14
+aor31d2                                  0        0         43        0       14
+aor31d4                                  0        0         45        0       14
+bh01d1                                   0        0         68        0       10
+bufbd1                                   0        0         28        0       11
+bufbd3                                   0        0         33        0       11
+bufbd7                                   0        0         43        0       11
+bufbda                                   0        0         57        0       16
+buffd1                                   0        0         27        0       11
+buffd3                                   0        0         29        0       11
+buffd7                                   0        0         36        0       11
+buffda                                   0        0         45        0       16
+buftd1                                   0        0         46        0       12
+buftd2                                   0        0         48        0       12
+buftd4                                   0        0         50        0       12
+buftd7                                   0        0         54        0       12
+buftda                                   0        0         69        0       17
+cg01d0                                   0        0         41        0       13
+cg01d1                                   0        0         41        0       13
+cg01d2                                   0        0         43        0       13
+clk2d2                                   0        0         90        0       12
+cload1                                   0        0         21        0       10
+decfq1                                   0        0        121        0       14
+decfq2                                   0        0        123        0       14
+decrq1                                   0        0        127        0       14
+decrq2                                   0        0        130        0       14
+denrq1                                   0        0        113        0       13
+denrq2                                   0        0        115        0       13
+depfq1                                   0        0        134        0       14
+depfq2                                   0        0        136        0       16
+deprq1                                   0        0        118        0       14
+deprq2                                   0        0        120        0       14
+dfbfb1                                   0        0         99        0       17
+dfbfb2                                   0        0        103        0       17
+dfbrb1                                   0        0        101        0       17
+dfbrb2                                   0        0        105        0       17
+dfcfb1                                   0        0         92        0       16
+dfcfb2                                   0        0         95        0       16
+dfcfq1                                   0        0         87        0       15
+dfcfq2                                   0        0         90        0       15
+dfcrb1                                   0        0         94        0       16
+dfcrb2                                   0        0         97        0       16
+dfcrn1                                   0        0         87        0       15
+dfcrn2                                   0        0         90        0       15
+dfcrq1                                   0        0         89        0       15
+dfcrq2                                   0        0         92        0       15
+dfnfb1                                   0        0         83        0       15
+dfnfb2                                   0        0         91        0       15
+dfnrb1                                   0        0         83        0       15
+dfnrb2                                   0        0         91        0       15
+dfnrn1                                   0        0         80        0       14
+dfnrn2                                   0        0         82        0       14
+dfnrq1                                   0        0         80        0       14
+dfnrq2                                   0        0         84        0       14
+dfpfb1                                   0        0         94        0       16
+dfpfb2                                   0        0         96        0       16
+dfprb1                                   0        0         96        0       16
+dfprb2                                   0        0         98        0       16
+dl01d1                                   0        0         39        0       11
+dl02d1                                   0        0         39        0       11
+dl03d1                                   0        0         39        0       11
+dl04d1                                   0        0         39        0       11
+feedth                                   0        0          8        0        8
+feedth3                                  0        0         16        0       12
+feedth9                                  0        0         24        0       12
+inv0d0                                   0        0         23        0       11
+inv0d1                                   0        0         22        0       11
+inv0d2                                   0        0         24        0       11
+inv0d4                                   0        0         28        0       11
+inv0d7                                   0        0         32        0       11
+inv0da                                   0        0         46        0       16
+invbd2                                   0        0         25        0       11
+invbd4                                   0        0         29        0       11
+invtd1                                   0        0         30        0       12
+invtd2                                   0        0         32        0       12
+invtd4                                   0        0         59        0       12
+invtd7                                   0        0         62        0       12
+invtda                                   0        0         69        0       17
+jkbrb1                                   0        0        131        0       18
+jkbrb2                                   0        0        160        0       18
+labhb1                                   0        0         98        0       16
+labhb2                                   0        0        102        0       16
+lachq1                                   0        0         70        0       14
+lachq2                                   0        0         72        0       14
+laclq1                                   0        0         72        0       14
+laclq2                                   0        0         72        0       13
+lanhb1                                   0        0         65        0       14
+lanhb2                                   0        0         69        0       14
+lanhn1                                   0        0         85        0       13
+lanhn2                                   0        0         73        0       13
+lanhq1                                   0        0         62        0       13
+lanhq2                                   0        0         64        0       13
+lanht1                                   0        0         73        0       14
+lanht2                                   0        0         80        0       14
+lanlb1                                   0        0         67        0       14
+lanlb2                                   0        0         71        0       14
+lanln1                                   0        0         74        0       13
+lanln2                                   0        0         76        0       13
+lanlq1                                   0        0         62        0       13
+lanlq2                                   0        0         64        0       13
+mffnrb1                                  0        0        118        0       14
+mffnrb2                                  0        0        120        0       14
+mi02d0                                   0        0         47        0       13
+mi02d1                                   0        0         49        0       13
+mi02d2                                   0        0         51        0       13
+mi02d4                                   0        0         54        0       13
+mx02d0                                   0        0         40        0       13
+mx02d1                                   0        0         40        0       13
+mx02d2                                   0        0         42        0       13
+mx02d4                                   0        0         45        0       13
+mx04d0                                   0        0         72        0       16
+mx04d1                                   0        0         72        0       16
+mx04d2                                   0        0         74        0       16
+mx04d4                                   0        0         95        0       16
+nd02d0                                   0        0         26        0       12
+nd02d1                                   0        0         26        0       12
+nd02d2                                   0        0         29        0       12
+nd02d4                                   0        0         44        0       12
+nd03d0                                   0        0         30        0       13
+nd03d1                                   0        0         30        0       13
+nd03d2                                   0        0         36        0       13
+nd03d4                                   0        0         48        0       13
+nd04d0                                   0        0         33        0       14
+nd04d1                                   0        0         33        0       14
+nd04d2                                   0        0         49        0       14
+nd04d4                                   0        0         51        0       14
+nd12d0                                   0        0         31        0       12
+nd12d1                                   0        0         31        0       12
+nd12d2                                   0        0         34        0       12
+nd12d4                                   0        0         49        0       12
+nd13d1                                   0        0         34        0       13
+nd13d2                                   0        0         41        0       13
+nd13d4                                   0        0         52        0       13
+nd23d1                                   0        0         43        0       13
+nd23d2                                   0        0         46        0       13
+nd23d4                                   0        0         48        0       13
+nr02d0                                   0        0         26        0       12
+nr02d1                                   0        0         26        0       12
+nr02d2                                   0        0         29        0       12
+nr02d4                                   0        0         44        0       12
+nr03d0                                   0        0         30        0       13
+nr03d1                                   0        0         30        0       13
+nr03d2                                   0        0         46        0       13
+nr03d4                                   0        0         48        0       13
+nr04d0                                   0        0         34        0       14
+nr04d1                                   0        0         34        0       14
+nr04d2                                   0        0         50        0       14
+nr04d4                                   0        0         52        0       14
+nr13d1                                   0        0         35        0       13
+nr13d2                                   0        0         50        0       13
+nr13d4                                   0        0         52        0       13
+nr23d1                                   0        0         43        0       13
+nr23d2                                   0        0         46        0       13
+nr23d4                                   0        0         48        0       13
+oai211d1                                 0        0         36        0       14
+oai211d2                                 0        0         52        0       14
+oai211d4                                 0        0         54        0       14
+oai21d1                                  0        0         32        0       13
+oai21d2                                  0        0         48        0       13
+oai21d4                                  0        0         49        0       13
+oai221d1                                 0        0         46        0       15
+oai221d2                                 0        0         62        0       15
+oai221d4                                 0        0         63        0       15
+oai2222d1                                0        0         79        0       18
+oai2222d2                                0        0         77        0       18
+oai2222d4                                0        0         84        0       18
+oai222d1                                 0        0         50        0       16
+oai222d2                                 0        0         70        0       16
+oai222d4                                 0        0         71        0       16
+oai22d1                                  0        0         36        0       14
+oai22d2                                  0        0         52        0       14
+oai22d4                                  0        0         54        0       14
+oai311d1                                 0        0         40        0       15
+oai311d2                                 0        0         58        0       15
+oai311d4                                 0        0         60        0       15
+oai31d1                                  0        0         36        0       14
+oai31d2                                  0        0         52        0       14
+oai31d4                                  0        0         54        0       14
+oai321d1                                 0        0         48        0       16
+oai321d2                                 0        0         66        0       16
+oai321d4                                 0        0         68        0       16
+oai322d1                                 0        0         52        0       17
+oai322d2                                 0        0         68        0       17
+oai322d4                                 0        0         69        0       17
+oaim211d1                                0        0         39        0       14
+oaim211d2                                0        0         55        0       14
+oaim211d4                                0        0         56        0       14
+oaim21d1                                 0        0         35        0       13
+oaim21d2                                 0        0         51        0       13
+oaim21d4                                 0        0         53        0       13
+oaim22d1                                 0        0         41        0       14
+oaim22d2                                 0        0         57        0       14
+oaim22d4                                 0        0         58        0       14
+oaim2m11d1                               0        0         48        0       14
+oaim2m11d2                               0        0         64        0       14
+oaim2m11d4                               0        0         66        0       14
+oaim311d1                                0        0         43        0       15
+oaim311d2                                0        0         59        0       15
+oaim311d4                                0        0         61        0       15
+oaim31d1                                 0        0         39        0       14
+oaim31d2                                 0        0         55        0       14
+oaim31d4                                 0        0         57        0       14
+oaim3m11d1                               0        0         52        0       15
+oaim3m11d2                               0        0         68        0       15
+oaim3m11d4                               0        0         70        0       15
+oan211d1                                 0        0         37        0       14
+oan211d2                                 0        0         54        0       14
+oan211d4                                 0        0         56        0       14
+or02d0                                   0        0         31        0       12
+or02d1                                   0        0         31        0       12
+or02d2                                   0        0         33        0       12
+or02d4                                   0        0         35        0       12
+or03d0                                   0        0         35        0       13
+or03d1                                   0        0         35        0       13
+or03d2                                   0        0         37        0       13
+or03d4                                   0        0         39        0       13
+or04d0                                   0        0         39        0       14
+or04d1                                   0        0         39        0       14
+or04d2                                   0        0         41        0       14
+or04d4                                   0        0         43        0       14
+ora211d1                                 0        0         42        0       14
+ora211d2                                 0        0         44        0       14
+ora211d4                                 0        0         47        0       14
+ora21d1                                  0        0         39        0       13
+ora21d2                                  0        0         41        0       13
+ora21d4                                  0        0         43        0       13
+ora311d1                                 0        0         45        0       15
+$$VIA34_7100_7100_5_5_0                  0        0         27        0        0
+$$VIA34_7100_7100_2_3_0                  0        0          8        0        0
+$$VIA34_7100_7100_5_3_0                  0        0         17        0        0
+$$VIA34_7100_7100_2_5_0                  0        0         12        0        0
+$$VIA12A_5200_5200_1_7_0                 0        0          9        0        0
+$$VIA23_5200_5200_1_7_0                  0        0          9        0        0
+$$VIA34_7100_7100_1_5_0                  0        0          7        0        0
+$$VIA12A_5200_5200_1_5_0                 0        0          7        0        0
+$$VIA23_5200_5200_1_5_0                  0        0          7        0        0
+$$VIA34_7100_7100_1_3_0                  0        0          5        0        0
+$$VIA12A_5200_5200_2_1_0                 0        0          4        0        0
+$$VIA12A_5200_5200_1_2_0                 0        0          4        0        0
+$$VIA23_5200_5200_2_1_0                  0        0          4        0        0
+$$VIA23_5200_5200_1_2_0                  0        0          4        0        0
+$$VIA34_7100_7100_1_2_0                  0        0          4        0        0
+$$VIA34_7100_7100_2_1_0                  0        0          4        0        0
+$$VIA12A                                 0        0          3        0        0
+$$VIA23                                  0        0          3        0        0
+$$VIA34                                  0        0          3        0        0
+unpu_top                            179112        0        206   139345      206
+
+NOTE: UNUSED geometric data is present on the following layer/datatype pairs:
+    LAYER = 3 DATATYPE = 0
+    LAYER = 3 DATATYPE = 51
+    LAYER = 8 DATATYPE = 8
+    LAYER = 9 DATATYPE = 8
+    LAYER = 9 DATATYPE = 50
+    LAYER = 31 DATATYPE = 0
+    LAYER = 32 DATATYPE = 0
+    LAYER = 68 DATATYPE = 0
+    LAYER = 77 DATATYPE = 42
+    LAYER = 77 DATATYPE = 43
+    LAYER = 77 DATATYPE = 44
+    LAYER = 77 DATATYPE = 50
+    LAYER = 77 DATATYPE = 58
+    LAYER = 88 DATATYPE = 0
+    LAYER = 116 DATATYPE = 0
+    LAYER = 235 DATATYPE = 0
+
+NOTE: USED geometric data is present on the following layer/datatype pairs:
+    SIMPLE LAYER = 1000
+        LAYER = 9 DATATYPE = 0
+    SIMPLE LAYER = 1001
+        LAYER = 34 DATATYPE = 0
+    SIMPLE LAYER = 1002
+        LAYER = 8 DATATYPE = 0
+    SIMPLE LAYER = 1004
+        LAYER = 40 DATATYPE = 0
+    SIMPLE LAYER = 1006
+        LAYER = 42 DATATYPE = 0
+    SIMPLE LAYER = 1008
+        LAYER = 44 DATATYPE = 0
+    SIMPLE LAYER = 1014
+        LAYER = 50 DATATYPE = 0
+    SIMPLE LAYER = 1019
+        LAYER = 41 DATATYPE = 0
+    SIMPLE LAYER = 1020
+        LAYER = 43 DATATYPE = 0
+    SIMPLE LAYER = 1023
+        LAYER = 49 DATATYPE = 0
+    SIMPLE LAYER = 1072
+        LAYER = 72 DATATYPE = 0
+
+NOTE: The following required simple layers are EMPTY:
+    990
+    4656
+    7856
+
+--- LAYOUT DATABASE CONSTRUCTOR COMPLETED.  CPU TIME = 0  REAL TIME = 0  LVHEAP = 12/13/13
+
+CONSTRUCTING HIERARCHICAL DATABASE
+    COPYING LAYOUT DATABASE
+    COPY COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    (P=179112 A=0(0) AX=0(0) AY=0(0) D=0)
+    LITHO HEURISTICS OFF
+    MDP HEURISTICS OFF
+    ANTENNA HEURISTICS ON
+    CLONE STATE: LCTP(Y/N/U) = U LCRP(Y/N/U) = U LCXP(Y/N/U) = U LCYP(Y/N/U) = U LITHO(0/1/2) = 0 DFM(0/1/2) = 0 MAGXY(0/1) = 0
+    PROCESSING TEXT
+    ELIMINATING DUPLICATE TEXT
+    DUPLICATE TEXT ELIMINATION COMPLETE (206 -> 206 = 0). CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    ELIMINATING EMPTY CELLS
+    EMPTY CELL ELIMINATION COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    COMPUTING RECTANGULAR EXTENTS
+    RECTANGULAR EXTENTS COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    IDENTIFYING TOP LAYER CELLS
+    TOP LAYER CELL IDENTIFICATION COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    IDENTIFYING VERY SMALL CELLS
+        $$VIA34
+        $$VIA34_7100_7100_1_2_0
+        $$VIA34_7100_7100_2_1_0
+        $$VIA34_7100_7100_1_3_0
+        $$VIA34_7100_7100_2_3_0
+    VERY SMALL CELL IDENTIFICATION COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    DETECTING FILL PATTERNS
+    CHECKING ACUTE/SKEW/ANGLED/OFFGRID
+
+WARNING: ACUTE angle on layer GC at location (2.06,3.98) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (0.76,3.93) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (1.76,3.98) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (2.12,3.92) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (0.46,3.93) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (0.82,3.87) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (1.82,3.92) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (0.52,3.87) in cell bufbdf.
+
+
+WARNING: ACUTE angle on layer GC at location (12.51,4.51) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (9.91,4.47) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (11.21,4.43) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (12.45,4.45) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (12.81,4.51) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (9.84,4.4) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (10.21,4.47) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (12.75,4.45) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (11.15,4.37) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (11.51,4.43) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (10.14,4.4) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (11.45,4.37) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.07,3.83) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.01,3.77) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.37,3.83) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.31,3.77) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (8.87,3.46) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (11.77,3.43) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (10.47,3.41) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (8.57,3.46) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (8.9,3.43) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (8.6,3.43) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (11.71,3.37) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (12.07,3.43) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (10.44,3.38) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (10.77,3.41) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (10.74,3.38) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (12.01,3.37) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.63,3.15) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.57,3.09) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.93,3.15) in cell ad01d4.
+
+
+WARNING: ACUTE angle on layer GC at location (13.87,3.09) in cell ad01d4.
+
+    CHECKING COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    ELIMINATING DUPLICATE PLACEMENTS
+    DUPLICATE PLACEMENT ELIMINATION COMPLETE (179112 -> 179112 = 0). CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    FLATTENING SELECTED LAYERS
+    EXPANDING UNIQUE ICV PLACEMENTS
+    MERGING CURVILINEAR GEOMETRY
+    CURVILINEAR MERGE COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    COMPUTING RECTILINEAR EXTENTS
+    RECTILINEAR EXTENTS COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    SORTING PLACEMENTS VERTICALLY
+    SORT COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    ELIMINATING DUPLICATE PLACEMENTS
+    DUPLICATE PLACEMENT ELIMINATION COMPLETE (179112 -> 179112 = 0). CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    EXPANDING UNIQUE TRANSPARENT CELL PLACEMENTS
+      PRE-EXPAND COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    EXPANDING UNIQUE LIGHT-WEIGHT CELL PLACEMENTS
+      PRE-EXPAND COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+        an03d0 in unpu_top at (859.44,574.4)
+        aoi21d4 in unpu_top at (853.28,535.2)
+        nd02d2 in unpu_top at (846,546.4)
+        an04d0 in unpu_top at (841.52,557.6)
+        aoi222d1 in unpu_top at (839.28,535.2)
+        buffd2 in unpu_top at (830.88,535.2)
+        oai222d4 in unpu_top at (830.32,496)
+        or03d1 in unpu_top at (746.88,736.8)
+        nr04d2 in unpu_top at (744.08,748)
+        oai321d1 in unpu_top at (737.92,748)
+        aoi211d1 in unpu_top at (729.52,742.4)
+        oaim22d4 in unpu_top at (716.08,574.4)
+        or04d0 in unpu_top at (714.4,759.2)
+        oaim211d1 in unpu_top at (708.8,764.8)
+        aoim31d1 in unpu_top at (693.12,832)
+        mi02d0 in unpu_top at (643.84,832)
+        xr03d1 in unpu_top at (623.68,804)
+        invbd2 in unpu_top at (590.08,848.8)
+        an03d4 in unpu_top at (584.48,837.6)
+        nd02d7 in unpu_top at (453.44,764.8)
+        nd13d1 in unpu_top at (431.04,423.2)
+        invbd7 in unpu_top at (339.76,748)
+        aor31d1 in unpu_top at (315.12,736.8)
+        oai22d4 in unpu_top at (299.44,283.2)
+    EXPAND COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    EXPANDING TRIVIAL CELL PLACEMENTS
+      PRE-EXPAND COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    EXPANDING VERY SPARSE ARRAY PLACEMENTS
+    EXPANDING LARGE CELL ARRAY PLACEMENTS
+    EXPANDING VERY SPARSE CELL PLACEMENTS
+      PRE-EXPAND COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    ELIMINATING DUPLICATE SUPER-HIERARCHICAL PLACEMENTS
+    DUPLICATE SUPER-HIERARCHICAL PLACEMENT ELIMINATION COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    EXPANDING DENSE OVERLAPS
+      THRESHOLDS = 1000 10000 390332.493927
+      PRE-EXPAND COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    EXPANDING UNIQUE META-CELL PLACEMENTS
+      PRE-EXPAND COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    EXPANDING DENSE OVERLAPS
+      THRESHOLDS = 1000 10000 390332.493927
+      PRE-EXPAND COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    ANALYZING HIERARCHY FOR AUTOMATIC TURBO FLEX
+    ANALYSIS COMPLETE (TA=773731.3444). CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    IDENTIFYING MULTI-CORE CELLS
+    INJECTING HIERARCHY
+      INJECTION PREP COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/13/14
+        unpu_top (bin BC=12 FBC=0 F=8 A=773731.3444)
+      BIN INJECTION COMPLETE CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/13/14
+        unpu_top(BIN1) (priority16)
+        unpu_top(BIN2) (priority16)
+        unpu_top(BIN3) (priority16)
+        unpu_top(BIN4) (priority16)
+        unpu_top(BIN5) (priority16)
+        unpu_top(BIN6) (priority16)
+        unpu_top(BIN7) (priority16)
+        unpu_top(BIN8) (priority16)
+        unpu_top(BIN9) (priority16)
+        unpu_top(BIN10) (priority16)
+        unpu_top(BIN11) (priority16)
+        unpu_top(BIN0) (priority16)
+      PRIORITY INJECTION COMPLETE CPU TIME = 1  REAL TIME = 1  LVHEAP = 7/13/14
+      INJECTION POST COMPLETE (0 0). CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    INJECTION COMPLETE. CPU TIME = 1  REAL TIME = 1  LVHEAP = 6/13/14
+    COMPUTING RECTANGULAR EXTENTS
+    RECTANGULAR EXTENTS COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    COMPUTING RECTILINEAR EXTENTS
+    RECTILINEAR EXTENTS COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/13/14
+    SORTING PLACEMENTS VERTICALLY
+    SORT COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    PUSHING VERY SMALL CELL PLACEMENTS
+    PUSH COMPLETE (P=0 PA1=0 PA2=0) CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    PUSHING TOP LAYER CELL PLACEMENTS
+    COMPUTING CELL-TO-WORLD TRANSFORMS
+    COMPUTE COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    SORTING PLACEMENTS BY CELL
+    SORT COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 6/13/14
+    PACKING HIERARCHY. (C=3 CN=1 P1=263 P2=0 XF=0) LVHEAP = 6/13/14
+    PACKING COMPLETE. (C=3 CN=1 P=163 XF=0) CPU TIME = 0  REAL TIME = 0  LVHEAP = 5/13/14
+    COMPUTING PLACEMENT OVERLAPS
+    COMPUTE COMPLETE (OC=162068 V1=6298 V2=0 SC=147 FC=140901). CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/33/33
+    COMPUTING CELL OVERLAP AREAS
+    COMPUTE COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/33/33
+    COMPUTING PLACEMENT / OVERLAP AREA INTERSECTIONS
+    COMPUTE COMPLETE. CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/33/33
+HIERARCHICAL DATABASE CONSTRUCTOR COMPLETE. CPU TIME = 1  REAL TIME = 1  LVHEAP = 7/33/33
+(C=3 CN=1 P=163 G=64 GH=7 D=0 TXT=2 XF=0 PO=87)
+
+--------------------------------------------------------------------------------
+-----                           VPC REQUIREMENTS                           -----
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-----               TEXT OBJECTS FOR CONNECTIVITY EXTRACTION               -----
+--------------------------------------------------------------------------------
+
+dma_addr[31] (14.4,885.237) 1007 unpu_top
+dma_addr[29] (22.8,885.237) 1007 unpu_top
+dma_addr[27] (31.2,885.237) 1007 unpu_top
+dma_addr[25] (39.6,885.237) 1007 unpu_top
+dma_addr[23] (48,885.237) 1007 unpu_top
+dma_addr[21] (56.4,885.237) 1007 unpu_top
+dma_addr[19] (64.8,885.237) 1007 unpu_top
+dma_addr[17] (73.2,885.237) 1007 unpu_top
+dma_addr[15] (81.6,885.237) 1007 unpu_top
+dma_addr[13] (90,885.237) 1007 unpu_top
+dma_addr[11] (98.4,885.237) 1007 unpu_top
+dma_addr[9] (106.8,885.237) 1007 unpu_top
+dma_addr[7] (115.2,885.237) 1007 unpu_top
+dma_addr[5] (123.6,885.237) 1007 unpu_top
+dma_addr[3] (132,885.237) 1007 unpu_top
+dma_addr[1] (140.4,885.237) 1007 unpu_top
+dma_wdata[31] (148.8,885.237) 1007 unpu_top
+dma_wdata[29] (157.2,885.237) 1007 unpu_top
+dma_wdata[27] (165.6,885.237) 1007 unpu_top
+dma_wdata[25] (174,885.237) 1007 unpu_top
+dma_wdata[23] (182.4,885.237) 1007 unpu_top
+dma_wdata[21] (190.8,885.237) 1007 unpu_top
+dma_wdata[19] (199.2,885.237) 1007 unpu_top
+dma_wdata[17] (207.6,885.237) 1007 unpu_top
+dma_wdata[15] (216,885.237) 1007 unpu_top
+dma_wdata[13] (224.4,885.237) 1007 unpu_top
+dma_wdata[11] (232.8,885.237) 1007 unpu_top
+dma_wdata[9] (241.2,885.237) 1007 unpu_top
+dma_wdata[7] (249.6,885.237) 1007 unpu_top
+dma_wdata[5] (258,885.237) 1007 unpu_top
+dma_wdata[3] (266.4,885.237) 1007 unpu_top
+dma_wdata[1] (274.8,885.237) 1007 unpu_top
+dma_rdata[31] (283.2,885.237) 1007 unpu_top
+dma_rdata[29] (291.6,885.237) 1007 unpu_top
+dma_rdata[27] (300,885.237) 1007 unpu_top
+dma_rdata[25] (308.4,885.237) 1007 unpu_top
+dma_rdata[23] (316.8,885.237) 1007 unpu_top
+dma_rdata[21] (325.2,885.237) 1007 unpu_top
+dma_rdata[19] (333.6,885.237) 1007 unpu_top
+dma_rdata[17] (342,885.237) 1007 unpu_top
+dma_rdata[15] (350.4,885.237) 1007 unpu_top
+dma_rdata[13] (358.8,885.237) 1007 unpu_top
+dma_rdata[11] (367.2,885.237) 1007 unpu_top
+dma_rdata[9] (375.6,885.237) 1007 unpu_top
+dma_rdata[7] (384,885.237) 1007 unpu_top
+dma_rdata[5] (392.4,885.237) 1007 unpu_top
+dma_rdata[3] (400.8,885.237) 1007 unpu_top
+dma_rdata[1] (409.2,885.237) 1007 unpu_top
+dma_wstrb[3] (417.6,885.237) 1007 unpu_top
+dma_wstrb[1] (426,885.237) 1007 unpu_top
+dma_valid (434.4,885.237) 1007 unpu_top
+dma_ready (442.8,885.237) 1007 unpu_top
+dma_wstrb[0] (451.2,885.237) 1007 unpu_top
+dma_wstrb[2] (459.6,885.237) 1007 unpu_top
+dma_rdata[0] (468,885.237) 1007 unpu_top
+dma_rdata[2] (476.4,885.237) 1007 unpu_top
+dma_rdata[4] (484.8,885.237) 1007 unpu_top
+dma_rdata[6] (493.2,885.237) 1007 unpu_top
+dma_rdata[8] (501.6,885.237) 1007 unpu_top
+dma_rdata[10] (510,885.237) 1007 unpu_top
+dma_rdata[12] (518.4,885.237) 1007 unpu_top
+dma_rdata[14] (526.8,885.237) 1007 unpu_top
+dma_rdata[16] (535.2,885.237) 1007 unpu_top
+dma_rdata[18] (543.6,885.237) 1007 unpu_top
+dma_rdata[20] (552,885.237) 1007 unpu_top
+dma_rdata[22] (560.4,885.237) 1007 unpu_top
+dma_rdata[24] (568.8,885.237) 1007 unpu_top
+dma_rdata[26] (577.2,885.237) 1007 unpu_top
+dma_rdata[28] (585.6,885.237) 1007 unpu_top
+dma_rdata[30] (594,885.237) 1007 unpu_top
+dma_wdata[0] (602.4,885.237) 1007 unpu_top
+dma_wdata[2] (610.8,885.237) 1007 unpu_top
+dma_wdata[4] (619.2,885.237) 1007 unpu_top
+dma_wdata[6] (627.6,885.237) 1007 unpu_top
+dma_wdata[8] (636,885.237) 1007 unpu_top
+dma_wdata[10] (644.4,885.237) 1007 unpu_top
+dma_wdata[12] (652.8,885.237) 1007 unpu_top
+dma_wdata[14] (661.2,885.237) 1007 unpu_top
+dma_wdata[16] (669.6,885.237) 1007 unpu_top
+dma_wdata[18] (678,885.237) 1007 unpu_top
+dma_wdata[20] (686.4,885.237) 1007 unpu_top
+dma_wdata[22] (694.8,885.237) 1007 unpu_top
+dma_wdata[24] (703.2,885.237) 1007 unpu_top
+dma_wdata[26] (711.6,885.237) 1007 unpu_top
+dma_wdata[28] (720,885.237) 1007 unpu_top
+dma_wdata[30] (728.4,885.237) 1007 unpu_top
+dma_addr[0] (736.8,885.237) 1007 unpu_top
+dma_addr[2] (745.2,885.237) 1007 unpu_top
+dma_addr[4] (753.6,885.237) 1007 unpu_top
+dma_addr[6] (762,885.237) 1007 unpu_top
+dma_addr[8] (770.4,885.237) 1007 unpu_top
+dma_addr[10] (778.8,885.237) 1007 unpu_top
+dma_addr[12] (787.2,885.237) 1007 unpu_top
+dma_addr[14] (795.6,885.237) 1007 unpu_top
+dma_addr[16] (804,885.237) 1007 unpu_top
+dma_addr[18] (812.4,885.237) 1007 unpu_top
+dma_addr[20] (820.8,885.237) 1007 unpu_top
+dma_addr[22] (829.2,885.237) 1007 unpu_top
+VDD (830,442.8) 1015 unpu_top
+dma_addr[24] (837.6,885.237) 1007 unpu_top
+dma_addr[26] (846,885.237) 1007 unpu_top
+dma_addr[28] (854.4,885.237) 1007 unpu_top
+VSS (860,442.8) 1015 unpu_top
+dma_addr[30] (862.8,885.237) 1007 unpu_top
+rst_n (885.237,15.73) 1009 unpu_top     paddr[30] (885.237,24.27) 1009 unpu_top
+paddr[28] (885.237,32.81) 1009 unpu_top
+paddr[26] (885.237,41.35) 1009 unpu_top
+paddr[24] (885.237,49.89) 1009 unpu_top
+paddr[22] (885.237,58.43) 1009 unpu_top
+paddr[20] (885.237,66.97) 1009 unpu_top
+paddr[18] (885.237,75.51) 1009 unpu_top
+paddr[16] (885.237,84.05) 1009 unpu_top
+paddr[14] (885.237,92.59) 1009 unpu_top
+paddr[12] (885.237,101.13) 1009 unpu_top
+paddr[10] (885.237,109.67) 1009 unpu_top
+paddr[8] (885.237,118.21) 1009 unpu_top
+paddr[6] (885.237,126.75) 1009 unpu_top
+paddr[4] (885.237,135.29) 1009 unpu_top
+paddr[2] (885.237,143.83) 1009 unpu_top
+paddr[0] (885.237,152.37) 1009 unpu_top
+pwdata[30] (885.237,160.91) 1009 unpu_top
+pwdata[28] (885.237,169.45) 1009 unpu_top
+pwdata[26] (885.237,177.99) 1009 unpu_top
+pwdata[24] (885.237,186.53) 1009 unpu_top
+pwdata[22] (885.237,195.07) 1009 unpu_top
+pwdata[20] (885.237,203.61) 1009 unpu_top
+pwdata[18] (885.237,212.15) 1009 unpu_top
+pwdata[16] (885.237,220.69) 1009 unpu_top
+pwdata[14] (885.237,229.23) 1009 unpu_top
+pwdata[12] (885.237,237.77) 1009 unpu_top
+pwdata[10] (885.237,246.31) 1009 unpu_top
+pwdata[8] (885.237,254.85) 1009 unpu_top
+pwdata[6] (885.237,263.39) 1009 unpu_top
+pwdata[4] (885.237,271.93) 1009 unpu_top
+pwdata[2] (885.237,280.47) 1009 unpu_top
+pwdata[0] (885.237,289.01) 1009 unpu_top
+psel (885.237,297.55) 1009 unpu_top
+prdata[31] (885.237,306.09) 1009 unpu_top
+prdata[29] (885.237,314.63) 1009 unpu_top
+prdata[27] (885.237,323.17) 1009 unpu_top
+prdata[25] (885.237,331.71) 1009 unpu_top
+prdata[23] (885.237,340.25) 1009 unpu_top
+prdata[21] (885.237,348.79) 1009 unpu_top
+prdata[19] (885.237,357.33) 1009 unpu_top
+prdata[17] (885.237,365.87) 1009 unpu_top
+prdata[15] (885.237,374.41) 1009 unpu_top
+prdata[13] (885.237,382.95) 1009 unpu_top
+prdata[11] (885.237,391.49) 1009 unpu_top
+prdata[9] (885.237,400.03) 1009 unpu_top
+prdata[7] (885.237,408.57) 1009 unpu_top
+prdata[5] (885.237,417.11) 1009 unpu_top
+prdata[3] (885.237,425.65) 1009 unpu_top
+prdata[1] (885.237,434.19) 1009 unpu_top
+pready (885.237,442.73) 1009 unpu_top
+prdata[0] (885.237,451.27) 1009 unpu_top
+prdata[2] (885.237,459.81) 1009 unpu_top
+prdata[4] (885.237,468.35) 1009 unpu_top
+prdata[6] (885.237,476.89) 1009 unpu_top
+prdata[8] (885.237,485.43) 1009 unpu_top
+prdata[10] (885.237,493.97) 1009 unpu_top
+prdata[12] (885.237,502.51) 1009 unpu_top
+prdata[14] (885.237,511.05) 1009 unpu_top
+prdata[16] (885.237,519.59) 1009 unpu_top
+prdata[18] (885.237,528.13) 1009 unpu_top
+prdata[20] (885.237,536.67) 1009 unpu_top
+prdata[22] (885.237,545.21) 1009 unpu_top
+prdata[24] (885.237,553.75) 1009 unpu_top
+prdata[26] (885.237,562.29) 1009 unpu_top
+prdata[28] (885.237,570.83) 1009 unpu_top
+prdata[30] (885.237,579.37) 1009 unpu_top
+penable (885.237,587.91) 1009 unpu_top
+pwrite (885.237,596.45) 1009 unpu_top
+pwdata[1] (885.237,604.99) 1009 unpu_top
+pwdata[3] (885.237,613.53) 1009 unpu_top
+pwdata[5] (885.237,622.07) 1009 unpu_top
+pwdata[7] (885.237,630.61) 1009 unpu_top
+pwdata[9] (885.237,639.15) 1009 unpu_top
+pwdata[11] (885.237,647.69) 1009 unpu_top
+pwdata[13] (885.237,656.23) 1009 unpu_top
+pwdata[15] (885.237,664.77) 1009 unpu_top
+pwdata[17] (885.237,673.31) 1009 unpu_top
+pwdata[19] (885.237,681.85) 1009 unpu_top
+pwdata[21] (885.237,690.39) 1009 unpu_top
+pwdata[23] (885.237,698.93) 1009 unpu_top
+pwdata[25] (885.237,707.47) 1009 unpu_top
+pwdata[27] (885.237,716.01) 1009 unpu_top
+pwdata[29] (885.237,724.55) 1009 unpu_top
+pwdata[31] (885.237,733.09) 1009 unpu_top
+paddr[1] (885.237,741.63) 1009 unpu_top
+paddr[3] (885.237,750.17) 1009 unpu_top
+paddr[5] (885.237,758.71) 1009 unpu_top
+paddr[7] (885.237,767.25) 1009 unpu_top
+paddr[9] (885.237,775.79) 1009 unpu_top
+paddr[11] (885.237,784.33) 1009 unpu_top
+paddr[13] (885.237,792.87) 1009 unpu_top
+paddr[15] (885.237,801.41) 1009 unpu_top
+paddr[17] (885.237,809.95) 1009 unpu_top
+paddr[19] (885.237,818.49) 1009 unpu_top
+paddr[21] (885.237,827.03) 1009 unpu_top
+paddr[23] (885.237,835.57) 1009 unpu_top
+paddr[25] (885.237,844.11) 1009 unpu_top
+paddr[27] (885.237,852.65) 1009 unpu_top
+paddr[29] (885.237,861.19) 1009 unpu_top
+paddr[31] (885.237,869.73) 1009 unpu_top
+clk (885.237,878.27) 1009 unpu_top
+
+--------------------------------------------------------------------------------
+-----                TEXT OBJECTS FOR WITH TEXT OPERATIONS                 -----
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-----               TEXT OBJECTS FOR EXPAND TEXT OPERATIONS                -----
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-----                  TEXT OBJECTS FOR CAPI OPERATIONS                    -----
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-----             LAYER READ SUMMARY (SIMPLE LAYER GEOMETRIES)             -----
+--------------------------------------------------------------------------------
+SIMPLE LAYER      GEOMETRIES                                                    
+--------------------------------------------------------------------------------
+
+  990                    0
+  1000                 576
+  1001                2347
+  1002                 670
+  1004               15218
+  1006               69372
+  1008               47385
+  1014                8542
+  1019                  17
+  1020                  17
+  1023                  69
+  1072                   0
+  4656                   0
+  7856                   0
+
+--------------------------------------------------------------------------------
+-----            LAYER READ SUMMARY (ORIGINAL LAYER GEOMETRIES)            -----
+--------------------------------------------------------------------------------
+ORIGINAL LAYER       INITIAL GEOMETRIES                 FINAL GEOMETRIES        
+--------------------------------------------------------------------------------
+
+SPC_stack                  0 (0)                            0 (0)               
+CE                         0 (0)                            0 (0)               
+V3i                       17 (133997)                      17 (133997)          
+M4mim                      0 (0)                            0 (0)               
+VTi                       69 (32576)                       69 (32576)           
+AA                       576 (101386)                     576 (101386)          
+GC                       670 (99166)                      670 (99166)           
+CS                      2347 (430078)                    2347 (430078)          
+HV                         0 (0)                            0 (0)               
+M1                     15218 (259868)                   15218 (259868)          
+V2                        17 (107996)                      17 (107996)          
+M2                     69372 (196091)                   69372 (196091)          
+M3                     47385 (134108)                   47385 (134108)          
+MT                      8542 (25041)                     8542 (25041)           
+
+--------------------------------------------------------------------------------
+-----         LAYER READ SUMMARY (TEXT FOR CONNECTIVITY EXTRACTION)        -----
+--------------------------------------------------------------------------------
+SIMPLE LAYER              TEXTS                                                 
+--------------------------------------------------------------------------------
+
+  1007                   102 (102)             
+  1009                   102 (102)             
+  1015                     2 (2)               
+
+--------------------------------------------------------------------------------
+-----          LAYER READ SUMMARY (TEXT FOR WITH TEXT OPERATIONS)          -----
+--------------------------------------------------------------------------------
+SIMPLE LAYER              TEXTS                                                 
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-----         LAYER READ SUMMARY (TEXT FOR EXPAND TEXT OPERATIONS)         -----
+--------------------------------------------------------------------------------
+SIMPLE LAYER              TEXTS                                                 
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-----            LAYER READ SUMMARY (TEXT FOR CAPI OPERATIONS)             -----
+--------------------------------------------------------------------------------
+SIMPLE LAYER              TEXTS                                                 
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-----               LAYOUT INPUT EXCEPTION SEVERITY SUMMARY                -----
+--------------------------------------------------------------------------------
+EXCEPTION                           SEVERITY  DEFAULT  COUNT        RDB         
+--------------------------------------------------------------------------------
+
+AREF_ANGLED                            0         Y       0         
+AREF_DIAGONAL                          0         Y       0         
+AREF_PLACEMENT                         0         Y       0         
+AREF_UNPLACED                          0         Y       0         
+ARRAY_PITCH_ZERO                       0         Y       0         
+REPETITION_TYPE_8_9_10_11              0         Y       0         
+DUPLICATE_CELL                         2         Y       0         
+EXCLUDE_CELL_NAME                      1         Y       0         
+EXPAND_CELL                            1         Y       0         
+EXTENT_CELL                            1         Y       0         
+INSIDE_CELL                            1         Y       0         
+MISSING_REFERENCE                      2         Y       0         
+RENAME_CELL                            0         Y       0         
+TOP_CELL_CHOSEN                        1         Y       0         
+TOP_CELL_MULTIPLE                      0         Y       0         
+LAYER_DIRECTORY                        2         Y       0         
+DATATYPE_MAP_SOURCE                    1         Y       0         
+DATATYPE_MAP_TARGET                    1         Y       0         
+EMPTY_BASE_LAYER                       1         Y       0         
+EMPTY_LAYER                            1         Y       3         
+LAYER_OVER_BUMP                        1         Y       0         
+UNUSED_DATA                            1         Y       16        
+MAGNIFICATION_AUTO                     0         Y       0         
+BOX_RECORD                             0         Y       1183      
+CIRCLE                                 2         Y       0         
+CIRCLE_RADIUS_ZERO                     1         Y       0         
+CTRAPEZOID_AREA_ZERO                   1         Y       0         
+CTRAPEZOID_DEGENERATE                  2         Y       0         
+TRAPEZOID_AREA_ZERO                    1         Y       0         
+TRAPEZOID_DEGENERATE                   2         Y       0         
+XGEOMETRY_UNSUPPORTED                  2         Y       0         
+NODE_RECORD                            0         Y       1183      
+XELEMENT_UNSUPPORTED                   2         Y       0         
+XNAME_UNSUPPORTED                      2         Y       0         
+PATH_ACUTE                             1         Y       139345    
+PATH_ANGLED                            1         Y       139345    
+PATH_BIG                               0         Y       0         
+PATH_CIRCULAR                          1         Y       0         
+PATH_COINCIDENT                        1         Y       139345    
+PATH_DEGENERATE                        2         Y       0         
+PATH_ENDSEGMENT_SHORT                  1         Y       0         
+PATH_EXTENSION                         2         Y       0         
+PATH_EXTENSION_MULTIPLE                1         Y       0         
+PATH_NEGATIVE                          1         Y       0         
+PATH_NONORIENTABLE                     2         Y       0         
+PATH_NONSIMPLE                         0         Y       0         
+PATH_SPIKE                             2         Y       0         
+PATH_VARIABLE                          1         Y       0         
+PATH_WIDTH_ABSOLUTE                    2         Y       0         
+PATH_WIDTH_MULTIPLE                    1         Y       0         
+PATH_WIDTH_ODD                         0         Y       0         
+PATH_WIDTH_ZERO                        1         Y       0         
+PLACEMENT_ANGLE_ABSOLUTE               2         Y       0         
+PLACEMENT_MAGNIFICATION_ABSOLUTE       2         Y       0         
+PLACEMENT_MAGNIFICATION_NONPOSITIVE    2         Y       0         
+PLACEMENT_MAGNIFIED                    0         Y       0         
+PLACEMENT_MULTIPLE                     0         Y       0         
+LAYOUT_POLYGON                         1         Y       0         
+POLYGON_ACUTE                          0         Y       0         
+POLYGON_AREA_ZERO                      1         Y       0         
+POLYGON_DEGENERATE                     2         Y       0         
+POLYGON_IS_RECTANGLE                   0         Y       0         
+POLYGON_NONORIENTABLE                  2         Y       0         
+POLYGON_NONSIMPLE                      0         Y       0         
+POLYGON_NOT_CLOSED                     0         Y       0         
+POLYGON_SPIKE                          0         Y       0         
+RECTANGLE_SIDE_ZERO                    1         Y       0         
+CELLNAME_NSTRING                       2         Y       0         
+PROPNAME_NSTRING                       2         Y       0         
+TEXT_LENGTH                            1         Y       0         
+TEXTSTRING_ASTRING                     2         Y       0         
+LAYOUT_TEXT                            1         Y       0         
+TEXT_BIG                               2         Y       0         
+TEXT_DEGENERATE                        2         Y       0         
+METRIC_INPUT_FILE                      2         Y       0         
+METRIC_RULE_FILE                       1         Y       0         
+PRECISION_LAYOUT                       2         Y       0         
+PRECISION_INPUT_FILE                   2         Y       0         
+PRECISION_RULE_FILE                    2         Y       0         
+
+
+--------------------------------------------------------------------------------
+-----                      CELL AND PLACEMENT SUMMARY                      -----
+--------------------------------------------------------------------------------
+CELL TYPE                 CELLS           PLACEMENTS       FLAT PLACEMENTS      
+--------------------------------------------------------------------------------
+
+USER                        117               154703                179088
+ VERY SMALL                   5                16140                 16140
+ TOP LAYER                    0                    0                     0
+  VERY SMALL                  0                    0                     0
+PSEUDO                       64                11148                 13365
+TOTAL                       181               165851                192453
+
+--------------------------------------------------------------------------------
+-----                   LAYOUT DATA INPUT MODULE SUMMARY                   -----
+--------------------------------------------------------------------------------
+
+--- TOTAL GEOMETRIES READ FROM SIMPLE LAYERS = 144213
+--- TOTAL GEOMETRIES READ FROM ORIGINAL LAYERS = 144213 (1520307)
+--- TOTAL GEOMETRIES WRITTEN TO ORIGINAL LAYERS = 144213 (1520307)
+--- LVHEAP = 7/33/33
+--- DATABASE EXTENT = [ 6 , 6 ] -> [ 885.6 , 885.6 ]
+--- GEOMETRIC DEPTH = ALL
+--- TEXT DEPTH FOR CONNECTIVITY EXTRACTION = PRIMARY
+--- TOTAL TEXT OBJECTS FOR CONNECTIVITY EXTRACTION = 206 (206)
+--- TOTAL TEXT OBJECTS FOR WITH TEXT OPERATIONS = 0 (0)
+--- TOTAL TEXT OBJECTS FOR EXPAND TEXT OPERATIONS = 0 (0)
+--- TOTAL TEXT OBJECTS FOR CAPI OPERATIONS = 0 (0)
+--- GEOMETRY FLAGGING = ACUTE (YES)  SKEW (YES)  ANGLED (NO)  OFFGRID (YES)
+                        NONSIMPLE POLYGON (NO)  NONSIMPLE PATH (NO)
+--- PRIMARY CELL = unpu_top
+--- EXCLUDED CELLS =
+--- LAYOUT BASE LAYER = (NOT SPECIFIED)
+--- LAYOUT TOP LAYER = (NOT SPECIFIED)
+--- LAYOUT IGNORE LAYER [INVERSE] = (NOT SPECIFIED)
+
+--- CALIBRE LAYOUT DATA INPUT MODULE COMPLETED.  CPU TIME = 1  REAL TIME = 1
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-----        CALIBRE::DRC-H - RESULTS DATABASE INITIALIZATION MODULE       -----
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+--- GLOBAL DRC RESULTS DATABASE FILE = unpu_top.ant.db (ASCII)
+--- GLOBAL MAXIMUM RESULTS PER RULECHECK = ALL
+--- GLOBAL MAXIMUM VERTICES PER RESULT POLYGON = 4294967294
+--- CHECK TEXT MAPPING = COMMENTS + RULE FILE INFORMATION
+--- KEEP EMPTY RULE CHECKS = NO
+--- DRC RESULTS MAGNIFICATION = 1
+--- DRC RESULTS DATABASE PRECISION = 1000
+
+--------------------------------------------------------------------------------
+-----              DRC RULECHECK -> RESULTS DATABASE MAPPING               -----
+--------------------------------------------------------------------------------
+                                                          DATA        MAX    MAX
+RULECHECK            RESULTS DATABASE         TYPE LAYER  TYPE     RESULT VERTEX
+--------------------------------------------------------------------------------
+AN.GC.1              unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.CS.1              unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.1.M1          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.2.M1          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.VIA.1.V2          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.VIA.2.V2          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.1.M2          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.2.M2          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.VIA.1.V3          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.VIA.2.V3          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.1.M3          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.2.M3          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.VIA.1.VT          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.VIA.2.VT          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.1.MT          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+AN.MTL.2.MT          unpu_top.ant.db         ASCII   N/A   N/A        ALL >99999
+
+--- CALIBRE::DRC-H RESULTS DATABASE INITIALIZATION MODULE COMPLETED.  CPU TIME = 0  REAL TIME = 0
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-----                   CALIBRE::DRC-H - EXECUTIVE MODULE                  -----
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+VTi = OR VTi
+------------
+VTi (HIER TYP=1 CFG=0 HGC=69 FGC=32576 HEC=276 FEC=130304 IGC=914 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/33/33  OPS COMPLETE = 1 OF 62  ELAPSED TIME = 3
+
+Original Layer VTi DELETED -- LVHEAP = 7/33/33
+
+CE = OR CE
+----------
+CE (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/33/33  OPS COMPLETE = 2 OF 62  ELAPSED TIME = 3
+
+Original Layer CE DELETED -- LVHEAP = 7/33/33
+
+VT_CE = VTi AND CE
+------------------
+VT_CE (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/33/33  OPS COMPLETE = 3 OF 62  ELAPSED TIME = 3
+
+MT = OR MT
+----------
+MT (HIER TYP=1 CFG=3 HGC=8394 FGC=24893 HEC=36092 FEC=102088 IGC=1514 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 7/33/33  OPS COMPLETE = 4 OF 62  ELAPSED TIME = 3
+
+Original Layer MT DELETED -- LVHEAP = 7/33/33
+
+CONNECT started.  LVHEAP = 7/33/33  ELAPSED TIME = 3
+
+CONNECT CE MT BY VT_CE ...
+
+NODE UPDATE: MT
+
+NODE UPDATE completed. CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33
+
+CONNECT completed.  CPU TIME = 0  REAL TIME = 0  LVHEAP = 8/33/33  ELAPSED TIME = 3
+
+NETS = 9598 (25135)  EPINS = 3182 (19924)
+
+Layer VT_CE DELETED -- LVHEAP = 8/33/33
+
+HIERARCHICAL CONNECTIVITY marked on layer MT
+
+GC = OR GC
+----------
+GC (HIER TYP=1 CFG=1 HGC=515 FGC=98608 HEC=9221 FEC=1395911 IGC=434 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 8/33/33  OPS COMPLETE = 5 OF 62  ELAPSED TIME = 3
+
+Original Layer GC DELETED -- LVHEAP = 8/33/33
+
+AA = OR AA
+----------
+AA (HIER TYP=1 CFG=1 HGC=573 FGC=98563 HEC=4322 FEC=773608 IGC=558 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 8/33/33  OPS COMPLETE = 6 OF 62  ELAPSED TIME = 3
+
+Original Layer AA DELETED -- LVHEAP = 8/33/33
+
+GC_STI = GC NOT AA
+------------------
+GC_STI (HIER TYP=1 CFG=3 HGC=1878 FGC=301966 HEC=12496 FEC=2012670 IGC=434 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 8/33/33  OPS COMPLETE = 7 OF 62  ELAPSED TIME = 3
+
+GATE = GC AND AA
+----------------
+GATE (HIER TYP=1 CFG=3 HGC=1392 FGC=203455 HEC=7832 FEC=1010784 IGC=44 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 8/33/33  OPS COMPLETE = 8 OF 62  ELAPSED TIME = 3
+
+HV = OR HV
+----------
+HV (HIER TYP=1 CFG=0 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 8/33/33  OPS COMPLETE = 9 OF 62  ELAPSED TIME = 3
+
+Original Layer HV DELETED -- LVHEAP = 8/33/33
+
+HVGATE = GATE AND HV
+--------------------
+HVGATE (HIER TYP=1 CFG=3 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 8/33/33  OPS COMPLETE = 10 OF 62  ELAPSED TIME = 3
+
+Layer HV DELETED -- LVHEAP = 8/33/33
+
+CONNECT started.  LVHEAP = 8/33/33  ELAPSED TIME = 3
+
+CONNECT GC_STI GATE ...
+CONNECT GC_STI HVGATE ...
+
+NODE UPDATE: GC_STI
+NODE UPDATE: GATE
+NODE UPDATE: HVGATE
+
+NODE UPDATE completed. CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33
+
+CONNECT completed.  CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33  ELAPSED TIME = 3
+
+NETS = 10113 (123743)  EPINS = 3182 (19924)
+
+HIERARCHICAL CONNECTIVITY marked on layer MT
+
+HIERARCHICAL CONNECTIVITY marked on layer GC_STI
+
+HIERARCHICAL CONNECTIVITY marked on layer GATE
+
+HIERARCHICAL CONNECTIVITY marked on layer HVGATE
+
+AN.GC.1::<1> = NET AREA RATIO GC_STI GATE > 200
+                              [PERIMETER(GC_STI)*0.2/AREA(GATE)]
+                              RDB antenna_results.ant GC_STI GATE
+-----------------------------------------------------------------
+AN.GC.1::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33  OPS COMPLETE = 11 OF 62  ELAPSED TIME = 3
+
+Layer AN.GC.1::<1> DELETED -- LVHEAP = 9/33/33
+
+DRC RuleCheck AN.GC.1 COMPLETED. Number of Results = 0 (0)
+
+CS = OR CS
+----------
+CS (HIER TYP=1 CFG=3 HGC=2347 FGC=430078 HEC=9388 FEC=1720312 IGC=594 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33  OPS COMPLETE = 12 OF 62  ELAPSED TIME = 3
+
+Original Layer CS DELETED -- LVHEAP = 9/33/33
+
+CONNECT started.  LVHEAP = 9/33/33  ELAPSED TIME = 3
+
+CONNECT CS GC_STI GATE HVGATE ...
+
+NODE UPDATE: GC_STI
+NODE UPDATE: GATE
+NODE UPDATE: HVGATE
+NODE UPDATE: CS
+
+NODE UPDATE completed. CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33
+
+CONNECT completed.  CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33  ELAPSED TIME = 3
+
+NETS = 11910 (453584)  EPINS = 3182 (19924)
+
+HIERARCHICAL CONNECTIVITY marked on layer MT
+
+HIERARCHICAL CONNECTIVITY marked on layer GC_STI
+
+HIERARCHICAL CONNECTIVITY marked on layer GATE
+
+HIERARCHICAL CONNECTIVITY marked on layer HVGATE
+
+HIERARCHICAL CONNECTIVITY marked on layer CS
+
+AN.CS.1::<1> = NET AREA RATIO CS GC_STI GATE > 10
+                              [AREA(CS)/AREA(GATE)]
+                              RDB antenna_results.ant CS GC_STI GATE
+--------------------------------------------------------------------
+AN.CS.1::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33  OPS COMPLETE = 13 OF 62  ELAPSED TIME = 3
+
+Layer AN.CS.1::<1> DELETED -- LVHEAP = 9/33/33
+
+DRC RuleCheck AN.CS.1 COMPLETED. Number of Results = 0 (0)
+
+M1 = OR M1
+----------
+M1 (HIER TYP=1 CFG=3 HGC=12479 FGC=245787 HEC=59510 FEC=1887028 IGC=918 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33  OPS COMPLETE = 14 OF 62  ELAPSED TIME = 3
+
+Original Layer M1 DELETED -- LVHEAP = 9/33/33
+
+SD = AA NOT GC
+--------------
+SD (HIER TYP=1 CFG=3 HGC=1965 FGC=302018 HEC=12154 FEC=1784392 IGC=558 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 9/33/33  OPS COMPLETE = 15 OF 62  ELAPSED TIME = 3
+
+Layer AA DELETED -- LVHEAP = 9/33/33
+
+Layer GC DELETED -- LVHEAP = 9/33/33
+
+CONNECT started.  LVHEAP = 9/33/33  ELAPSED TIME = 3
+
+CONNECT M1 GC_STI GATE HVGATE SD BY CS ...
+
+NODE UPDATE: MT
+NODE UPDATE: GC_STI
+NODE UPDATE: GATE
+NODE UPDATE: HVGATE
+NODE UPDATE: CS
+NODE UPDATE: M1
+NODE UPDATE: SD
+
+NODE UPDATE completed. CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33
+
+CONNECT completed.  CPU TIME = 1  REAL TIME = 1  LVHEAP = 10/33/33  ELAPSED TIME = 4
+
+NETS = 64511 (366889)  EPINS = 3929 (229342)
+
+Layer HVGATE DELETED -- LVHEAP = 10/33/33
+
+HIERARCHICAL CONNECTIVITY marked on layer MT
+
+HIERARCHICAL CONNECTIVITY marked on layer GC_STI
+
+HIERARCHICAL CONNECTIVITY marked on layer GATE
+
+HIERARCHICAL CONNECTIVITY marked on layer CS
+
+HIERARCHICAL CONNECTIVITY marked on layer M1
+
+HIERARCHICAL CONNECTIVITY marked on layer SD
+
+M1_dio = NET AREA RATIO SD M1 > 0
+---------------------------------
+M1_dio (HIER TYP=1 CFG=3 HGC=1768 FGC=274247 HEC=11184 FEC=1655938 IGC=558 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 16 OF 62  ELAPSED TIME = 4
+
+M1_good_dio = NET AREA M1_dio >= 0.202
+--------------------------------------
+M1_good_dio (HIER TYP=1 CFG=3 HGC=1768 FGC=274247 HEC=11184 FEC=1655938 IGC=558 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 17 OF 62  ELAPSED TIME = 4
+
+Layer M1_dio DELETED -- LVHEAP = 10/33/33
+
+M1_no_dio = NET AREA RATIO M1 M1_good_dio == 0
+M1_yes_dio = NET AREA RATIO M1 M1_good_dio > 0
+----------------------------------------------
+M1_no_dio (HIER TYP=1 CFG=3 HGC=37151 FGC=59588 HEC=238140 FEC=363408 IGC=916 VHC=T VPC=F)
+M1_yes_dio (HIER TYP=1 CFG=3 HGC=17458 FGC=159849 HEC=93140 FEC=1492704 IGC=916 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 19 OF 62  ELAPSED TIME = 4
+
+AN.MTL.1.M1::<1> = NET AREA RATIO M1_no_dio CS GC_STI GATE > 400
+                                  [PERIMETER(M1_no_dio)*0.54/AREA(GATE)]
+                                  RDB antenna_results.ant M1_no_dio CS GC_STI GATE
+----------------------------------------------------------------------------------
+AN.MTL.1.M1::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 20 OF 62  ELAPSED TIME = 4
+
+Layer AN.MTL.1.M1::<1> DELETED -- LVHEAP = 10/33/33
+
+DRC RuleCheck AN.MTL.1.M1 COMPLETED. Number of Results = 0 (0)
+
+AN.MTL.2.M1::<1> = NET AREA RATIO M1_yes_dio M1_good_dio CS GC_STI GATE > 2200
+                                  [(PERIMETER(M1_yes_dio)*0.54/AREA(GATE))-(AREA(M1_good_dio)*400)]
+                                  RDB antenna_results.ant M1_yes_dio M1_good_dio CS GC_STI GATE
+---------------------------------------------------------------------------------------------------
+AN.MTL.2.M1::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 21 OF 62  ELAPSED TIME = 5
+
+Layer AN.MTL.2.M1::<1> DELETED -- LVHEAP = 10/33/33
+
+DRC RuleCheck AN.MTL.2.M1 COMPLETED. Number of Results = 0 (0)
+
+V2 = OR V2
+----------
+V2 (HIER TYP=1 CFG=1 HGC=17 FGC=107996 HEC=68 FEC=431984 IGC=4263 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 22 OF 62  ELAPSED TIME = 5
+
+Original Layer V2 DELETED -- LVHEAP = 10/33/33
+
+V2_no_dio = M1_no_dio AND V2
+----------------------------
+V2_no_dio (HIER TYP=1 CFG=3 HGC=64603 FGC=64849 HEC=258412 FEC=259396 IGC=1604 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 23 OF 62  ELAPSED TIME = 5
+
+Layer M1_no_dio DELETED -- LVHEAP = 10/33/33
+
+AN.VIA.1.V2::<1> = NET AREA RATIO V2_no_dio M1 CS GC_STI GATE > 20
+                                  [AREA(V2_no_dio)/AREA(GATE)]
+                                  RDB antenna_results.ant V2_no_dio M1 CS GC_STI GATE
+-------------------------------------------------------------------------------------
+AN.VIA.1.V2::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 24 OF 62  ELAPSED TIME = 5
+
+Layer V2_no_dio DELETED -- LVHEAP = 10/33/33
+
+Layer AN.VIA.1.V2::<1> DELETED -- LVHEAP = 10/33/33
+
+DRC RuleCheck AN.VIA.1.V2 COMPLETED. Number of Results = 0 (0)
+
+V2_yes_dio = M1_yes_dio AND V2
+------------------------------
+V2_yes_dio (HIER TYP=1 CFG=3 HGC=30391 FGC=43147 HEC=121564 FEC=172588 IGC=3414 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 25 OF 62  ELAPSED TIME = 5
+
+Layer M1_yes_dio DELETED -- LVHEAP = 10/33/33
+
+AN.VIA.2.V2::<1> = NET AREA RATIO V2_yes_dio M1_good_dio M1 CS GC_STI GATE > 75
+                                  [(AREA(V2_yes_dio)/AREA(GATE))-(AREA(M1_good_dio)*83.33)]
+                                  RDB antenna_results.ant V2_yes_dio M1_good_dio M1 CS GC_STI GATE
+--------------------------------------------------------------------------------------------------
+AN.VIA.2.V2::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 26 OF 62  ELAPSED TIME = 5
+
+Layer V2_yes_dio DELETED -- LVHEAP = 10/33/33
+
+Layer M1_good_dio DELETED -- LVHEAP = 10/33/33
+
+Layer CS DELETED -- LVHEAP = 10/33/33
+
+Layer AN.VIA.2.V2::<1> DELETED -- LVHEAP = 10/33/33
+
+DRC RuleCheck AN.VIA.2.V2 COMPLETED. Number of Results = 0 (0)
+
+M2 = OR M2
+----------
+M2 (HIER TYP=1 CFG=3 HGC=50749 FGC=177468 HEC=237652 FEC=744528 IGC=1666 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 27 OF 62  ELAPSED TIME = 5
+
+Original Layer M2 DELETED -- LVHEAP = 10/33/33
+
+CONNECT started.  LVHEAP = 10/33/33  ELAPSED TIME = 5
+
+CONNECT M2 M1 BY V2 ...
+
+NODE UPDATE: MT
+NODE UPDATE: GC_STI
+NODE UPDATE: GATE
+NODE UPDATE: M1
+NODE UPDATE: SD
+NODE UPDATE: M2
+
+NODE UPDATE completed. CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33
+
+CONNECT completed.  CPU TIME = 1  REAL TIME = 1  LVHEAP = 10/33/33  ELAPSED TIME = 6
+
+NETS = 75743 (447675)  EPINS = 12375 (311514)
+
+Layer V2 DELETED -- LVHEAP = 10/33/33
+
+HIERARCHICAL CONNECTIVITY marked on layer MT
+
+HIERARCHICAL CONNECTIVITY marked on layer GC_STI
+
+HIERARCHICAL CONNECTIVITY marked on layer GATE
+
+HIERARCHICAL CONNECTIVITY marked on layer M1
+
+HIERARCHICAL CONNECTIVITY marked on layer SD
+
+HIERARCHICAL CONNECTIVITY marked on layer M2
+
+M2_dio = NET AREA RATIO SD M2 > 0
+---------------------------------
+M2_dio (HIER TYP=1 CFG=3 HGC=23047 FGC=164270 HEC=118550 FEC=1045792 IGC=624 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 28 OF 62  ELAPSED TIME = 6
+
+M2_good_dio = NET AREA M2_dio >= 0.202
+--------------------------------------
+M2_good_dio (HIER TYP=1 CFG=3 HGC=23047 FGC=164270 HEC=118550 FEC=1045792 IGC=624 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 29 OF 62  ELAPSED TIME = 6
+
+Layer M2_dio DELETED -- LVHEAP = 10/33/33
+
+M2_no_dio = NET AREA RATIO M2 M2_good_dio == 0
+M2_yes_dio = NET AREA RATIO M2 M2_good_dio > 0
+----------------------------------------------
+M2_no_dio (HIER TYP=1 CFG=3 HGC=43031 FGC=43047 HEC=287433 FEC=287497 IGC=1666 VHC=T VPC=F)
+M2_yes_dio (HIER TYP=1 CFG=3 HGC=18098 FGC=22958 HEC=114362 FEC=133802 IGC=1666 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 31 OF 62  ELAPSED TIME = 6
+
+AN.MTL.1.M2::<1> = NET AREA RATIO M2_no_dio M1 GC_STI GATE > 400
+                                  [PERIMETER(M2_no_dio)*0.54/AREA(GATE)]
+                                  RDB antenna_results.ant M2_no_dio M1 GC_STI GATE
+----------------------------------------------------------------------------------
+AN.MTL.1.M2::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 32 OF 62  ELAPSED TIME = 6
+
+Layer AN.MTL.1.M2::<1> DELETED -- LVHEAP = 11/33/33
+
+DRC RuleCheck AN.MTL.1.M2 COMPLETED. Number of Results = 0 (0)
+
+AN.MTL.2.M2::<1> = NET AREA RATIO M2_yes_dio M2_good_dio M1 GC_STI GATE > 2200
+                                  [(PERIMETER(M2_yes_dio)*0.54/AREA(GATE))-(AREA(M2_good_dio)*400)]
+                                  RDB antenna_results.ant M2_yes_dio M2_good_dio M1 GC_STI GATE
+---------------------------------------------------------------------------------------------------
+AN.MTL.2.M2::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 33 OF 62  ELAPSED TIME = 7
+
+Layer AN.MTL.2.M2::<1> DELETED -- LVHEAP = 11/33/33
+
+DRC RuleCheck AN.MTL.2.M2 COMPLETED. Number of Results = 0 (0)
+
+V3i = OR V3i
+------------
+V3i (HIER TYP=1 CFG=1 HGC=17 FGC=133997 HEC=68 FEC=535988 IGC=6568 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 34 OF 62  ELAPSED TIME = 7
+
+Original Layer V3i DELETED -- LVHEAP = 11/33/33
+
+SPC_stack = OR SPC_stack
+------------------------
+SPC_stack (HIER TYP=1 CFG=0 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 35 OF 62  ELAPSED TIME = 7
+
+Original Layer SPC_stack DELETED -- LVHEAP = 11/33/33
+
+TMP<1> = CE AND SPC_stack
+-------------------------
+TMP<1> (HIER TYP=1 CFG=0 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 36 OF 62  ELAPSED TIME = 7
+
+Layer SPC_stack DELETED -- LVHEAP = 11/33/33
+
+V3 = V3i NOT TMP<1>
+-------------------
+V3 (HIER TYP=1 CFG=1 HGC=17 FGC=133997 HEC=68 FEC=535988 IGC=6568 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 37 OF 62  ELAPSED TIME = 7
+
+Layer V3i DELETED -- LVHEAP = 11/33/33
+
+Layer TMP<1> DELETED -- LVHEAP = 11/33/33
+
+V3_no_dio = M2_no_dio AND V3
+----------------------------
+V3_no_dio (HIER TYP=1 CFG=3 HGC=94266 FGC=94282 HEC=377064 FEC=377128 IGC=5623 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 38 OF 62  ELAPSED TIME = 7
+
+Layer M2_no_dio DELETED -- LVHEAP = 11/33/33
+
+AN.VIA.1.V3::<1> = NET AREA RATIO V3_no_dio M2 M1 GC_STI GATE > 20
+                                  [AREA(V3_no_dio)/AREA(GATE)]
+                                  RDB antenna_results.ant V3_no_dio M2 M1 GC_STI GATE
+-------------------------------------------------------------------------------------
+AN.VIA.1.V3::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 39 OF 62  ELAPSED TIME = 7
+
+Layer V3_no_dio DELETED -- LVHEAP = 11/33/33
+
+Layer AN.VIA.1.V3::<1> DELETED -- LVHEAP = 11/33/33
+
+DRC RuleCheck AN.VIA.1.V3 COMPLETED. Number of Results = 0 (0)
+
+V3_yes_dio = M2_yes_dio AND V3
+------------------------------
+V3_yes_dio (HIER TYP=1 CFG=3 HGC=26959 FGC=39715 HEC=107836 FEC=158860 IGC=5082 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 40 OF 62  ELAPSED TIME = 7
+
+Layer M2_yes_dio DELETED -- LVHEAP = 10/33/33
+
+AN.VIA.2.V3::<1> = NET AREA RATIO V3_yes_dio M2_good_dio M2 M1 GC_STI GATE > 75
+                                  [(AREA(V3_yes_dio)/AREA(GATE))-(AREA(M2_good_dio)*83.33)]
+                                  RDB antenna_results.ant V3_yes_dio M2_good_dio M2 M1 GC_STI GATE
+--------------------------------------------------------------------------------------------------
+AN.VIA.2.V3::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 41 OF 62  ELAPSED TIME = 7
+
+Layer V3_yes_dio DELETED -- LVHEAP = 10/33/33
+
+Layer M2_good_dio DELETED -- LVHEAP = 10/33/33
+
+Layer AN.VIA.2.V3::<1> DELETED -- LVHEAP = 10/33/33
+
+DRC RuleCheck AN.VIA.2.V3 COMPLETED. Number of Results = 0 (0)
+
+M3 = OR M3
+----------
+M3 (HIER TYP=1 CFG=3 HGC=33191 FGC=119914 HEC=143507 FEC=490399 IGC=960 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 42 OF 62  ELAPSED TIME = 7
+
+Original Layer M3 DELETED -- LVHEAP = 10/33/33
+
+CONNECT started.  LVHEAP = 10/33/33  ELAPSED TIME = 7
+
+CONNECT M3 M2 BY V3 ...
+
+NODE UPDATE: MT
+NODE UPDATE: GC_STI
+NODE UPDATE: GATE
+NODE UPDATE: M1
+NODE UPDATE: SD
+NODE UPDATE: M2
+NODE UPDATE: M3
+
+NODE UPDATE completed. CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33
+
+CONNECT completed.  CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  ELAPSED TIME = 8
+
+NETS = 42623 (431429)  EPINS = 11369 (326818)
+
+Layer V3 DELETED -- LVHEAP = 10/33/33
+
+HIERARCHICAL CONNECTIVITY marked on layer MT
+
+HIERARCHICAL CONNECTIVITY marked on layer GC_STI
+
+HIERARCHICAL CONNECTIVITY marked on layer GATE
+
+HIERARCHICAL CONNECTIVITY marked on layer M1
+
+HIERARCHICAL CONNECTIVITY marked on layer SD
+
+HIERARCHICAL CONNECTIVITY marked on layer M2
+
+HIERARCHICAL CONNECTIVITY marked on layer M3
+
+M3_dio = NET AREA RATIO SD M3 > 0
+---------------------------------
+M3_dio (HIER TYP=1 CFG=3 HGC=27379 FGC=159073 HEC=140574 FEC=1020026 IGC=745 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 43 OF 62  ELAPSED TIME = 8
+
+M3_good_dio = NET AREA M3_dio >= 0.202
+--------------------------------------
+M3_good_dio (HIER TYP=1 CFG=3 HGC=27379 FGC=159073 HEC=140574 FEC=1020026 IGC=745 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 44 OF 62  ELAPSED TIME = 8
+
+Layer M3_dio DELETED -- LVHEAP = 10/33/33
+
+M3_no_dio = NET AREA RATIO M3 M3_good_dio == 0
+M3_yes_dio = NET AREA RATIO M3 M3_good_dio > 0
+----------------------------------------------
+M3_no_dio (HIER TYP=1 CFG=3 HGC=11556 FGC=11618 HEC=94270 FEC=94518 IGC=960 VHC=T VPC=F)
+M3_yes_dio (HIER TYP=1 CFG=3 HGC=24301 FGC=29159 HEC=185653 FEC=205085 IGC=960 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 46 OF 62  ELAPSED TIME = 8
+
+AN.MTL.1.M3::<1> = NET AREA RATIO M3_no_dio M2 M1 GC_STI GATE > 400
+                                  [PERIMETER(M3_no_dio)*0.54/AREA(GATE)]
+                                  RDB antenna_results.ant M3_no_dio M2 M1 GC_STI GATE
+-------------------------------------------------------------------------------------
+AN.MTL.1.M3::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 47 OF 62  ELAPSED TIME = 8
+
+Layer AN.MTL.1.M3::<1> DELETED -- LVHEAP = 11/33/33
+
+DRC RuleCheck AN.MTL.1.M3 COMPLETED. Number of Results = 0 (0)
+
+AN.MTL.2.M3::<1> = NET AREA RATIO M3_yes_dio M3_good_dio M2 M1 GC_STI GATE > 2200
+                                  [(PERIMETER(M3_yes_dio)*0.54/AREA(GATE))-(AREA(M3_good_dio)*400)]
+                                  RDB antenna_results.ant M3_yes_dio M3_good_dio M2 M1 GC_STI GATE
+---------------------------------------------------------------------------------------------------
+AN.MTL.2.M3::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 48 OF 62  ELAPSED TIME = 8
+
+Layer AN.MTL.2.M3::<1> DELETED -- LVHEAP = 11/33/33
+
+DRC RuleCheck AN.MTL.2.M3 COMPLETED. Number of Results = 0 (0)
+
+TMP<2> = VTi NOT CE
+-------------------
+TMP<2> (HIER TYP=1 CFG=0 HGC=69 FGC=32576 HEC=276 FEC=130304 IGC=914 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 49 OF 62  ELAPSED TIME = 8
+
+Layer VTi DELETED -- LVHEAP = 11/33/33
+
+Layer CE DELETED -- LVHEAP = 11/33/33
+
+M4mim = OR M4mim
+----------------
+M4mim (HIER TYP=1 CFG=0 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 50 OF 62  ELAPSED TIME = 8
+
+Original Layer M4mim DELETED -- LVHEAP = 11/33/33
+
+VT = TMP<2> NOT M4mim
+---------------------
+VT (HIER TYP=1 CFG=1 HGC=69 FGC=32576 HEC=276 FEC=130304 IGC=914 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 51 OF 62  ELAPSED TIME = 8
+
+Layer TMP<2> DELETED -- LVHEAP = 11/33/33
+
+Layer M4mim DELETED -- LVHEAP = 11/33/33
+
+VT_no_dio = M3_no_dio AND VT
+----------------------------
+VT_no_dio (HIER TYP=1 CFG=3 HGC=15992 FGC=16992 HEC=63968 FEC=67968 IGC=2107 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 52 OF 62  ELAPSED TIME = 8
+
+Layer M3_no_dio DELETED -- LVHEAP = 11/33/33
+
+AN.VIA.1.VT::<1> = NET AREA RATIO VT_no_dio M3 M2 M1 GC_STI GATE > 20
+                                  [AREA(VT_no_dio)/AREA(GATE)]
+                                  RDB antenna_results.ant VT_no_dio M3 M2 M1 GC_STI GATE
+----------------------------------------------------------------------------------------
+AN.VIA.1.VT::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 11/33/33  OPS COMPLETE = 53 OF 62  ELAPSED TIME = 8
+
+Layer VT_no_dio DELETED -- LVHEAP = 11/33/33
+
+Layer AN.VIA.1.VT::<1> DELETED -- LVHEAP = 11/33/33
+
+DRC RuleCheck AN.VIA.1.VT COMPLETED. Number of Results = 0 (0)
+
+VT_yes_dio = M3_yes_dio AND VT
+------------------------------
+VT_yes_dio (HIER TYP=1 CFG=3 HGC=6144 FGC=15584 HEC=24576 FEC=62336 IGC=1712 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 54 OF 62  ELAPSED TIME = 8
+
+Layer M3_yes_dio DELETED -- LVHEAP = 10/33/33
+
+MX_dio = COPY M3_good_dio
+-------------------------
+MX_dio (HIER TYP=1 CFG=3 HGC=27379 FGC=159073 HEC=140574 FEC=1020026 IGC=745 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 55 OF 62  ELAPSED TIME = 8
+
+Layer M3_good_dio DELETED -- LVHEAP = 10/33/33
+
+AN.VIA.2.VT::<1> = NET AREA RATIO VT_yes_dio MX_dio M3 M2 M1 GC_STI GATE > 75
+                                  [(AREA(VT_yes_dio)/AREA(GATE))-(AREA(MX_dio)*83.33)]
+                                  RDB antenna_results.ant VT_yes_dio MX_dio M3 M2 M1 GC_STI GATE
+------------------------------------------------------------------------------------------------
+AN.VIA.2.VT::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 56 OF 62  ELAPSED TIME = 8
+
+Layer VT_yes_dio DELETED -- LVHEAP = 10/33/33
+
+Layer MX_dio DELETED -- LVHEAP = 10/33/33
+
+Layer AN.VIA.2.VT::<1> DELETED -- LVHEAP = 10/33/33
+
+DRC RuleCheck AN.VIA.2.VT COMPLETED. Number of Results = 0 (0)
+
+CONNECT started.  LVHEAP = 10/33/33  ELAPSED TIME = 8
+
+CONNECT MT M3 BY VT ...
+
+NODE UPDATE: MT
+NODE UPDATE: GC_STI
+NODE UPDATE: GATE
+NODE UPDATE: M1
+NODE UPDATE: SD
+NODE UPDATE: M2
+NODE UPDATE: M3
+
+NODE UPDATE completed. CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33
+
+CONNECT completed.  CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  ELAPSED TIME = 9
+
+NETS = 26909 (399512)  EPINS = 9852 (308259)
+
+Layer VT DELETED -- LVHEAP = 10/33/33
+
+HIERARCHICAL CONNECTIVITY marked on layer MT
+
+HIERARCHICAL CONNECTIVITY marked on layer GC_STI
+
+HIERARCHICAL CONNECTIVITY marked on layer GATE
+
+HIERARCHICAL CONNECTIVITY marked on layer M1
+
+HIERARCHICAL CONNECTIVITY marked on layer SD
+
+HIERARCHICAL CONNECTIVITY marked on layer M2
+
+HIERARCHICAL CONNECTIVITY marked on layer M3
+
+MT_dio = NET AREA RATIO SD MT > 0
+---------------------------------
+MT_dio (HIER TYP=1 CFG=3 HGC=7582 FGC=137949 HEC=41020 FEC=913478 IGC=773 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 57 OF 62  ELAPSED TIME = 9
+
+Layer SD DELETED -- LVHEAP = 10/33/33
+
+MT_good_dio = NET AREA MT_dio >= 0.202
+--------------------------------------
+MT_good_dio (HIER TYP=1 CFG=3 HGC=7582 FGC=137949 HEC=41020 FEC=913478 IGC=773 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 58 OF 62  ELAPSED TIME = 9
+
+Layer MT_dio DELETED -- LVHEAP = 10/33/33
+
+MT_no_dio = NET AREA RATIO MT MT_good_dio == 0
+MT_yes_dio = NET AREA RATIO MT MT_good_dio > 0
+----------------------------------------------
+MT_no_dio (HIER TYP=1 CFG=3 HGC=7 FGC=7 HEC=62 FEC=62 IGC=26 VHC=T VPC=F)
+MT_yes_dio (HIER TYP=1 CFG=3 HGC=8387 FGC=11690 HEC=80622 FEC=93834 IGC=1514 VHC=T VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 60 OF 62  ELAPSED TIME = 9
+
+Layer MT DELETED -- LVHEAP = 10/33/33
+
+AN.MTL.1.MT::<1> = NET AREA RATIO MT_no_dio M3 M2 M1 GC_STI GATE > 400
+                                  [PERIMETER(MT_no_dio)*0.84/AREA(GATE)]
+                                  RDB antenna_results.ant MT_no_dio M3 M2 M1 GC_STI GATE
+----------------------------------------------------------------------------------------
+AN.MTL.1.MT::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 61 OF 62  ELAPSED TIME = 9
+
+Layer MT_no_dio DELETED -- LVHEAP = 10/33/33
+
+Layer AN.MTL.1.MT::<1> DELETED -- LVHEAP = 10/33/33
+
+DRC RuleCheck AN.MTL.1.MT COMPLETED. Number of Results = 0 (0)
+
+AN.MTL.2.MT::<1> = NET AREA RATIO MT_yes_dio MT_good_dio M3 M2 M1 GC_STI GATE > 30000
+                                  [(PERIMETER(MT_yes_dio)*0.84/AREA(GATE))-(AREA(MT_good_dio)*8000)]
+                                  RDB antenna_results.ant MT_yes_dio MT_good_dio M3 M2 M1 GC_STI GATE
+-----------------------------------------------------------------------------------------------------
+AN.MTL.2.MT::<1> (HIER TYP=1 CFG=1 HGC=0 FGC=0 HEC=0 FEC=0 IGC=0 VHC=F VPC=F)
+CPU TIME = 0  REAL TIME = 0  LVHEAP = 10/33/33  OPS COMPLETE = 62 OF 62  ELAPSED TIME = 9
+
+Layer MT_yes_dio DELETED -- LVHEAP = 10/33/33
+
+Layer MT_good_dio DELETED -- LVHEAP = 10/33/33
+
+Layer M3 DELETED -- LVHEAP = 10/33/33
+
+Layer M2 DELETED -- LVHEAP = 9/33/33
+
+Layer M1 DELETED -- LVHEAP = 9/33/33
+
+Layer GC_STI DELETED -- LVHEAP = 9/33/33
+
+Layer GATE DELETED -- LVHEAP = 9/33/33
+
+Layer AN.MTL.2.MT::<1> DELETED -- LVHEAP = 9/33/33
+
+WRITE to ASCII DRC Results Database unpu_top.ant.db COMPLETED
+
+DRC RuleCheck AN.MTL.2.MT COMPLETED. Number of Results = 0 (0)
+
+Cumulative ONE-LAYER BOOLEAN Time: CPU = 0  REAL = 0
+Cumulative TWO-LAYER BOOLEAN Time: CPU = 1  REAL = 1
+Cumulative NET AREA (RATIO) Time: CPU = 2  REAL = 2
+Cumulative MISCELLANEOUS Time: CPU = 0  REAL = 0
+Cumulative CONNECT Time: CPU = 2  REAL = 2
+Cumulative RDB Time: CPU = 0  REAL = 0
+
+--- CALIBRE::DRC-H EXECUTIVE MODULE COMPLETED.  CPU TIME = 6  REAL TIME = 6
+--- TOTAL RULECHECKS EXECUTED = 16
+--- TOTAL RESULTS GENERATED = 0 (0)
+--- DRC RESULTS DATABASE FILE = unpu_top.ant.db (ASCII)
+
+--- CALIBRE::DRC-H COMPLETED - Tue Nov 10 20:49:32 2026
+--- TOTAL CPU TIME = 7  REAL TIME = 8
+--- PROCESSOR COUNT = 1
+--- SUMMARY REPORT FILE = unpu_top.ant.rpt
+

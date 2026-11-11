@@ -1,0 +1,8 @@
+endpoint;startpoint;startpoint_kind;endpoint_kind;slack_ns;path_group;n_cells;cells;incr_ns
+prdata[23];u_csr/src_b_reg_reg_23_/CP;pin;port;-0.0238;clk;3;u_csr/src_b_reg_reg_23_/QN(dfcrn2),u_csr/U77/ZN(oai222d1),ctmTdsLR_1_2972/Z(buffd7);0.2187,0.0776,0.2664
+prdata[13];u_csr/dest_c_reg_reg_13_/CP;pin;port;-0.0203;clk;3;u_csr/dest_c_reg_reg_13_/QN(dfcrn2),u_csr/U9/ZN(oai222d1),ctmTdsLR_1_2968/Z(buffd7);0.2099,0.1075,0.2567
+prdata[27];u_csr/dest_c_reg_reg_27_/CP;pin;port;-0.0073;clk;3;u_csr/dest_c_reg_reg_27_/QN(dfcrn2),u_csr/U79/ZN(oai222d1),ctmTdsLR_1_2974/Z(buffd7);0.2145,0.0890,0.2622
+prdata[9];u_csr/dest_c_reg_reg_9_/CP;pin;port;-0.0069;clk;3;u_csr/dest_c_reg_reg_9_/QN(dfcrn2),u_csr/U361/ZN(oai222d1),ctmTdsLR_1_2982/Z(buffd7);0.1983,0.0956,0.2403
+prdata[17];u_csr/src_a_reg_reg_17_/CP;pin;port;-0.0053;clk;3;u_csr/src_a_reg_reg_17_/QN(dfcrn2),u_csr/U72/ZN(oai222d1),ctmTdsLR_1_2970/Z(bufbda);0.2171,0.1291,0.2023
+prdata[21];u_csr/src_a_reg_reg_21_/CP;pin;port;-0.0029;clk;3;u_csr/src_a_reg_reg_21_/QN(dfcrn2),u_csr/U74/ZN(oai222d1),u_apb/ctmTdsLR_1_2963/Z(buffd7);0.2105,0.0978,0.2297
+prdata[12];u_csr/src_b_reg_reg_12_/CP;pin;port;-0.0003;clk;3;u_csr/src_b_reg_reg_12_/QN(dfcrn2),u_csr/U398/ZN(oai222d2),ctmTdsLR_1_2965/Z(bufbd7);0.2020,0.1561,0.2819

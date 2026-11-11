@@ -1,0 +1,258 @@
+****************************************
+Report : timing
+	-path_type full_clock_expanded
+	-delay_type min
+	-slack_lesser_than 0.00
+	-max_paths 20
+	-sort_by slack
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 20:23:57 2026
+****************************************
+
+
+  Startpoint: u_csr/src_b_reg_reg_23_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[23] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_68008_2552/Z (buffda)                           0.13 &     0.37 r
+  u_csr/src_b_reg_reg_23_/CP (dfcrn2)                     0.01 &     0.38 r
+  u_csr/src_b_reg_reg_23_/QN (dfcrn2)                     0.22 &     0.59 r
+  u_csr/U77/ZN (oai222d1)                                 0.08 &     0.67 f
+  ctmTdsLR_1_2972/Z (buffd7)                              0.27 &     0.94 f
+  prdata[23] (out)                                        0.04 &     0.98 f
+  data arrival time                                                  0.98
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -0.98
+  ------------------------------------------------------------------------------
+  slack (VIOLATED)                                                  -0.02
+
+
+  Startpoint: u_csr/dest_c_reg_reg_13_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[13] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_65445_2550/Z (buffd7)                           0.11 &     0.35 r
+  u_csr/dest_c_reg_reg_13_/CP (dfcrn2)                    0.00 &     0.35 r
+  u_csr/dest_c_reg_reg_13_/QN (dfcrn2)                    0.21 &     0.56 r
+  u_csr/U9/ZN (oai222d1)                                  0.11 &     0.67 f
+  ctmTdsLR_1_2968/Z (buffd7)                              0.26 &     0.92 f
+  prdata[13] (out)                                        0.06 &     0.98 f
+  data arrival time                                                  0.98
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -0.98
+  ------------------------------------------------------------------------------
+  slack (VIOLATED)                                                  -0.02
+
+
+  Startpoint: u_csr/dest_c_reg_reg_27_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[27] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                           0.15 &     0.38 r
+  u_csr/dest_c_reg_reg_27_/CP (dfcrn2)                    0.00 &     0.38 r
+  u_csr/dest_c_reg_reg_27_/QN (dfcrn2)                    0.21 &     0.60 r
+  u_csr/U79/ZN (oai222d1)                                 0.09 &     0.69 f
+  ctmTdsLR_1_2974/Z (buffd7)                              0.26 &     0.95 f
+  prdata[27] (out)                                        0.04 &     0.99 f
+  data arrival time                                                  0.99
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -0.99
+  ------------------------------------------------------------------------------
+  slack (VIOLATED)                                                  -0.01
+
+
+  Startpoint: u_csr/dest_c_reg_reg_9_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[9] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                           0.15 &     0.38 r
+  u_csr/dest_c_reg_reg_9_/CP (dfcrn2)                     0.00 &     0.38 r
+  u_csr/dest_c_reg_reg_9_/QN (dfcrn2)                     0.20 &     0.58 r
+  u_csr/U361/ZN (oai222d1)                                0.10 &     0.68 f
+  ctmTdsLR_1_2982/Z (buffd7)                              0.24 &     0.92 f
+  prdata[9] (out)                                         0.08 &     0.99 f
+  data arrival time                                                  0.99
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -0.99
+  ------------------------------------------------------------------------------
+  slack (VIOLATED)                                                  -0.01
+
+
+  Startpoint: u_csr/src_a_reg_reg_17_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[17] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_68008_2552/Z (buffda)                           0.13 &     0.37 r
+  u_csr/src_a_reg_reg_17_/CP (dfcrn2)                     0.00 &     0.37 r
+  u_csr/src_a_reg_reg_17_/QN (dfcrn2)                     0.22 &     0.59 r
+  u_csr/U72/ZN (oai222d1)                                 0.13 &     0.72 f
+  ctmTdsLR_1_2970/Z (bufbda)                              0.20 &     0.92 f
+  prdata[17] (out)                                        0.07 &     0.99 f
+  data arrival time                                                  0.99
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -0.99
+  ------------------------------------------------------------------------------
+  slack (VIOLATED)                                                  -0.01
+
+
+  Startpoint: u_csr/src_a_reg_reg_21_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[21] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_68008_2552/Z (buffda)                           0.13 &     0.37 r
+  u_csr/src_a_reg_reg_21_/CP (dfcrn2)                     0.00 &     0.37 r
+  u_csr/src_a_reg_reg_21_/QN (dfcrn2)                     0.21 &     0.58 r
+  u_csr/U74/ZN (oai222d1)                                 0.10 &     0.68 f
+  u_apb/ctmTdsLR_1_2963/Z (buffd7)                        0.23 &     0.91 f
+  prdata[21] (out)                                        0.09 &     1.00 f
+  data arrival time                                                  1.00
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -1.00
+  ------------------------------------------------------------------------------
+  slack (VIOLATED: increase significant digits)                     -0.00
+
+
+  Startpoint: u_csr/src_b_reg_reg_12_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[12] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_69038_2549/Z (bufbd7)                           0.11 &     0.34 r
+  u_csr/src_b_reg_reg_12_/CP (dfcrn2)                     0.00 &     0.34 r
+  u_csr/src_b_reg_reg_12_/QN (dfcrn2)                     0.20 &     0.54 r
+  u_csr/U398/ZN (oai222d2)                                0.16 &     0.70 f
+  ctmTdsLR_1_2965/Z (bufbd7)                              0.28 &     0.98 f
+  prdata[12] (out)                                        0.02 &     1.00 f
+  data arrival time                                                  1.00
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -1.00
+  ------------------------------------------------------------------------------
+  slack (VIOLATED: increase significant digits)                     -0.00
+
+

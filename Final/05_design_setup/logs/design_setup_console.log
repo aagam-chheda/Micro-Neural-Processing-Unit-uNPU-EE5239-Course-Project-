@@ -1,0 +1,1538 @@
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys-Release
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Galaxy-Internal-Debug
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       ICCompilerII
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/10/2026 19:45:56 PID:31205 Client:lalita.iitg.ac.in Authorization failed Synopsys 2022.12
+[SCL] 11/10/2026 19:45:57 PID:31205 Client:lalita.iitg.ac.in Authorization failed Synopsys-Release 2022.12
+[SCL] 11/10/2026 19:45:57 PID:31205 Client:lalita.iitg.ac.in Authorization failed Galaxy-Internal-Debug 2022.12
+[icc2-lic Tue Nov 10 19:45:57 2026] Sending authorization request for 'ICCompilerII'
+[SCL] 11/10/2026 19:45:57 PID:31205 Client:lalita.iitg.ac.in Authorization failed ICCompilerII 2022.12
+[icc2-lic Tue Nov 10 19:45:57 2026] Authorization request for 'ICCompilerII' failed (-5)
+[icc2-lic Tue Nov 10 19:45:57 2026] Sending authorization request for 'ICCompilerII-NX'
+[SCL] 11/10/2026 19:45:58 PID:31205 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Authorization succeeded ICCompilerII-NX 2022.12
+[icc2-lic Tue Nov 10 19:45:58 2026] Authorization request for 'ICCompilerII-NX' succeeded
+
+
+
+                              IC Compiler II (TM)
+
+                Version U-2022.12-SP3 for linux64 - Apr 18, 2023
+  This release has significant feature enhancements. Please review the Release
+                       Notes associated with this release.
+
+                    Copyright (c) 1988 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+ 
+Information: Term was not able to be set up using xterm-256color . Using "xterm" by default instead. (CLE-10)
+# ==============================================================================
+# Script: design_setup.tcl
+# Path  : <RUN_DIR>/pnr_v2/design_setup.tcl   ;# 063 E1: new path
+# Stage : Design Setup, Library Creation & MCMM Initialization
+# Tool  : Synopsys ICC2 (U-2022.12-SP3)
+# ==============================================================================
+set DESIGN_NAME     "unpu_top"   ;# 063 E2: design name
+unpu_top
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+/storage/EE5239G1/aagams_workspace2/unpu_run3
+set PROJ_DIR        $RUN_ROOT   ;# 063 E3b: project directory
+/storage/EE5239G1/aagams_workspace2/unpu_run3
+set SYN_OUT_DIR     "${PROJ_DIR}/syn/out/legacy"   ;# 063 E4: syn/out/legacy/ is produced by the next task (synthesis with the old constraints: 20 ns, setup uncertainty 1.5, hold uncertainty 0.5)
+/storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy
+set PNR_DIR         "${PROJ_DIR}/pnr_icc2"
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2
+set BLOCKS_DIR      "${PNR_DIR}/blocks"
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/blocks
+set LOG_DIR         "${PNR_DIR}/logs"
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs
+file mkdir $BLOCKS_DIR
+file mkdir $LOG_DIR
+redirect -tee -file ${LOG_DIR}/1_design_setup.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
+
+    set NETLIST_FILE    "${SYN_OUT_DIR}/unpu_top_cn.dc.v"   ;# 063 E4: netlist name
+    set SDC_FILE        "${SYN_OUT_DIR}/unpu_top_cn.sdc"   ;# 063 E4: SDC name
+    
+    # Reference Libraries (Standard Cells + Physical-Only Fillers)
+    set NDM_LIBS [list \
+        "${PNR_DIR}/scl180_std.ndm" \
+        "${PNR_DIR}/scl180_filler.ndm" \
+    ]
+
+    set PDK_DIR         "/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/digital_pnr_kit/snps/non_rh/4M1L"
+    set TECH_FILE       "${PDK_DIR}/SCL_4LM.tf"
+    set TLUP_FILE       "${PDK_DIR}/SCL_TLUPLUS_4M1L_TYP.tlup"
+    set TLUP_MAP        "${PDK_DIR}/SCL_TLUPLUS_4M1L.map"
+
+    # 1. Safe Memory & Disk Cleanup
+    set open_blk [get_blocks -quiet *]
+    if {[sizeof_collection $open_blk] > 0} {
+        close_blocks -force $open_blk
+    }
+
+    set open_lib [get_libs -quiet *${DESIGN_NAME}*]
+    if {[sizeof_collection $open_lib] > 0} {
+        close_lib -force $open_lib
+    }
+
+    if {[file exists ${BLOCKS_DIR}/${DESIGN_NAME}.dlib]} {
+        file delete -force ${BLOCKS_DIR}/${DESIGN_NAME}.dlib
+    }
+
+    # 2. Create Design Library (.dlib) linking both NDM reference libraries
+    create_lib ${BLOCKS_DIR}/${DESIGN_NAME}.dlib \
+        -technology ${TECH_FILE} \
+        -ref_libs ${NDM_LIBS}
+
+    # 3. Read Synthesized Netlist & Link Design
+    read_verilog -top ${DESIGN_NAME} ${NETLIST_FILE}
+    current_block ${DESIGN_NAME}
+    link_block
+
+    # 4. Read Parasitic Technology (TLUPlus)
+    read_parasitic_tech \
+        -tlup ${TLUP_FILE} \
+        -layermap ${TLUP_MAP} \
+        -name TYPICAL_RC
+
+    # 5. Configure Multi-Corner Multi-Mode (MCMM) Scenarios
+    remove_scenarios -all
+    remove_modes -all
+    remove_corners -all
+
+    create_mode mode_func
+
+    # --- Setup Scenario (Slow-Slow) ---
+    create_corner corner_ss
+    create_scenario -name func_ss -mode mode_func -corner corner_ss
+    current_scenario func_ss
+    read_sdc ${SDC_FILE}
+    set_parasitic_parameters -early_spec TYPICAL_RC -late_spec TYPICAL_RC
+    set_scenario_status func_ss \
+        -active true \
+        -setup true \
+        -hold false \
+        -max_transition true \
+        -max_capacitance true \
+        -dynamic_power true \
+        -leakage_power true
+
+    # --- Hold Scenario (Fast-Fast with 1.0 ns Hold Guardband) ---
+    create_corner corner_ff
+    create_scenario -name func_ff -mode mode_func -corner corner_ff
+    current_scenario func_ff
+    read_sdc ${SDC_FILE}
+    # 063 E5b: the DC-written SDC carries the ss operating condition (set_operating_conditions tsl18fs120_scl_ss), so without the next line the hold scenario would be analysed at ss
+    set_operating_conditions tsl18fs120_scl_ff -library tsl18fs120_scl_ff   ;# 063 E5b
+    set_parasitic_parameters -early_spec TYPICAL_RC -late_spec TYPICAL_RC
+    set_scenario_status func_ff \
+        -active true \
+        -setup false \
+        -hold true \
+        -max_transition false \
+        -max_capacitance false \
+        -dynamic_power false \
+        -leakage_power false
+    # 063 E5b: print the corners so that the ff operating condition of corner_ff can be checked in the log
+    report_corners   ;# 063 E5b
+
+    # Enforce 0.5 ns (2.5% of 20 ns clock) Hold Uncertainty
+    #set_clock_uncertainty -hold 0.5 [all_clocks]
+
+    # 6. Enable Buffers, Inverters, and Delay Cells for Optimization & Hold Fixing
+    set hold_cells [get_lib_cells -quiet {*/*BUF* */*INV* */*DEL* */*DLY* */*buf* */*inv* */*del* */*dly*}]
+    if {[sizeof_collection $hold_cells] > 0} {
+        set_lib_cell_purpose -include hold $hold_cells
+        set_lib_cell_purpose -include optimization $hold_cells
+    }
+
+    # 7. Initial Sanity Checks & Save
+    check_netlist
+    check_timing -all
+
+    save_block -as ${DESIGN_NAME}_setup
+    save_lib
+    puts ">>> STAGE 1 COMPLETE: ${DESIGN_NAME}_setup saved. Log: ${LOG_DIR}/1_design_setup.log"
+
+}
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+Warning: SCL_4LM.tf line 1152, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1166, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1180, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1194, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1208, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1222, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1236, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1250, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1264, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1278, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1292, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1306, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1320, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1334, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1348, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1362, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1376, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1390, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1404, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1418, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1432, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1446, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1460, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1474, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1488, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1502, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1516, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1530, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1544, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1558, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1572, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1586, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1600, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1614, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1628, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1642, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1656, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1670, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1684, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1698, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1712, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1726, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1740, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1754, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1768, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1782, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1796, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1810, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1824, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1838, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1852, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1866, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1880, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1894, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1908, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1922, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1936, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1950, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1964, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1978, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 1992, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2006, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2020, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2034, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2048, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2062, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2076, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2090, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2104, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2118, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2132, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2146, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2160, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2174, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2188, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2202, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2216, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2230, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2244, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2258, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2272, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2286, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2300, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2314, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2328, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2342, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2356, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2370, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2384, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2398, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2412, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2426, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2440, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2454, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2468, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2482, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2496, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2510, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2524, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2538, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2552, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2566, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2580, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2594, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2608, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2622, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2636, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2650, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2664, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2678, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2692, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2706, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2720, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2734, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2748, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2762, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2776, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2790, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2804, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2818, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2832, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2846, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2860, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2874, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2888, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2902, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2916, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2930, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2944, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2958, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2972, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 2986, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3000, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3014, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3028, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3042, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3056, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3070, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3084, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3098, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3112, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3126, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3140, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3154, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3168, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3182, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3196, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3210, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3224, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3238, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3252, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3266, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3280, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3294, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3308, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3322, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3336, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3350, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3364, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3378, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3392, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3406, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3420, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3434, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3448, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3462, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3476, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3490, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3504, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3518, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3532, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3546, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3560, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3574, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3588, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3602, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3616, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3630, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3644, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3658, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3672, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3686, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3700, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3714, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3728, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3742, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3756, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3770, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3784, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3798, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3812, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3826, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3840, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3854, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3868, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3882, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3896, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3910, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3924, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3938, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3952, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3966, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3980, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 3994, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4008, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4022, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4036, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4050, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4064, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4078, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4092, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4106, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4120, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4134, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4148, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4162, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4176, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4190, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4204, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4218, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4232, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4246, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4260, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4274, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4288, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4302, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4316, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4330, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4344, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4358, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4372, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4386, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4400, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4414, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4428, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4442, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4456, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4470, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4484, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4498, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4512, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4526, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4540, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4554, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4568, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4582, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4596, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4610, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4624, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4638, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4652, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4666, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4680, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4694, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4708, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4722, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4736, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4750, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4764, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4778, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4792, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4806, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4820, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4834, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4848, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4862, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4876, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4890, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4904, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4918, unsupported technology file section 'CapTable'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4932, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4950, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4968, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 4986, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5004, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5022, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5040, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5058, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5076, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5094, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5112, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5130, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5148, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5166, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5184, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5202, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5220, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5238, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5256, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5274, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5292, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5310, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5328, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5346, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5364, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5382, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5400, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5418, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5436, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5454, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5472, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5490, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5508, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5526, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Warning: SCL_4LM.tf line 5544, unsupported technology file section 'CapModel'. It will be ignored. (TECH-001)
+Information: Loading technology file '/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/digital_pnr_kit/snps/non_rh/4M1L/SCL_4LM.tf' (FILE-007)
+Information: Reading Verilog into new design 'unpu_top' in library 'unpu_top.dlib'. (VR-012)
+Loading verilog file '/storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.dc.v'
+Number of modules read: 76
+Top level ports: 204
+Total ports in all modules: 7452
+Total nets in all modules: 21755
+Total instances in all modules: 12562
+Elapsed = 00:00:00.13, CPU = 00:00:00.12
+Using libraries: unpu_top.dlib scl180_std scl180_filler
+Linking block unpu_top.dlib:unpu_top.design
+Information: User units loaded from library 'scl180_std' (LNK-040)
+Design 'unpu_top' was successfully linked.
+Warning: Layer mapping file warning. Tech layer 'metal1' mapped in layer mapping file is mask name of 'M1'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'metal2' mapped in layer mapping file is mask name of 'M2'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'metal3' mapped in layer mapping file is mask name of 'M3'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'poly' mapped in layer mapping file is mask name of 'GC'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'metal4' mapped in layer mapping file is mask name of 'TOP_M'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'CC' mapped in layer mapping file is mask name of 'CS'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'via3' mapped in layer mapping file is mask name of 'TOP_V'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'via1' mapped in layer mapping file is mask name of 'V2'. (TLUP-011)
+Warning: Layer mapping file warning. Tech layer 'via2' mapped in layer mapping file is mask name of 'V3'. (TLUP-011)
+Created scenario func_ss for mode mode_func and corner corner_ss
+All analysis types are activated.
+Information: Loading SDC version 2.1 file '/storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.sdc' (FILE-007)
+Warning: Constraint 'set_wire_load_model' is not supported by icc2. (SDC-3)
+Warning: Constraint 'set_max_area' is not supported by icc2. (SDC-3)
+Information: Timer using 1 threads
+
+
+Summary of unsupported constraints:
+Information: Ignored 1 unsupported 'set_max_area' constraint. (SDC-4)
+Information: Ignored 1 unsupported 'set_wire_load_model' constraint. (SDC-4)
+Scenario func_ss (mode mode_func corner corner_ss) is active for setup/leakage_power/dynamic_power/max_transition/max_capacitance/min_capacitance analysis.
+Created scenario func_ff for mode mode_func and corner corner_ff
+All analysis types are activated.
+Information: Loading SDC version 2.1 file '/storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.sdc' (FILE-007)
+Warning: Constraint 'set_wire_load_model' is not supported by icc2. (SDC-3)
+Warning: Constraint 'set_max_area' is not supported by icc2. (SDC-3)
+Warning: Redefining clock 'clk'.  
+        Previously defined at: /storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.sdc, line 318 (UIC-034)
+
+
+Summary of unsupported constraints:
+Information: Ignored 1 unsupported 'set_max_area' constraint. (SDC-4)
+Information: Ignored 1 unsupported 'set_wire_load_model' constraint. (SDC-4)
+Scenario func_ff (mode mode_func corner corner_ff) is active for hold/min_capacitance analysis.
+****************************************
+Report : corner
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 19:46:03 2026
+****************************************
+
+--------------------------------------------------------------------------------
+Corner corner_ff
+--------------------------------------------------------------------------------
+
+Current: true  Default: false  Empty: false
+
+Scenarios associated with this corner:
+
+                                                         Leakage   Dynamic
+Scenario            Mode            Active  Setup  Hold  Power     Power     Max_tran  Max_cap  Min_cap  Cell_em  Signal_em
+-------------------------------------------------------------------------------------------------------------------------
+func_ff             mode_func       true    false  true  false     false     false     false    true     false    false
+
+
+Top-Level PVT Settings:
+  early process label             (none)
+  early process number            1
+  early voltage                   1.98
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_v2/design_setup.tcl, line 128
+  early temperature               -40.00
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_v2/design_setup.tcl, line 128
+
+  late process label              (none)
+  late process number             1
+  late voltage                    1.98
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_v2/design_setup.tcl, line 128
+  late temperature                -40.00
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_v2/design_setup.tcl, line 128
+
+
+
+
+0 objects with explicit PVT settings.
+
+
+Top-level cell timing derates:
+ data_cell derate early:   rise: 1.00    fall: 1.00  
+ clk_cell derate early:   rise: 1.00    fall: 1.00  
+ cell_check derate early:   rise: 1.00    fall: 1.00  
+ data_cell derate  late:   rise: 1.00    fall: 1.00  
+ clk_cell derate  late:   rise: 1.00    fall: 1.00  
+ cell_check derate  late:   rise: 1.00    fall: 1.00  
+
+Global net timing derates:
+ net_data, early:   rise: 1.00    fall: 1.00  
+ net_data, late:   rise: 1.00    fall: 1.00  
+ net_clock, early:   rise: 1.00    fall: 1.00  
+ net_clock, late:   rise: 1.00    fall: 1.00  
+
+
+--------------------------------------------------------------------------------
+Corner corner_ss
+--------------------------------------------------------------------------------
+
+Current: false  Default: false  Empty: false
+
+Scenarios associated with this corner:
+
+                                                         Leakage   Dynamic
+Scenario            Mode            Active  Setup  Hold  Power     Power     Max_tran  Max_cap  Min_cap  Cell_em  Signal_em
+-------------------------------------------------------------------------------------------------------------------------
+func_ss             mode_func       true    true   false true      true      true      true     true     false    false
+
+
+Top-Level PVT Settings:
+  early process label             (none)
+  early process number            1
+  early voltage                   1.62
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.sdc, line 9
+  early temperature               125.00
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.sdc, line 9
+
+  late process label              (none)
+  late process number             1
+  late voltage                    1.62
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.sdc, line 9
+  late temperature                125.00
+    source                        hierarchical opcond
+    file/line                     /storage/EE5239G1/aagams_workspace2/unpu_run3/syn/out/legacy/unpu_top_cn.sdc, line 9
+
+
+
+
+0 objects with explicit PVT settings.
+
+
+Top-level cell timing derates:
+ data_cell derate early:   rise: 1.00    fall: 1.00  
+ clk_cell derate early:   rise: 1.00    fall: 1.00  
+ cell_check derate early:   rise: 1.00    fall: 1.00  
+ data_cell derate  late:   rise: 1.00    fall: 1.00  
+ clk_cell derate  late:   rise: 1.00    fall: 1.00  
+ cell_check derate  late:   rise: 1.00    fall: 1.00  
+
+Global net timing derates:
+ net_data, early:   rise: 1.00    fall: 1.00  
+ net_data, late:   rise: 1.00    fall: 1.00  
+ net_clock, early:   rise: 1.00    fall: 1.00  
+ net_clock, late:   rise: 1.00    fall: 1.00  
+
+
+Information: The design specific attribute override for lib_cell 'scl180_std:buftd1.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbd7.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buffd2.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbdf.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buffda.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buftda.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buftd2.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buffd3.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbda.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbdk.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftda.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd7.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd4.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd2.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd1.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffda.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd7.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd4.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd3.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd2.frame' which has no logical model. (NDMUI-010)
+Information: The design specific attribute override for lib_cell 'scl180_std:buftd1.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbd7.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buffd2.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbdf.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buffda.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buftda.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buftd2.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:buffd3.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbda.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Information: The design specific attribute override for lib_cell 'scl180_std:bufbdk.timing' is set in the current block 'unpu_top', because the actual library setting may not be overwritten. (ATTR-12)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftda.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd7.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd4.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd2.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buftd1.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffda.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd7.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd4.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd3.frame' which has no logical model. (NDMUI-010)
+Warning: The 'set_lib_cell_purpose' command cannot be used on library cell 'scl180_filler:buffd2.frame' which has no logical model. (NDMUI-010)
+****************************************
+Report : check_netlist
+        -cells
+        -nets
+        -ports
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 19:46:03 2026
+****************************************
+Warning: In design 'unpu_top', the output pin 'u_apb/pready' of hierarchical cell 'u_apb' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'unpu_top', the pin 'u_csr/error_code_i[2]' on submodule 'u_csr' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_csr/error_code_i[1]' on submodule 'u_csr' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the output pin 'u_seq/busy' of hierarchical cell 'u_seq' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'unpu_top', the output pin 'u_dma/job_busy' of hierarchical cell 'u_dma' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'unpu_top', the output pin 'u_wbuf/load_busy' of hierarchical cell 'u_wbuf' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'unpu_top', the output pin 'u_wbuf/load_done' of hierarchical cell 'u_wbuf' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'unpu_top', the output pin 'u_actbuf/load_busy' of hierarchical cell 'u_actbuf' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'unpu_top', the output pin 'u_actbuf/load_done' of hierarchical cell 'u_actbuf' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[127]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[126]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[125]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[124]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[123]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[122]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[121]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[120]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[119]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[118]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[117]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[116]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[115]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[114]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[113]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[112]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[111]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[110]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[109]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[108]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[107]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[106]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[105]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[104]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[103]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[102]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[101]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[100]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[99]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[98]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[97]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[96]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[95]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[94]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[93]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[92]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[91]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[90]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[89]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[88]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[87]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[86]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[85]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[84]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[83]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[82]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[81]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[80]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[79]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[78]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[77]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[76]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[75]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[74]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[73]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[72]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[71]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[70]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[69]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[68]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[67]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[66]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[65]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[64]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[63]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[62]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[61]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[60]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[59]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[58]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[57]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[56]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[55]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[54]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[53]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[52]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[51]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[50]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[49]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[48]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[47]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[46]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[45]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[44]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[43]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[42]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[41]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[40]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[39]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[38]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[37]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[36]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[35]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[34]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[33]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[32]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[31]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[30]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[29]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[28]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[27]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[26]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[25]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[24]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[23]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[22]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[21]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[20]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[19]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[18]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[17]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[16]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[15]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[14]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[13]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[12]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[11]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[10]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[9]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[8]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[7]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[6]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[5]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[4]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[3]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[2]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[1]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'unpu_top', the pin 'u_grid/psum_in[0]' on submodule 'u_grid' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_apb', input port 'u_apb/paddr[31]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[30]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[29]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[28]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[27]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[26]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[25]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[24]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[23]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[22]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[21]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[20]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[19]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[18]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[17]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[16]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[15]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[14]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[13]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[12]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[1]' is unloaded. (DCHK-017)
+Warning: In design 'u_apb', input port 'u_apb/paddr[0]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[31]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[31]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[30]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[30]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[29]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[29]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[28]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[28]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[27]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[27]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[26]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[26]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[25]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[25]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[24]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[24]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[23]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[23]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[22]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[22]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[21]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[21]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[20]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[20]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[19]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[19]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[18]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[18]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[17]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[17]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[16]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[16]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[15]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[15]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[14]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[14]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[13]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[13]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[12]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[12]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[11]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[11]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[10]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[10]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[9]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[9]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[8]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[8]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[7]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[7]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[1]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[1]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/B[0]' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/B[0]' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_212_3/CI' of hierarchical cell 'u_dma/add_212_3' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_212_3/CI' on submodule 'u_dma/add_212_3' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', the output pin 'u_dma/add_212_3/CO' of hierarchical cell 'u_dma/add_212_3' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[31]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[31]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[30]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[30]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[29]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[29]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[28]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[28]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[27]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[27]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[26]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[26]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[25]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[25]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[24]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[24]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[23]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[23]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[22]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[22]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[21]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[21]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[20]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[20]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[19]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[19]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[18]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[18]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[17]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[17]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[16]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[16]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[15]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[15]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[14]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[14]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[13]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[13]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[12]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[12]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[11]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[11]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[10]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[10]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[9]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[9]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[8]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[8]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[1]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[1]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/B[0]' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/B[0]' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', input pin 'u_dma/add_0_root_add_0_root_add_212_2/CI' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_dma', the pin 'u_dma/add_0_root_add_0_root_add_212_2/CI' on submodule 'u_dma/add_0_root_add_0_root_add_212_2' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_dma', the output pin 'u_dma/add_0_root_add_0_root_add_212_2/CO' of hierarchical cell 'u_dma/add_0_root_add_0_root_add_212_2' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[31]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[30]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[29]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[28]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[27]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[26]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[25]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[24]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[23]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[22]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[21]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[20]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[19]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[18]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[17]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[16]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[15]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[14]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[13]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[12]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[11]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[10]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[9]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[8]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[7]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[1]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/B[0]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', input port 'u_dma/add_212_3/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_212_3', net connected to output port 'u_dma/add_212_3/CO' is not driven. (DCHK-021)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[31]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[30]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[29]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[28]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[27]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[26]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[25]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[24]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[23]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[22]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[21]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[20]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[19]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[18]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[17]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[16]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[15]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[14]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[13]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[12]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[11]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[10]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[9]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[8]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[1]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/B[0]' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', input port 'u_dma/add_0_root_add_0_root_add_212_2/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', net connected to output port 'u_dma/add_0_root_add_0_root_add_212_2/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[31]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[30]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[29]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[28]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[27]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[26]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[25]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[24]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[23]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[22]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[21]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[20]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[19]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[18]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[17]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[16]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[15]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[14]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[13]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[12]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[11]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[10]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[9]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[8]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[7]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[6]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[5]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[4]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[3]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[2]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[1]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_0__pe/psum_in[0]' on submodule 'u_grid/g_row_0__g_col_0__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[31]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[30]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[29]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[28]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[27]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[26]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[25]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[24]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[23]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[22]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[21]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[20]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[19]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[18]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[17]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[16]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[15]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[14]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[13]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[12]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[11]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[10]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[9]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[8]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[7]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[6]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[5]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[4]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[3]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[2]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[1]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_1__pe/psum_in[0]' on submodule 'u_grid/g_row_0__g_col_1__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[31]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[30]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[29]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[28]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[27]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[26]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[25]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[24]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[23]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[22]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[21]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[20]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[19]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[18]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[17]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[16]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[15]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[14]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[13]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[12]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[11]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[10]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[9]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[8]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[7]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[6]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[5]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[4]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[3]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[2]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[1]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_2__pe/psum_in[0]' on submodule 'u_grid/g_row_0__g_col_2__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[31]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[30]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[29]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[28]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[27]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[26]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[25]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[24]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[23]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[22]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[21]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[20]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[19]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[18]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[17]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[16]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[15]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[14]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[13]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[12]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[11]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[10]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[9]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[8]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[7]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[6]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[5]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[4]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[3]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[2]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[1]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid', the pin 'u_grid/g_row_0__g_col_3__pe/psum_in[0]' on submodule 'u_grid/g_row_0__g_col_3__pe' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[31]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[30]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[29]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[28]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[27]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[26]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[25]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[24]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[23]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[22]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[21]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[20]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[19]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[18]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[17]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[16]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[15]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[14]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[13]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[12]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[11]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[10]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[9]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[8]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[7]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[6]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[5]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[4]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[3]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[2]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[1]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/A[0]' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', input pin 'u_grid/g_row_0__g_col_0__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_0__g_col_0__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the pin 'u_grid/g_row_0__g_col_0__pe/add_42/CI' on submodule 'u_grid/g_row_0__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe', the output pin 'u_grid/g_row_0__g_col_0__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_0__g_col_0__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe/add_42', input port 'u_grid/g_row_0__g_col_0__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe/add_42', net connected to output port 'u_grid/g_row_0__g_col_0__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[31]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[30]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[29]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[28]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[27]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[26]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[25]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[24]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[23]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[22]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[21]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[20]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[19]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[18]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[17]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[16]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[15]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[14]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[13]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[12]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[11]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[10]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[9]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[8]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[7]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[6]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[5]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[4]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[3]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[2]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[1]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/A[0]' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', input pin 'u_grid/g_row_0__g_col_1__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_0__g_col_1__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the pin 'u_grid/g_row_0__g_col_1__pe/add_42/CI' on submodule 'u_grid/g_row_0__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe', the output pin 'u_grid/g_row_0__g_col_1__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_0__g_col_1__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe/add_42', input port 'u_grid/g_row_0__g_col_1__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe/add_42', net connected to output port 'u_grid/g_row_0__g_col_1__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[31]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[30]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[29]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[28]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[27]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[26]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[25]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[24]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[23]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[22]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[21]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[20]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[19]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[18]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[17]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[16]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[15]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[14]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[13]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[12]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[11]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[10]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[9]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[8]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[7]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[6]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[5]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[4]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[3]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[2]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[1]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/A[0]' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', input pin 'u_grid/g_row_0__g_col_2__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_0__g_col_2__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the pin 'u_grid/g_row_0__g_col_2__pe/add_42/CI' on submodule 'u_grid/g_row_0__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe', the output pin 'u_grid/g_row_0__g_col_2__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_0__g_col_2__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe/add_42', input port 'u_grid/g_row_0__g_col_2__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe/add_42', net connected to output port 'u_grid/g_row_0__g_col_2__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[31]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[30]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[29]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[28]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[27]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[26]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[25]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[24]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[23]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[22]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[21]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[20]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[19]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[18]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[17]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[16]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[15]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[14]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[13]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[12]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[11]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[10]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[9]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[8]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[7]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[6]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[5]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[4]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[3]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[2]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[1]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/A[0]' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', input pin 'u_grid/g_row_0__g_col_3__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_0__g_col_3__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the pin 'u_grid/g_row_0__g_col_3__pe/add_42/CI' on submodule 'u_grid/g_row_0__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe', the output pin 'u_grid/g_row_0__g_col_3__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_0__g_col_3__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe/add_42', input port 'u_grid/g_row_0__g_col_3__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe/add_42', net connected to output port 'u_grid/g_row_0__g_col_3__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_1__g_col_0__pe', input pin 'u_grid/g_row_1__g_col_0__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_1__g_col_0__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_1__g_col_0__pe', the pin 'u_grid/g_row_1__g_col_0__pe/add_42/CI' on submodule 'u_grid/g_row_1__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_1__g_col_0__pe', the output pin 'u_grid/g_row_1__g_col_0__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_1__g_col_0__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_1__g_col_0__pe/add_42', input port 'u_grid/g_row_1__g_col_0__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_1__g_col_0__pe/add_42', net connected to output port 'u_grid/g_row_1__g_col_0__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_1__g_col_1__pe', input pin 'u_grid/g_row_1__g_col_1__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_1__g_col_1__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_1__g_col_1__pe', the pin 'u_grid/g_row_1__g_col_1__pe/add_42/CI' on submodule 'u_grid/g_row_1__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_1__g_col_1__pe', the output pin 'u_grid/g_row_1__g_col_1__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_1__g_col_1__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_1__g_col_1__pe/add_42', input port 'u_grid/g_row_1__g_col_1__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_1__g_col_1__pe/add_42', net connected to output port 'u_grid/g_row_1__g_col_1__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_1__g_col_2__pe', input pin 'u_grid/g_row_1__g_col_2__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_1__g_col_2__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_1__g_col_2__pe', the pin 'u_grid/g_row_1__g_col_2__pe/add_42/CI' on submodule 'u_grid/g_row_1__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_1__g_col_2__pe', the output pin 'u_grid/g_row_1__g_col_2__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_1__g_col_2__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_1__g_col_2__pe/add_42', input port 'u_grid/g_row_1__g_col_2__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_1__g_col_2__pe/add_42', net connected to output port 'u_grid/g_row_1__g_col_2__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_1__g_col_3__pe', input pin 'u_grid/g_row_1__g_col_3__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_1__g_col_3__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_1__g_col_3__pe', the pin 'u_grid/g_row_1__g_col_3__pe/add_42/CI' on submodule 'u_grid/g_row_1__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_1__g_col_3__pe', the output pin 'u_grid/g_row_1__g_col_3__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_1__g_col_3__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_1__g_col_3__pe/add_42', input port 'u_grid/g_row_1__g_col_3__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_1__g_col_3__pe/add_42', net connected to output port 'u_grid/g_row_1__g_col_3__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_2__g_col_0__pe', input pin 'u_grid/g_row_2__g_col_0__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_2__g_col_0__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_2__g_col_0__pe', the pin 'u_grid/g_row_2__g_col_0__pe/add_42/CI' on submodule 'u_grid/g_row_2__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_2__g_col_0__pe', the output pin 'u_grid/g_row_2__g_col_0__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_2__g_col_0__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_2__g_col_0__pe/add_42', input port 'u_grid/g_row_2__g_col_0__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_2__g_col_0__pe/add_42', net connected to output port 'u_grid/g_row_2__g_col_0__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_2__g_col_1__pe', input pin 'u_grid/g_row_2__g_col_1__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_2__g_col_1__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_2__g_col_1__pe', the pin 'u_grid/g_row_2__g_col_1__pe/add_42/CI' on submodule 'u_grid/g_row_2__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_2__g_col_1__pe', the output pin 'u_grid/g_row_2__g_col_1__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_2__g_col_1__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_2__g_col_1__pe/add_42', input port 'u_grid/g_row_2__g_col_1__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_2__g_col_1__pe/add_42', net connected to output port 'u_grid/g_row_2__g_col_1__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_2__g_col_2__pe', input pin 'u_grid/g_row_2__g_col_2__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_2__g_col_2__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_2__g_col_2__pe', the pin 'u_grid/g_row_2__g_col_2__pe/add_42/CI' on submodule 'u_grid/g_row_2__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_2__g_col_2__pe', the output pin 'u_grid/g_row_2__g_col_2__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_2__g_col_2__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_2__g_col_2__pe/add_42', input port 'u_grid/g_row_2__g_col_2__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_2__g_col_2__pe/add_42', net connected to output port 'u_grid/g_row_2__g_col_2__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_2__g_col_3__pe', input pin 'u_grid/g_row_2__g_col_3__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_2__g_col_3__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_2__g_col_3__pe', the pin 'u_grid/g_row_2__g_col_3__pe/add_42/CI' on submodule 'u_grid/g_row_2__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_2__g_col_3__pe', the output pin 'u_grid/g_row_2__g_col_3__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_2__g_col_3__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_2__g_col_3__pe/add_42', input port 'u_grid/g_row_2__g_col_3__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_2__g_col_3__pe/add_42', net connected to output port 'u_grid/g_row_2__g_col_3__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_3__g_col_0__pe', input pin 'u_grid/g_row_3__g_col_0__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_3__g_col_0__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_3__g_col_0__pe', the pin 'u_grid/g_row_3__g_col_0__pe/add_42/CI' on submodule 'u_grid/g_row_3__g_col_0__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_3__g_col_0__pe', the output pin 'u_grid/g_row_3__g_col_0__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_3__g_col_0__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_3__g_col_0__pe/add_42', input port 'u_grid/g_row_3__g_col_0__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_3__g_col_0__pe/add_42', net connected to output port 'u_grid/g_row_3__g_col_0__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_3__g_col_1__pe', input pin 'u_grid/g_row_3__g_col_1__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_3__g_col_1__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_3__g_col_1__pe', the pin 'u_grid/g_row_3__g_col_1__pe/add_42/CI' on submodule 'u_grid/g_row_3__g_col_1__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_3__g_col_1__pe', the output pin 'u_grid/g_row_3__g_col_1__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_3__g_col_1__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_3__g_col_1__pe/add_42', input port 'u_grid/g_row_3__g_col_1__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_3__g_col_1__pe/add_42', net connected to output port 'u_grid/g_row_3__g_col_1__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_3__g_col_2__pe', input pin 'u_grid/g_row_3__g_col_2__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_3__g_col_2__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_3__g_col_2__pe', the pin 'u_grid/g_row_3__g_col_2__pe/add_42/CI' on submodule 'u_grid/g_row_3__g_col_2__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_3__g_col_2__pe', the output pin 'u_grid/g_row_3__g_col_2__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_3__g_col_2__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_3__g_col_2__pe/add_42', input port 'u_grid/g_row_3__g_col_2__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_3__g_col_2__pe/add_42', net connected to output port 'u_grid/g_row_3__g_col_2__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_grid/g_row_3__g_col_3__pe', input pin 'u_grid/g_row_3__g_col_3__pe/add_42/CI' of hierarchical cell 'u_grid/g_row_3__g_col_3__pe/add_42' has no internal loads and is not being driven. (DCHK-004)
+Warning: In design 'u_grid/g_row_3__g_col_3__pe', the pin 'u_grid/g_row_3__g_col_3__pe/add_42/CI' on submodule 'u_grid/g_row_3__g_col_3__pe/add_42' is connected to logic '0'. (DCHK-005)
+Warning: In design 'u_grid/g_row_3__g_col_3__pe', the output pin 'u_grid/g_row_3__g_col_3__pe/add_42/CO' of hierarchical cell 'u_grid/g_row_3__g_col_3__pe/add_42' has internal drivers, but has no loads. (DCHK-045)
+Warning: In design 'u_grid/g_row_3__g_col_3__pe/add_42', input port 'u_grid/g_row_3__g_col_3__pe/add_42/CI' is unloaded. (DCHK-017)
+Warning: In design 'u_grid/g_row_3__g_col_3__pe/add_42', net connected to output port 'u_grid/g_row_3__g_col_3__pe/add_42/CO' is not driven. (DCHK-021)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[31]' driven by inside hier pin 'u_apb/paddr[31]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[30]' driven by inside hier pin 'u_apb/paddr[30]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[29]' driven by inside hier pin 'u_apb/paddr[29]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[28]' driven by inside hier pin 'u_apb/paddr[28]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[27]' driven by inside hier pin 'u_apb/paddr[27]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[26]' driven by inside hier pin 'u_apb/paddr[26]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[25]' driven by inside hier pin 'u_apb/paddr[25]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[24]' driven by inside hier pin 'u_apb/paddr[24]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[23]' driven by inside hier pin 'u_apb/paddr[23]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[22]' driven by inside hier pin 'u_apb/paddr[22]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[21]' driven by inside hier pin 'u_apb/paddr[21]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[20]' driven by inside hier pin 'u_apb/paddr[20]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[19]' driven by inside hier pin 'u_apb/paddr[19]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[18]' driven by inside hier pin 'u_apb/paddr[18]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[17]' driven by inside hier pin 'u_apb/paddr[17]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[16]' driven by inside hier pin 'u_apb/paddr[16]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[15]' driven by inside hier pin 'u_apb/paddr[15]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[14]' driven by inside hier pin 'u_apb/paddr[14]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[13]' driven by inside hier pin 'u_apb/paddr[13]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[12]' driven by inside hier pin 'u_apb/paddr[12]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[1]' driven by inside hier pin 'u_apb/paddr[1]' has no loads. (DCHK-009)
+Warning: In design 'u_apb', 'hierarchical' net 'u_apb/paddr[0]' driven by inside hier pin 'u_apb/paddr[0]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_1' driven by outside hier pin 'u_seq/error_code[2]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_2' driven by outside hier pin 'u_seq/error_code[1]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_3' driven by outside hier pin 'u_grid/act_out[31]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_4' driven by outside hier pin 'u_grid/act_out[30]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_5' driven by outside hier pin 'u_grid/act_out[29]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_6' driven by outside hier pin 'u_grid/act_out[28]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_7' driven by outside hier pin 'u_grid/act_out[27]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_8' driven by outside hier pin 'u_grid/act_out[26]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_9' driven by outside hier pin 'u_grid/act_out[25]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_10' driven by outside hier pin 'u_grid/act_out[24]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_11' driven by outside hier pin 'u_grid/act_out[23]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_12' driven by outside hier pin 'u_grid/act_out[22]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_13' driven by outside hier pin 'u_grid/act_out[21]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_14' driven by outside hier pin 'u_grid/act_out[20]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_15' driven by outside hier pin 'u_grid/act_out[19]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_16' driven by outside hier pin 'u_grid/act_out[18]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_17' driven by outside hier pin 'u_grid/act_out[17]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_18' driven by outside hier pin 'u_grid/act_out[16]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_19' driven by outside hier pin 'u_grid/act_out[15]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_20' driven by outside hier pin 'u_grid/act_out[14]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_21' driven by outside hier pin 'u_grid/act_out[13]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_22' driven by outside hier pin 'u_grid/act_out[12]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_23' driven by outside hier pin 'u_grid/act_out[11]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_24' driven by outside hier pin 'u_grid/act_out[10]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_25' driven by outside hier pin 'u_grid/act_out[9]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_26' driven by outside hier pin 'u_grid/act_out[8]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_27' driven by outside hier pin 'u_grid/act_out[7]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_28' driven by outside hier pin 'u_grid/act_out[6]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_29' driven by outside hier pin 'u_grid/act_out[5]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_30' driven by outside hier pin 'u_grid/act_out[4]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_31' driven by outside hier pin 'u_grid/act_out[3]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_32' driven by outside hier pin 'u_grid/act_out[2]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_33' driven by outside hier pin 'u_grid/act_out[1]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'SYNOPSYS_UNCONNECTED_34' driven by outside hier pin 'u_grid/act_out[0]' has no loads. (DCHK-009)
+Warning: In design 'unpu_top', 'hierarchical' net 'seq_error_code[2]' has no drivers. (DCHK-010)
+Warning: In design 'unpu_top', 'hierarchical' net 'seq_error_code[1]' has no drivers. (DCHK-010)
+Warning: In design 'u_seq', 'hierarchical' net 'u_seq/cycle[1]' has no drivers. (DCHK-010)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/CI' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/CI' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[0]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[0]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[1]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[1]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[8]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[8]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[9]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[9]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[10]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[10]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[11]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[11]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[12]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[12]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[13]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[13]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[14]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[14]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[15]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[15]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[16]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[16]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[17]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[17]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[18]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[18]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[19]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[19]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[20]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[20]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[21]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[21]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[22]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[22]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[23]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[23]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[24]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[24]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[25]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[25]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[26]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[26]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[27]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[27]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[28]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[28]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[29]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[29]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[30]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[30]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/B[31]' driven by inside hier pin 'u_dma/add_0_root_add_0_root_add_212_2/B[31]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/CI' driven by inside hier pin 'u_dma/add_212_3/CI' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[0]' driven by inside hier pin 'u_dma/add_212_3/B[0]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[1]' driven by inside hier pin 'u_dma/add_212_3/B[1]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[7]' driven by inside hier pin 'u_dma/add_212_3/B[7]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[8]' driven by inside hier pin 'u_dma/add_212_3/B[8]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[9]' driven by inside hier pin 'u_dma/add_212_3/B[9]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[10]' driven by inside hier pin 'u_dma/add_212_3/B[10]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[11]' driven by inside hier pin 'u_dma/add_212_3/B[11]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[12]' driven by inside hier pin 'u_dma/add_212_3/B[12]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[13]' driven by inside hier pin 'u_dma/add_212_3/B[13]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[14]' driven by inside hier pin 'u_dma/add_212_3/B[14]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[15]' driven by inside hier pin 'u_dma/add_212_3/B[15]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[16]' driven by inside hier pin 'u_dma/add_212_3/B[16]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[17]' driven by inside hier pin 'u_dma/add_212_3/B[17]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[18]' driven by inside hier pin 'u_dma/add_212_3/B[18]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[19]' driven by inside hier pin 'u_dma/add_212_3/B[19]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[20]' driven by inside hier pin 'u_dma/add_212_3/B[20]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[21]' driven by inside hier pin 'u_dma/add_212_3/B[21]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[22]' driven by inside hier pin 'u_dma/add_212_3/B[22]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[23]' driven by inside hier pin 'u_dma/add_212_3/B[23]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[24]' driven by inside hier pin 'u_dma/add_212_3/B[24]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[25]' driven by inside hier pin 'u_dma/add_212_3/B[25]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[26]' driven by inside hier pin 'u_dma/add_212_3/B[26]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[27]' driven by inside hier pin 'u_dma/add_212_3/B[27]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[28]' driven by inside hier pin 'u_dma/add_212_3/B[28]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[29]' driven by inside hier pin 'u_dma/add_212_3/B[29]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[30]' driven by inside hier pin 'u_dma/add_212_3/B[30]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/B[31]' driven by inside hier pin 'u_dma/add_212_3/B[31]' has no loads. (DCHK-009)
+Warning: In design 'u_dma/add_212_3', 'hierarchical' net 'u_dma/add_212_3/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_dma/add_0_root_add_0_root_add_212_2', 'hierarchical' net 'u_dma/add_0_root_add_0_root_add_212_2/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_0__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_0__g_col_0__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_0__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_0__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_1__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_0__g_col_1__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_0__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_1__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_2__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_0__g_col_2__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_0__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_2__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_3__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_0__g_col_3__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_0__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_0__g_col_3__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_1__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_0__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_1__g_col_0__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_1__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_0__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_1__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_1__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_1__g_col_1__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_1__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_1__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_1__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_2__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_1__g_col_2__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_1__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_2__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_1__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_3__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_1__g_col_3__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_1__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_1__g_col_3__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_2__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_0__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_2__g_col_0__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_2__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_0__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_2__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_1__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_2__g_col_1__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_2__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_1__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_2__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_2__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_2__g_col_2__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_2__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_2__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_2__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_3__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_2__g_col_3__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_2__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_2__g_col_3__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_3__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_0__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_3__g_col_0__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_3__g_col_0__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_0__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_3__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_1__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_3__g_col_1__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_3__g_col_1__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_1__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_3__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_2__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_3__g_col_2__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_3__g_col_2__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_2__pe/add_42/CO' has no drivers. (DCHK-010)
+Warning: In design 'u_grid/g_row_3__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_3__pe/add_42/CI' driven by inside hier pin 'u_grid/g_row_3__g_col_3__pe/add_42/CI' has no loads. (DCHK-009)
+Warning: In design 'u_grid/g_row_3__g_col_3__pe/add_42', 'hierarchical' net 'u_grid/g_row_3__g_col_3__pe/add_42/CO' has no drivers. (DCHK-010)
+  ----------------------------------------------------------------------------------------------------
+  Rule         Type   Count      Message
+  ----------------------------------------------------------------------------------------------------
+  TCK-001      Warn   1          The reported endpoint '%endpoint' is unconstrained. Reason: '%re...
+  ----------------------------------------------------------------------------------------------------
+Total messages: 1, Errors: 0, Warnings: 1, Info: 0, SevereError: 0, Fatal: 0
+
+
+Messages
+--------
+Warning: The reported endpoint 'pready' is unconstrained. Reason: 'case constant'. Mode:'mode_func'. (TCK-001)
+Information: Saving 'unpu_top.dlib:unpu_top.design' to 'unpu_top.dlib:unpu_top_setup.design'. (DES-028)
+Saving library 'unpu_top.dlib'
+>>> STAGE 1 COMPLETE: unpu_top_setup saved. Log: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs/1_design_setup.log
+icc2_shell> Maximum memory usage for this session: 478.34 MB
+Maximum memory usage for this session including child processes: 478.34 MB
+CPU usage for this session:      8 seconds (  0.00 hours)
+Elapsed time for this session:     16 seconds (  0.00 hours)
+Thank you for using IC Compiler II.
+[SCL] 11/10/2026 19:46:09 PID:31205 Client:lalita.iitg.ac.in checkin (null) 
+this API scl_mt_init() needs to be used with the threaded version of SCL library.

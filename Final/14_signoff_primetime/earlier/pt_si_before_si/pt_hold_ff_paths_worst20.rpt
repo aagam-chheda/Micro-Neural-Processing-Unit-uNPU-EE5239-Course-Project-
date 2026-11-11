@@ -1,0 +1,48 @@
+****************************************
+Report : timing
+	-path_type full_clock_expanded
+	-delay_type min
+	-slack_lesser_than 0.00
+	-max_paths 20
+	-sort_by slack
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 23:55:38 2026
+****************************************
+
+
+  Startpoint: u_csr/src_a_reg_reg_9_
+               (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: prdata[9] (output port clocked by clk)
+  Path Group: clk
+  Path Type: min
+
+  Point                                                   Incr       Path
+  ------------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock source latency                                    0.00       0.00
+  clk (in)                                                0.00 &     0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                         0.03 &     0.03 f
+  ZCTSBUF_121299_2575/Z (buffda)                          0.12 &     0.14 f
+  ZCTSINV_78667_2553/ZN (invbdf)                          0.09 &     0.24 r
+  ZCTSBUF_65983_2551/Z (buffd3)                           0.15 &     0.38 r
+  u_csr/src_a_reg_reg_9_/CP (dfcrn2)                      0.00 &     0.38 r
+  u_csr/src_a_reg_reg_9_/QN (dfcrn2)                      0.20 &     0.58 r
+  u_csr/U361/ZN (oai222d1)                                0.10 &     0.69 f
+  ctmTdsLR_1_2982/Z (buffd7)                              0.23 &     0.91 f
+  prdata[9] (out)                                         0.08 &     0.99 f
+  data arrival time                                                  0.99
+
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (propagated)                        0.00       0.00
+  clock reconvergence pessimism                           0.00       0.00
+  clock uncertainty                                       0.50       0.50
+  output external delay                                   0.50       1.00
+  data required time                                                 1.00
+  ------------------------------------------------------------------------------
+  data required time                                                 1.00
+  data arrival time                                                 -0.99
+  ------------------------------------------------------------------------------
+  slack (VIOLATED)                                                  -0.01
+
+

@@ -1,0 +1,72 @@
+=== experiment 2 (nep_cond): SDF copies with === -> == in the COND lines, in pnr_icc2/sdf_experiment
+    ss: lines with === in the original 19024 (COND lines 19024), in the copy 0, lines that differ 19024
+    ff: lines with === in the original 19024 (COND lines 19024), in the copy 0, lines that differ 19024
+=== xrun options that mention neg:
+      -disable_edge              Disable edge as posedge or negedge.
+      -epulse_neg                Filter canceled events (negative pulses) to e
+      -epulse_noneg              Do not filter negative pulses to E
+      -neg_verbose               Verbose mode for negative delays adjustment
+      -negdelay                  Adjust for negative delays
+      -noneg_tchk                Ignore negative numbers for SETUPHOLD & RECREM
+      -ntc_neglim                Move negative limit of invalid NTC windows
+=== experiment 1 (nl1_neg / net_remrec): XRUN_FLAGS = -define neg_tchk   (option source: NOT listed by xrun -helpall: the define alone is used)
+=== EXPERIMENT run: SDF pnr_icc2/sdf_experiment/unpu_top_ss_eqeq.sdf (PL_SDF), label 'eqeq' (every file of this run ends in '_eqeq'; the standard logs are not touched)
+=== post-layout simulation: corner ss, mode nochecks, clock half period 10 ns (20 ns clock), expected checks 343341
+=== tool: TOOL:	xrun(64)	22.09-s003 
+=== SDF pnr_icc2/sdf_experiment/unpu_top_ss_eqeq.sdf: [9426136 bytes]
+=== SDF command file pnr_icc2/sim/pl_ss_nochecks_eqeq.sdfcmd:
+=== VERIFY: the SDF command file statement, -sdf_cmd_file and -sdf_verbose are Xcelium syntax not read from a usage text here (README table)
+=== command: xrun -sv -64bit -access +r -timescale 1ns/1ps -top unpu_top_tb -define GLS_CLK_HALF_NS=10 -notimingchecks -sdf_cmd_file pnr_icc2/sim/pl_ss_nochecks_eqeq.sdfcmd -sdf_verbose -xmlibdirname xrun_out/pl_ss_nochecks_eqeq pnr_icc2/outputs/unpu_top_pnr_sim.v /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v tb/unpu_top_tb.sv -l pnr_icc2/sim/pl_ss_nochecks_eqeq.log 
+=== SDF classes approved by the user (SDF_ACCEPT): none  [the documented SDFNEP edge-form acceptance of 2026-11-09 is always on]; licence retries: 6, wait 600 s
+=== xrun exit code 0 (informational: the verdict is judged from the log); wall-clock time 4 min 31 s
+--- reasons: SDF class nep_cond: 19024 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=nep_cond
+=== FAIL: post-layout ss nochecks (log pnr_icc2/sim/pl_ss_nochecks_eqeq.log, console pnr_icc2/sim/pl_ss_nochecks_eqeq.console, annotation log pnr_icc2/sim/pl_ss_nochecks_eqeq_annotate.log)
+=== EXPERIMENT run: SDF pnr_icc2/sdf_experiment/unpu_top_ff_eqeq.sdf (PL_SDF), label 'eqeq' (every file of this run ends in '_eqeq'; the standard logs are not touched)
+=== post-layout simulation: corner ff, mode nochecks, clock half period 10 ns (20 ns clock), expected checks 343341
+=== tool: TOOL:	xrun(64)	22.09-s003 
+=== SDF pnr_icc2/sdf_experiment/unpu_top_ff_eqeq.sdf: [9429024 bytes]
+=== SDF command file pnr_icc2/sim/pl_ff_nochecks_eqeq.sdfcmd:
+=== VERIFY: the SDF command file statement, -sdf_cmd_file and -sdf_verbose are Xcelium syntax not read from a usage text here (README table)
+=== command: xrun -sv -64bit -access +r -timescale 1ns/1ps -top unpu_top_tb -define GLS_CLK_HALF_NS=10 -notimingchecks -sdf_cmd_file pnr_icc2/sim/pl_ff_nochecks_eqeq.sdfcmd -sdf_verbose -xmlibdirname xrun_out/pl_ff_nochecks_eqeq pnr_icc2/outputs/unpu_top_pnr_sim.v /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v tb/unpu_top_tb.sv -l pnr_icc2/sim/pl_ff_nochecks_eqeq.log 
+=== SDF classes approved by the user (SDF_ACCEPT): none  [the documented SDFNEP edge-form acceptance of 2026-11-09 is always on]; licence retries: 6, wait 600 s
+=== xrun exit code 0 (informational: the verdict is judged from the log); wall-clock time 4 min 8 s
+--- reasons: SDF class nep_cond: 19024 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=nep_cond
+=== FAIL: post-layout ff nochecks (log pnr_icc2/sim/pl_ff_nochecks_eqeq.log, console pnr_icc2/sim/pl_ff_nochecks_eqeq.console, annotation log pnr_icc2/sim/pl_ff_nochecks_eqeq_annotate.log)
+=== EXPERIMENT run: SDF pnr_icc2/outputs/unpu_top_ss.sdf, label 'negtchk' (every file of this run ends in '_negtchk'; the standard logs are not touched)
+=== post-layout simulation: corner ss, mode checks, clock half period 10 ns (20 ns clock), expected checks 343341
+=== tool: TOOL:	xrun(64)	22.09-s003 
+=== SDF pnr_icc2/outputs/unpu_top_ss.sdf: [9464184 bytes]
+=== SDF command file pnr_icc2/sim/pl_ss_checks_negtchk.sdfcmd:
+=== VERIFY: the SDF command file statement, -sdf_cmd_file and -sdf_verbose are Xcelium syntax not read from a usage text here (README table)
+=== command: xrun -sv -64bit -access +r -timescale 1ns/1ps -top unpu_top_tb -define GLS_CLK_HALF_NS=10 -sdf_cmd_file pnr_icc2/sim/pl_ss_checks_negtchk.sdfcmd -sdf_verbose -xmlibdirname xrun_out/pl_ss_checks_negtchk pnr_icc2/outputs/unpu_top_pnr_sim.v /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v tb/unpu_top_tb.sv -l pnr_icc2/sim/pl_ss_checks_negtchk.log -define neg_tchk 
+=== SDF classes approved by the user (SDF_ACCEPT): none  [the documented SDFNEP edge-form acceptance of 2026-11-09 is always on]; licence retries: 6, wait 600 s
+=== xrun exit code 0 (informational: the verdict is judged from the log); wall-clock time 17 min 44 s
+--- reasons: Xcelium counted 27464 SDF warnings, the SDF explains 38518 in the known classes (difference -11054): the hidden part of the cap is NOT classified;the message cap was reached for an SDF message id other than SDFNEP/SDFNCAP and the hidden part is not proven by the SDF reconciliation: the rest of that class is hidden;SDF class nep_cond: 19024 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=nep_cond;SDF class nl1_neg: 8589 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=nl1_neg;SDF class net_remrec: 7395 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=net_remrec
+=== FAIL: post-layout ss checks (log pnr_icc2/sim/pl_ss_checks_negtchk.log, console pnr_icc2/sim/pl_ss_checks_negtchk.console, annotation log pnr_icc2/sim/pl_ss_checks_negtchk_annotate.log)
+=== EXPERIMENT run: SDF pnr_icc2/outputs/unpu_top_ff.sdf, label 'negtchk' (every file of this run ends in '_negtchk'; the standard logs are not touched)
+=== post-layout simulation: corner ff, mode checks, clock half period 10 ns (20 ns clock), expected checks 343341
+=== tool: TOOL:	xrun(64)	22.09-s003 
+=== SDF pnr_icc2/outputs/unpu_top_ff.sdf: [9467072 bytes]
+=== SDF command file pnr_icc2/sim/pl_ff_checks_negtchk.sdfcmd:
+=== VERIFY: the SDF command file statement, -sdf_cmd_file and -sdf_verbose are Xcelium syntax not read from a usage text here (README table)
+=== command: xrun -sv -64bit -access +r -timescale 1ns/1ps -top unpu_top_tb -define GLS_CLK_HALF_NS=10 -sdf_cmd_file pnr_icc2/sim/pl_ff_checks_negtchk.sdfcmd -sdf_verbose -xmlibdirname xrun_out/pl_ff_checks_negtchk pnr_icc2/outputs/unpu_top_pnr_sim.v /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/verilog/vcs_sim_model/tsl18fs120_scl.v tb/unpu_top_tb.sv -l pnr_icc2/sim/pl_ff_checks_negtchk.log -define neg_tchk 
+=== SDF classes approved by the user (SDF_ACCEPT): none  [the documented SDFNEP edge-form acceptance of 2026-11-09 is always on]; licence retries: 6, wait 600 s
+=== xrun exit code 0 (informational: the verdict is judged from the log); wall-clock time 13 min 36 s
+--- reasons: Xcelium counted 27464 SDF warnings, the SDF explains 37079 in the known classes (difference -9615): the hidden part of the cap is NOT classified;the message cap was reached for an SDF message id other than SDFNEP/SDFNCAP and the hidden part is not proven by the SDF reconciliation: the rest of that class is hidden;SDF class nep_cond: 19024 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=nep_cond;SDF class nl1_neg: 7150 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=nl1_neg;SDF class net_remrec: 7395 warning(s), NOT approved: classified in the README (task 094), accepted only when the user approves it with SDF_ACCEPT=net_remrec
+=== FAIL: post-layout ff checks (log pnr_icc2/sim/pl_ff_checks_negtchk.log, console pnr_icc2/sim/pl_ff_checks_negtchk.console, annotation log pnr_icc2/sim/pl_ff_checks_negtchk_annotate.log)
+
+################ EXPERIMENT SUMMARY (paste this block) ################
+original pnr_icc2/outputs/unpu_top_ss.sdf unchanged: YES
+original pnr_icc2/outputs/unpu_top_ff.sdf unchanged: YES
+--- experiment 2 (=== -> ==):
+    ss nochecks: errors 0, warnings 22534; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 0; violation lines 0; NOLICN 0
+    ff nochecks: errors 0, warnings 22534; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 0; violation lines 0; NOLICN 0
+    reference (default runs of the final layout): warnings 22534, COND 19024 (printed 24), pathdelays annotated 47.56%
+    READING: unchanged (22534 warnings): the === was NOT the cause; nep_cond stays an approval question
+--- experiment 1 (neg_tchk, option 'none'):
+    ss checks: errors 0, warnings 27464; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 501; violation lines 0; NOLICN 0
+    ff checks: errors 0, warnings 27464; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 501; violation lines 0; NOLICN 0
+    reference (default runs of the final layout): warnings ss 38518 / ff 37079, SDFNL1 printed 500, SDFNET printed 500
+    READING: another outcome: send this block to Planning
+################ END OF SUMMARY ################
+(also in pnr_icc2/sim/experiments_summary.txt)

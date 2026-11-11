@@ -1,0 +1,11 @@
+Change list, formatted as text:
+  1. size_cell in u_dma: 'U157' sized to 'an02d7'
+  2. size_cell in u_dma: 'U220' sized to 'an02d7'
+  3. size_cell in u_dma: 'U198' sized to 'an02d7'
+  4. size_cell in u_actbuf: 'HFSBUF_21543_531' sized to 'buffd3'
+  5. size_cell in u_dma: 'U99' sized to 'an02d7'
+  6. size_cell in u_seq: 'HFSBUF_1163_489' sized to 'buffd3'
+  7. size_cell in u_dma: 'U101' sized to 'an02d7'
+  8. size_cell in u_dma: 'U150' sized to 'an02d7'
+  9. size_cell in u_dma: 'U210' sized to 'an02d7'
+

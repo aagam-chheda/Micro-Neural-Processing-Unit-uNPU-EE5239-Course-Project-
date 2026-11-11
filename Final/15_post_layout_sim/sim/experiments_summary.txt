@@ -1,0 +1,15 @@
+
+################ EXPERIMENT SUMMARY (paste this block) ################
+original pnr_icc2/outputs/unpu_top_ss.sdf unchanged: YES
+original pnr_icc2/outputs/unpu_top_ff.sdf unchanged: YES
+--- experiment 2 (=== -> ==):
+    ss nochecks: errors 0, warnings 22534; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 0; violation lines 0; NOLICN 0
+    ff nochecks: errors 0, warnings 22534; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 0; violation lines 0; NOLICN 0
+    reference (default runs of the final layout): warnings 22534, COND 19024 (printed 24), pathdelays annotated 47.56%
+    READING: unchanged (22534 warnings): the === was NOT the cause; nep_cond stays an approval question
+--- experiment 1 (neg_tchk, option 'none'):
+    ss checks: errors 0, warnings 27464; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 501; violation lines 0; NOLICN 0
+    ff checks: errors 0, warnings 27464; pathdelays annotated 47.56%; ALL CHECKS PASSED 1; checked 343341; FAIL lines 0; *E/*F 0; SDFNEP-COND 24; SDFNL1 0; SDFNET 501; violation lines 0; NOLICN 0
+    reference (default runs of the final layout): warnings ss 38518 / ff 37079, SDFNL1 printed 500, SDFNET printed 500
+    READING: another outcome: send this block to Planning
+################ END OF SUMMARY ################

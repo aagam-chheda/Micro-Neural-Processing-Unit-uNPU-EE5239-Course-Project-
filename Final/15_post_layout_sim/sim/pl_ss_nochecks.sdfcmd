@@ -1,0 +1,6 @@
+SDF_FILE = "pnr_icc2/outputs/unpu_top_ss.sdf",
+  SCOPE = unpu_top_tb.dut,
+  MTM_CONTROL = "MAXIMUM",
+  SCALE_FACTORS = "1.0:1.0:1.0",
+  SCALE_TYPE = "FROM_MTM",
+  LOG_FILE = "pnr_icc2/sim/pl_ss_nochecks_annotate.log";

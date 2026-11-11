@@ -1,0 +1,120 @@
+
+
+==================================================================================
+=== CALIBRE::DRC-H SUMMARY REPORT
+===
+Execution Date/Time:       Tue Nov 10 20:27:23 2026
+Calibre Version:           v2022.4_37.20    Fri Dec 2 17:43:09 PST 2022
+Rule File Pathname:        ant.ctrl
+Rule File Title:           
+Layout System:             GDS
+Layout Path(s):            ../../../outputs_route/unpu_top_routed.gds
+Layout Primary Cell:       unpu_top
+Current Directory:         /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/calibre/route1/ant
+User Name:                 EE5239G1
+Maximum Results/RuleCheck: ALL
+Maximum Result Vertices:   4294967294
+DRC Results Database:      unpu_top.ant.db (ASCII)
+Layout Depth:              ALL
+Text Depth:                PRIMARY
+Summary Report File:       unpu_top.ant.rpt (REPLACE)
+Geometry Flagging:         ACUTE = YES  SKEW = YES  ANGLED = NO  OFFGRID = YES
+                           NONSIMPLE POLYGON = NO  NONSIMPLE PATH = NO
+Excluded Cells:           
+CheckText Mapping:         COMMENT TEXT + RULE FILE INFORMATION
+Layers:                    MEMORY-BASED
+Keep Empty Checks:         NO
+----------------------------------------------------------------------------------
+--- RUNTIME WARNINGS
+---
+ACUTE angle on layer GC at location (2.06,3.98) in cell bufbdf.
+ACUTE angle on layer GC at location (0.76,3.93) in cell bufbdf.
+ACUTE angle on layer GC at location (1.76,3.98) in cell bufbdf.
+ACUTE angle on layer GC at location (2.12,3.92) in cell bufbdf.
+ACUTE angle on layer GC at location (0.46,3.93) in cell bufbdf.
+ACUTE angle on layer GC at location (0.82,3.87) in cell bufbdf.
+ACUTE angle on layer GC at location (1.82,3.92) in cell bufbdf.
+ACUTE angle on layer GC at location (0.52,3.87) in cell bufbdf.
+ACUTE angle on layer GC at location (12.51,4.51) in cell ad01d4.
+ACUTE angle on layer GC at location (9.91,4.47) in cell ad01d4.
+ACUTE angle on layer GC at location (11.21,4.43) in cell ad01d4.
+ACUTE angle on layer GC at location (12.45,4.45) in cell ad01d4.
+ACUTE angle on layer GC at location (12.81,4.51) in cell ad01d4.
+ACUTE angle on layer GC at location (9.84,4.4) in cell ad01d4.
+ACUTE angle on layer GC at location (10.21,4.47) in cell ad01d4.
+ACUTE angle on layer GC at location (12.75,4.45) in cell ad01d4.
+ACUTE angle on layer GC at location (11.15,4.37) in cell ad01d4.
+ACUTE angle on layer GC at location (11.51,4.43) in cell ad01d4.
+ACUTE angle on layer GC at location (10.14,4.4) in cell ad01d4.
+ACUTE angle on layer GC at location (11.45,4.37) in cell ad01d4.
+ACUTE angle on layer GC at location (13.07,3.83) in cell ad01d4.
+ACUTE angle on layer GC at location (13.01,3.77) in cell ad01d4.
+ACUTE angle on layer GC at location (13.37,3.83) in cell ad01d4.
+ACUTE angle on layer GC at location (13.31,3.77) in cell ad01d4.
+ACUTE angle on layer GC at location (8.87,3.46) in cell ad01d4.
+ACUTE angle on layer GC at location (11.77,3.43) in cell ad01d4.
+ACUTE angle on layer GC at location (10.47,3.41) in cell ad01d4.
+ACUTE angle on layer GC at location (8.57,3.46) in cell ad01d4.
+ACUTE angle on layer GC at location (8.9,3.43) in cell ad01d4.
+ACUTE angle on layer GC at location (8.6,3.43) in cell ad01d4.
+ACUTE angle on layer GC at location (11.71,3.37) in cell ad01d4.
+ACUTE angle on layer GC at location (12.07,3.43) in cell ad01d4.
+ACUTE angle on layer GC at location (10.44,3.38) in cell ad01d4.
+ACUTE angle on layer GC at location (10.77,3.41) in cell ad01d4.
+ACUTE angle on layer GC at location (10.74,3.38) in cell ad01d4.
+ACUTE angle on layer GC at location (12.01,3.37) in cell ad01d4.
+ACUTE angle on layer GC at location (13.63,3.15) in cell ad01d4.
+ACUTE angle on layer GC at location (13.57,3.09) in cell ad01d4.
+ACUTE angle on layer GC at location (13.93,3.15) in cell ad01d4.
+ACUTE angle on layer GC at location (13.87,3.09) in cell ad01d4.
+----------------------------------------------------------------------------------
+--- ORIGINAL LAYER STATISTICS
+---
+LAYER SPC_stack ... TOTAL Original Geometry Count = 0     (0)
+LAYER CE .......... TOTAL Original Geometry Count = 0     (0)
+LAYER V3i ......... TOTAL Original Geometry Count = 17    (134803)
+LAYER M4mim ....... TOTAL Original Geometry Count = 0     (0)
+LAYER VTi ......... TOTAL Original Geometry Count = 69    (32738)
+LAYER AA .......... TOTAL Original Geometry Count = 576   (101386)
+LAYER GC .......... TOTAL Original Geometry Count = 670   (99166)
+LAYER CS .......... TOTAL Original Geometry Count = 2347  (430076)
+LAYER HV .......... TOTAL Original Geometry Count = 0     (0)
+LAYER M1 .......... TOTAL Original Geometry Count = 15200 (259859)
+LAYER V2 .......... TOTAL Original Geometry Count = 17    (108224)
+LAYER M2 .......... TOTAL Original Geometry Count = 69293 (196243)
+LAYER M3 .......... TOTAL Original Geometry Count = 47446 (134389)
+LAYER MT .......... TOTAL Original Geometry Count = 8515  (25015)
+----------------------------------------------------------------------------------
+--- RULECHECK RESULTS STATISTICS
+---
+RULECHECK AN.GC.1 ....... TOTAL Result Count = 0 (0)
+RULECHECK AN.CS.1 ....... TOTAL Result Count = 0 (0)
+RULECHECK AN.MTL.1.M1 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.MTL.2.M1 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.VIA.1.V2 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.VIA.2.V2 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.MTL.1.M2 ... TOTAL Result Count = 4 (4)
+RULECHECK AN.MTL.2.M2 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.VIA.1.V3 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.VIA.2.V3 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.MTL.1.M3 ... TOTAL Result Count = 2 (2)
+RULECHECK AN.MTL.2.M3 ... TOTAL Result Count = 0 (0)
+RULECHECK AN.VIA.1.VT ... TOTAL Result Count = 0 (0)
+RULECHECK AN.VIA.2.VT ... TOTAL Result Count = 0 (0)
+RULECHECK AN.MTL.1.MT ... TOTAL Result Count = 4 (4)
+RULECHECK AN.MTL.2.MT ... TOTAL Result Count = 0 (0)
+----------------------------------------------------------------------------------
+--- RULECHECK RESULTS STATISTICS (BY CELL)
+---
+CELL unpu_top ............... TOTAL Result Count = 10 (10)
+    RULECHECK AN.MTL.1.M2 ... TOTAL Result Count = 4  (4)
+    RULECHECK AN.MTL.1.M3 ... TOTAL Result Count = 2  (2)
+    RULECHECK AN.MTL.1.MT ... TOTAL Result Count = 4  (4)
+----------------------------------------------------------------------------------
+--- SUMMARY
+---
+TOTAL CPU Time:                  7
+TOTAL REAL Time:                 8
+TOTAL Original Layer Geometries: 144150 (1521899)
+TOTAL DRC RuleChecks Executed:   16
+TOTAL DRC Results Generated:     10 (10)

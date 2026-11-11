@@ -1,0 +1,486 @@
+[icc2-lic Tue Nov 10 20:45:08 2026] Command 'check_routes' requires licenses
+[icc2-lic Tue Nov 10 20:45:08 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:45:08 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 20:45:08 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:45:08 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:45:08 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:45:08 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 20:45:08 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:45:08 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 20:45:08 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:45:08 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:45:08 2026] Check-out of alternate set of keys directly with queueing was successful
+Cell Min-Routing-Layer = M1
+Cell Max-Routing-Layer = TOP_M
+Found antenna rule mode 1, diode mode 4:
+	layer M1:  max ratio 12, diode ratio {0 0 0 75} 
+	layer M2:  max ratio 12, diode ratio {0 0 0 75} 
+	layer M3:  max ratio 12, diode ratio {0 0 0 45} 
+	layer TOP_M:  max ratio 12, diode ratio {0 0 2000 7500} 
+	layer V2:  max ratio 20, diode ratio {0 0 1 0 0} 
+	layer V3:  max ratio 20, diode ratio {0 0 1 0 0} 
+	layer TOP_V:  max ratio 20, diode ratio {0 0 1 0 0} 
+Found antenna rule mode 4, diode mode 4:
+	layer M1:  max ratio 25, diode ratio {0 0 0 180} 
+	layer M2:  max ratio 25, diode ratio {0 0 0 180} 
+	layer M3:  max ratio 25, diode ratio {0 0 0 100} 
+	layer TOP_M:  max ratio 25, diode ratio {0 0 8000 30000} 
+	layer V2: , diode ratio {0 0 1 0 0} 
+	layer V3: , diode ratio {0 0 1 0 0} 
+	layer TOP_V: , diode ratio {0 0 1 0 0} 
+Information: Option route.detail.force_end_on_preferred_grid will be ignored since none of the layers have preferred grid. (ZRT-703)
+Info: number of net_type_blockage: 0 
+Information: Via ladder engine would be activated for pattern must join connection in certain commands. Please refer to man-page for the command list. (ZRT-619)
+Information: When applicable Min-max layer allow_pin_connection mode will allow paths of length 10.73 outside the layer range. (ZRT-707)
+Information: When applicable Min-max layer allow_pin_connection mode will allow paths of length 10.73 outside the layer range on clock nets. (ZRT-718)
+Information: When applicable layer based tapering will taper up to 0.00 in distance from the pin. (ZRT-706)
+
+
+Start checking for open nets ... 
+
+Total number of nets = 16618, of which 0 are not extracted
+Total number of open nets = 0, of which 0 are frozen
+
+Check 16618 nets, 0 have Errors
+
+[CHECK OPEN NETS] Elapsed real time: 0:00:00 
+[CHECK OPEN NETS] Elapsed cpu  time: sys=0:00:00 usr=0:00:00 total=0:00:00
+[CHECK OPEN NETS] Stage (MB): Used    0  Alloctr    0  Proc    0 
+[CHECK OPEN NETS] Total (MB): Used   50  Alloctr   51  Proc 12855 
+Printing options for 'route.common.*'
+common.eco_route_fix_existing_drc                       :	 true                
+common.verbose_level                                    :	 0                   
+
+Printing options for 'route.detail.*'
+detail.antenna                                          :	 true                
+detail.antenna_fixing_preference                        :	 hop_layers          
+detail.eco_route_use_soft_spacing_for_timing_optimization:	 true                
+detail.hop_layers_to_fix_antenna                        :	 true                
+detail.insert_diodes_during_routing                     :	 false               
+detail.timing_driven                                    :	 true                
+
+Printing options for 'route.auto_via_ladder.*'
+
+*****Start reporting antenna related parameters*****
+  Antenna/diode mode:
+    Antenna mode 1; diode mode 4
+      Metal lay (M1)0; maxRatio 12.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 0.000 75.000 0.000)
+      Cut lay (V2)1; maxRatio 20.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 1.000 0.000 0.000)
+      Metal lay (M2)1; maxRatio 12.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 0.000 75.000 0.000)
+      Cut lay (V3)2; maxRatio 20.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 1.000 0.000 0.000)
+      Metal lay (M3)2; maxRatio 12.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 0.000 45.000 0.000)
+      Cut lay (TOP_V)3; maxRatio 20.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 1.000 0.000 0.000)
+      Metal lay (TOP_M)3; maxRatio 12.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 2000.000 7500.000 0.000)
+    Antenna mode 4; diode mode 4
+      Metal lay (M1)0; maxRatio 25.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 0.000 180.000 0.000)
+      Cut lay (V2)1; maxRatio 2147483648.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 1.000 0.000 0.000)
+      Metal lay (M2)1; maxRatio 25.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 0.000 180.000 0.000)
+      Cut lay (V3)2; maxRatio 2147483648.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 1.000 0.000 0.000)
+      Metal lay (M3)2; maxRatio 25.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 0.000 100.000 0.000)
+      Cut lay (TOP_V)3; maxRatio 2147483648.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 1.000 0.000 0.000)
+      Metal lay (TOP_M)3; maxRatio 25.000 maxPRatio 2147483648.000 maxNRatio 2147483648.000; vector (0.000 0.000 8000.000 30000.000 0.000)
+  Top lay antenna ratio fix threshold == -1
+  Antenna max pin count threshold == -1
+  Check PG net == false
+  MergeGate == true
+  Break antenna to port mode == float
+  Break antenna to macro pin mode == normal
+*****End reporting antenna related parameters*****
+Warning: Skipping antenna analysis for net clk. The pin clk on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net rst_n. The pin rst_n on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[11]. The pin paddr[11] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[10]. The pin paddr[10] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[9]. The pin paddr[9] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[8]. The pin paddr[8] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[7]. The pin paddr[7] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[6]. The pin paddr[6] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[5]. The pin paddr[5] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[4]. The pin paddr[4] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[3]. The pin paddr[3] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net paddr[2]. The pin paddr[2] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[31]. The pin pwdata[31] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[30]. The pin pwdata[30] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[29]. The pin pwdata[29] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[28]. The pin pwdata[28] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[27]. The pin pwdata[27] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[26]. The pin pwdata[26] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[25]. The pin pwdata[25] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[24]. The pin pwdata[24] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[23]. The pin pwdata[23] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[22]. The pin pwdata[22] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[21]. The pin pwdata[21] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[20]. The pin pwdata[20] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[19]. The pin pwdata[19] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[18]. The pin pwdata[18] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[17]. The pin pwdata[17] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[16]. The pin pwdata[16] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[15]. The pin pwdata[15] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[14]. The pin pwdata[14] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[13]. The pin pwdata[13] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[12]. The pin pwdata[12] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[11]. The pin pwdata[11] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[10]. The pin pwdata[10] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[9]. The pin pwdata[9] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[8]. The pin pwdata[8] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[7]. The pin pwdata[7] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[6]. The pin pwdata[6] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[5]. The pin pwdata[5] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[4]. The pin pwdata[4] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[3]. The pin pwdata[3] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[2]. The pin pwdata[2] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[1]. The pin pwdata[1] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwdata[0]. The pin pwdata[0] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net pwrite. The pin pwrite on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net psel. The pin psel on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net penable. The pin penable on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[31]. The pin dma_rdata[31] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[30]. The pin dma_rdata[30] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[29]. The pin dma_rdata[29] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[28]. The pin dma_rdata[28] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[27]. The pin dma_rdata[27] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[26]. The pin dma_rdata[26] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[25]. The pin dma_rdata[25] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[24]. The pin dma_rdata[24] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[23]. The pin dma_rdata[23] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[22]. The pin dma_rdata[22] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[21]. The pin dma_rdata[21] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[20]. The pin dma_rdata[20] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[19]. The pin dma_rdata[19] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[18]. The pin dma_rdata[18] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[17]. The pin dma_rdata[17] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[16]. The pin dma_rdata[16] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[15]. The pin dma_rdata[15] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[14]. The pin dma_rdata[14] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[13]. The pin dma_rdata[13] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[12]. The pin dma_rdata[12] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[11]. The pin dma_rdata[11] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[10]. The pin dma_rdata[10] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[9]. The pin dma_rdata[9] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[8]. The pin dma_rdata[8] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[7]. The pin dma_rdata[7] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[6]. The pin dma_rdata[6] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[5]. The pin dma_rdata[5] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[4]. The pin dma_rdata[4] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[3]. The pin dma_rdata[3] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[2]. The pin dma_rdata[2] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[1]. The pin dma_rdata[1] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_rdata[0]. The pin dma_rdata[0] on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Warning: Skipping antenna analysis for net dma_ready. The pin dma_ready on cell unpu_top_pv_route3 does not have enough gate area information. (ZRT-311)
+Skipping antenna analysis for 80 nets as they don't have enough gate area info.
+
+Begin full DRC check ...
+
+Information: Using 1 threads for routing. (ZRT-444)
+Checked	1/16 Partitions, Violations =	0
+Checked	2/16 Partitions, Violations =	0
+Checked	3/16 Partitions, Violations =	0
+Checked	4/16 Partitions, Violations =	0
+Checked	5/16 Partitions, Violations =	0
+Checked	6/16 Partitions, Violations =	0
+Checked	7/16 Partitions, Violations =	0
+Checked	8/16 Partitions, Violations =	0
+Checked	9/16 Partitions, Violations =	0
+Checked	10/16 Partitions, Violations =	0
+Checked	11/16 Partitions, Violations =	0
+Checked	12/16 Partitions, Violations =	0
+Checked	13/16 Partitions, Violations =	0
+Checked	14/16 Partitions, Violations =	0
+Checked	15/16 Partitions, Violations =	0
+Checked	16/16 Partitions, Violations =	0
+[DRC CHECK] Elapsed real time: 0:00:03 
+[DRC CHECK] Elapsed cpu  time: sys=0:00:00 usr=0:00:03 total=0:00:03
+[DRC CHECK] Stage (MB): Used    0  Alloctr    0  Proc   70 
+[DRC CHECK] Total (MB): Used  114  Alloctr  115  Proc 12926 
+Start net based rule analysis
+Antenna DRC for net c_in[98]; Net top lay TOP_M
+	ICell u_seq/HFSINV_215_322; master port I
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/43.67592621
+Antenna DRC for net c_in[70]; Net top lay TOP_M
+	ICell u_seq/HFSINV_112_403; master port I
+		Antenna/diode mode 1/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 12.00000000/19.70740700
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/76.65370178
+Antenna DRC for net c_in[66]; Net top lay TOP_M
+	ICell u_seq/HFSINV_125_398; master port I
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/34.05740738
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/27.13796234
+Antenna DRC for net c_in[6]; Net top lay TOP_M
+	ICell u_seq/U914; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net c_dst[396]; Net top lay TOP_M
+	ICell u_dma/U758; master port B1
+		Antenna/diode mode 1/4; wlay M3; gArea 0.46599999;  allowed ratio/ratio 12.00000000/54.34849930
+		Antenna/diode mode 4/4; wlay M3; gArea 0.46599999;  allowed ratio/ratio 25.00000000/207.49612427
+Antenna DRC for net w_load_row[21]; Net top lay TOP_M
+	ICell u_wbuf/U371; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net w_load_row[14]; Net top lay TOP_M
+	ICell u_wbuf/U357; master port I
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/36.80555725
+Antenna DRC for net w_load_row[6]; Net top lay TOP_M
+	ICell u_wbuf/U394; master port I
+		Antenna/diode mode 1/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 12.00000000/20.95185280
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/42.59629440
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/86.86110687
+Antenna DRC for net skew_act_out[16]; Net top lay M3
+	ICell u_grid/g_row_2__g_col_0__pe/mult_30/U162; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_dma/n108; Net top lay TOP_M
+	ICell u_dma/U40; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_dma/base_lat[11]; Net top lay M3
+	ICell u_dma/add_212_3/U157; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_dma/add_212_3/n76; Net top lay M3
+	ICell u_dma/add_212_3/U136; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_dma/add_0_root_add_0_root_add_212_2/n62; Net top lay M3
+	ICell u_dma/add_0_root_add_0_root_add_212_2/U164; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/HFSNET_49; Net top lay TOP_M
+	ICell u_grid/HFSINV_41462_560; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+	ICell u_grid/HFSINV_43991_559; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_wbuf/n679; Net top lay TOP_M
+	ICell u_wbuf/U297; master port B2
+		Antenna/diode mode 1/4; wlay M3; gArea 0.47000000;  allowed ratio/ratio 12.00000000/28.04212761
+		Antenna/diode mode 4/4; wlay M3; gArea 0.47000000;  allowed ratio/ratio 25.00000000/107.35319519
+Antenna DRC for net u_wbuf/bank_a[43]; Net top lay M2
+	ICell u_wbuf/U442; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.81851768
+Antenna DRC for net u_wbuf/bank_a[28]; Net top lay TOP_M
+	ICell u_wbuf/U601; master port I
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/29.14999962
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/40.92777634
+Antenna DRC for net u_wbuf/bank_b[111]; Net top lay TOP_M
+	ICell u_wbuf/U756; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_wbuf/bank_b[44]; Net top lay TOP_M
+	ICell u_wbuf/U675; master port I
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/40.92777634
+Antenna DRC for net u_wbuf/bank_b[38]; Net top lay M3
+	ICell u_wbuf/U689; master port I
+		Antenna/diode mode 1/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 12.00000000/12.41851807
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.81851768
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/49.76111221
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 100.00000000/127.39629364
+Antenna DRC for net u_wbuf/bank_b[4]; Net top lay M3
+	ICell u_wbuf/U769; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.81851768
+Antenna DRC for net u_actbuf/n95; Net top lay TOP_M
+	ICell u_actbuf/U45; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_0__g_col_2__pe_act_in[3]; Net top lay TOP_M
+	ICell u_grid/g_row_0__g_col_2__pe/mult_28/U145; master port I
+		Antenna/diode mode 1/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 12.00000000/14.04675865
+		Antenna/diode mode 1/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 12.00000000/63.05185318
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/69.24352264
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/241.44445801
+Antenna DRC for net u_grid/g_row_0__g_col_2__pe_act_in[0]; Net top lay TOP_M
+	ICell u_grid/g_row_0__g_col_2__pe/mult_28/U148; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_0__g_col_3__pe_act_in[2]; Net top lay TOP_M
+	ICell u_grid/g_row_0__g_col_3__pe/mult_28/U142; master port I
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/40.92777634
+Antenna DRC for net u_grid/g_row_0__g_col_3__pe_act_in[0]; Net top lay TOP_M
+	ICell u_grid/g_row_0__g_col_3__pe/mult_30/U164; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_1__g_col_1__pe_act_in[1]; Net top lay TOP_M
+	ICell u_grid/g_row_1__g_col_1__pe/mult_28/U147; master port I
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/32.73241043
+Antenna DRC for net u_grid/g_row_1__g_col_2__pe_act_in[5]; Net top lay TOP_M
+	ICell u_grid/g_row_1__g_col_2__pe/mult_28/U152; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_0__g_col_0__pe/mult_30/n1; Net top lay M3
+	ICell u_grid/g_row_0__g_col_0__pe/mult_30/U167; master port I
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/43.97037125
+Antenna DRC for net u_grid/g_row_0__g_col_0__pe/mult_30/n32; Net top lay M2
+	ICell u_grid/g_row_0__g_col_0__pe/mult_30/U150; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_0__g_col_0__pe/mult_30/n214; Net top lay TOP_M
+	ICell u_grid/g_row_0__g_col_0__pe/mult_30/U153; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_0__g_col_1__pe/weight_reg[6]; Net top lay TOP_M
+	ICell u_grid/g_row_0__g_col_1__pe/mult_28/U154; master port I
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/35.43148041
+Antenna DRC for net u_grid/g_row_0__g_col_2__pe/mult_30/n223; Net top lay M3
+	ICell u_grid/g_row_0__g_col_2__pe/mult_30/U149; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_0__g_col_3__pe/mult_30/n22; Net top lay M2
+	ICell u_grid/g_row_0__g_col_3__pe/mult_30/U153; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_0__g_col_3__pe/mult_30/n214; Net top lay TOP_M
+	ICell u_grid/g_row_0__g_col_3__pe/mult_30/U150; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_1__g_col_1__pe/weight_reg[2]; Net top lay TOP_M
+	ICell u_grid/g_row_1__g_col_1__pe/mult_28/U144; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_1__g_col_1__pe/mult_30/n16; Net top lay M3
+	ICell u_grid/g_row_1__g_col_1__pe/mult_30/U148; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_1__g_col_1__pe/mult_30/n214; Net top lay M3
+	ICell u_grid/g_row_1__g_col_1__pe/mult_30/U150; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_1__g_col_2__pe/weight_reg[6]; Net top lay M3
+	ICell u_grid/g_row_1__g_col_2__pe/mult_28/U154; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.81851768
+Antenna DRC for net u_grid/g_row_1__g_col_3__pe/weight_reg[2]; Net top lay TOP_M
+	ICell u_grid/g_row_1__g_col_3__pe/mult_28/U144; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.81851768
+Antenna DRC for net u_csr/copt_net_265; Net top lay M3
+	ICell u_csr/U116; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_2__g_col_0__pe/mult_30/n223; Net top lay M3
+	ICell u_grid/g_row_2__g_col_0__pe/mult_30/U149; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_2__g_col_1__pe/weight_reg[2]; Net top lay TOP_M
+	ICell u_grid/g_row_2__g_col_1__pe/mult_28/U144; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.81851768
+Antenna DRC for net u_grid/g_row_2__g_col_2__pe/weight_reg[5]; Net top lay TOP_M
+	ICell u_grid/g_row_2__g_col_2__pe/mult_28/U146; master port I
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/29.39537239
+Antenna DRC for net u_grid/g_row_2__g_col_2__pe/mult_30/n223; Net top lay TOP_M
+	ICell u_grid/g_row_2__g_col_2__pe/mult_30/U149; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_2__g_col_3__pe/weight_reg[6]; Net top lay TOP_M
+	ICell u_grid/g_row_2__g_col_3__pe/mult_28/U154; master port I
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/25.07685280
+Antenna DRC for net u_grid/g_row_2__g_col_3__pe/mult_30/n22; Net top lay M3
+	ICell u_grid/g_row_2__g_col_3__pe/mult_30/U153; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_3__g_col_2__pe/mult_30/n22; Net top lay M3
+	ICell u_grid/g_row_3__g_col_2__pe/mult_30/U153; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_grid/g_row_3__g_col_3__pe/mult_30/n32; Net top lay M3
+	ICell u_grid/g_row_3__g_col_3__pe/mult_30/U152; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_csr/copt_net_625; Net top lay M3
+	ICell u_csr/U196; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_csr/copt_net_633; Net top lay TOP_M
+	ICell u_csr/U200; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.76944542
+		Antenna/diode mode 4/4; wlay M2; gArea 0.10800000;  allowed ratio/ratio 25.00000000/40.82962799
+Antenna DRC for net u_csr/copt_net_672; Net top lay TOP_M
+	ICell u_csr/U145; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_csr/copt_net_695; Net top lay M3
+	ICell u_csr/U122; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/30.76944542
+Antenna DRC for net u_csr/copt_net_722; Net top lay TOP_M
+	ICell u_csr/U171; master port I
+		Antenna/diode mode 1/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 12.00000000/27.75740814
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/112.62499237
+Antenna DRC for net u_actbuf/copt_net_1406; Net top lay M3
+	ICell u_actbuf/U557; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_dma/copt_net_2083; Net top lay M3
+	ICell u_dma/U513; master port I
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/28.46296310
+Antenna DRC for net u_seq/copt_net_2323; Net top lay TOP_M
+	ICell u_seq/U984; master port I
+		Antenna/diode mode 1/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 12.00000000/24.32222176
+		Antenna/diode mode 4/4; wlay M1; gArea 0.10800000;  allowed ratio/ratio 25.00000000/35.52962875
+		Antenna/diode mode 4/4; wlay M3; gArea 0.10800000;  allowed ratio/ratio 25.00000000/96.87222290
+Found 58 antenna instance ports
+End net based rule analysis
+[Antenna analysis] Elapsed real time: 0:00:00 
+[Antenna analysis] Elapsed cpu  time: sys=0:00:00 usr=0:00:00 total=0:00:00
+[Antenna analysis] Stage (MB): Used    0  Alloctr    0  Proc    0 
+[Antenna analysis] Total (MB): Used  115  Alloctr  116  Proc 12926 
+
+DRC-SUMMARY:
+	@@@@@@@ TOTAL VIOLATIONS =	0
+
+
+Total Wire Length =                    830381 micron
+Total Number of Contacts =             135877
+Total Number of Wires =                130829
+Total Number of PtConns =              6554
+Total Number of Routed Wires =       126469
+Total Routed Wire Length =           827711 micron
+Total Number of Routed Contacts =       135877
+	Layer              M1 :      23011 micron
+	Layer              M2 :     322555 micron
+	Layer              M3 :     366119 micron
+	Layer           TOP_M :     116025 micron
+	Via             VIA34 :       5952
+	Via    VIA34(rot)_1x2 :        561
+	Via    VIA34(rot)_2x1 :         25
+	Via         VIA34_1x2 :        789
+	Via         VIA34_2x1 :       6685
+	Via             VIA23 :      14351
+	Via        VIA23(rot) :         14
+	Via    VIA23(rot)_1x2 :        194
+	Via    VIA23(rot)_2x1 :        225
+	Via         VIA23_1x2 :      31365
+	Via         VIA23_2x1 :      21648
+	Via            VIA12A :      11039
+	Via       VIA12A(rot) :       1869
+	Via   VIA12A(rot)_1x2 :       2178
+	Via   VIA12A(rot)_2x1 :       1782
+	Via        VIA12A_1x2 :      27301
+	Via        VIA12A_2x1 :       9899
+
+ 
+Redundant via conversion report:
+--------------------------------
+
+  Total optimized via conversion rate = 75.55% (102652 / 135877 vias)
+ 
+    Layer V2         = 76.13% (41160  / 54068   vias)
+        Weight 1     = 76.13% (41160   vias)
+        Un-optimized =  0.00% (0       vias)
+        Un-mapped    = 23.87% (12908   vias)
+    Layer V3         = 78.81% (53432  / 67797   vias)
+        Weight 1     = 78.81% (53432   vias)
+        Un-optimized =  0.00% (0       vias)
+        Un-mapped    = 21.19% (14365   vias)
+    Layer TOP_V      = 57.52% (8060   / 14012   vias)
+        Weight 1     = 57.52% (8060    vias)
+        Un-optimized =  0.00% (0       vias)
+        Un-mapped    = 42.48% (5952    vias)
+ 
+  Total double via conversion rate    = 75.55% (102652 / 135877 vias)
+ 
+    Layer V2         = 76.13% (41160  / 54068   vias)
+    Layer V3         = 78.81% (53432  / 67797   vias)
+    Layer TOP_V      = 57.52% (8060   / 14012   vias)
+ 
+  The optimized via conversion rate based on total routed via count = 75.55% (102652 / 135877 vias)
+ 
+    Layer V2         = 76.13% (41160  / 54068   vias)
+        Weight 1     = 76.13% (41160   vias)
+        Un-optimized =  0.00% (0       vias)
+        Un-mapped    = 23.87% (12908   vias)
+    Layer V3         = 78.81% (53432  / 67797   vias)
+        Weight 1     = 78.81% (53432   vias)
+        Un-optimized =  0.00% (0       vias)
+        Un-mapped    = 21.19% (14365   vias)
+    Layer TOP_V      = 57.52% (8060   / 14012   vias)
+        Weight 1     = 57.52% (8060    vias)
+        Un-optimized =  0.00% (0       vias)
+        Un-mapped    = 42.48% (5952    vias)
+ 
+
+
+Verify Summary:
+
+Total number of nets = 16618, of which 0 are not extracted
+Total number of open nets = 0, of which 0 are frozen
+Total number of excluded ports = 0 ports of 0 unplaced cells connected to 0 nets
+                                 0 ports without pins of 0 cells connected to 0 nets
+                                 0 ports of 0 cover cells connected to 0 non-pg nets
+Total number of DRCs = 0
+Total number of antenna violations = 75
+Total number of tie to rail violations = not checked
+Total number of tie to rail directly violations = not checked
+
+

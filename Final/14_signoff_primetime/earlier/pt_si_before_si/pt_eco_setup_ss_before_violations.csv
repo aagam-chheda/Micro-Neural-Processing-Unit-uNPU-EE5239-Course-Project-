@@ -1,0 +1,5 @@
+endpoint;startpoint;startpoint_kind;endpoint_kind;slack_ns;path_group;n_cells;cells;incr_ns
+prdata[20];paddr[3];port;port;-0.0364;clk;7;u_apb/U29/Z(buffd1),u_csr/U20/ZN(inv0d2),u_csr/U21/ZN(nr03d1),u_csr/U13/Z(an02d2),u_csr/U31/ZN(inv0d1),u_csr/U385/ZN(oai222d1),ctmTdsLR_1_2999/Z(bufbd4);0.3886,0.1232,0.4383,0.4071,0.2378,0.3447,1.1988
+prdata[10];paddr[3];port;port;-0.0242;clk;7;u_apb/U29/Z(buffd1),u_csr/U20/ZN(inv0d2),u_csr/U21/ZN(nr03d1),u_csr/U13/Z(an02d2),u_csr/U29/ZN(inv0d2),u_csr/U400/ZN(oai222d1),ctmTdsLR_1_2979/Z(buffd4);0.3886,0.1232,0.4383,0.4071,0.1444,0.4715,1.0936
+prdata[22];paddr[3];port;port;-0.0090;clk;7;u_apb/U29/Z(buffd1),u_csr/U20/ZN(inv0d2),u_csr/U21/ZN(nr03d1),u_csr/U13/Z(an02d2),u_csr/U31/ZN(inv0d1),u_csr/U383/ZN(oai222d1),ctmTdsLR_1_2980/Z(bufbd4);0.3886,0.1232,0.4383,0.4071,0.2378,0.3421,1.1987
+prdata[17];paddr[3];port;port;-0.0059;clk;7;u_apb/U29/Z(buffd1),u_csr/U20/ZN(inv0d2),u_csr/U21/ZN(nr03d1),u_csr/U13/Z(an02d2),u_csr/U29/ZN(inv0d2),u_csr/U72/ZN(oai222d1),ctmTdsLR_1_2970/Z(bufbda);0.3886,0.1232,0.4383,0.4071,0.1444,0.5944,0.7139

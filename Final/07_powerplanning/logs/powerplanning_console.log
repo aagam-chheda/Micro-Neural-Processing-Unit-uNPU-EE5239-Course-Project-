@@ -1,0 +1,548 @@
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys-Release
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Galaxy-Internal-Debug
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       ICCompilerII
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/10/2026 19:46:27 PID:31583 Client:lalita.iitg.ac.in Authorization failed Synopsys 2022.12
+[SCL] 11/10/2026 19:46:28 PID:31583 Client:lalita.iitg.ac.in Authorization failed Synopsys-Release 2022.12
+[SCL] 11/10/2026 19:46:28 PID:31583 Client:lalita.iitg.ac.in Authorization failed Galaxy-Internal-Debug 2022.12
+[icc2-lic Tue Nov 10 19:46:28 2026] Sending authorization request for 'ICCompilerII'
+[SCL] 11/10/2026 19:46:28 PID:31583 Client:lalita.iitg.ac.in Authorization failed ICCompilerII 2022.12
+[icc2-lic Tue Nov 10 19:46:28 2026] Authorization request for 'ICCompilerII' failed (-5)
+[icc2-lic Tue Nov 10 19:46:28 2026] Sending authorization request for 'ICCompilerII-NX'
+[SCL] 11/10/2026 19:46:29 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Authorization succeeded ICCompilerII-NX 2022.12
+[icc2-lic Tue Nov 10 19:46:29 2026] Authorization request for 'ICCompilerII-NX' succeeded
+
+
+
+                              IC Compiler II (TM)
+
+                Version U-2022.12-SP3 for linux64 - Apr 18, 2023
+  This release has significant feature enhancements. Please review the Release
+                       Notes associated with this release.
+
+                    Copyright (c) 1988 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+ 
+Information: Term was not able to be set up using xterm-256color . Using "xterm" by default instead. (CLE-10)
+# ==============================================================================
+# Script: powerplanning.tcl
+# Path  : <RUN_DIR>/pnr_v2/powerplanning.tcl   ;# 063 E1: new path
+# Stage : Power Distribution Network (M3/TOP_M Ring, M3+TOP_M Mesh, M1 Rails)
+# Tool  : Synopsys ICC2 (U-2022.12-SP3)
+# ==============================================================================
+set DESIGN_NAME "unpu_top"   ;# 063 E2: design name
+unpu_top
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+/storage/EE5239G1/aagams_workspace2/unpu_run3
+source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2
+set BLOCKS_DIR  "${PNR_DIR}/blocks"
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/blocks
+set LOG_DIR     "${PNR_DIR}/logs"
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs
+file mkdir $LOG_DIR
+redirect -tee -file ${LOG_DIR}/3_powerplanning.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
+
+    set open_blk [get_blocks -quiet *]
+    if {[sizeof_collection $open_blk] > 0} {
+        close_blocks -force $open_blk
+    }
+
+    open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${DESIGN_NAME}_floorplan
+    link_block
+    unpu_clock_latency_count powerplan-probe-open   ;# 089: probe only (no change): is the tool-made set_clock_latency already in the input block? The origin check showed 0 lines in _floorplan and 1 in _powerplan
+
+    # Automatically detect exact layer names in SCL_4LM.tf
+    if {[sizeof_collection [get_layers -quiet TOP_M]] > 0} {
+        set M1_LAYER "M1"
+        set M3_LAYER "M3"
+        set M4_LAYER "TOP_M"
+    } elseif {[sizeof_collection [get_layers -quiet M4]] > 0} {
+        set M1_LAYER "M1"
+        set M3_LAYER "M3"
+        set M4_LAYER "M4"
+    } else {
+        set M1_LAYER "Metal1"
+        set M3_LAYER "Metal3"
+        set M4_LAYER "Metal4"
+    }
+    puts ">>> Using PDN Layers: Rail=${M1_LAYER} (H), Ring=${M3_LAYER} (H) & ${M4_LAYER} (V), Mesh=${M3_LAYER} (H) & ${M4_LAYER} (V)"
+
+    # 1. Clean Existing PG Objects & Create Logical Power/Ground Nets
+    remove_pg_strategies -all
+    remove_pg_patterns -all
+    remove_pg_regions -all
+    remove_pg_via_master_rules -all
+    remove_pg_strategy_via_rules -all
+
+    set_app_options -name plan.pgroute.connect_user_route_shapes -value true
+
+    if {[sizeof_collection [get_nets -quiet VDD]] == 0} {
+        create_net -power VDD
+    }
+    if {[sizeof_collection [get_nets -quiet VSS]] == 0} {
+        create_net -ground VSS
+    }
+
+    # Connect logical PG pins across hierarchy
+    connect_pg_net -automatic
+    connect_pg_net -net VDD [get_pins -hierarchical -quiet */VDD]
+    connect_pg_net -net VSS [get_pins -hierarchical -quiet */VSS]
+
+    # 2. Peripheral Core Power Ring (M3 Horizontal, TOP_M Vertical)
+    create_pg_ring_pattern ring_pattern \
+        -horizontal_layer ${M3_LAYER} -horizontal_width 4.0 -horizontal_spacing 2.0 \
+        -vertical_layer   ${M4_LAYER} -vertical_width   4.0 -vertical_spacing   2.0
+
+    set_pg_strategy core_ring \
+        -core \
+        -pattern {{name: ring_pattern} {nets: {VDD VSS}} {offset: {4.0 4.0}}}
+
+    compile_pg -strategies core_ring
+
+    # 3. Core Power Mesh Straps (TOP_M Vertical + M3 Horizontal)
+    # Row height = 5.6 um.
+    # Pitch = 56.0 um (10 rows) -> Interleaving half-pitch = 28.0 um (5 rows = ODD multiple of 5.6 um)
+    # Offset = 11.2 um (2 rows = EVEN multiple of 5.6 um)
+    # This guarantees VDD M3 straps land on EVEN rows (VDD rails) and VSS M3 straps land on ODD rows (VSS rails)!
+   create_pg_mesh_pattern core_mesh_m3_topm \
+    -layers [list \
+        [list [list vertical_layer: ${M4_LAYER}]   {width: 2.5} {spacing: interleaving} {pitch: 60.0} {offset: 30.0}] \
+        [list [list horizontal_layer: ${M3_LAYER}] {width: 1.5} {spacing: interleaving} {pitch: 56.0} {offset: 11.2}] \
+    ]
+
+    set_pg_strategy m3_topm_straps \
+        -core \
+        -pattern {{name: core_mesh_m3_topm} {nets: {VDD VSS}}} \
+        -extension {{stop: outermost_ring}}
+
+    compile_pg -strategies m3_topm_straps
+
+    # 4. Standard Cell Follow-Pin Rails (M1 Horizontal)
+    create_pg_std_cell_conn_pattern rail_pattern \
+        -layers [list ${M1_LAYER}] \
+        -rail_width 0.44
+
+    set_pg_strategy std_rails \
+        -core \
+        -pattern {{name: rail_pattern} {nets: {VDD VSS}}} \
+        -extension {{stop: outermost_ring}}
+
+    compile_pg -strategies std_rails
+    unpu_clock_latency_count powerplan-probe-after-compile_pg   ;# 089: probe only: after the last compile_pg
+
+    # 5. Power Network Verification
+    check_pg_drc
+    check_pg_connectivity
+    check_pg_missing_vias
+    unpu_clock_latency_count powerplan-probe-after-check_pg   ;# 089: probe only: after check_pg_drc / check_pg_connectivity / check_pg_missing_vias (together with the two probes above this names the command that makes the tool write the line)
+
+    # 6. Create VDD/VSS block ports and physical terminals on the top-metal ring
+    #    (the synthesized netlist has no PG ports, so write_gds had nothing to label,
+    #     and Calibre LVS reported "Power/Ground net missing in layout")
+    foreach {pg_net pg_type} {VDD power VSS ground} {
+        if {[sizeof_collection [get_ports -quiet $pg_net]] == 0} {
+            if {[catch {create_port -direction inout -port_type $pg_type -net $pg_net $pg_net} port_err]} {
+                puts "WARNING: create_port failed for $pg_net: $port_err  (check: man create_port)"
+            }
+        }
+        set pg_shapes [get_shapes -quiet -of_objects [get_nets $pg_net] -filter "layer_name==${M4_LAYER}"]
+        if {[sizeof_collection $pg_shapes] > 0 && [sizeof_collection [get_ports -quiet $pg_net]] > 0} {
+            set pg_bbox [get_attribute [index_collection $pg_shapes 0] bbox]
+            if {[catch {create_terminal -port $pg_net -layer ${M4_LAYER} -boundary $pg_bbox} term_err]} {
+                puts "WARNING: create_terminal failed for $pg_net: $term_err  (check: man create_terminal)"
+            }
+        } else {
+            puts "WARNING: no ${M4_LAYER} shape or no port found for $pg_net, no terminal created"
+        }
+    }
+    puts ">>> PG ports: [get_object_name [get_ports -quiet {VDD VSS}]]"
+    puts ">>> PG terminals: [sizeof_collection [get_terminals -quiet -of_objects [get_ports -quiet {VDD VSS}]]]"
+
+    set pp_n [unpu_remove_clock_latency powerplan-final]   ;# 089: the saved block is clean; the probes above say which command created the line
+    unpu_clock_latency_note powerplan-final {the power plan commands} $pp_n
+    save_block -as ${DESIGN_NAME}_powerplan
+    save_lib
+    puts ">>> STAGE 3 COMPLETE: ${DESIGN_NAME}_powerplan saved. Log: ${LOG_DIR}/3_powerplanning.log"
+
+}
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_std.ndm' (FILE-007)
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_filler.ndm' (FILE-007)
+Information: User units loaded from library 'scl180_std' (LNK-040)
+Opening block 'unpu_top.dlib:unpu_top_floorplan.design' in edit mode
+Using libraries: unpu_top.dlib scl180_std scl180_filler
+Visiting block unpu_top.dlib:unpu_top_floorplan.design
+Design 'unpu_top' was successfully linked.
+>>> 088 powerplan-probe-open func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-probe-open func_ss: set_clock_latency lines before 0, after 0
+>>> Using PDN Layers: Rail=M1 (H), Ring=M3 (H) & TOP_M (V), Mesh=M3 (H) & TOP_M (V)
+All strategies have been removed.
+No pattern is found.
+No PG region is found.
+No via def rule is found.
+All strategy via rules have been removed.
+****************************************
+Report : Power/Ground Connection Summary
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 19:46:32 2026
+****************************************
+P/G net name                  P/G pin count(previous/current)
+--------------------------------------------------------------------------------
+Power net VDD                 0/12487
+Ground net VSS                0/12487
+--------------------------------------------------------------------------------
+Information: connections of 24974 power/ground pin(s) are created or changed.
+Information: The command 'create_pg_ring_pattern' cleared the undo history. (UNDO-016)
+Successfully create PG ring pattern ring_pattern.
+Successfully set PG strategy core_ring.
+[icc2-lic Tue Nov 10 19:46:32 2026] Command 'compile_pg' requires licenses
+[icc2-lic Tue Nov 10 19:46:32 2026] Sending authorization request for 'ICCompilerII'
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       ICCompilerII
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/10/2026 19:46:32 PID:31583 Client:lalita.iitg.ac.in Authorization failed ICCompilerII 2022.12
+[icc2-lic Tue Nov 10 19:46:32 2026] Authorization request for 'ICCompilerII' failed (-5)
+[icc2-lic Tue Nov 10 19:46:32 2026] Sending authorization request for 'ICCompilerII-4'
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       ICCompilerII-4
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/10/2026 19:46:32 PID:31583 Client:lalita.iitg.ac.in Authorization failed ICCompilerII-4 2022.12
+[icc2-lic Tue Nov 10 19:46:32 2026] Authorization request for 'ICCompilerII-4' failed (-5)
+[icc2-lic Tue Nov 10 19:46:32 2026] Sending authorization request for 'ICCompilerII-8'
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Authorization succeeded ICCompilerII-8 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Authorization request for 'ICCompilerII-8' succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending authorization request for 'ICCompilerII-NX'
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Authorization succeeded ICCompilerII-NX 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Authorization request for 'ICCompilerII-NX' succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+Checkout succeeded: ICCompilerII-8/7F5A7477D320DCDAC7C9
+	License file: 27020@14.139.1.126
+	License Server: 27020@14.139.1.126
+[SCL] 11/10/2026 19:46:33 Checking status for feature ICCompilerII-8
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded ICCompilerII-8 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+Checkout succeeded: ICCompilerII-NX/6FCA5487F2F4CC4AD85F
+	License file: 27020@14.139.1.126
+	License Server: 27020@14.139.1.126
+[SCL] 11/10/2026 19:46:33 Checking status for feature ICCompilerII-NX
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded ICCompilerII-NX 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out of alternate set of keys directly with queueing was successful
+Sanity check for inputs.
+No strategy-level via rule is specified, the default rule will be applied.
+Automatic PG net connection through connect_pg_net is disabled.
+Updating PG strategies.
+Updating strategy core_ring.
+Loading library and design information.
+Number of Standard Cells: 0
+Number of Hard Macros: 0
+Number of Pads: 0
+Creating rings.
+Creating via connection between strategies and existing shapes.
+Via DRC checking runtime 0.00 seconds.
+via connection runtime: 0 seconds.
+Removing dangling/floating wire/vias after DRC check.
+Start iteration 1:
+Checking potential dangling/floating power plan wires.
+Checking dangling/floating vias inside strategy core_ring.
+Checking 8 stacked vias:0% 10% 20% 30% 50% 60% 70% 80% 100%
+Finish removing all dangling or floating wires and vias.
+Commiting wires and vias.
+Committing wires takes 0.00 seconds.
+Committing vias takes 0.00 seconds.
+Committed 8 wires.
+Committed 8 vias.
+Committed 0 wires for via creation.
+Overall PG creation runtime: 0 seconds.
+Successfully compiled PG.
+Overall runtime: 0 seconds.
+Successfully create mesh pattern core_mesh_m3_topm.
+Successfully set PG strategy m3_topm_straps.
+[icc2-lic Tue Nov 10 19:46:33 2026] Command 'compile_pg' requires licenses
+[icc2-lic Tue Nov 10 19:46:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[SCL] 11/10/2026 19:46:33 Checking status for feature ICCompilerII-8
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded ICCompilerII-8 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[SCL] 11/10/2026 19:46:33 Checking status for feature ICCompilerII-NX
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded ICCompilerII-NX 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out of alternate set of keys directly with queueing was successful
+Sanity check for inputs.
+No strategy-level via rule is specified, the default rule will be applied.
+Automatic PG net connection through connect_pg_net is disabled.
+Updating PG strategies.
+Updating strategy m3_topm_straps.
+Loading library and design information.
+Number of Standard Cells: 0
+Number of Hard Macros: 0
+Number of Pads: 0
+Creating straps and vias in power plan.
+Creating wire shapes for strategies m3_topm_straps .
+Creating wire shapes runtime: 0 seconds
+Blockage cutting and DRC fixing for wire shapes for strategies m3_topm_straps .
+Check and fix DRC for 58 wires for strategy m3_topm_straps.
+Number of threads: 1
+Number of partitions: 3
+Direction of partitions: vertical
+Number of wires: 28
+Checking DRC for 28 wires:5% 20% 35% 55% 60% 70% 100%
+Number of threads: 1
+Number of partitions: 3
+Direction of partitions: horizontal
+Number of wires: 30
+Checking DRC for 30 wires:0% 10% 20% 20% 30% 45% 45% 50% 60% 65% 70% 80% 100%
+Creating 58 wires after DRC fixing.
+Wire DRC checking runtime 0.00 seconds.
+Creating via shapes for strategies m3_topm_straps .
+Working on strategy m3_topm_straps.
+Number of detected intersections: 420
+Total runtime of via shapes creation: 0 seconds
+Check and fix DRC for 420 stacked vias for strategy m3_topm_straps.
+Number of threads: 1
+Number of partitions: 3
+Direction of partitions: horizontal
+Number of vias: 420
+Checking DRC for 420 stacked vias:5% 10% 15% 20% 25% 30% 35% 40% 45% 50% 55% 60% 65% 70% 75% 80% 85% 90% 95% 100%
+Runtime of via DRC checking for strategy m3_topm_straps: 0.00 seconds.
+Creating via connection between strategies and existing shapes.
+Check and fix DRCs for 116 stacked vias.
+Number of threads: 1
+Number of partitions: 4
+Direction of partitions: horizontal
+Number of vias: 116
+Checking DRC for 116 stacked vias:5% 10% 10% 15% 20% 25% 30% 35% 40% 45% 50% 55% 60% 65% 70% 75% 80% 85% 90% 95% 100%
+Via DRC checking runtime 0.00 seconds.
+via connection runtime: 0 seconds.
+Removing dangling/floating wire/vias after DRC check.
+Start iteration 1:
+Checking potential dangling/floating power plan wires.
+Checking dangling/floating vias inside strategy m3_topm_straps.
+Checking 420 stacked vias:0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Checking dangling/floating vias between strategies and existing shapes.
+Checking 116 stacked vias:0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Finish removing all dangling or floating wires and vias.
+Commiting wires and vias.
+Committing wires takes 0.00 seconds.
+Committing vias takes 0.00 seconds.
+Committed 58 wires.
+Committed 536 vias.
+Committed 0 wires for via creation.
+Overall PG creation runtime: 0 seconds.
+Successfully compiled PG.
+Overall runtime: 0 seconds.
+Successfully create standard cell rail pattern rail_pattern.
+Successfully set PG strategy std_rails.
+[icc2-lic Tue Nov 10 19:46:33 2026] Command 'compile_pg' requires licenses
+[icc2-lic Tue Nov 10 19:46:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[SCL] 11/10/2026 19:46:33 Checking status for feature ICCompilerII-8
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded ICCompilerII-8 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[SCL] 11/10/2026 19:46:33 Checking status for feature ICCompilerII-NX
+[SCL] 11/10/2026 19:46:33 PID:31583 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded ICCompilerII-NX 2022.12
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out of alternate set of keys directly with queueing was successful
+Sanity check for inputs.
+No strategy-level via rule is specified, the default rule will be applied.
+Automatic PG net connection through connect_pg_net is disabled.
+Updating PG strategies.
+Updating strategy std_rails.
+Loading library and design information.
+Number of Standard Cells: 0
+Number of Hard Macros: 0
+Number of Pads: 0
+Creating standard cell rails.
+Creating standard cell rails for strategy std_rails.
+DRC checking and fixing for standard cell rail strategy std_rails.
+Number of threads: 1
+Number of partitions: 14
+Direction of partitions: horizontal
+Number of wires: 152
+Checking DRC for 152 wires:5% 10% 10% 35% 50% 50% 65% 65% 75% 75% 85% 100%
+Creating 152 wires after DRC fixing.
+Wire DRC checking runtime 0.00 seconds.
+Creating via connection between strategies and existing shapes.
+Check and fix DRCs for 2432 stacked vias.
+Number of threads: 1
+Number of partitions: 14
+Direction of partitions: horizontal
+Number of vias: 2432
+Checking DRC for 2432 stacked vias:5% 10% 15% 20% 25% 30% 35% 40% 45% 50% 55% 60% 65% 70% 75% 80% 85% 90% 95% 100%
+Via DRC checking runtime 1.00 seconds.
+via connection runtime: 1 seconds.
+Removing dangling/floating wire/vias after DRC check.
+Start iteration 1:
+Checking potential dangling/floating power plan wires.
+Checking dangling/floating vias between strategies and existing shapes.
+Checking 2432 stacked vias:0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Finish removing all dangling or floating wires and vias.
+Commiting wires and vias.
+Committing wires takes 0.00 seconds.
+Committing vias takes 0.00 seconds.
+Committed 152 wires.
+Committed 6816 vias.
+Committed 0 wires for via creation.
+Overall PG creation runtime: 1 seconds.
+Successfully compiled PG.
+Overall runtime: 1 seconds.
+>>> 088 powerplan-probe-after-compile_pg func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-probe-after-compile_pg func_ss: set_clock_latency lines before 0, after 0
+Command check_pg_drc started  at Tue Nov 10 19:46:34 2026
+Command check_pg_drc finished at Tue Nov 10 19:46:34 2026
+CPU usage for check_pg_drc: 0.06 seconds ( 0.00 hours)
+Elapsed time for check_pg_drc: 0.06 seconds ( 0.00 hours)
+No errors found.
+Checking secondary net through power switch is enabled. 
+Secondary net will be checked together from primary net. They will be treated as the same net
+Primary Net : VDD    Secondary Net:
+Primary Net : VSS    Secondary Net:
+Loading cell instances...
+Number of Standard Cells: 12487
+Number of Macro Cells: 0
+Number of IO Pad Cells: 0
+Number of Blocks: 0
+Loading P/G wires and vias...
+Number of VDD Wires: 109
+Number of VDD Vias: 3680
+Number of VDD Terminals: 0
+**************Verify net VDD connectivity*****************
+  Number of floating wires: 0
+  Number of floating vias: 0
+  Number of floating std cells: 12487
+  Number of floating hard macros: 0
+  Number of floating I/O pads: 0
+  Number of floating terminals: 0
+  Number of floating hierarchical blocks: 0
+************************************************************
+Loading cell instances...
+Loading P/G wires and vias...
+Number of VSS Wires: 109
+Number of VSS Vias: 3680
+Number of VSS Terminals: 0
+**************Verify net VSS connectivity*****************
+  Number of floating wires: 0
+  Number of floating vias: 0
+  Number of floating std cells: 12487
+  Number of floating hard macros: 0
+  Number of floating I/O pads: 0
+  Number of floating terminals: 0
+  Number of floating hierarchical blocks: 0
+************************************************************
+Overall runtime: 0 seconds.
+Check net VDD vias...
+Number of missing vias: 0
+Checking net VDD vias took 0 seconds.
+Check net VSS vias...
+Number of missing vias: 0
+Checking net VSS vias took 0 seconds.
+Overall runtime: 0 seconds.
+>>> 088 powerplan-probe-after-check_pg func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-probe-after-check_pg func_ss: set_clock_latency lines before 0, after 0
+>>> PG ports: VDD VSS
+>>> PG terminals: 2
+Information: The command 'write_sdc' cleared the undo history. (UNDO-016)
+>>> 088 powerplan-final func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-final func_ss: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-final: 2 scenarios checked, 0 set_clock_latency line(s) removed, none left
+>>> 089 powerplan-final: the tool did not re-create the line inside the power plan commands (0 lines before the removal)
+Information: Saving 'unpu_top.dlib:unpu_top_floorplan.design' to 'unpu_top.dlib:unpu_top_powerplan.design'. (DES-028)
+Saving library 'unpu_top.dlib'
+>>> STAGE 3 COMPLETE: unpu_top_powerplan saved. Log: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs/3_powerplanning.log
+icc2_shell> Maximum memory usage for this session: 495.07 MB
+Maximum memory usage for this session including child processes: 495.07 MB
+CPU usage for this session:      9 seconds (  0.00 hours)
+Elapsed time for this session:     12 seconds (  0.00 hours)
+Thank you for using IC Compiler II.
+[icc2-lic Tue Nov 10 19:46:35 2026] Sending check-in request for 'ICCompilerII-8'
+[SCL] 11/10/2026 19:46:35 PID:31583 Client:lalita.iitg.ac.in checkin ICCompilerII-8 
+[icc2-lic Tue Nov 10 19:46:35 2026] Check-in completed for 'ICCompilerII-8'
+[icc2-lic Tue Nov 10 19:46:35 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:35 2026] Checkout check request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:35 2026] Sending check-in request for 'ICCompilerII-NX'
+[SCL] 11/10/2026 19:46:35 PID:31583 Client:lalita.iitg.ac.in checkin ICCompilerII-NX 
+[icc2-lic Tue Nov 10 19:46:35 2026] Check-in completed for 'ICCompilerII-NX'
+[icc2-lic Tue Nov 10 19:46:35 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:35 2026] Checkout check request for 'ICCompilerII-NX' returned 1 
+[SCL] 11/10/2026 19:46:35 PID:31583 Client:lalita.iitg.ac.in checkin (null) 
+this API scl_mt_init() needs to be used with the threaded version of SCL library.

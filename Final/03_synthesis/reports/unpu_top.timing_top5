@@ -1,0 +1,247 @@
+# legacy constraints: period 20.0 ns, setup uncertainty 1.5 ns, hold uncertainty 0.5 ns; written Tue Nov 10 19:30:07 IST 2026
+ 
+****************************************
+Report : timing
+        -path full
+        -delay max
+        -max_paths 5
+Design : unpu_top
+Version: T-2022.03-SP5
+Date   : Tue Nov 10 19:30:09 2026
+****************************************
+
+ # A fanout number of 1000 was used for high fanout net computations.
+
+Operating Conditions: tsl18fs120_scl_ss   Library: tsl18fs120_scl_ss
+Wire Load Model Mode: top
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[18] (output port clocked by clk)
+  Path Group: clk
+  Path Type: max
+
+  Des/Clust/Port     Wire Load Model       Library
+  ------------------------------------------------
+  unpu_top           140000                tsl18fs120_scl_ss
+
+  Point                                    Incr       Path
+  -----------------------------------------------------------
+  clock clk (rise edge)                    0.00       0.00
+  clock network delay (ideal)              0.00       0.00
+  input external delay                     7.00       7.00 r
+  paddr[3] (in)                            1.07       8.07 r
+  u_apb/paddr[3] (unpu_apb)                0.00       8.07 r
+  u_apb/U29/Z (buffd1)                     0.24       8.31 r
+  u_apb/csr_sel[1] (unpu_apb)              0.00       8.31 r
+  U37/ZN (inv0d1)                          0.09       8.40 f
+  U36/ZN (invbd2)                          0.15       8.55 r
+  u_csr/csr_sel[1] (unpu_csr)              0.00       8.55 r
+  u_csr/U20/ZN (inv0d1)                    0.20       8.75 f
+  u_csr/U21/ZN (nr03d1)                    0.56       9.31 r
+  u_csr/U13/Z (an02d2)                     0.48       9.79 r
+  u_csr/U29/ZN (inv0d1)                    0.39      10.18 f
+  u_csr/U392/ZN (oai222d1)                 0.41      10.59 r
+  u_csr/csr_rdata[18] (unpu_csr)           0.00      10.59 r
+  u_apb/csr_rdata[18] (unpu_apb)           0.00      10.59 r
+  u_apb/U32/Z (buffd1)                     0.25      10.84 r
+  u_apb/prdata[18] (unpu_apb)              0.00      10.84 r
+  U58/Z (buffda)                           0.64      11.48 r
+  prdata[18] (out)                         0.01      11.49 r
+  data arrival time                                  11.49
+
+  clock clk (rise edge)                   20.00      20.00
+  clock network delay (ideal)              0.00      20.00
+  clock uncertainty                       -1.50      18.50
+  output external delay                   -7.00      11.50
+  data required time                                 11.50
+  -----------------------------------------------------------
+  data required time                                 11.50
+  data arrival time                                 -11.49
+  -----------------------------------------------------------
+  slack (MET)                                         0.01
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[14] (output port clocked by clk)
+  Path Group: clk
+  Path Type: max
+
+  Des/Clust/Port     Wire Load Model       Library
+  ------------------------------------------------
+  unpu_top           140000                tsl18fs120_scl_ss
+
+  Point                                    Incr       Path
+  -----------------------------------------------------------
+  clock clk (rise edge)                    0.00       0.00
+  clock network delay (ideal)              0.00       0.00
+  input external delay                     7.00       7.00 r
+  paddr[3] (in)                            1.07       8.07 r
+  u_apb/paddr[3] (unpu_apb)                0.00       8.07 r
+  u_apb/U29/Z (buffd1)                     0.24       8.31 r
+  u_apb/csr_sel[1] (unpu_apb)              0.00       8.31 r
+  U37/ZN (inv0d1)                          0.09       8.40 f
+  U36/ZN (invbd2)                          0.15       8.55 r
+  u_csr/csr_sel[1] (unpu_csr)              0.00       8.55 r
+  u_csr/U20/ZN (inv0d1)                    0.20       8.75 f
+  u_csr/U21/ZN (nr03d1)                    0.56       9.31 r
+  u_csr/U13/Z (an02d2)                     0.48       9.79 r
+  u_csr/U29/ZN (inv0d1)                    0.39      10.18 f
+  u_csr/U396/ZN (oai222d1)                 0.41      10.59 r
+  u_csr/csr_rdata[14] (unpu_csr)           0.00      10.59 r
+  u_apb/csr_rdata[14] (unpu_apb)           0.00      10.59 r
+  u_apb/U31/Z (buffd1)                     0.25      10.84 r
+  u_apb/prdata[14] (unpu_apb)              0.00      10.84 r
+  U51/Z (buffda)                           0.64      11.48 r
+  prdata[14] (out)                         0.01      11.49 r
+  data arrival time                                  11.49
+
+  clock clk (rise edge)                   20.00      20.00
+  clock network delay (ideal)              0.00      20.00
+  clock uncertainty                       -1.50      18.50
+  output external delay                   -7.00      11.50
+  data required time                                 11.50
+  -----------------------------------------------------------
+  data required time                                 11.50
+  data arrival time                                 -11.49
+  -----------------------------------------------------------
+  slack (MET)                                         0.01
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[22] (output port clocked by clk)
+  Path Group: clk
+  Path Type: max
+
+  Des/Clust/Port     Wire Load Model       Library
+  ------------------------------------------------
+  unpu_top           140000                tsl18fs120_scl_ss
+
+  Point                                    Incr       Path
+  -----------------------------------------------------------
+  clock clk (rise edge)                    0.00       0.00
+  clock network delay (ideal)              0.00       0.00
+  input external delay                     7.00       7.00 r
+  paddr[3] (in)                            1.07       8.07 r
+  u_apb/paddr[3] (unpu_apb)                0.00       8.07 r
+  u_apb/U29/Z (buffd1)                     0.24       8.31 r
+  u_apb/csr_sel[1] (unpu_apb)              0.00       8.31 r
+  U37/ZN (inv0d1)                          0.09       8.40 f
+  U36/ZN (invbd2)                          0.15       8.55 r
+  u_csr/csr_sel[1] (unpu_csr)              0.00       8.55 r
+  u_csr/U20/ZN (inv0d1)                    0.20       8.75 f
+  u_csr/U21/ZN (nr03d1)                    0.56       9.31 r
+  u_csr/U13/Z (an02d2)                     0.48       9.79 r
+  u_csr/U31/ZN (inv0d1)                    0.39      10.18 f
+  u_csr/U383/ZN (oai222d1)                 0.41      10.59 r
+  u_csr/csr_rdata[22] (unpu_csr)           0.00      10.59 r
+  u_apb/csr_rdata[22] (unpu_apb)           0.00      10.59 r
+  u_apb/U43/Z (buffd1)                     0.24      10.83 r
+  u_apb/prdata[22] (unpu_apb)              0.00      10.83 r
+  U45/ZN (inv0d2)                          0.10      10.93 f
+  U44/ZN (inv0da)                          0.55      11.47 r
+  prdata[22] (out)                         0.01      11.48 r
+  data arrival time                                  11.48
+
+  clock clk (rise edge)                   20.00      20.00
+  clock network delay (ideal)              0.00      20.00
+  clock uncertainty                       -1.50      18.50
+  output external delay                   -7.00      11.50
+  data required time                                 11.50
+  -----------------------------------------------------------
+  data required time                                 11.50
+  data arrival time                                 -11.48
+  -----------------------------------------------------------
+  slack (MET)                                         0.02
+
+
+  Startpoint: paddr[9] (input port clocked by clk)
+  Endpoint: prdata[2] (output port clocked by clk)
+  Path Group: clk
+  Path Type: max
+
+  Des/Clust/Port     Wire Load Model       Library
+  ------------------------------------------------
+  unpu_top           140000                tsl18fs120_scl_ss
+
+  Point                                    Incr       Path
+  -----------------------------------------------------------
+  clock clk (rise edge)                    0.00       0.00
+  clock network delay (ideal)              0.00       0.00
+  input external delay                     7.00       7.00 f
+  paddr[9] (in)                            0.52       7.52 f
+  u_apb/paddr[9] (unpu_apb)                0.00       7.52 f
+  u_apb/U24/Z (buffd1)                     0.44       7.96 f
+  u_apb/csr_sel[7] (unpu_apb)              0.00       7.96 f
+  u_csr/csr_sel[7] (unpu_csr)              0.00       7.96 f
+  u_csr/U66/ZN (nr04d1)                    0.53       8.49 r
+  u_csr/U117/ZN (nd02d2)                   0.28       8.76 f
+  u_csr/U54/ZN (nr02d0)                    1.08       9.84 r
+  u_csr/U103/Z (an02d1)                    0.35      10.19 r
+  u_csr/U373/ZN (aoi322d1)                 0.18      10.37 f
+  u_csr/U206/ZN (oai211d1)                 0.22      10.59 r
+  u_csr/csr_rdata[2] (unpu_csr)            0.00      10.59 r
+  u_apb/csr_rdata[2] (unpu_apb)            0.00      10.59 r
+  u_apb/U8/Z (buffd1)                      0.22      10.81 r
+  u_apb/prdata[2] (unpu_apb)               0.00      10.81 r
+  U35/Z (buffda)                           0.64      11.45 r
+  prdata[2] (out)                          0.01      11.46 r
+  data arrival time                                  11.46
+
+  clock clk (rise edge)                   20.00      20.00
+  clock network delay (ideal)              0.00      20.00
+  clock uncertainty                       -1.50      18.50
+  output external delay                   -7.00      11.50
+  data required time                                 11.50
+  -----------------------------------------------------------
+  data required time                                 11.50
+  data arrival time                                 -11.46
+  -----------------------------------------------------------
+  slack (MET)                                         0.04
+
+
+  Startpoint: paddr[9] (input port clocked by clk)
+  Endpoint: prdata[0] (output port clocked by clk)
+  Path Group: clk
+  Path Type: max
+
+  Des/Clust/Port     Wire Load Model       Library
+  ------------------------------------------------
+  unpu_top           140000                tsl18fs120_scl_ss
+
+  Point                                    Incr       Path
+  -----------------------------------------------------------
+  clock clk (rise edge)                    0.00       0.00
+  clock network delay (ideal)              0.00       0.00
+  input external delay                     7.00       7.00 f
+  paddr[9] (in)                            0.52       7.52 f
+  u_apb/paddr[9] (unpu_apb)                0.00       7.52 f
+  u_apb/U24/Z (buffd1)                     0.44       7.96 f
+  u_apb/csr_sel[7] (unpu_apb)              0.00       7.96 f
+  u_csr/csr_sel[7] (unpu_csr)              0.00       7.96 f
+  u_csr/U66/ZN (nr04d1)                    0.53       8.49 r
+  u_csr/U117/ZN (nd02d2)                   0.28       8.76 f
+  u_csr/U54/ZN (nr02d0)                    1.08       9.84 r
+  u_csr/U103/Z (an02d1)                    0.35      10.19 r
+  u_csr/U402/ZN (aoi322d1)                 0.18      10.37 f
+  u_csr/U401/ZN (oai211d1)                 0.22      10.59 r
+  u_csr/csr_rdata[0] (unpu_csr)            0.00      10.59 r
+  u_apb/csr_rdata[0] (unpu_apb)            0.00      10.59 r
+  u_apb/U7/Z (buffd1)                      0.22      10.81 r
+  u_apb/prdata[0] (unpu_apb)               0.00      10.81 r
+  U34/Z (buffda)                           0.64      11.45 r
+  prdata[0] (out)                          0.01      11.46 r
+  data arrival time                                  11.46
+
+  clock clk (rise edge)                   20.00      20.00
+  clock network delay (ideal)              0.00      20.00
+  clock uncertainty                       -1.50      18.50
+  output external delay                   -7.00      11.50
+  data required time                                 11.50
+  -----------------------------------------------------------
+  data required time                                 11.50
+  data arrival time                                 -11.46
+  -----------------------------------------------------------
+  slack (MET)                                         0.04
+
+
+1

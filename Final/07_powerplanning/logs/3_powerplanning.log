@@ -1,0 +1,297 @@
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_std.ndm' (FILE-007)
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_filler.ndm' (FILE-007)
+Information: User units loaded from library 'scl180_std' (LNK-040)
+Opening block 'unpu_top.dlib:unpu_top_floorplan.design' in edit mode
+Using libraries: unpu_top.dlib scl180_std scl180_filler
+Visiting block unpu_top.dlib:unpu_top_floorplan.design
+Design 'unpu_top' was successfully linked.
+>>> 088 powerplan-probe-open func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-probe-open func_ss: set_clock_latency lines before 0, after 0
+>>> Using PDN Layers: Rail=M1 (H), Ring=M3 (H) & TOP_M (V), Mesh=M3 (H) & TOP_M (V)
+All strategies have been removed.
+No pattern is found.
+No PG region is found.
+No via def rule is found.
+All strategy via rules have been removed.
+****************************************
+Report : Power/Ground Connection Summary
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 19:46:32 2026
+****************************************
+P/G net name                  P/G pin count(previous/current)
+--------------------------------------------------------------------------------
+Power net VDD                 0/12487
+Ground net VSS                0/12487
+--------------------------------------------------------------------------------
+Information: connections of 24974 power/ground pin(s) are created or changed.
+Information: The command 'create_pg_ring_pattern' cleared the undo history. (UNDO-016)
+Successfully create PG ring pattern ring_pattern.
+Successfully set PG strategy core_ring.
+[icc2-lic Tue Nov 10 19:46:32 2026] Command 'compile_pg' requires licenses
+[icc2-lic Tue Nov 10 19:46:32 2026] Sending authorization request for 'ICCompilerII'
+[icc2-lic Tue Nov 10 19:46:32 2026] Authorization request for 'ICCompilerII' failed (-5)
+[icc2-lic Tue Nov 10 19:46:32 2026] Sending authorization request for 'ICCompilerII-4'
+[icc2-lic Tue Nov 10 19:46:32 2026] Authorization request for 'ICCompilerII-4' failed (-5)
+[icc2-lic Tue Nov 10 19:46:32 2026] Sending authorization request for 'ICCompilerII-8'
+[icc2-lic Tue Nov 10 19:46:33 2026] Authorization request for 'ICCompilerII-8' succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending authorization request for 'ICCompilerII-NX'
+[icc2-lic Tue Nov 10 19:46:33 2026] Authorization request for 'ICCompilerII-NX' succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out of alternate set of keys directly with queueing was successful
+Sanity check for inputs.
+No strategy-level via rule is specified, the default rule will be applied.
+Automatic PG net connection through connect_pg_net is disabled.
+Updating PG strategies.
+Updating strategy core_ring.
+Loading library and design information.
+Number of Standard Cells: 0
+Number of Hard Macros: 0
+Number of Pads: 0
+Creating rings.
+Creating via connection between strategies and existing shapes.
+Via DRC checking runtime 0.00 seconds.
+via connection runtime: 0 seconds.
+Removing dangling/floating wire/vias after DRC check.
+Start iteration 1:
+Checking potential dangling/floating power plan wires.
+Checking dangling/floating vias inside strategy core_ring.
+Checking 8 stacked vias:0% 10% 20% 30% 50% 60% 70% 80% 100%
+Finish removing all dangling or floating wires and vias.
+Commiting wires and vias.
+Committing wires takes 0.00 seconds.
+Committing vias takes 0.00 seconds.
+Committed 8 wires.
+Committed 8 vias.
+Committed 0 wires for via creation.
+Overall PG creation runtime: 0 seconds.
+Successfully compiled PG.
+Overall runtime: 0 seconds.
+Successfully create mesh pattern core_mesh_m3_topm.
+Successfully set PG strategy m3_topm_straps.
+[icc2-lic Tue Nov 10 19:46:33 2026] Command 'compile_pg' requires licenses
+[icc2-lic Tue Nov 10 19:46:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out of alternate set of keys directly with queueing was successful
+Sanity check for inputs.
+No strategy-level via rule is specified, the default rule will be applied.
+Automatic PG net connection through connect_pg_net is disabled.
+Updating PG strategies.
+Updating strategy m3_topm_straps.
+Loading library and design information.
+Number of Standard Cells: 0
+Number of Hard Macros: 0
+Number of Pads: 0
+Creating straps and vias in power plan.
+Creating wire shapes for strategies m3_topm_straps .
+Creating wire shapes runtime: 0 seconds
+Blockage cutting and DRC fixing for wire shapes for strategies m3_topm_straps .
+Check and fix DRC for 58 wires for strategy m3_topm_straps.
+Number of threads: 1
+Number of partitions: 3
+Direction of partitions: vertical
+Number of wires: 28
+Checking DRC for 28 wires:5% 20% 35% 55% 60% 70% 100%
+Number of threads: 1
+Number of partitions: 3
+Direction of partitions: horizontal
+Number of wires: 30
+Checking DRC for 30 wires:0% 10% 20% 20% 30% 45% 45% 50% 60% 65% 70% 80% 100%
+Creating 58 wires after DRC fixing.
+Wire DRC checking runtime 0.00 seconds.
+Creating via shapes for strategies m3_topm_straps .
+Working on strategy m3_topm_straps.
+Number of detected intersections: 420
+Total runtime of via shapes creation: 0 seconds
+Check and fix DRC for 420 stacked vias for strategy m3_topm_straps.
+Number of threads: 1
+Number of partitions: 3
+Direction of partitions: horizontal
+Number of vias: 420
+Checking DRC for 420 stacked vias:5% 10% 15% 20% 25% 30% 35% 40% 45% 50% 55% 60% 65% 70% 75% 80% 85% 90% 95% 100%
+Runtime of via DRC checking for strategy m3_topm_straps: 0.00 seconds.
+Creating via connection between strategies and existing shapes.
+Check and fix DRCs for 116 stacked vias.
+Number of threads: 1
+Number of partitions: 4
+Direction of partitions: horizontal
+Number of vias: 116
+Checking DRC for 116 stacked vias:5% 10% 10% 15% 20% 25% 30% 35% 40% 45% 50% 55% 60% 65% 70% 75% 80% 85% 90% 95% 100%
+Via DRC checking runtime 0.00 seconds.
+via connection runtime: 0 seconds.
+Removing dangling/floating wire/vias after DRC check.
+Start iteration 1:
+Checking potential dangling/floating power plan wires.
+Checking dangling/floating vias inside strategy m3_topm_straps.
+Checking 420 stacked vias:0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Checking dangling/floating vias between strategies and existing shapes.
+Checking 116 stacked vias:0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Finish removing all dangling or floating wires and vias.
+Commiting wires and vias.
+Committing wires takes 0.00 seconds.
+Committing vias takes 0.00 seconds.
+Committed 58 wires.
+Committed 536 vias.
+Committed 0 wires for via creation.
+Overall PG creation runtime: 0 seconds.
+Successfully compiled PG.
+Overall runtime: 0 seconds.
+Successfully create standard cell rail pattern rail_pattern.
+Successfully set PG strategy std_rails.
+[icc2-lic Tue Nov 10 19:46:33 2026] Command 'compile_pg' requires licenses
+[icc2-lic Tue Nov 10 19:46:33 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 19:46:33 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 19:46:33 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 19:46:33 2026] Check-out of alternate set of keys directly with queueing was successful
+Sanity check for inputs.
+No strategy-level via rule is specified, the default rule will be applied.
+Automatic PG net connection through connect_pg_net is disabled.
+Updating PG strategies.
+Updating strategy std_rails.
+Loading library and design information.
+Number of Standard Cells: 0
+Number of Hard Macros: 0
+Number of Pads: 0
+Creating standard cell rails.
+Creating standard cell rails for strategy std_rails.
+DRC checking and fixing for standard cell rail strategy std_rails.
+Number of threads: 1
+Number of partitions: 14
+Direction of partitions: horizontal
+Number of wires: 152
+Checking DRC for 152 wires:5% 10% 10% 35% 50% 50% 65% 65% 75% 75% 85% 100%
+Creating 152 wires after DRC fixing.
+Wire DRC checking runtime 0.00 seconds.
+Creating via connection between strategies and existing shapes.
+Check and fix DRCs for 2432 stacked vias.
+Number of threads: 1
+Number of partitions: 14
+Direction of partitions: horizontal
+Number of vias: 2432
+Checking DRC for 2432 stacked vias:5% 10% 15% 20% 25% 30% 35% 40% 45% 50% 55% 60% 65% 70% 75% 80% 85% 90% 95% 100%
+Via DRC checking runtime 1.00 seconds.
+via connection runtime: 1 seconds.
+Removing dangling/floating wire/vias after DRC check.
+Start iteration 1:
+Checking potential dangling/floating power plan wires.
+Checking dangling/floating vias between strategies and existing shapes.
+Checking 2432 stacked vias:0% 10% 20% 30% 40% 50% 60% 70% 80% 90% 100%
+Finish removing all dangling or floating wires and vias.
+Commiting wires and vias.
+Committing wires takes 0.00 seconds.
+Committing vias takes 0.00 seconds.
+Committed 152 wires.
+Committed 6816 vias.
+Committed 0 wires for via creation.
+Overall PG creation runtime: 1 seconds.
+Successfully compiled PG.
+Overall runtime: 1 seconds.
+>>> 088 powerplan-probe-after-compile_pg func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-probe-after-compile_pg func_ss: set_clock_latency lines before 0, after 0
+Command check_pg_drc started  at Tue Nov 10 19:46:34 2026
+Command check_pg_drc finished at Tue Nov 10 19:46:34 2026
+CPU usage for check_pg_drc: 0.06 seconds ( 0.00 hours)
+Elapsed time for check_pg_drc: 0.06 seconds ( 0.00 hours)
+No errors found.
+Checking secondary net through power switch is enabled. 
+Secondary net will be checked together from primary net. They will be treated as the same net
+Primary Net : VDD    Secondary Net:
+Primary Net : VSS    Secondary Net:
+Loading cell instances...
+Number of Standard Cells: 12487
+Number of Macro Cells: 0
+Number of IO Pad Cells: 0
+Number of Blocks: 0
+Loading P/G wires and vias...
+Number of VDD Wires: 109
+Number of VDD Vias: 3680
+Number of VDD Terminals: 0
+**************Verify net VDD connectivity*****************
+  Number of floating wires: 0
+  Number of floating vias: 0
+  Number of floating std cells: 12487
+  Number of floating hard macros: 0
+  Number of floating I/O pads: 0
+  Number of floating terminals: 0
+  Number of floating hierarchical blocks: 0
+************************************************************
+Loading cell instances...
+Loading P/G wires and vias...
+Number of VSS Wires: 109
+Number of VSS Vias: 3680
+Number of VSS Terminals: 0
+**************Verify net VSS connectivity*****************
+  Number of floating wires: 0
+  Number of floating vias: 0
+  Number of floating std cells: 12487
+  Number of floating hard macros: 0
+  Number of floating I/O pads: 0
+  Number of floating terminals: 0
+  Number of floating hierarchical blocks: 0
+************************************************************
+Overall runtime: 0 seconds.
+Check net VDD vias...
+Number of missing vias: 0
+Checking net VDD vias took 0 seconds.
+Check net VSS vias...
+Number of missing vias: 0
+Checking net VSS vias took 0 seconds.
+Overall runtime: 0 seconds.
+>>> 088 powerplan-probe-after-check_pg func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-probe-after-check_pg func_ss: set_clock_latency lines before 0, after 0
+>>> PG ports: VDD VSS
+>>> PG terminals: 2
+Information: The command 'write_sdc' cleared the undo history. (UNDO-016)
+>>> 088 powerplan-final func_ff: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-final func_ss: set_clock_latency lines before 0, after 0
+>>> 088 powerplan-final: 2 scenarios checked, 0 set_clock_latency line(s) removed, none left
+>>> 089 powerplan-final: the tool did not re-create the line inside the power plan commands (0 lines before the removal)
+Information: Saving 'unpu_top.dlib:unpu_top_floorplan.design' to 'unpu_top.dlib:unpu_top_powerplan.design'. (DES-028)
+Saving library 'unpu_top.dlib'
+>>> STAGE 3 COMPLETE: unpu_top_powerplan saved. Log: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs/3_powerplanning.log

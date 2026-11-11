@@ -1,0 +1,155 @@
+//  v2lvs v2022.4_37.20    Fri Dec 2 17:42:37 PST 2022
+//
+//  Copyright (c) 1992, 1993 Regents of the University of California
+//         All rights reserved.
+//
+//                   Copyright Siemens 1996-2022
+//                       All Rights Reserved.
+//   THIS WORK CONTAINS TRADE SECRET AND PROPRIETARY INFORMATION
+//      WHICH IS THE PROPERTY OF MENTOR GRAPHICS CORPORATION
+//        OR ITS LICENSORS AND IS SUBJECT TO LICENSE TERMS.
+//
+//  The registered trademark Linux is used pursuant to a sublicense from LMI, the
+//  exclusive licensee of Linus Torvalds, owner of the mark on a world-wide basis.
+//
+//  Mentor Graphics software executing under x86-64 Linux
+//
+//
+//  Starting time: Tue Nov 10 21:12:29 2026
+//
+Running /home/mentor_tools/calibre/aok_cal_2022.4_37.20/pkgs/icv/pvt/v2lvs -v /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_pnr_pg.v -s /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/cdl/scl18fs120_supply_pins.cdl -s0 VSS -s1 VDD -o unpu_top.sp
+
+
+Info: Creating Verilog Library Database ...
+Info: Verilog Library Database Creation completed. CPU TIME = 0  REAL TIME = 0  MALLOC = 11/11/11  ELAPSED TIME = 1 
+
+Info: Creating Design Database of Module Interfaces ...
+Info: Design Database of Module Interfaces Creation completed. CPU TIME = 0  REAL TIME = 0  MALLOC = 12/12/12  ELAPSED TIME = 1 
+
+Info: Creating Design Database of Module Instantiations ...
+Info: Design Database of Module Instantiations Creation completed. CPU TIME = 0  REAL TIME = 0  MALLOC = 12/12/12  ELAPSED TIME = 1 
+Info: 76 modules parsed, containing 14747 instances and 0 gate instance calls 
+
+Info: Converting Design ...
+Warning: No module declaration for module aor22d1 first encountered in module unpu_deskew
+Warning: No module declaration for module aor22d4 first encountered in module unpu_deskew
+Warning: No module declaration for module dfcrq2 first encountered in module unpu_deskew
+Warning: No module declaration for module mx02d1 first encountered in module unpu_deskew
+Warning: No module declaration for module inv0d1 first encountered in module unpu_deskew
+Warning: No module declaration for module inv0d2 first encountered in module unpu_deskew
+Warning: No module declaration for module buffd1 first encountered in module unpu_deskew
+Warning: No module declaration for module dl02d1 first encountered in module unpu_deskew
+Warning: No module declaration for module dl04d1 first encountered in module unpu_deskew
+Warning: No module declaration for module dl01d1 first encountered in module unpu_deskew
+Warning: No module declaration for module ad01d0 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module an02d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module aoim21d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module oai21d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module inv0d0 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module nd02d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module xr02d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module nr02d0 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module oai22d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module aor21d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module nd03d0 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module xn02d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module or02d0 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module aoim22d1 first encountered in module unpu_pe_0_DW_mult_tc_0
+Warning: No module declaration for module ah01d1 first encountered in module unpu_pe_0_DW_mult_uns_0_DW_mult_uns_1
+Warning: No module declaration for module ad01d1 first encountered in module unpu_pe_0_DW01_add_0_DW01_add_1
+Warning: No module declaration for module oaim21d1 first encountered in module unpu_pe_0
+Warning: No module declaration for module decrq1 first encountered in module unpu_pe_0
+Warning: No module declaration for module ad01d4 first encountered in module unpu_pe_2_DW01_add_0_DW01_add_3
+Warning: No module declaration for module nr02d1 first encountered in module unpu_pe_3_DW_mult_uns_0_DW_mult_uns_13
+Warning: No module declaration for module buffd3 first encountered in module unpu_pe_5
+Warning: No module declaration for module an02d0 first encountered in module unpu_pe_6_DW01_add_0_DW01_add_7
+Warning: No module declaration for module nd02d0 first encountered in module unpu_pe_8_DW_mult_tc_0_DW_mult_tc_6
+Warning: No module declaration for module nd12d1 first encountered in module unpu_pe_13
+Warning: No module declaration for module bufbd1 first encountered in module unpu_pe_15
+Warning: No module declaration for module buffda first encountered in module unpu_grid
+Warning: No module declaration for module bufbd3 first encountered in module unpu_grid
+Warning: No module declaration for module mx02d0 first encountered in module unpu_skew
+Warning: No module declaration for module dl02d2 first encountered in module unpu_skew
+Warning: No module declaration for module dl01d2 first encountered in module unpu_skew
+Warning: No module declaration for module dfcrn1 first encountered in module unpu_actbuf
+Warning: No module declaration for module dfcrn2 first encountered in module unpu_actbuf
+Warning: No module declaration for module oai22d2 first encountered in module unpu_actbuf
+Warning: No module declaration for module aoi22d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module aor31d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module aoi221d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module oai221d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module oan211d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module an03d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module aon211d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module nr02d2 first encountered in module unpu_actbuf
+Warning: No module declaration for module aoi21d1 first encountered in module unpu_actbuf
+Warning: No module declaration for module nd03d2 first encountered in module unpu_actbuf
+Warning: No module declaration for module nd13d1 first encountered in module unpu_wbuf
+Warning: No module declaration for module oai22d4 first encountered in module unpu_wbuf
+Warning: No module declaration for module oaim22d1 first encountered in module unpu_wbuf
+Warning: No module declaration for module oai31d1 first encountered in module unpu_wbuf
+Warning: No module declaration for module nd03d1 first encountered in module unpu_wbuf
+Warning: No module declaration for module aoim31d1 first encountered in module unpu_dma_DW01_add_4
+Warning: No module declaration for module ora21d1 first encountered in module unpu_dma_DW01_add_4
+Warning: No module declaration for module aoim211d1 first encountered in module unpu_dma_DW01_add_4
+Warning: No module declaration for module nr13d1 first encountered in module unpu_dma_DW01_add_3
+Warning: No module declaration for module nd04d0 first encountered Warning: No module declaration for module dl03d1 first encountered in module unpu_dma
+Warning: No module declaration for module an12d4 first encountered in module unpu_dma
+Warning: No module declaration for module buffd4 first encountered in module unpu_dma
+Warning: No module declaration for module oai211d1 first encountered in module unpu_dma
+Warning: No module declaration for module an03d4 first encountered in module unpu_dma
+Warning: No module declaration for module nr02d4 first encountered in module unpu_dma
+Warning: No module declaration for module mi02d1 first encountered in module unpu_dma
+Warning: No mopu_dma
+Warning: No module declaration for module nr02d4 first encountered in module unpu_dma
+Warning: No module declaration for module mi02d1 first encountered in module unpu_dma
+Warning: No module declaration for module or02d1 first encountered in module unpu_dma
+Warning: No module declaration for module an02d4 first encountered in module unpu_dma
+Warning: No module declaration for module bufbd4 first encountered in module unpu_dma
+Warning: No module declaration for module aoi31d2 first encountered in module unpu_dma
+Warning: No module declaration for module invbd2 first encountered in module unpu_dma
+Warning: No module declaration for module aoi22d2 first encountered in module unpu_dma
+Warning: No module declaration for module nr04d1 first encountered in module unpu_dma
+Warning: No module declaration for module an03d2 first encountered in module unpu_dma
+Warning: No module declaration for module an02d2 first encountered in module unpu_dma
+Warning: No module declaration for module mi02d0 first encountered in module unpu_dma
+Warning: No module declaration for module nr03d0 first encountered in module unpu_dma
+Warning: No module declaration for module nd02d4 first encountered in module unpu_dma
+Warning: No module declaration for module nd02d7 first encountered in module unpu_dma
+Warning: No module declaration for module nd02da first encountered in module unpu_dma
+Warning: No module declaration for module xr03d1 first encountered in module unpu_dma
+Warning: No module declaration for module oaim211d1 first encountered in module unpu_seq
+Warning: No module declaration for module oaim22d2 first encountered in module unpu_seq
+Warning: No module declaration for module oaim22d4 first encountered in module unpu_seq
+Warning: No module declaration for module or04d0 first encountered in module unpu_seq
+Warning: No module declaration for module aor222d1 first encountered in module unpu_seq
+Warning: No module declaration for module aoi211d1 first encountered in module unpu_seq
+Warning: No module declaration for module buffd7 first encountered in module unpu_seq
+Warning: No module declaration for module or03d1 first encountered in module unpu_seq
+Warning: No module declaration for module nr03d2 first encountered in module unpu_seq
+Warning: No module declaration for module oai321d1 first encountered in module unpu_seq
+Warning: No module declaration for module nr04d2 first encountered in module unpu_seq
+Warning: No module declaration for module oai21d4 first encountered in module unpu_csr
+Warning: No module declaration for module oai222d2 first encountered in module unpu_csr
+Warning: No module declaration for module aoi322d1 first encountered in module unpu_csr
+Warning: No module declaration for module aoi222d1 first encountered in module unpu_csr
+Warning: No module declaration for module oai211d4 first encountered in module unpu_csr
+Warning: No module declaration for module buffd2 first encountered in module unpu_csr
+Warning: No module declaration for module nd02d2 first encountered in module unpu_csr
+Warning: No module declaration for module bufbd7 first encountered in module unpu_csr
+Warning: No module declaration for module inv0da first encountered in module unpu_csr
+Warning: No module declaration for module an04d0 first encountered in module unpu_csr
+Warning: No module declaration for module oai222d4 first encountered in module unpu_csr
+Warning: No module declaration for module aoi21d4 first encountered in module unpu_csr
+Warning: No module declaration for module an03d0 first encountered in module unpu_apb
+Warning: No module declaration for module inv0d4 first encountered in module unpu_top
+Warning: No module declaration for module bufbda first encountered in module unpu_top
+Warning: No module declaration for module bufbdf first encountered in module unpu_top
+Warning: No module declaration for module invbdf first encountered in module unpu_top
+Warning: No module declaration for module invbdk first encountered in module unpu_top
+Warning: No module declaration for module invbd4 first encountered in module un
+TOTAL CPU TIME = 0  REAL TIME = 1  MALLOC = 14/14/14  ELAPSED TIME = 1
+d in module unpu_top
+Info: Design Conversion completed. CPU TIME = 0  REAL TIME = 0  MALLOC = 14/14/14  ELAPSED TIME = 1 
+
+TOTAL CPU TIME = 0  REAL TIME = 1  MALLOC = 14/14/14  ELAPSED TIME = 1 

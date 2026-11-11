@@ -1,0 +1,5 @@
+# written by pt_eco_probe.tcl: the number of commands PrimeTime proposed in the run that wrote the change file below; pt_eco_apply.tcl compares the change file against THIS number
+commands 9
+scope drc
+source Final ECO Summary: Total number of commands
+change_file /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt/pt_eco_drc_changes_icc2.tcl

@@ -1,0 +1,6 @@
+SDF_FILE = "pnr_icc2/outputs/unpu_top_ff.sdf",
+  SCOPE = unpu_top_tb.dut,
+  MTM_CONTROL = "MINIMUM",
+  SCALE_FACTORS = "1.0:1.0:1.0",
+  SCALE_TYPE = "FROM_MTM",
+  LOG_FILE = "pnr_icc2/sim/pl_ff_checks_negtchk_annotate.log";

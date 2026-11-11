@@ -1,0 +1,286 @@
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys-Release
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Galaxy-Internal-Debug
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       ICCompilerII
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/11/2026 03:47:04 PID:51505 Client:lalita.iitg.ac.in Authorization failed Synopsys 2022.12
+[SCL] 11/11/2026 03:47:04 PID:51505 Client:lalita.iitg.ac.in Authorization failed Synopsys-Release 2022.12
+[SCL] 11/11/2026 03:47:05 PID:51505 Client:lalita.iitg.ac.in Authorization failed Galaxy-Internal-Debug 2022.12
+[icc2-lic Wed Nov 11 03:47:05 2026] Sending authorization request for 'ICCompilerII'
+[SCL] 11/11/2026 03:47:05 PID:51505 Client:lalita.iitg.ac.in Authorization failed ICCompilerII 2022.12
+[icc2-lic Wed Nov 11 03:47:05 2026] Authorization request for 'ICCompilerII' failed (-5)
+[icc2-lic Wed Nov 11 03:47:05 2026] Sending authorization request for 'ICCompilerII-NX'
+[SCL] 11/11/2026 03:47:06 PID:51505 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Authorization succeeded ICCompilerII-NX 2022.12
+[icc2-lic Wed Nov 11 03:47:06 2026] Authorization request for 'ICCompilerII-NX' succeeded
+
+
+
+                              IC Compiler II (TM)
+
+                Version U-2022.12-SP3 for linux64 - Apr 18, 2023
+  This release has significant feature enhancements. Please review the Release
+                       Notes associated with this release.
+
+                    Copyright (c) 1988 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+ 
+Information: Term was not able to be set up using xterm-256color . Using "xterm" by default instead. (CLE-10)
+# ==============================================================================
+# Script: metal_fill.tcl
+# Path  : <RUN_DIR>/pnr_v2/metal_fill.tcl   ;# 063 E1: new path
+# Stage : Dummy Metal Fill Insertion for DRC Density Compliance
+# Tool  : Synopsys ICC2 (U-2022.12-SP3)
+# ==============================================================================
+set DESIGN_NAME "unpu_top"   ;# 063 E2: design name
+unpu_top
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+/storage/EE5239G1/aagams_workspace2/unpu_run3
+source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2
+set BLOCKS_DIR  "${PNR_DIR}/blocks"
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/blocks
+set LOG_DIR     "${PNR_DIR}/logs"
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs
+file mkdir $LOG_DIR
+redirect -tee -file ${LOG_DIR}/metal_fill.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
+
+    set open_blk [get_blocks -quiet *]
+    if {[sizeof_collection $open_blk] > 0} {
+        close_blocks -force $open_blk
+    }
+
+    set open_lib [get_libs -quiet *]
+    if {[sizeof_collection $open_lib] > 0} {
+        foreach_in_collection lib_obj $open_lib {
+            close_lib -force $lib_obj
+        }
+    }
+
+    # Open the design library first
+    open_lib ${BLOCKS_DIR}/${DESIGN_NAME}.dlib
+
+    set blk_name "${DESIGN_NAME}_route"
+    if {[catch {open_block ${DESIGN_NAME}.dlib:${blk_name}}]} {
+        puts "Available blocks in library:"
+        list_blocks
+        error "ERROR: Block ${blk_name} not found! Check your route.tcl save name."
+    }
+    
+    current_block ${blk_name}
+    link_block
+
+    unpu_remove_clock_latency metal_fill   ;# 088: remove the tool-made set_clock_latency (a no-op when the block is clean); prints the counts per scenario, ERROR 088 if any is left
+    # Explicitly set safe spacing from metal fill to signal routes across all layers
+    set_app_options \
+        -name signoff.create_metal_fill.space_to_nets \
+        -value {{M1 2x} {M2 2x} {M3 2x} {TOP_M 2x}}
+
+    # 1. Run standard track-based metal fill across all layers
+    signoff_create_metal_fill \
+        -track_fill generic \
+        -select_layers {M1 M2 M3 TOP_M}
+
+    # 2. Surgically remove any fill shape inside the exact M2.S.1 violation window (34.26, 375.46)
+    # 063 E10: step 2 commented out, the window belongs to the example's own layout and means nothing for unpu_top
+    #signoff_create_metal_fill \
+    #    -mode remove \
+    #    -select_layers {M2} \
+    #    -coordinates {{{33.0 374.0} {36.0 377.0}}}
+
+    # Save the updated block with metal fill
+    save_block -as ${DESIGN_NAME}_filled
+    save_lib
+    puts ">>> METAL FILL COMPLETE: ${DESIGN_NAME}_filled saved. Log: ${LOG_DIR}/metal_fill.log"
+}
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/blocks/unpu_top.dlib' (FILE-007)
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_std.ndm' (FILE-007)
+Information: Loading library file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/scl180_filler.ndm' (FILE-007)
+Information: User units loaded from library 'scl180_std' (LNK-040)
+Opening block 'unpu_top.dlib:unpu_top_route.design' in edit mode
+Using libraries: unpu_top.dlib scl180_std scl180_filler
+Visiting block unpu_top.dlib:unpu_top_route.design
+Design 'unpu_top' was successfully linked.
+>>> 088 metal_fill func_ff: set_clock_latency lines before 0, after 0
+>>> 088 metal_fill func_ss: set_clock_latency lines before 0, after 0
+>>> 088 metal_fill: 2 scenarios checked, 0 set_clock_latency line(s) removed, none left
+Option for density blockage handling will be ignored.
+Info:: Layer m5 is not defined for app option space_to_clock_nets
+Info:: Layer m6 is not defined for app option space_to_clock_nets
+Info:: Layer m7 is not defined for app option space_to_clock_nets
+Info:: Layer m8 is not defined for app option space_to_clock_nets
+Info:: Layer m9 is not defined for app option space_to_clock_nets
+Info:: Layer m10 is not defined for app option space_to_clock_nets
+Info:: Layer m11 is not defined for app option space_to_clock_nets
+Info:: Layer m12 is not defined for app option space_to_clock_nets
+Info:: Layer m13 is not defined for app option space_to_clock_nets
+Info:: Layer m14 is not defined for app option space_to_clock_nets
+Info:: Layer m15 is not defined for app option space_to_clock_nets
+Info:: Layer m16 is not defined for app option space_to_clock_nets
+Info:: Layer m17 is not defined for app option space_to_clock_nets
+Info:: Layer m18 is not defined for app option space_to_clock_nets
+Info:: Layer m19 is not defined for app option space_to_clock_nets
+Info:: Layer m20 is not defined for app option space_to_clock_nets
+Info:: Layer m21 is not defined for app option space_to_clock_nets
+Info:: Layer m22 is not defined for app option space_to_clock_nets
+Info:: Layer m23 is not defined for app option space_to_clock_nets
+Info:: Layer m24 is not defined for app option space_to_clock_nets
+Info:: Layer m25 is not defined for app option space_to_clock_nets
+Info:: Layer m26 is not defined for app option space_to_clock_nets
+Info:: Layer m27 is not defined for app option space_to_clock_nets
+Info:: Layer m28 is not defined for app option space_to_clock_nets
+Info:: Layer m29 is not defined for app option space_to_clock_nets
+Info:: Layer m30 is not defined for app option space_to_clock_nets
+Info:: Layer m31 is not defined for app option space_to_clock_nets
+Info:: Layer m5 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m6 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m7 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m8 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m9 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m10 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m11 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m12 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m13 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m14 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m15 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m16 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m17 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m18 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m19 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m20 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m21 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m22 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m23 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m24 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m25 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m26 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m27 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m28 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m29 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m30 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m31 is not defined for app option space_to_nets_on_adjacent_layer
+Info:: Layer m5 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m6 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m7 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m8 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m9 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m10 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m11 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m12 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m13 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m14 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m15 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m16 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m17 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m18 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m19 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m20 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m21 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m22 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m23 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m24 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m25 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m26 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m27 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m28 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m29 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m30 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Info:: Layer m31 is not defined for app option space_to_clock_nets_on_adjacent_layer
+Running ICV version check
+ICV version check ok.
+Num filler cells found = 0, skipped = 0
+
+TrackFill Flow: Creating init setup...
+TrackFill Flow: Creating init setup... done.
+Creating track fill shapes by skipping 1 track between signal and fill shapes for layers: M1 M2 M3 TOP_M 
+TrackFill Flow: Default parameters written to file: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/signoff_fill_run/track_fill_params.rh
+Saving top-block before calling ICV
+Information: Saving block 'unpu_top.dlib:unpu_top_route.design'
+
+Start to run ICV ...
+Running new impl for popen..
+............................................. 1% complete [0:00:01]
+............................................. 5% complete [0:00:06]
+............................................. 5% complete [0:00:06]
+............................................. 10% complete [0:00:07]
+............................................. 10% complete [0:00:07]
+............................................. 15% complete [0:00:07]
+............................................. 20% complete [0:00:08]
+............................................. 20% complete [0:00:08]
+............................................. 25% complete [0:00:09]
+............................................. 25% complete [0:00:09]
+............................................. 30% complete [0:00:11]
+............................................. 30% complete [0:00:11]
+............................................. 35% complete [0:00:12]
+............................................. 40% complete [0:00:14]
+............................................. 40% complete [0:00:14]
+............................................. 45% complete [0:00:17]
+............................................. 50% complete [0:00:20]
+............................................. 50% complete [0:00:20]
+............................................. 55% complete [0:00:22]
+............................................. 60% complete [0:00:23]
+............................................. 60% complete [0:00:23]
+............................................. 65% complete [0:00:25]
+............................................. 70% complete [0:00:28]
+............................................. 70% complete [0:00:28]
+............................................. 75% complete [0:00:30]
+............................................. 75% complete [0:00:30]
+............................................. 80% complete [0:00:32]
+............................................. 85% complete [0:00:34]
+............................................. 85% complete [0:00:34]
+............................................. 90% complete [0:00:35]
+............................................. 95% complete [0:00:36]
+............................................. 95% complete [0:00:36]
+..........Updated tech file has been written at: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/signoff_fill_run/icv_run_1/tech.tf
+
+
+
+Total icv runtime = Overall engine Time=0:00:52 Highest command Mem=0.217 GB 
+
+Info: Starting compress metal fill stage.
+
+Info: compress metal fill finished successfully : 0 seconds
+
+Information: Overwriting block 'unpu_top_filled.design' in library 'unpu_top.dlib'. (DES-025)
+Saving library 'unpu_top.dlib'
+>>> METAL FILL COMPLETE: unpu_top_filled saved. Log: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/logs/metal_fill.log
+icc2_shell> Maximum memory usage for this session: 606.98 MB
+Maximum memory usage for this session including child processes: 2146.70 MB
+CPU usage for this session:     11 seconds (  0.00 hours)
+Elapsed time for this session:     70 seconds (  0.02 hours)
+Thank you for using IC Compiler II.
+[SCL] 11/11/2026 03:48:11 PID:51505 Client:lalita.iitg.ac.in checkin (null) 
+this API scl_mt_init() needs to be used with the threaded version of SCL library.

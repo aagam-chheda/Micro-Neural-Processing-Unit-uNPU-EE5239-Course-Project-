@@ -1,0 +1,22 @@
+Information: Timer using 'SI, Timing Window Analysis'. (TIM-050)
+****************************************
+Report : global timing
+        -format { narrow }
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 20:33:35 2026
+****************************************
+
+No setup violations found.
+
+
+Hold violations
+--------------------------------------------------------------
+          Total   reg->reg    in->reg   reg->out    in->out
+--------------------------------------------------------------
+WNS       -0.02       0.00       0.00      -0.02       0.00
+TNS       -0.03       0.00       0.00      -0.03       0.00
+NUM           4          0          0          4          0
+--------------------------------------------------------------
+
+1

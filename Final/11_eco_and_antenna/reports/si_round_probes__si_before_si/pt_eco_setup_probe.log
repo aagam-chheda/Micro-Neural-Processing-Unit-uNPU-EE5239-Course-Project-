@@ -1,0 +1,1011 @@
+Checkout succeeded: PrimeTime/0FFAC497D0E2A54EDC0C
+	License file: 27020@14.139.1.126
+	License Server: 27020@14.139.1.126
+[SCL] 11/11/2026 00:53:46 Checking status for feature PrimeTime
+[SCL] 11/11/2026 00:53:46 PID:37260 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded PrimeTime 2022.03
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       Synopsys-Release
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/11/2026 00:53:46 PID:37260 Client:lalita.iitg.ac.in Authorization failed Synopsys-Release 2022.03
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       PrimeTime-New-Technology
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/11/2026 00:53:46 PID:37260 Client:lalita.iitg.ac.in Authorization failed PrimeTime-New-Technology 2022.03
+Error: Library Compiler executable path is not set. (PT-063)
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       PrimeTime-New-Technology8
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/11/2026 00:53:46 PID:37260 Client:lalita.iitg.ac.in Authorization failed PrimeTime-New-Technology8 2022.03
+
+                                 PrimeTime (R)
+
+               Version T-2022.03-SP2 for linux64 - Jun 01, 2022 
+
+                    Copyright (c) 1988 - 2022 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       PrimeTime-C-Interface
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/11/2026 00:53:47 PID:37260 Client:lalita.iitg.ac.in Authorization failed PrimeTime-C-Interface 2022.03
+# ==============================================================================
+# Script: pt_eco_setup_probe.tcl   (task 079 part 1; rewritten for the SI-ON ECO round, task 098)  -- PROBE of PrimeTime's setup ECO at the slow corner (ss), SIZE_CELL ONLY
+# Run   : cd <RUN_DIR>/pnr_icc2/pt_si ; setenv UNPU_PT_SI 1 ; pt_shell -f ../../pnr_v2/pt/pt_eco_setup_probe.tcl |& tee pt_eco_setup_probe.log      (UNPU_PT_TAG as the other scripts; without UNPU_PT_SI: SI off, folder pt)
+# Why   : with SI ON PrimeTime reports 4 setup endpoints (paddr[3] -> prdata[20] -0.0364, [10], [22], [17]: the zero-margin read path, the in2out cone), with SI OFF none. The SI-on ECO round closes them with SIZE
+#         changes only: a cell of the read path may be resized ONLY to a FASTER reference of the same function (a larger drive); an insertion on the cone is not made (the probe stops and reports, the user decides).
+# Does  : pt_prepare_session setup ss (SI as selected), the measurement BEFORE (SI as selected and, with SI on, the SI-off view of the same session), fix_eco_timing -type setup -methods {size_cell} (with
+#         -setup_margin PT_ECO_SETUP_MARGIN, then without it if the option is unknown), write_changes, one line per change (cell, old and new reference, the net, on the read path or not, area), the class of each
+#         change, the measurement AFTER in both views, and the result line. The clock network, the earlybuf_*/antbuf_* buffers, the 9 PTECO_HOLD cells and the resized drivers of task 095 are dont_touch.
+#         The in2out cone is NOT protected (the paths ARE the cone). The change files go to the reports folder of the session (pt_si for SI on); nothing else is written. exit 0 whatever the answer.
+# Files : pt_eco_setup_changes{.tcl,_icc2.tcl,.txt}, pt_eco_setup_expected_count.txt, pt_eco_setup_pin_classes.txt (the last two ONLY when the probe closes the violators and no change is a violation: pt_eco_apply.tcl
+#         with UNPU_ECO_KIND=setup requires them). Stale copies are deleted at the start.
+# Every PrimeTime command and option is from knowledge of PrimeTime, not from a usage text: each is marked VERIFY.
+# ==============================================================================
+set PT_SCRIPT_DIR [file dirname [file normalize [info script]]]
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_v2/pt
+source ${PT_SCRIPT_DIR}/pt_common.tcl
+>>> RUN ROOT: /storage/EE5239G1/aagams_workspace2/unpu_run3
+>>> 091 PT inputs from /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs, reports in /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si (no UNPU_PT_TAG: the final export)
+>>> 096 SDC source: exported (default)
+>>> 095 SI (crosstalk) analysis: ON (source: environment UNPU_PT_SI); ICC2 reference reports from /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/reports
+pt_main {
+    pt_probe_si_guard pt_eco_setup_probe.tcl 1
+    set corner ss
+    set_app_var timing_save_pin_arrival_and_slack true   ;# VERIFY (PTE-077, as the other probes)
+    set sdcv [pt_prepare_session setup $corner]
+    set rpt ${PT_RPT_DIR}/pt_eco_setup_${corner}
+    set probe_line ""
+    foreach f {pt_eco_setup_expected_count.txt pt_eco_setup_pin_classes.txt} { file delete -force ${PT_RPT_DIR}/$f }   ;# a stale file of an earlier run must not let the apply run on this one
+    puts ">>> 098 setup ECO probe: SI [expr {$PT_SI_ENABLE ? {ON} : {OFF}}], change files and reports in $PT_RPT_DIR, setup margin $PT_ECO_SETUP_MARGIN ns"
+
+    lassign [pt_write_violations max ${rpt}_before_violations.csv] n_before rows_before
+    set m0 [pt_measure_views BEFORE]
+    foreach r $rows_before { puts ">>> 098   violator [dict get $r endpoint] (startpoint [dict get $r startpoint]) slack [dict get $r slack]" }
+
+    set prot_clk ""; set prot_named ""
+    if {[catch {
+        if {$n_before == 0} { error "PROBE: there is no setup violator before the ECO in this view: nothing to fix" }
+        foreach c {fix_eco_timing set_eco_options write_changes} { if {[llength [info commands $c]] == 0} { error "PROBE: $c does not exist in this pt_shell" } }
+        foreach c {fix_eco_timing set_eco_options} { if {[catch {help -verbose $c} herr]} { if {[catch {help $c} herr2]} { puts ">>> 098 help $c failed: $herr2" } } }
+        foreach f $PT_ECO_LICENSE_TRIES { if {[catch {get_license $f} lres]} { puts ">>> 098 get_license $f: FAILED: $lres" } else { puts ">>> 098 get_license $f: ok ($lres)" } }
+        if {[catch {set_eco_options -log_file ${rpt}_eco.log} oerr]} { puts ">>> 098 set_eco_options failed (not fatal): $oerr" }
+
+        # the cone: the read path. It is computed, NOT protected; the old reference of every cone cell is recorded (a change on a cone cell is judged by it)
+        pt_load_eco_parser
+        if {[catch {set cone [pt_in2out_cone]} cerr]} { error "CONE: $cerr" }
+        pt_cone_print $cone ${rpt}
+        set cone_cells [dict get $cone cells]
+        set ref_before [dict create]
+        foreach cn $cone_cells { set rf ""; catch {set rf [get_attribute [get_cells -exact $cn] ref_name]}; dict set ref_before $cn $rf }
+        puts ">>> 098 in2out cone: [llength $cone_cells] cells, their references recorded before the ECO"
+        # protection: the clock network, the buffers of earlier steps, the cells of earlier rounds
+        if {[catch {set prot_clk [pt_clock_protect]} cperr]} { error "CLOCK: $cperr" }
+        set clock_cells [dict get $prot_clk names]
+        set keep {}
+        foreach pat {earlybuf_* antbuf_* *PTECO_HOLD*} { foreach_in_collection kc [get_cells -quiet -hierarchical $pat] { lappend keep [get_object_name $kc] } }
+        set drcf [file join [lindex [pt_tag_paths $PT_BASE $PT_TAG 0 exported] 1] pt_eco_drc_changes_icc2.tcl]
+        if {[file exists $drcf]} {
+            set fp [open $drcf r]; set dtxt [read $fp]; close $fp
+            foreach c [dict get [eco079_parse $dtxt] cmds] { if {[dict get $c type] eq "size_cell"} { lappend keep [dict get $c full_inst] } else { lappend keep [dict get $c cell] } }
+            puts ">>> 098 cells of the max-transition ECO of task 095 read from $drcf"
+        } else { puts ">>> 098 no max-transition change file $drcf: the resized drivers of task 095 are not protected by name" }
+        set prot_named [pt_protect_named "buffers and cells of earlier rounds" [lsort -unique $keep]]
+
+        # the fix: size_cell only
+        set proposed 0; set last_pf ""; set tried {}
+        set forms [list [list "size_cell, -setup_margin $PT_ECO_SETUP_MARGIN" "fix_eco_timing -type setup -methods {size_cell} -setup_margin $PT_ECO_SETUP_MARGIN"] [list "size_cell, no margin option" "fix_eco_timing -type setup -methods {size_cell}"]]
+        set rcx [catch {
+            foreach f $forms {
+                lassign $f desc text
+                puts ">>> 098 trying ($desc): $text"
+                set fx_txt ""; set ferr ""
+                set rc [catch {redirect -variable fx_txt { eval $text }} ferr]
+                puts $fx_txt
+                if {$rc} {
+                    lappend tried "$desc: $ferr"
+                    puts ">>> 098 that form failed: $ferr"
+                    if {[pt_eco_is_option_error $ferr]} continue
+                    error "PROBE: fix_eco_timing failed: $ferr"
+                }
+                set last_pf [pt_eco_parse_fix_text $fx_txt]
+                set nmsg [pt_eco_first_messages $last_pf 4]
+                puts ">>> 098 form '$desc': commands proposed '[dict get $last_pf ncmd]', messages: [expr {[llength $nmsg] ? [join $nmsg { || }] : {none}}]"
+                if {[pt_eco_fix_proposed $last_pf]} { set proposed 1; break }
+                lappend tried "$desc: [join $nmsg { || }]"
+            }
+        } lemsg]
+        pt_cone_unprotect $prot_clk; pt_cone_unprotect $prot_named
+        if {$rcx} { error $lemsg }
+        if {!$proposed} {
+            set probe_line [pt_eco_result_line notclosed "fix_eco_timing -type setup -methods {size_cell} proposed no change for the $n_before violators ([join $tried { | }]). Options for the user: an insertion on the read path (cost: a buffer delay on the cone), a stronger early buffer on paddr[3] replacing the CONE-SKIPPED decision, or a margin approach"]
+        } else {
+            lassign [pt_eco_write_changes_all pt_eco_setup_changes] written n_empty
+            if {[dict size $written] == 0} { error "PROBE: fix_eco_timing reported [dict get $last_pf ncmd] commands but write_changes wrote no file ($n_empty of 3 formats said 'No changes to write.')" }
+            set chk_file ""
+            foreach f {icc2tcl icctcl} { if {$chk_file eq "" && [dict exists $written $f]} { set chk_file [dict get $written $f] } }
+            if {$chk_file eq ""} { error "CHECK: no Tcl-format change file was written, the proposed changes cannot be checked" }
+            set fp [open $chk_file r]; set chk_txt [read $fp]; close $fp
+            set chk [eco079_parse $chk_txt]
+            if {[llength [dict get $chk errors]] > 0} { error "CHECK: [llength [dict get $chk errors]] line(s) of $chk_file are not understood by the change-file parser: [join [lrange [dict get $chk errors] 0 2] { | }]" }
+            set cmds [dict get $chk cmds]
+            puts ">>> 098 PrimeTime proposed [llength $cmds] changes (area change [dict get $last_pf area] um^2, change file $chk_file)"
+            # one line and one class per change
+            set ins_list {}; set rows {}; set hits {}
+            set cls_count [dict create cone_faster 0 resize_other 0 cone_slower 0 clock_net 0 unknown 0]
+            set lib $PT_CORNER($corner,lib)
+            foreach c $cmds {
+                set idx [dict get $c idx]
+                if {[dict get $c type] eq "insert_buffer"} {
+                    lappend ins_list $c
+                    puts ">>> 098 change $idx: INSERTION [dict get $c ref] on [dict get $c full_pin] (the setup kind is size_cell only: the probe stops here)"
+                    continue
+                }
+                set inst [dict get $c full_inst]; set new [dict get $c ref]
+                set oldref [expr {[dict exists $ref_before $inst] ? [dict get $ref_before $inst] : ""}]
+                set in_cone [expr {[dict exists $ref_before $inst] ? 1 : 0}]
+                set is_clock [expr {[lsearch -exact $clock_cells $inst] >= 0 ? 1 : 0}]
+                if {$oldref eq "" && $in_cone} { set in_cone "" }   ;# the reference could not be read before: unknown
+                set cls [pt_setup_size_class $in_cone $is_clock $oldref $new]
+                dict incr cls_count $cls
+                set net ""; catch { set net [get_object_name [get_nets -of_objects [lindex [get_object_name [get_pins -of_objects [get_cells -exact $inst] -filter "direction == out"]] 0]]] }
+                set a0 ""; set a1 ""
+                catch { set a1 [get_attribute [get_lib_cells ${lib}/$new] area] }
+                if {$oldref ne ""} { catch { set a0 [get_attribute [get_lib_cells ${lib}/$oldref] area] } }
+                puts ">>> 098 change $idx: cell $inst, [expr {$oldref eq {} ? {old reference not recorded (cell not on the read path)} : $oldref}] -> $new ([pt_ref_speed_text $oldref $new]); output net [expr {$net eq {} ? {?} : $net}]; on the read path (in2out cone): [expr {$in_cone eq {} ? {unknown} : ($in_cone ? {YES} : {no})}]; area [expr {$a0 eq {} ? {?} : $a0}] -> [expr {$a1 eq {} ? {?} : $a1}] um^2; class: [pt_eco_class_text093 $cls]"
+                lappend rows [pt_eco_class_row $idx $inst $new $cls $net {}]
+                if {[pt_eco_class_violation $cls]} { lappend hits "change $idx: $inst [pt_eco_class_text093 $cls]" }
+            }
+            # AFTER, in PrimeTime's memory, in both views
+            update_timing -full
+            lassign [pt_write_violations max ${rpt}_after_violations.csv] n_after rows_after
+            set m1 [pt_measure_views AFTER]
+            foreach r $rows_after { puts ">>> 098   remaining violator [dict get $r endpoint] (startpoint [dict get $r startpoint]) slack [dict get $r slack]" }
+            if {[llength $ins_list] > 0} {
+                set probe_line [pt_eco_result_line needsdecision "PrimeTime proposes [llength $ins_list] insertion(s) ([join [lmap c $ins_list {string cat [dict get $c ref] { on } [dict get $c full_pin]}] {, }]) next to [expr {[llength $cmds] - [llength $ins_list]}] size_cell change(s); size-only was asked. Options for the user: the insertion with its buffer delay on the cone, a stronger early buffer on paddr[3] replacing the CONE-SKIPPED decision, or a margin approach"]
+            } elseif {[llength $hits] > 0} {
+                set probe_line [pt_eco_result_line touches "[llength $hits] of [llength $cmds] size changes are violations: [join [lrange $hits 0 2] { | }]"]
+            } elseif {$n_after > 0} {
+                set probe_line [pt_eco_result_line notclosed "after the [llength $cmds] size changes $n_after violating endpoint(s) remain in this view (before: $n_before). Options for the user: an insertion on the read path (cost: a buffer delay on the cone), a stronger early buffer on paddr[3] replacing the CONE-SKIPPED decision, or a margin approach. The change file is $chk_file, no count or class file is written"]
+            } else {
+                # closed in this view, no violation class: the count file and the class file for the apply
+                lassign [pt_eco_change_number $last_pf [llength $cmds]] nchg nsrc nnote
+                set fp [open ${PT_RPT_DIR}/pt_eco_setup_pin_classes.txt w]
+                puts $fp "# written by pt_eco_setup_probe.tcl (task 098): one line per size_cell change: <idx> <instance> <new reference> <class> net=<output net> drivers=?; pt_eco_apply.tcl (UNPU_ECO_KIND setup) prints these lines and refuses a violation class"
+                foreach l $rows { puts $fp $l }
+                close $fp
+                if {[string is integer -strict $nchg]} {
+                    set fp [open ${PT_RPT_DIR}/pt_eco_setup_expected_count.txt w]
+                    puts -nonewline $fp [pt_eco_expected_text $nchg $nsrc [expr {[dict exists $written icc2tcl] ? [dict get $written icc2tcl] : $chk_file}] setup]
+                    close $fp
+                    puts ">>> 098 expected command count $nchg and the class file written to $PT_RPT_DIR"
+                } else { puts ">>> 098 WARNING: the number of proposed commands is unreadable ('$nchg'): NO count file is written, the apply will stop" }
+                set offtxt [expr {[dict get $m1 off] eq "" ? "SI-off view NOT measured ([dict get $m1 off_why])" : "SI-off view: [pt_measure_text [dict get $m1 off]]"}]
+                set probe_line [pt_eco_result_line 1 "$nchg size_cell changes proposed, change file [expr {[dict exists $written icctcl] ? [dict get $written icctcl] : $chk_file}] (cone cells only to faster references, nothing on the clock network); violating endpoints $n_before -> $n_after in this view; $offtxt"]
+            }
+        }
+    } perr]} {
+        foreach pr [list $prot_clk $prot_named] { if {$pr ne ""} { catch {pt_cone_unprotect $pr} } }
+        if {[regsub {^CONE: } $perr {} perr]} { set probe_line [pt_eco_result_line cone $perr]
+        } elseif {[regsub {^CLOCK: } $perr {} perr]} { set probe_line [pt_eco_result_line clock $perr]
+        } elseif {[regsub {^CHECK: } $perr {} perr]} { set probe_line [pt_eco_result_line unchecked $perr]
+        } else { regsub {^PROBE: } $perr {} perr; set probe_line [pt_eco_result_line 0 $perr] }
+    }
+    puts "\n=============================================================================="
+    puts " SETUP ECO PROBE (size_cell only, corner $corner, SI [expr {$PT_SI_ENABLE ? {ON} : {OFF}}])"
+    puts "   $probe_line"
+    foreach cav [pt_summary_caveat [expr {[info exists PT_ANNOTATION_UNCHECKED] && $PT_ANNOTATION_UNCHECKED}]] { puts "   CAVEAT: $cav" }
+    puts "=============================================================================="
+}
+>>> 098 ECO probe pt_eco_setup_probe.tcl: SI ON (change files go to the SI folder)
+>>> 074 content of /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.spef_scenario:
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_125.spef for scenarios: 
+	 scenario: func_ss, corner type: late/early
+
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_-40.spef for scenarios: 
+	 scenario: func_ff, corner type: late/early
+
+
+>>> 074 end of content
+>>> 074 SPEF for corner ss decided from the text: /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_125.spef
+
+==============================================================================
+ PrimeTime SETUP sign-off, corner ss
+   library : tsl18fs120_scl_ss   (/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss/tsl18fs120_scl_ss.db)
+   netlist : /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_pnr_sim.v
+   SPEF    : /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_125.spef
+   SDC     : /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_pnr_ss.sdc   (exported)
+   date    : Wed Nov 11 00:53:47 IST 2026
+   SI      : ON
+==============================================================================
+
+>>> 095 SI state: ON (source: environment UNPU_PT_SI); reports go to /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si
+Checkout succeeded: PrimeTime-SI/9F8AB427CEF4A8DCF490
+	License file: 27020@14.139.1.126
+	License Server: 27020@14.139.1.126
+[SCL] 11/11/2026 00:53:47 Checking status for feature PrimeTime-SI
+[SCL] 11/11/2026 00:53:47 PID:37260 Client:lalita.iitg.ac.in Server:27020@14.139.1.126 Checkout succeeded PrimeTime-SI 2022.03
+Information: Checked out license 'PrimeTime-SI' (PT-019)
+>>> 074 SI/crosstalk analysis ON (licence acquired)
+>>> 074 search_path: /storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs
+>>> 074 link_path: * tsl18fs120_scl_ss.db
+1
+
+Loading db file '/storage/PDK_iitg/SCLPDK_V3.0_KIT/scl180/stdcell/fs120/4M1IL/liberty/lib_flow_ss/tsl18fs120_scl_ss.db'
+Loading verilog file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_pnr_sim.v'
+Linking design unpu_top...
+Information: Removing 75 unneeded designs..... (LNK-034)
+Information: 415 (77.72%) library cells are unused in library tsl18fs120_scl_ss..... (LNK-045)
+Information: total 415 library cells are unused (LNK-046)
+Design 'unpu_top' was successfully linked.
+Information: There are 14952 leaf cells, ports, hiers and 24531 nets in the design (LNK-047)
+1
+
+>>> 074 linked unpu_top: 14672 leaf cells, 75 hierarchical cells, library cells missing (black boxes) 0
+>>> 074 parasitics_log_file before: parasitics_log_file  = "parasitics_command.log"
+>>> 074 parasitics_log_file after: parasitics_log_file  = ""
+>>> 074 reading parasitics /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_125.spef
+Information: Derived library resistance unit is 1.000000 Kohm (Time unit is 1 ns, and Capacitance unit is 1.000000 pF). (DES-028)
+
+****************************************
+Report : read_parasitics /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_125.spef
+	-keep_capacitive_coupling
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:48 2026
+****************************************
+
+        0 error(s)
+        Format is SPEF
+        Annotated nets                   :        16571
+        Annotated capacitances           :       328494
+        Annotated resistances            :       311923
+        Annotated coupling capacitances  :       137670
+        Annotated PI models              :            0
+        Annotated Elmore delays          :            0
+
+1
+
+****************************************
+Report : annotated_parasitics
+	-check
+	-internal_nets
+	-boundary_nets
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:48 2026
+****************************************
+
+                    |         |         |         |   RC    | Coupled |   Not   |
+Net Type            |  Total  | Lumped  |  RC pi  | network | network |Annotated|
+--------------------+---------+---------+---------+---------+---------+---------+
+Internal nets       |         |         |         |         |         |         |
+  - Pin to pin nets |   16389 |       0 |       0 |    3360 |   13029 |       0 |
+  - Driverless nets |     343 |       0 |       0 |       0 |       0 |     343 |
+  - Loadless nets   |      48 |       0 |       0 |       0 |       0 |      48 |
+--------------------+---------+---------+---------+---------+---------+---------+
+Boundary/port nets  |         |         |         |         |         |         |
+  - Pin to pin nets |     182 |       0 |       0 |     117 |      65 |       0 |
+  - Driverless nets |       0 |       0 |       0 |       0 |       0 |       0 |
+  - Loadless nets   |      22 |       0 |       0 |       0 |       0 |      22 |
+--------------------+---------+---------+---------+---------+---------+---------+
+                    |   16984 |       0 |       0 |    3477 |   13094 |     413 |
+
+1
+
+>>> 074 session text: read_parasitics 819 bytes, report_annotated_parasitics 1379 bytes; file /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/parasitics_command.log: 0 bytes
+>>> 074 annotation table read from the session text of report_annotated_parasitics
+>>> 074 ANNOTATION: read_parasitics errors '0'
+>>> 074 ANNOTATION: pin-to-pin nets: 16571 in total (internal 16389 (annotated 16389, not annotated 0); boundary 182 (annotated 182, not annotated 0)); 0 not annotated (0.000 percent, limit 0.0 percent)
+>>> 074 ANNOTATION: information (not an error): internal driverless nets: 343 in total, 343 not annotated; internal loadless nets: 48 in total, 48 not annotated; boundary driverless nets: 0 in total, 0 not annotated; boundary loadless nets: 22 in total, 22 not annotated. A driverless or loadless net has no driver or no load, so it carries no timing arc and its missing parasitics cannot change a path.
+>>> 074 ANNOTATION: unannotated nets listed in the report: 0; the first 10: 
+
+Reading SDC version 2.1...
+Warning: Setting input delay on clock port (clk) relative to a clock (clk) defined at the same port. Command is ignored. (UITE-489)
+1
+
+>>> 074 SDC text values: period 20, setup uncertainty 1.5, hold uncertainty 0.5
+>>> 074 SDC set_operating_conditions lines: set_operating_conditions\ -library\ tsl18fs120_scl_ss\ -analysis_type\ \\
+>>> 074 DESIGN values (get_attribute of clock clk): period '20.000000', setup_uncertainty '1.500000', hold_uncertainty '0.500000'
+>>> 074 clock clk: period 20.0 ns, setup uncertainty 1.5 ns, hold uncertainty 0.5 ns (expected 20.0 / 1.5 / 0.5 from constraints/legacy/unpu_top_legacy.sdc)
+>>> 074 read_sdc printed UITE-489 1 time(s): an input delay on the clock port itself is ignored by PrimeTime; harmless
+>>> 074 (the SDC text contains set_propagated_clock: 1; this is not used as evidence)
+>>> 074 APPLIED: set_propagated_clock [all_clocks] -- the CTS tree is real. This is the only change PrimeTime makes to what ICC2 wrote.
+****************************************
+Report : design
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:48 2026
+****************************************
+
+Design Attribute                         Value
+---------------------------------------------------------------------------
+Operating Conditions:
+  analysis_type                          on_chip_variation
+  operating_condition_min_name           tsl18fs120_scl_ss
+  process_min                            1
+  temperature_min                        125
+  voltage_min                            1.62
+  tree_type_min                          balanced_case
+
+  operating_condition_max_name           tsl18fs120_scl_ss
+  process_max                            1
+  temperature_max                        125
+  voltage_max                            1.62
+  tree_type_max                          balanced_case
+
+Wire Load:                               (use report_wire_load for more information)
+  wire_load_mode                         top
+  wire_load_model_max                    --
+  wire_load_model_min                    --
+  wire_load_selection_group_max          predcaps
+  wire_load_selection_group_min          predcaps
+  wire_load_min_block_size               0
+
+Design Rules:
+  max_capacitance                        2
+  min_capacitance                        --
+  max_fanout                             --
+  max_transition                         3
+  static_integrity                       --
+  dynamic_integrity                      --
+  max_area                               --
+
+Timing Ranges:
+  early_factor                           --
+  late_factor                            --
+
+Pin Input Delays:
+None specified.
+
+Pin Output Delays:
+None specified.
+Fast Analysis:                           disabled
+
+1
+
+>>> 074 operating conditions read from report_design:  (expected library tsl18fs120_scl_ss)
+>>> 074 NOTE: report_design printed no 'Operating Conditions: ... Library: ...' line (VERIFY the wording). Only the library tsl18fs120_scl_ss is linked, so its own operating condition is the one in use.
+>>> 074 limit read: set_max_transition 3 [current_design]
+>>> 074 limit read: set_max_capacitance 2 [current_design]
+>>> 074 no -clock_path limit in the SDC: the design-wide max transition applies to the clock path too
+Information: Setting rc_cache_min_max_rise_fall_ceff to TRUE. (XTALK-015)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic max wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Building multi voltage information for entire design. (MV-022)
+Warning: Some timing arcs have been disabled for breaking timing loops or because of constant propagation. Use the 'report_disable_timing' command to get the list of these disabled timing arcs. (PTE-003)
+Information: Starting crosstalk aware timing iteration 1. (XTALK-001)
+Information: Starting crosstalk aware timing iteration 2. (XTALK-001)
+Information: Number of nets evaluated in the previous iteration: 16571. (XTALK-105)
+Information: Checking 'no_input_delay'.
+Information: Checking 'no_driving_cell'.
+Warning: There is 1 port with parasitics but with no driving cell.
+
+Ports
+------------------------------------------------------------
+clk
+
+Information: Checking 'unconstrained_endpoints'.
+Information: Checking 'unexpandable_clocks'.
+ Failed clocks set      Related clocks           Original Period     Expanded Period     Added Edges     Voltage Config
+-----------------------------------------------------------------------------------------------------------------------
+Information: Checking 'latch_fanout'.
+Information: Checking 'no_clock'.
+Information: Checking 'partial_input_delay'.
+Information: Checking 'generic'.
+Information: Checking 'loops'.
+Information: Checking 'generated_clocks'.
+Information: Checking 'pulse_clock_non_pulse_clock_merge'.
+Information: Checking 'pll_configuration'.
+Information: Checking 'voltage_level'.
+
+Check cell voltage level related issues including rail voltages
+Cell Name                      min/max    issues found 
+----------------------------------------------------------------------
+0
+
+>>> 074 check_timing: checks run: no_input_delay no_driving_cell unconstrained_endpoints unexpandable_clocks latch_fanout no_clock partial_input_delay generic loops generated_clocks pulse_clock_non_pulse_clock_merge pll_configuration voltage_level; findings (Warning/Error blocks): 1
+>>> 074 check_timing information: port(s) with no driving cell: clk; these are the clock source port(s) (clk), expected (the clock input has no driving cell in the SDC)
+>>> 074 clock path of the worst max path (full_clock_expanded), first lines:
+      ****************************************
+      Report : timing
+      	-path_type full_clock_expanded
+      	-delay_type max
+      	-max_paths 1
+      	-sort_by slack
+      Design : unpu_top
+      Version: T-2022.03-SP2
+      Date   : Wed Nov 11 00:53:50 2026
+      ****************************************
+      
+      
+        Startpoint: paddr[3] (input port clocked by clk)
+        Endpoint: prdata[20] (output port clocked by clk)
+        Path Group: clk
+        Path Type: max
+      
+        Point                                    Incr       Path
+        ---------------------------------------------------------------
+        clock clk (rise edge)                    0.00       0.00
+        clock network delay (propagated)         0.00       0.00
+        input external delay                     7.00       7.00 r
+        paddr[3] (in)                            1.21 &     8.21 r
+        u_apb/U29/Z (buffd1)                     0.44 &     8.65 r
+        u_csr/U20/ZN (inv0d2)                    0.14 &     8.79 f
+        u_csr/U21/ZN (nr03d1)                    0.44 &     9.23 r
+        u_csr/U13/Z (an02d2)                     0.49 &     9.71 r
+        u_csr/U31/ZN (inv0d1)                    0.24 &     9.95 f
+        u_csr/U385/ZN (oai222d1)                 0.35 &    10.30 r
+        ctmTdsLR_1_2999/Z (bufbd4)               1.23 &    11.52 r
+>>> 074 clock tag: clock network delay (propagated)         0.00       0.00
+>>> 074 clock tag: clock network delay (propagated)         0.00      20.00
+>>> 074 clock tag: clock network delay (propagated)         0.00       0.00
+>>> 074 clock tag: clock network delay (propagated)         0.00      20.00
+>>> 074 clock network delay values ((tag value) per path end): {propagated 0.00} {propagated 0.00} {propagated 0.00} {propagated 0.00}
+>>> 074 PROVED: the clock is propagated (4 '(propagated)' tag(s), 0 '(ideal)' tag(s) in the worst max path)
+****************************************
+Report : design
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:50 2026
+****************************************
+
+Design Attribute                         Value
+---------------------------------------------------------------------------
+Operating Conditions:
+  analysis_type                          on_chip_variation
+  operating_condition_min_name           tsl18fs120_scl_ss
+  process_min                            1
+  temperature_min                        125
+  voltage_min                            1.62
+  tree_type_min                          balanced_case
+
+  operating_condition_max_name           tsl18fs120_scl_ss
+  process_max                            1
+  temperature_max                        125
+  voltage_max                            1.62
+  tree_type_max                          balanced_case
+
+Wire Load:                               (use report_wire_load for more information)
+  wire_load_mode                         top
+  wire_load_model_max                    540000
+  wire_load_model_library_max            tsl18fs120_scl_ss
+  wire_load_selection_type_max           automatic-by-area
+  wire_load_model_min                    540000
+  wire_load_model_library_min            tsl18fs120_scl_ss
+  wire_load_selection_type_min           automatic-by-area
+  wire_load_selection_group_max          predcaps
+  wire_load_selection_group_min          predcaps
+  wire_load_min_block_size               0
+
+Design Rules:
+  max_capacitance                        2
+  min_capacitance                        --
+  max_fanout                             --
+  max_transition                         3
+  static_integrity                       --
+  dynamic_integrity                      --
+  max_area                               --
+
+Timing Ranges:
+  early_factor                           --
+  late_factor                            --
+
+Pin Input Delays:
+None specified.
+
+Pin Output Delays:
+None specified.
+Fast Analysis:                           disabled
+
+1
+****************************************
+Report : clock
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:50 2026
+****************************************
+
+Attributes:
+    p - Propagated clock
+    G - Generated  clock
+    I - Inactive   clock
+
+Clock             Period          Waveform            Attrs     Sources
+-----------------------------------------------------------------------
+clk                20.00          {0 10}              p         {clk}
+
+****************************************
+Report : clock_skew
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:50 2026
+****************************************
+
+              Min Rise  Min Fall  Max Rise  Max Fall     Hold          Setup        Related
+Object          Delay     Delay     Delay     Delay   Uncertainty   Uncertainty      Clock
+-----------------------------------------------------------------------------------------------
+clk                 -         -         -         -      0.50          1.50           -- 
+
+              Min Rise  Min Fall  Max Rise  Max Fall
+Object          Transition   Transition   Transition   Transition
+--------------------------------------------------------------------------------
+clk              0.60      0.60      0.60      0.60
+
+****************************************
+Report : clock timing
+	-type latency
+	-launch
+	-nworst 1
+	-setup
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:50 2026
+****************************************
+
+  Clock: clk
+
+                                                   --- Latency ---
+  Clock Pin                            Trans   Source  Network Total
+----------------------------------------------------------------------------
+  u_grid/g_row_0__g_col_2__pe/psum_out_reg_13_/CP
+                                       0.38    0.00    1.26    1.26    rp-+
+----------------------------------------------------------------------------
+
+****************************************
+Report : clock timing
+	-type skew
+	-nworst 1
+	-setup
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 00:53:50 2026
+****************************************
+
+  Clock: clk
+
+  Clock Pin                                    Latency  CRP    Skew
+----------------------------------------------------------------------------
+  u_deskew/col1_q2_reg_12_/CP                  1.25                    rp-+
+  u_seq/c_dst_reg_1__1__12_/CP                 0.51    -0.00   0.74    rp-+
+----------------------------------------------------------------------------
+
+0
+>>> 074 CTS values to compare with (ICC2 after CTS): clock latency about 0.59 ns, global skew about 0.31 ns (handoff 18.32)
+>>> 098 setup ECO probe: SI ON, change files and reports in /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si, setup margin 0.02 ns
+>>> 078 violations file: 4 endpoints written to /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_ss_before_violations.csv
+>>> 098 BEFORE, SI ON view: violating endpoints 4, setup WNS -0.0364 ns, in2out (paddr -> prdata) worst slack -0.0364 ns
+Information: Design has signal integrity data but signal integrity analysis is disabled. (XTALK-010)
+Information: Signal integrity analysis is disabled. All PrimeTime SI related global variables are no longer in use. Any coupling capacitors are reduced to ground by the reduction factor of one. (XTALK-012)
+Information: Invalidating logical update. (PTE-139)
+Information: Abandoning fast timing updates. Forced full update. (PTE-018)
+Information: Invalidating logical update. (PTE-139)
+Information: Design has signal integrity data but signal integrity analysis is disabled. (XTALK-010)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic max wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Building multi voltage information for entire design. (MV-022)
+Warning: Some timing arcs have been disabled for breaking timing loops or because of constant propagation. Use the 'report_disable_timing' command to get the list of these disabled timing arcs. (PTE-003)
+Information: Invalidating logical update. (PTE-139)
+Information: Abandoning fast timing updates. Forced full update. (PTE-018)
+Information: Invalidating logical update. (PTE-139)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic max wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Building multi voltage information for entire design. (MV-022)
+Warning: Some timing arcs have been disabled for breaking timing loops or because of constant propagation. Use the 'report_disable_timing' command to get the list of these disabled timing arcs. (PTE-003)
+Information: Starting crosstalk aware timing iteration 1. (XTALK-001)
+Information: Starting crosstalk aware timing iteration 2. (XTALK-001)
+Information: Number of nets evaluated in the previous iteration: 16571. (XTALK-105)
+>>> 098 BEFORE, SI OFF view (same session, si_enable_analysis false, restored to true): violating endpoints 0, setup WNS +0.1041 ns, in2out (paddr -> prdata) worst slack +0.1164 ns
+>>> 098   violator prdata[20] (startpoint paddr[3]) slack -0.036425
+>>> 098   violator prdata[10] (startpoint paddr[3]) slack -0.024171
+>>> 098   violator prdata[22] (startpoint paddr[3]) slack -0.008997
+>>> 098   violator prdata[17] (startpoint paddr[3]) slack -0.005914
+ fix_eco_timing       # Fix timing violations
+   -type fixing type      (Timing fixing type: 
+                           Values: setup, hold)
+   [-slack_lesser_than float]
+                          (Fix paths with slack less than this)
+   [-slack_greater_than float]
+                          (Fix paths with slack greater than this)
+   [-group group]         (Limit fixing to paths in these groups)
+   [-pba_mode effort]     (Path-based analysis mode (default is none))
+   [-from from_list]      (From pins or ports)
+   [-to to_list]          (To pins or ports)
+   [-hold_margin float]   (Additional fixing margin for hold slack)
+   [-setup_margin float]  (Additional fixing margin for setup slack)
+   [-buffer_list list]    (Buffer list to use for buffer insertion)
+   [-verbose]             (Show detailed information)
+   [-methods method_list] (Specify one or multiple fixing methods)
+   [-current_library]     (Use current library for cell resizing)
+   [-ignore_drc]          (Ignore DRC violations)
+   [-cell_type cell_type] (Cell type for fixing)
+   [-physical_mode mode_name]
+                          (Physically aware ECO mode:
+                           Values: none, open_site, occupied_site, freeze_silicon)
+   [-path_selection_options option_string]
+                          (options for path collection)
+   [-timeout integer]     (timeout in seconds: 
+                           Range: 1 to 2592000)
+   [-power_attribute string]
+                          (Lib cell attribute name for user-defined leakage attribute)
+   [-clock_fixes_per_change integer]
+                          (Minimum number of violations to be fixed per change)
+   [-clock_max_level_from_reg integer]
+                          (Highest level of a clock network tree where fix can occur)
+   [-estimate_unfixable_reasons]
+                          (Estimate unfixable reasons without fixing)
+   [-power_mode mode]     (Power mode for power-aware fixing)
+   [-leakage_scenario scenario_name]
+                          (Specifies leakage power scenario)
+   [-dynamic_scenario scenario_name]
+                          (Specifies dynamic power scenario)
+   [-load_cell_list list] (Specifies load capacitance cell list)
+   [-target_violation_type violation_type]
+                          (Target violation type:
+                           Values: endpoint, tns)
+   [-wns_limit float]     (WNS limit for TNS improvement)
+   [-unfixable_reasons_prefix reasons_file_prefix]
+                          (Unfixable reasons file prefix)
+   [-unfixable_reasons_format reasons_output_format]
+                          (Unfixable reasons report format: <csv|text>)
+
+ set_eco_options      # Set ECO configuration information
+   [-physical_tech_lib_path list]
+                          (Specify the Physical Technology Library Exchange Format (LEF) files)
+   [-physical_lib_path list]
+                          (Specify the list of Physical Cell Library Exchange Format (LEF) files)
+   [-physical_design_path list]
+                          (Specify the list of Physical Design Exchange Format (DEF) files)
+   [-physical_icc2_lib string]
+                          (Specify an ICC2 physical NDM library directory path)
+   [-physical_icc2_blocks list]
+                          (Specify list of ICC2 physical NDM block names)
+   [-physical_constraint_file list]
+                          (Specify the Physical Constraint Script files)
+   [-physical_lib_constraint_file list]
+                          (Specify the Library Cell Spacing Rules files)
+   [-log_file string]     (Specify the log file)
+   [-mim_group object]    (cell_list)
+   [-filler_cell_names list]
+                          (List of additional filler library cell names)
+   [-programmable_spare_cell_names list]
+                          (List of programmable spare library cell names for freeze silicon physical ECO)
+   [-drc_setup_margin float]
+                          (Additional margin for setup slack for fix_eco_drc)
+   [-drc_hold_margin float]
+                          (Additional margin for hold slack for fix_eco_drc)
+   [-timing_setup_margin float]
+                          (Additional margin for setup slack for fix_eco_timing)
+   [-timing_hold_margin float]
+                          (Additional margin for hold slack for fix_eco_timing)
+   [-power_setup_margin float]
+                          (Additional margin for setup slack for fix_eco_power)
+   [-power_hold_margin float]
+                          (Additional margin for hold slack for fix_eco_power)
+   [-physical_enable_clock_data]
+                          (Enable reading physical data for clock network)
+   [-physical_enable_all_vias]
+                          (Enable reading physical data for all vias)
+   [-keep_site_names site_name_list]
+                          (Specify list of cell row site names)
+   [-power_ground_net_layer layer_name_list]
+                          (Specify list of power/ground net layer names)
+   [-enable_pin_color_alignment_check]
+                          (Enable pin color alignment)
+   [-allow_missing_lef macro_name_list]
+                          (Specify macros allowed to be missing from LEF)
+   [-convert_sites site_name_list]
+                          (Specify mapping of floorplan sites to library sites)
+   [-enable_via0_alignment_check]
+                          (Enable via0 alignment check)
+   [-cell_em_profile string]
+                          (Specify the cell_em profile to consider for fixing)
+
+FlexNet Licensing checkout error: No such feature exists.
+Feature:       PrimeTime-ECO
+License path:  27020@14.139.1.126:
+FlexNet Licensing error:-5,147
+license file(s):  27020@14.139.1.126
+[SCL] 11/11/2026 00:53:53 PID:37260 Client:lalita.iitg.ac.in Authorization failed PrimeTime-ECO 2022.03
+Error: Unrecognized feature name 'PrimeTime-ECO'. (PT-002)
+>>> 098 get_license PrimeTime-ECO: ok (0)
+>>> 080 in2out cone: input collection 101 ports (102 inputs minus the sources of 1 clock(s)), output collection 102 ports
+>>> 080 method (c): structural traversal (forward from the input ports, backward from the output ports, through combinational cells only; sequential cells are endpoints); cells are visited at most 200000
+>>> 080 method (c): 77 cells directly behind the input ports, 102 cells directly in front of the output ports
+>>> 080 method (c): forward region 3076 cells (2465 sequential endpoints), backward region 1660 cells (672 sequential startpoints)
+>>> 080 method (c): 109 cells in the cone
+ all_fanout           # Create a collection of pins/ports or cells in the fanout of specified sources
+ all_fanin            # Create a collection of pins/ports or cells in the fanin of specified sinks
+>>> 080 method (c2): all_fanout -from <101 ports> -flat -only_cells  and  all_fanin -to <102 ports> -flat -only_cells, intersected, sequential removed
+>>> 080 method (c2): fan-out 3076 cells, fan-in 1659 cells
+>>> 080 method (c2): 109 cells in the cone
+>>> 080 method (a1): get_timing_paths -from <101 ports> -to <102 ports> -delay_type max -unique_pins -max_paths 100000
+>>> 080 method (a1): 4 paths returned
+>>> 080 method (a1): 14 cells
+>>> 080 method (b): report_timing -from $ins -to $outs -delay_type max -max_paths 20 -path_type full (<101 ports> -> <102 ports>), captured and parsed for Startpoint: / pin lines
+>>> 080 method (b): 4 Startpoint: lines, 14 cells, 5 ports parsed from 7135 characters
+>>> 080 in2out cone: methods with a result: c c2 a1 b; sizes: c=109 c2=109 a1=14 b=14; FINAL cone = union = 109 cells (primary method: c, structural)
+>>> 080 NOTE: method c: 109 cells; equal to or covering the final cone
+>>> 080 NOTE: method c2: 109 cells; equal to or covering the final cone
+>>> 080 NOTE: method a1: 14 cells; 95 cells of the final cone are not in it
+>>> 080 NOTE: method b: 14 cells; 95 cells of the final cone are not in it
+>>> 080 sanity: 109 cells in the cone, 0 sequential (expected 0); cells starting with u_apb/ or u_csr/: 5 / 75
+>>> 080 cone ports: 42
+>>> 080 in2out cone: 109 cells, 275 nets, 42 ports (ports are known only from the path-based methods)
+>>> 080   first cells: U20, U51, U58, U61, antbuf_paddr_7__0_t1a1, ctmTdsLR_1_2964, ctmTdsLR_1_2965, ctmTdsLR_1_2966, ctmTdsLR_1_2967, ctmTdsLR_1_2968, ctmTdsLR_1_2969, ctmTdsLR_1_2970, ctmTdsLR_1_2971, ctmTdsLR_1_2972, ctmTdsLR_1_2973, ctmTdsLR_1_2974, ctmTdsLR_1_2975, ctmTdsLR_1_2976, ctmTdsLR_1_2977, ctmTdsLR_1_2978 ... (and 89 more)
+>>> 080   first nets:  antbuf_paddr_7__0_t1a1_n, n60, n63, n64, n65, n66, n67, n68, n69, n70, n71, n72, n73, n74, n75, n76, n77, n78, n79, n80 ... (and 255 more)
+>>> 080   ports:       paddr[10], paddr[11], paddr[2], paddr[3], paddr[4], paddr[5], paddr[6], paddr[7], paddr[8], paddr[9], prdata[0], prdata[10], prdata[11], prdata[12], prdata[13], prdata[14], prdata[15], prdata[16], prdata[17], prdata[18] ... (and 22 more)
+>>> 080 the full lists are in /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_ss_cone_cells.txt / _cone_nets.txt / _cone_ports.txt
+>>> 098 in2out cone: 109 cells, their references recorded before the ECO
+>>> 095 clock network protected: 63 clock cells (63 switched on, 0 had dont_touch already), 215 clock nets (215 switched on); read back of the first cell: dont_touch = true
+>>> 098 no max-transition change file /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt/pt_eco_drc_changes_icc2.tcl: the resized drivers of task 095 are not protected by name
+>>> 098 protected during the ECO (buffers and cells of earlier rounds): 64 cells dont_touch
+>>> 098 trying (size_cell, -setup_margin 0.02): fix_eco_timing -type setup -methods {size_cell} -setup_margin 0.02
+Information: Starting timing fix iteration 1 at [ Wed Nov 11 00:53:53 2026 ]...
+Information: 4 violating endpoints located... (PTECO-022)
+Information: 4 endpoints are being considered for fixing... (PTECO-027)
+Information: Fixing violations...
+Information: Loading library 'tsl18fs120_scl_ss' data due to accessing lib cells not linked in the current design. (LNK-041)
+Information: Loading library 'tsl18fs120_scl_ss' data due to accessing lib cells not linked in the current design. (LNK-041)
+Information: Loading library 'tsl18fs120_scl_ss' data due to accessing lib cells not linked in the current design. (LNK-041)
+Information: Loading library 'tsl18fs120_scl_ss' data due to accessing lib cells not linked in the current design. (LNK-041)
+Information: Starting updating timing at [ Wed Nov 11 00:53:53 2026 ]...
+Information: Finished updating timing at [ Wed Nov 11 00:53:53 2026 ]...
+Information: 1 cells have been resized.
+
+Information: Starting timing fix iteration 2 at [ Wed Nov 11 00:53:53 2026 ]...
+Information: 0 violating endpoints located... (PTECO-022)
+Information: 0 endpoints are being considered for fixing... (PTECO-027)
+Information: Fixing violations...
+Information: No more fixes are available.
+Information: The timing violation fixing process is complete.
+
+Final ECO Summary:
+--------------------------------------------------------
+Number of size_cell commands                           1
+Total number of commands                               1
+Area increased by cell sizing                       3.14
+Total area increased                                3.14
+
+Fixing Summary:
+--------------------------------------------------------
+Total violating endpoints found                        4
+Total violating endpoints fixed                        4
+Total violating endpoints remaining                    0
+Total percentage of violations fixed               100.0%
+
+Information: Elapsed time [                0 seconds ]
+Information: Completed at [ Wed Nov 11 00:53:53 2026 ]
+
+1
+
+>>> 098 form 'size_cell, -setup_margin 0.02': commands proposed '1', messages: none
+>>> 080 dont_touch REMOVED again from the cone objects (read back of the first cell: false)
+>>> 080 dont_touch REMOVED again from the cone objects (read back of the first cell: false)
+Information: Writing change list file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_changes.tcl'.
+1
+
+>>> 079 write_changes -format icctcl -> /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_changes.tcl
+Information: Writing change list file '/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_changes_icc2.tcl'.
+1
+
+>>> 079 write_changes -format icc2tcl -> /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_changes_icc2.tcl
+1
+
+>>> 079 write_changes -format text -> /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_changes.txt
+>>> 098 PrimeTime proposed 1 changes (area change 3.14 um^2, change file /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_changes_icc2.tcl)
+>>> 098 change 1: cell u_apb/U29, buffd1 -> buffd3 (buffd1 -> buffd3: larger drive of the same function (faster)); output net u_apb/csr_sel[1]; on the read path (in2out cone): YES; area 12.54 -> 15.68 um^2; class: resize of a cone cell to a FASTER reference of the same function (allowed in the setup kind)
+Information: Invalidating logical update. (PTE-139)
+Information: Abandoning fast timing updates. Forced full update. (PTE-018)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic max wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Building multi voltage information for entire design. (MV-022)
+Warning: Some timing arcs have been disabled for breaking timing loops or because of constant propagation. Use the 'report_disable_timing' command to get the list of these disabled timing arcs. (PTE-003)
+Information: Starting crosstalk aware timing iteration 1. (XTALK-001)
+Information: Starting crosstalk aware timing iteration 2. (XTALK-001)
+Information: Number of nets evaluated in the previous iteration: 16571. (XTALK-105)
+>>> 078 violations file: 0 endpoints written to /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_ss_after_violations.csv
+>>> 098 AFTER, SI ON view: violating endpoints 0, setup WNS +0.0034 ns, in2out (paddr -> prdata) worst slack +0.0592 ns
+Information: Design has signal integrity data but signal integrity analysis is disabled. (XTALK-010)
+Information: Signal integrity analysis is disabled. All PrimeTime SI related global variables are no longer in use. Any coupling capacitors are reduced to ground by the reduction factor of one. (XTALK-012)
+Information: Invalidating logical update. (PTE-139)
+Information: Abandoning fast timing updates. Forced full update. (PTE-018)
+Information: Invalidating logical update. (PTE-139)
+Information: Design has signal integrity data but signal integrity analysis is disabled. (XTALK-010)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic max wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Building multi voltage information for entire design. (MV-022)
+Warning: Some timing arcs have been disabled for breaking timing loops or because of constant propagation. Use the 'report_disable_timing' command to get the list of these disabled timing arcs. (PTE-003)
+Information: Invalidating logical update. (PTE-139)
+Information: Abandoning fast timing updates. Forced full update. (PTE-018)
+Information: Invalidating logical update. (PTE-139)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic max wire load selection group 'predcaps'. (ENV-003)
+Information: Using automatic min wire load selection group 'predcaps'. (ENV-003)
+Information: Building multi voltage information for entire design. (MV-022)
+Warning: Some timing arcs have been disabled for breaking timing loops or because of constant propagation. Use the 'report_disable_timing' command to get the list of these disabled timing arcs. (PTE-003)
+Information: Starting crosstalk aware timing iteration 1. (XTALK-001)
+Information: Starting crosstalk aware timing iteration 2. (XTALK-001)
+Information: Number of nets evaluated in the previous iteration: 16571. (XTALK-105)
+>>> 098 AFTER, SI OFF view (same session, si_enable_analysis false, restored to true): violating endpoints 0, setup WNS +0.1041 ns, in2out (paddr -> prdata) worst slack +0.1421 ns
+>>> 098 expected command count 1 and the class file written to /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si
+
+==============================================================================
+ SETUP ECO PROBE (size_cell only, corner ss, SI ON)
+   PROBE RESULT (SI ON): ECO RAN: 1 size_cell changes proposed, change file /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/pt_si/pt_eco_setup_changes.tcl (cone cells only to faster references, nothing on the clock network); violating endpoints 4 -> 0 in this view; SI-off view: violating endpoints 0, setup WNS +0.1041 ns, in2out (paddr -> prdata) worst slack +0.1421 ns
+==============================================================================
+exit 0
+Information: Defining new variable 'ins_list'. (CMD-041)
+Information: Defining new variable 'nmsg'. (CMD-041)
+Information: Defining new variable 'cmds'. (CMD-041)
+Information: Defining new variable 'c'. (CMD-041)
+Information: Defining new variable 'f'. (CMD-041)
+Information: Defining new variable 'l'. (CMD-041)
+Information: Defining new variable 'r'. (CMD-041)
+Information: Defining new variable 'PT_SDC_SOURCE'. (CMD-041)
+Information: Defining new variable 'cone_cells'. (CMD-041)
+Information: Defining new variable 'oerr'. (CMD-041)
+Information: Defining new variable 'PT_CONE_PROTECT_NETS'. (CMD-041)
+Information: Defining new variable 'PT_SUMMARY_EXTRA'. (CMD-041)
+Information: Defining new variable 'PT_SPEF_OVERRIDE'. (CMD-041)
+Information: Defining new variable 'chk_txt'. (CMD-041)
+Information: Defining new variable 'desc'. (CMD-041)
+Information: Defining new variable 'PT_BASE'. (CMD-041)
+Information: Defining new variable 'cone'. (CMD-041)
+Information: Defining new variable 'UNPU_ERR'. (CMD-041)
+Information: Defining new variable 'PT_ECO_LIB_PATTERNS'. (CMD-041)
+Information: Defining new variable 'pt_cone_allconn_ok'. (CMD-041)
+Information: Defining new variable 'PT_RPT_DIR'. (CMD-041)
+Information: Defining new variable 'PT_EXPECT_HOLD_UNC'. (CMD-041)
+Information: Defining new variable 'nsrc'. (CMD-041)
+Information: Defining new variable 'PT_ECO_FILE_ICC2TCL'. (CMD-041)
+Information: Defining new variable 'PT_CORNER'. (CMD-041)
+Information: Defining new variable 'inst'. (CMD-041)
+Information: Defining new variable 'fx_txt'. (CMD-041)
+Information: Defining new variable 'PT_CLOCK'. (CMD-041)
+Information: Defining new variable 'ref_before'. (CMD-041)
+Information: Defining new variable 'PT_SCRIPT_DIR'. (CMD-041)
+Information: Defining new variable 'probe_line'. (CMD-041)
+Information: Defining new variable 'perr'. (CMD-041)
+Information: Defining new variable 'chk'. (CMD-041)
+Information: Defining new variable 'PT_CONE_MAX_NODES'. (CMD-041)
+Information: Defining new variable 'cls'. (CMD-041)
+Information: Defining new variable 'a0'. (CMD-041)
+Information: Defining new variable 'a1'. (CMD-041)
+Information: Defining new variable 'RUN_ROOT'. (CMD-041)
+Information: Defining new variable 'PT_ANNOTATION_ENV'. (CMD-041)
+Information: Defining new variable 'PT_ECO_DELAY_PATTERN'. (CMD-041)
+Information: Defining new variable 'cn'. (CMD-041)
+Information: Defining new variable 'nnote'. (CMD-041)
+Information: Defining new variable 'm0'. (CMD-041)
+Information: Defining new variable 'm1'. (CMD-041)
+Information: Defining new variable 'fp'. (CMD-041)
+Information: Defining new variable 'rows_after'. (CMD-041)
+Information: Defining new variable 'PT_CONE_MAX_PATHS'. (CMD-041)
+Information: Defining new variable 'prot_named'. (CMD-041)
+Information: Defining new variable 'kc'. (CMD-041)
+Information: Defining new variable 'pt_sdc_envl'. (CMD-041)
+Information: Defining new variable 'proposed'. (CMD-041)
+Information: Defining new variable 'rc'. (CMD-041)
+Information: Defining new variable 'rf'. (CMD-041)
+Information: Defining new variable 'PT_CONE_TOUCH_PRINT'. (CMD-041)
+Information: Defining new variable 'PT_NETLIST'. (CMD-041)
+Information: Defining new variable 'keep'. (CMD-041)
+Information: Defining new variable 'drcf'. (CMD-041)
+Information: Defining new variable 'n_empty'. (CMD-041)
+Information: Defining new variable 'idx'. (CMD-041)
+Information: Defining new variable 'offtxt'. (CMD-041)
+Information: Defining new variable 'PT_ECO_MAX_BUFFERS'. (CMD-041)
+Information: Defining new variable 'PT_PARA_LOG'. (CMD-041)
+Information: Defining new variable 'PT_VIOL_MAX_PATHS'. (CMD-041)
+Information: Defining new variable 'lib'. (CMD-041)
+Information: Defining new variable 'lemsg'. (CMD-041)
+Information: Defining new variable 'in_cone'. (CMD-041)
+Information: Defining new variable 'PT_SDC_MODE'. (CMD-041)
+Information: Defining new variable 'PT_SPEF_SCENARIO_FILE'. (CMD-041)
+Information: Defining new variable 'tried'. (CMD-041)
+Information: Defining new variable 'PT_ICC2_SETUP_REPORT'. (CMD-041)
+Information: Defining new variable 'PT_KIT'. (CMD-041)
+Information: Defining new variable 'net'. (CMD-041)
+Information: Defining new variable 'new'. (CMD-041)
+Information: Defining new variable 'PT_ECO_FILE_ICCTCL'. (CMD-041)
+Information: Defining new variable 'ferr'. (CMD-041)
+Information: Defining new variable 'PT_SI_ENABLE'. (CMD-041)
+Information: Defining new variable 'PT_ALLOW_UNREADABLE_ANNOTATION'. (CMD-041)
+Information: Defining new variable 'pat'. (CMD-041)
+Information: Defining new variable 'oldref'. (CMD-041)
+Information: Defining new variable 'rcx'. (CMD-041)
+Information: Defining new variable 'PT_ECO_TECH_LEF'. (CMD-041)
+Information: Defining new variable 'PT_ECO_HOLD_MARGIN'. (CMD-041)
+Information: Defining new variable 'rpt'. (CMD-041)
+Information: Defining new variable 'PT_REPORTS_DIR'. (CMD-041)
+Information: Defining new variable 'prot_clk'. (CMD-041)
+Information: Defining new variable 'PT_ICC2_HOLD_REPORT'. (CMD-041)
+Information: Defining new variable 'PT_ECO_PHYSICAL'. (CMD-041)
+Information: Defining new variable 'PT_KNOWN_UNCONSTRAINED'. (CMD-041)
+Information: Defining new variable 'PT_LEGACY_SDC'. (CMD-041)
+Information: Defining new variable 'PT_SPEF_FILES'. (CMD-041)
+Information: Defining new variable 'PT_TAG'. (CMD-041)
+Information: Defining new variable 'PT_EXPECT_PERIOD'. (CMD-041)
+Information: Defining new variable 'cls_count'. (CMD-041)
+Information: Defining new variable 'PT_DESIGN'. (CMD-041)
+Information: Defining new variable 'PT_MAX_UNANNOTATED_PCT'. (CMD-041)
+Information: Defining new variable 'written'. (CMD-041)
+Information: Defining new variable 'forms'. (CMD-041)
+Information: Defining new variable 'PT_ECO_DRC_LIB_PATTERNS'. (CMD-041)
+Information: Defining new variable 'pt_cone_h'. (CMD-041)
+Information: Defining new variable 'sdcv'. (CMD-041)
+Information: Defining new variable 'pt_cone_seqc'. (CMD-041)
+Information: Defining new variable 'PT_CONE_EXPECT_PREFIXES'. (CMD-041)
+Information: Defining new variable 'n_after'. (CMD-041)
+Information: Defining new variable 'PT_COMMON_DIR'. (CMD-041)
+Information: Defining new variable 'PT_SI_SOURCE'. (CMD-041)
+Information: Defining new variable 'corner'. (CMD-041)
+Information: Defining new variable 'lres'. (CMD-041)
+Information: Defining new variable 'PT_CONE_PROTECT'. (CMD-041)
+Information: Defining new variable 'rows'. (CMD-041)
+Information: Defining new variable 'herr'. (CMD-041)
+Information: Defining new variable 'cperr'. (CMD-041)
+Information: Defining new variable 'nchg'. (CMD-041)
+Information: Defining new variable 'PT_EXPECT_MAX_CAP'. (CMD-041)
+Information: Defining new variable 'PT_ECO_SETUP_MARGIN'. (CMD-041)
+Information: Defining new variable 'chk_file'. (CMD-041)
+Information: Defining new variable 'rows_before'. (CMD-041)
+Information: Defining new variable 'PT_ECO_EXTRA_CELLS'. (CMD-041)
+Information: Defining new variable 'pt_si_envl'. (CMD-041)
+Information: Defining new variable 'PT_ECO_STD_LEF'. (CMD-041)
+Information: Defining new variable 'PT_CONE_PRINT_NAMES'. (CMD-041)
+Information: Defining new variable 'PT_MAX_VIOLATED_DETAIL'. (CMD-041)
+Information: Defining new variable 'hits'. (CMD-041)
+Information: Defining new variable 'PT_SPEF_BASE'. (CMD-041)
+Information: Defining new variable 'PT_EXPECT_SETUP_UNC'. (CMD-041)
+Information: Defining new variable 'PT_VIOL_COLUMNS'. (CMD-041)
+Information: Defining new variable 'cerr'. (CMD-041)
+Information: Defining new variable 'is_clock'. (CMD-041)
+Information: Defining new variable 'PT_CONE_SAMPLE'. (CMD-041)
+Information: Defining new variable 'PT_ECO_LICENSE_TRIES'. (CMD-041)
+Information: Defining new variable 'clock_cells'. (CMD-041)
+Information: Defining new variable 'text'. (CMD-041)
+Information: Defining new variable 'PT_EXPECT_MAX_TRANSITION'. (CMD-041)
+Information: Defining new variable 'PT_OUT_DIR'. (CMD-041)
+Information: Defining new variable 'n_before'. (CMD-041)
+Information: Defining new variable 'PT_ECO_DEF'. (CMD-041)
+Information: Defining new variable 'PT_CONE_REPORT_PATHS'. (CMD-041)
+Information: Defining new variable 'last_pf'. (CMD-041)
+Information: Defining new variable 'PT_ECO_FILE_TEXT'. (CMD-041)
+
+Timing updates: 7 (1 implicit, 6 explicit) (1 incremental, 6 full, 0 logical)
+Noise updates: 0 (0 implicit, 0 explicit) (0 incremental, 0 full)
+Maximum memory usage for this session: 2904.96 MB
+CPU usage for this session: 40 seconds 
+Elapsed time for this session: 15 seconds
+Diagnostics summary: 2 errors, 7 warnings, 211 informationals
+
+Thank you for using pt_shell!
+[SCL] 11/11/2026 00:53:58 PID:37260 Client:lalita.iitg.ac.in checkin-incr Feature:PrimeTime Count:1 
+[SCL] 11/11/2026 00:53:58 PID:37260 Client:lalita.iitg.ac.in checkin-incr Feature:PrimeTime-SI Count:1 
+this API scl_mt_init() needs to be used with the threaded version of SCL library.

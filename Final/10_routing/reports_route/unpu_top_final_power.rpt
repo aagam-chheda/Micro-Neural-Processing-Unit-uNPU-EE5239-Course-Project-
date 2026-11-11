@@ -1,0 +1,77 @@
+[icc2-lic Tue Nov 10 20:21:49 2026] Command 'report_power' requires licenses
+[icc2-lic Tue Nov 10 20:21:49 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:21:49 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 20:21:49 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:21:49 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:21:49 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:21:49 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 20:21:49 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:21:49 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 20:21:49 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:21:49 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:21:49 2026] Check-out of alternate set of keys directly with queueing was successful
+****************************************
+Report : power
+        -significant_digits 2
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 20:21:49 2026
+****************************************
+Information: Activity propagation will be performed for scenario func_ss.
+Information: Doing activity propagation for mode 'mode_func' and corner 'corner_ss' with effort level 'medium'. (POW-024)
+Information: Timer-derived activity data is cached on scenario func_ss (POW-052)
+Infomation: Fast mode activity propagation power.rtl_activity_annotation setup is ignored. Always use accurate mode.
+Information: Running switching activity propagation in scalar mode!
+
+ **** Information : No. of simulation cycles = 6 ****
+Mode: mode_func
+Corner: corner_ss
+Scenario: func_ss
+Voltage: 1.62
+Temperature: 125.00
+
+Voltage Unit         : 1V
+Capacitance Unit     : 1pF
+Time Unit            : 1ns
+Temperature Unit     : 1C
+Dynamic Power Unit   : 1pW
+Leakage Power Unit   : 1pW
+
+Switched supply net power scaling:
+scaling for leakage power
+
+Supply nets:
+VDD (power) probability 1.00 (default)
+VSS (ground) probability 1.00 (default)
+
+  Cell Internal Power    = 6.47e+09 pW ( 76.8%)
+  Net Switching Power    = 1.96e+09 pW ( 23.2%)
+Total Dynamic Power      = 8.42e+09 pW (100.0%)
+
+Cell Leakage Power       = 6.78e+06 pW
+
+
+  Attributes
+  ----------
+      u  -  User defined power group
+      i  -  Includes clock pin internal power
+
+Power Group         Internal Power        Switching Power          Leakage Power            Total Power    (   %  )    Attrs
+-----------------------------------------------------------------------------------------------------------------------------
+io_pad                    0.00e+00               0.00e+00               0.00e+00               0.00e+00    (  0.0%)         
+memory                    0.00e+00               0.00e+00               0.00e+00               0.00e+00    (  0.0%)         
+black_box                 0.00e+00               0.00e+00               0.00e+00               0.00e+00    (  0.0%)         
+clock_network             6.43e+09               1.75e+09               1.32e+05               8.18e+09    ( 97.1%)        i
+register                  1.20e+07               2.13e+05               2.35e+06               1.45e+07    (  0.2%)         
+sequential                0.00e+00               0.00e+00               0.00e+00               0.00e+00    (  0.0%)         
+combinational             2.52e+07               2.02e+08               4.29e+06               2.32e+08    (  2.8%)         
+-----------------------------------------------------------------------------------------------------------------------------
+Total                     6.47e+09 pW            1.96e+09 pW            6.78e+06 pW            8.43e+09 pW
+1

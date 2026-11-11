@@ -1,0 +1,12 @@
+#define 4M1L
+// 082: RELATIVE on purpose (VERIFY V18: Calibre resolves LAYOUT PATH from the folder it is started in, like SOURCE PATH / MASK SVDB DIRECTORY). Start it from <RUN_DIR>/pnr_icc2/calibre/run1/ant/ (README step 2): ../../../outputs is then THIS clone's pnr_icc2/outputs, never another clone's.
+LAYOUT PATH "../../../outputs_route2/unpu_top_routed.gds"
+LAYOUT PRIMARY "unpu_top"
+LAYOUT SYSTEM GDSII
+DRC SUMMARY REPORT "unpu_top.ant.rpt" REPLACE HIER
+DRC RESULTS DATABASE "unpu_top.ant.db" ASCII
+DRC MAXIMUM RESULTS ALL
+DRC MAXIMUM VERTEX ALL
+DRC CELL NAME YES CELL SPACE XFORM
+DRC ICSTATION YES
+INCLUDE "/storage/EE5239G1/aagams_workspace/calibre_run/scr/ANTENNA_TS18SL_SCL_CALIBRE"

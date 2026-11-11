@@ -1,0 +1,555 @@
+
+
+
+                  ##################################################
+                  ##                                              ##
+                  ##         C A L I B R E    S Y S T E M         ##
+                  ##                                              ##
+                  ##             L V S   R E P O R T              ##
+                  ##                                              ##
+                  ##################################################
+
+
+
+REPORT FILE NAME:         unpu_top.lvs.rpt
+LAYOUT NAME:              svdb/unpu_top.sp ('unpu_top')
+SOURCE NAME:              unpu_top.sp ('unpu_top')
+RULE FILE:                lvs.ctrl
+CREATION TIME:            Wed Nov 11 03:40:18 2026
+CURRENT DIRECTORY:        /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/calibre/final3/lvs
+USER NAME:                EE5239G1
+CALIBRE VERSION:          v2022.4_37.20    Fri Dec 2 17:43:09 PST 2022
+
+
+
+                               OVERALL COMPARISON RESULTS
+
+
+
+                         #       ###################       _   _   
+                        #        #                 #       *   *   
+                   #   #         #     CORRECT     #         |     
+                    # #          #                 #       \___/  
+                     #           ###################               
+
+
+  Warning:  Ambiguity points were found and resolved arbitrarily.
+
+
+**************************************************************************************************************
+                                      CELL  SUMMARY
+**************************************************************************************************************
+
+  Result         Layout                        Source
+  -----------    -----------                   --------------
+  CORRECT        unpu_top                      unpu_top
+
+
+
+**************************************************************************************************************
+                                      LVS PARAMETERS
+**************************************************************************************************************
+
+
+o LVS Setup:
+
+   // LVS COMPONENT TYPE PROPERTY
+   // LVS COMPONENT SUBTYPE PROPERTY
+   // LVS PIN NAME PROPERTY
+   LVS POWER NAME                         "VDD" "vdd" "VCC" "vcc" "VDDD" "VDD!" "vdd!" "VCC!" "vcc!" "AVDD" "DVDD"
+   LVS GROUND NAME                        "GND" "gnd" "VSS" "vss" "GNDD" "GND!" "gnd!" "VSS!" "vss!" "AVSS" "DVSS"
+   LVS CELL SUPPLY                        NO
+   LVS RECOGNIZE GATES                    ALL
+   // LVS HCELL REPORT
+   LVS IGNORE PORTS                       YES
+   LVS CHECK PORT NAMES                   YES
+   LVS IGNORE TRIVIAL NAMED PORTS         NO
+   LVS BUILTIN DEVICE PIN SWAP            YES
+   LVS ALL CAPACITOR PINS SWAPPABLE       NO
+   LVS DISCARD PINS BY DEVICE             NO
+   LVS SOFT SUBSTRATE PINS                NO
+   LVS INJECT LOGIC                       YES
+   LVS EXPAND UNBALANCED CELLS            YES
+   LVS FLATTEN INSIDE CELL                NO
+   LVS EXPAND SEED PROMOTIONS             NO
+   LVS PRESERVE PARAMETERIZED CELLS       NO
+   LVS GLOBALS ARE PORTS                  YES
+   LVS RELAX INITIAL CPOINTS              NONE
+   LVS REVERSE WL                         NO
+   // LVS NETLIST FILTER DEVICES          NO
+   // LVS PRESERVE BOX PORTS              NO
+   LVS SPICE PREFER PINS                  NO
+   LVS SPICE SLASH IS SPACE               YES
+   LVS SPICE ALLOW FLOATING PINS          YES
+   // LVS SPICE ALLOW INLINE PARAMETERS     
+   LVS SPICE ALLOW UNQUOTED STRINGS       NO
+   LVS SPICE CONDITIONAL LDD              NO
+   LVS SPICE CULL PRIMITIVE SUBCIRCUITS   NO
+   // LVS SPICE EXCLUDE CELL SOURCE
+   // LVS SPICE EXCLUDE CELL LAYOUT
+   LVS SPICE IMPLIED MOS AREA             NO
+   // LVS SPICE MULTIPLIER NAME
+   LVS SPICE OVERRIDE GLOBALS             NO
+   LVS SPICE REDEFINE PARAM               NO
+   LVS SPICE REPLICATE DEVICES            YES
+   LVS SPICE SCALE X PARAMETERS           NO
+   LVS SPICE STRICT WL                    NO
+   // LVS SPICE OPTION
+   LVS STRICT SUBTYPES                    NO
+   LVS EXACT SUBTYPES                     NO
+   LAYOUT CASE                            NO
+   SOURCE CASE                            NO
+   LVS COMPARE CASE                       NO
+   LVS COMPARE CASE STRICT                NO
+   LVS DOWNCASE DEVICE                    NO
+   LVS REPORT MAXIMUM                     2000
+   LVS PROPERTY RESOLUTION MAXIMUM        32
+   // LVS SIGNATURE MAXIMUM
+   LVS FILTER UNUSED OPTION               AB RC RE RG
+   LVS REPORT OPTION                      S
+   LVS REPORT UNITS                       YES
+   LVS SWAPPABLE HCELL PINS               GENERAL
+   // LVS NON USER NAME PORT
+   // LVS NON USER NAME NET
+   // LVS NON USER NAME INSTANCE
+   // LVS IGNORE DEVICE PIN
+   // LVS PREFER NETS FILTER SOURCE
+   // LVS PREFER NETS FILTER LAYOUT
+   LVS PREFER PORT NETS                   NO
+   LVS EXPAND ON ERROR                    NO
+   LVS EXPAND AMBIGUOUSLY HIGH SHORTED HCELLS NO
+
+   // Reduction
+
+   LVS REDUCE SERIES MOS                  NO
+   LVS REDUCE PARALLEL MOS                YES
+   LVS REDUCE SEMI SERIES MOS             NO
+   LVS REDUCE SPLIT GATES                 YES
+   LVS REDUCE PARALLEL BIPOLAR            YES
+   LVS REDUCE SERIES CAPACITORS           NO
+   LVS REDUCE PARALLEL CAPACITORS         NO
+   LVS REDUCE SERIES RESISTORS            YES
+   LVS REDUCE PARALLEL RESISTORS          YES
+   LVS REDUCE PARALLEL DIODES             YES
+
+   LVS REDUCE  Q(VD)  PARALLEL
+   LVS REDUCE  Q(VD5)  PARALLEL
+   LVS REDUCE  Q(VD10)  PARALLEL
+   LVS REDUCE  Q(VH)  PARALLEL
+   LVS REDUCE  Q(VH5)  PARALLEL
+   LVS REDUCE  Q(VH10)  PARALLEL
+   LVS REDUCE  Q(VDN5)  PARALLEL
+   LVS REDUCE  C(CL)  PARALLEL
+   LVS REDUCE  C(CH)  PARALLEL
+   LVS REDUCE  C(CH3)  PARALLEL
+   LVS REDUCE  C(ch53t)  PARALLEL
+   LVS REDUCE  C(CL3)  PARALLEL
+   LVS REDUCE  C(CB)  PARALLEL
+   LVS REDUCE  C(cmim_hc)  PARALLEL
+   LVS REDUCE  C(cmim_uhd)  PARALLEL
+   LVS REDUCE  C(cmim_stk)  PARALLEL
+   LVS REDUCE  C(cmim_uhdstk)  PARALLEL
+   LVS REDUCE  D(W3)  PARALLEL NO
+   LVS REDUCE  D(DW)  PARALLEL NO
+   LVS REDUCE  MN(NH)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MN(N5)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MN(N)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MN(n18hvt)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MN(n18lvt)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MP(P)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MP(p18hvt)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MP(p18lvt)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MP(PH)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  MP(P5)  PARALLEL [ TOLERANCE rf_flag 0 ]
+   LVS REDUCE  dwn2psub  PARALLEL
+   LVS REDUCTION PRIORITY                 PARALLEL
+   
+   LVS SHORT EQUIVALENT NODES             NO
+
+   // Filter
+
+   LVS FILTER  D(dwn2psub)  OPEN
+
+   // Trace Property
+
+   TRACE PROPERTY  mp  w w 3
+   TRACE PROPERTY  mp  l l 3
+   TRACE PROPERTY  mn  w w 3
+   TRACE PROPERTY  mn  l l 3
+   TRACE PROPERTY  c(cl)  w w 3
+   TRACE PROPERTY  c(cl)  l l 3
+   TRACE PROPERTY  c(cl3)  w w 3
+   TRACE PROPERTY  c(cl3)  l l 3
+   TRACE PROPERTY  c(ch)  w w 3
+   TRACE PROPERTY  c(ch)  l l 3
+   TRACE PROPERTY  c(ch3)  w w 3
+   TRACE PROPERTY  c(ch3)  l l 3
+   TRACE PROPERTY  c(ch53t)  w w 3
+   TRACE PROPERTY  c(ch53t)  l l 3
+   TRACE PROPERTY  r(rl)  r r 10
+   TRACE PROPERTY  r(rt)  r r 10
+   TRACE PROPERTY  r(rt3)  r r 10
+   TRACE PROPERTY  r(ra)  r r 10
+   TRACE PROPERTY  r(rb)  r r 10
+   TRACE PROPERTY  r(rc)  r r 10
+   TRACE PROPERTY  r(rd)  r r 10
+   TRACE PROPERTY  r(re)  r r 10
+   TRACE PROPERTY  r(rg)  r r 10
+   TRACE PROPERTY  r(rh)  r r 10
+   TRACE PROPERTY  r(rw)  r r 10
+   TRACE PROPERTY  r(rf)  r r 10
+   TRACE PROPERTY  r(rk)  r r 10
+   TRACE PROPERTY  r(rm)  r r 10
+   TRACE PROPERTY  r(r1)  r r 10
+   TRACE PROPERTY  r(r2)  r r 10
+   TRACE PROPERTY  r(rb3)  r r 10
+   TRACE PROPERTY  r(ra3)  r r 10
+   TRACE PROPERTY  r(rc3)  r r 10
+   TRACE PROPERTY  r(mr2)  r r 10
+   TRACE PROPERTY  r(mr22t)  r r 10
+   TRACE PROPERTY  r(mr33t)  r r 10
+   TRACE PROPERTY  r(rd3)  r r 10
+   TRACE PROPERTY  r(r2d3)  r r 10
+   TRACE PROPERTY  r(re3)  r r 10
+   TRACE PROPERTY  r(rg3)  r r 10
+   TRACE PROPERTY  r(rh3)  r r 10
+   TRACE PROPERTY  r(rw3)  r r 10
+   TRACE PROPERTY  r(rf3)  r r 10
+   TRACE PROPERTY  r(rk3)  r r 10
+   TRACE PROPERTY  r(rm3)  r r 10
+   TRACE PROPERTY  r(r3)  r r 10
+   TRACE PROPERTY  c(cb)  c c 6
+   TRACE PROPERTY  c(cmim_hc)  c c 6
+   TRACE PROPERTY  c(cmim_uhd)  c c 6
+   TRACE PROPERTY  c(cmim_stk)  c c 6
+   TRACE PROPERTY  c(cmim_uhdstk)  c c 6
+   TRACE PROPERTY  c(cm32t)  l l 3
+   TRACE PROPERTY  c(cm32t)  nf nf 0
+   TRACE PROPERTY  c(cm33t)  l l 3
+   TRACE PROPERTY  c(cm33t)  nf nf 0
+   TRACE PROPERTY  c(usgcm32t)  l l 3
+   TRACE PROPERTY  c(usgcm32t)  nf nf 0
+   TRACE PROPERTY  c(usgcm33t)  l l 3
+   TRACE PROPERTY  c(usgcm33t)  nf nf 0
+   TRACE PROPERTY  d(ns)  a a 10
+   TRACE PROPERTY  d(dn)  a a 10
+   TRACE PROPERTY  d(n3)  a a 10
+   TRACE PROPERTY  d(dn50)  a a 10
+   TRACE PROPERTY  d(ps)  a a 10
+   TRACE PROPERTY  d(dp)  a a 10
+   TRACE PROPERTY  d(p3)  a a 10
+   TRACE PROPERTY  d(dp50)  a a 10
+   TRACE PROPERTY  d(nwldio_nc)  a a 10
+   TRACE PROPERTY  d(ns)  p p 10
+   TRACE PROPERTY  d(dn)  p p 10
+   TRACE PROPERTY  d(n3)  p p 10
+   TRACE PROPERTY  d(dn50)  p p 10
+   TRACE PROPERTY  d(ps)  p p 10
+   TRACE PROPERTY  d(dp)  p p 10
+   TRACE PROPERTY  d(p3)  p p 10
+   TRACE PROPERTY  d(dp50)  p p 10
+   TRACE PROPERTY  d(nwldio_nc)  p p 10
+   TRACE PROPERTY  q(vd)  m m 0
+   TRACE PROPERTY  q(vd5)  m m 0
+   TRACE PROPERTY  q(vd10)  m m 0
+   TRACE PROPERTY  q(vh)  m m 0
+   TRACE PROPERTY  q(vh5)  m m 0
+   TRACE PROPERTY  q(vh10)  m m 0
+   TRACE PROPERTY  q(vdn5)  m m 0
+   TRACE PROPERTY  q(vpnp18_s)  a a 10
+   TRACE PROPERTY  q(vpnp33_s)  a a 10
+   TRACE PROPERTY  q(vnpn18_s)  a a 10
+   TRACE PROPERTY  q(vpnp18_s)  p p 10
+   TRACE PROPERTY  q(vpnp33_s)  p p 10
+   TRACE PROPERTY  q(vnpn18_s)  p p 10
+   TRACE PROPERTY  mn(nh)  w w 3
+   TRACE PROPERTY  mn(nh)  l l 3
+   TRACE PROPERTY  mn(n5)  w w 3
+   TRACE PROPERTY  mn(n5)  l l 3
+   TRACE PROPERTY  mn(n)  w w 3
+   TRACE PROPERTY  mn(n)  l l 3
+   TRACE PROPERTY  mn(n18hvt)  w w 3
+   TRACE PROPERTY  mn(n18hvt)  l l 3
+   TRACE PROPERTY  mn(n18lvt)  w w 3
+   TRACE PROPERTY  mn(n18lvt)  l l 3
+   TRACE PROPERTY  mp(p)  w w 3
+   TRACE PROPERTY  mp(p)  l l 3
+   TRACE PROPERTY  mp(p18hvt)  w w 3
+   TRACE PROPERTY  mp(p18hvt)  l l 3
+   TRACE PROPERTY  mp(p18lvt)  w w 3
+   TRACE PROPERTY  mp(p18lvt)  l l 3
+   TRACE PROPERTY  mp(ph)  w w 3
+   TRACE PROPERTY  mp(ph)  l l 3
+   TRACE PROPERTY  mp(p5)  w w 3
+   TRACE PROPERTY  mp(p5)  l l 3
+   TRACE PROPERTY  d(dnpwcpl18)  a a 10
+   TRACE PROPERTY  d(dnpwcpl18)  p p 10
+   TRACE PROPERTY  d(dnpwcpl5)  a a 10
+   TRACE PROPERTY  d(dnpwcpl5)  p p 10
+   TRACE PROPERTY  d(dpnwcpl18)  a a 10
+   TRACE PROPERTY  d(dpnwcpl18)  p p 10
+   TRACE PROPERTY  d(dpnwcpl5)  a a 10
+   TRACE PROPERTY  d(dpnwcpl5)  p p 10
+
+
+
+                   CELL COMPARISON RESULTS ( TOP LEVEL )
+
+
+
+                         #       ###################       _   _   
+                        #        #                 #       *   *   
+                   #   #         #     CORRECT     #         |     
+                    # #          #                 #       \___/  
+                     #           ###################               
+
+
+  Warning:  Ambiguity points were found and resolved arbitrarily.
+
+LAYOUT CELL NAME:         unpu_top
+SOURCE CELL NAME:         unpu_top
+
+--------------------------------------------------------------------------------------------------------------
+
+INITIAL NUMBERS OF OBJECTS
+--------------------------
+
+                Layout    Source         Component Type
+                ------    ------         --------------
+ Nets:           95262     95651    *
+
+ Instances:     100793    100547    *    MN (4 pins)
+                102751    102406    *    MP (4 pins)
+                    76         0    *    D (2 pins)
+                ------    ------
+ Total Inst:    203620    202953
+
+
+NUMBERS OF OBJECTS AFTER TRANSFORMATION
+---------------------------------------
+
+                Layout    Source         Component Type
+                ------    ------         --------------
+ Nets:           44559     44559
+
+ Instances:        182       182         MN (4 pins)
+                   830       830         MP (4 pins)
+                  2508      2508         SPDW_2_1 (4 pins)
+                     4         4         SPDW_2_1_1 (5 pins)
+                  1274      1274         SPDW_2_2 (5 pins)
+                     4         4         SPDW_2_2_1 (6 pins)
+                    30        30         SPDW_2_2_2 (7 pins)
+                  1699      1699         SPDW_3_1 (5 pins)
+                     1         1         SPDW_3_2_1 (7 pins)
+                  1881      1881         SPUP_2_1 (4 pins)
+                     1         1         SPUP_2_1_1 (5 pins)
+                  1175      1175         SPUP_2_2 (5 pins)
+                     3         3         SPUP_2_2_1 (6 pins)
+                    33        33         SPUP_2_2_2 (7 pins)
+                  1698      1698         SPUP_3_1 (5 pins)
+                     3         3         SPUP_3_2_2 (8 pins)
+                     8         8         SPMN((2+1)*1) (6 pins)
+                     2         2         SPMP((2+1)*1) (6 pins)
+                  9860      9860         _invb (6 pins)
+                 19319     19319         _invv (4 pins)
+                  1324      1324         _invx2v (4 pins)
+                    78        78         _invx3v (4 pins)
+                  1078      1078         _invx4v (4 pins)
+                  1083      1083         _invx5v (4 pins)
+                   346       346         _invx6v (4 pins)
+                    25        25         _invx7v (4 pins)
+                     1         1         _invx9v (4 pins)
+                  6244      6244         _nand2v (5 pins)
+                    91        91         _nand3v (6 pins)
+                     4         4         _nand4v (7 pins)
+                  1433      1433         _nor2v (5 pins)
+                    26        26         _nor3v (6 pins)
+                     4         4         _nor4v (7 pins)
+                  4813      4813         _sdw2v (4 pins)
+                  1705      1705         _smn3v (5 pins)
+                  1704      1704         _smp3v (5 pins)
+                  5635      5635         _sup2v (4 pins)
+                   720       720         _tgmb (7 pins)
+                    18        18         _xnori2v (5 pins)
+                   570       570         _xori2v (5 pins)
+                     1         1         _xr2v (5 pins)
+                     1         1         _xra2v (5 pins)
+                ------    ------
+ Total Inst:     67419     67419
+
+
+       * = Number of objects in layout different from number in source.
+
+
+
+**************************************************************************************************************
+                               INFORMATION AND WARNINGS
+**************************************************************************************************************
+
+
+                  Matched    Matched    Unmatched    Unmatched    Component
+                   Layout     Source       Layout       Source    Type
+                  -------    -------    ---------    ---------    ---------
+   Nets:            44559      44559            0            0
+
+   Instances:         182        182            0            0    MN(N)
+                      830        830            0            0    MP(P)
+                     2508       2508            0            0    SPDW_2_1
+                        4          4            0            0    SPDW_2_1_1
+                     1274       1274            0            0    SPDW_2_2
+                        4          4            0            0    SPDW_2_2_1
+                       30         30            0            0    SPDW_2_2_2
+                     1699       1699            0            0    SPDW_3_1
+                        1          1            0            0    SPDW_3_2_1
+                     1881       1881            0            0    SPUP_2_1
+                        1          1            0            0    SPUP_2_1_1
+                     1175       1175            0            0    SPUP_2_2
+                        3          3            0            0    SPUP_2_2_1
+                       33         33            0            0    SPUP_2_2_2
+                     1698       1698            0            0    SPUP_3_1
+                        3          3            0            0    SPUP_3_2_2
+                        8          8            0            0    SPMN((2+1)*1)
+                        2          2            0            0    SPMP((2+1)*1)
+                     9860       9860            0            0    _invb
+                    19319      19319            0            0    _invv
+                     1324       1324            0            0    _invx2v
+                       78         78            0            0    _invx3v
+                     1078       1078            0            0    _invx4v
+                     1083       1083            0            0    _invx5v
+                      346        346            0            0    _invx6v
+                       25         25            0            0    _invx7v
+                        1          1            0            0    _invx9v
+                     6244       6244            0            0    _nand2v
+                       91         91            0            0    _nand3v
+                        4          4            0            0    _nand4v
+                     1433       1433            0            0    _nor2v
+                       26         26            0            0    _nor3v
+                        4          4            0            0    _nor4v
+                     4813       4813            0            0    _sdw2v
+                     1705       1705            0            0    _smn3v
+                     1704       1704            0            0    _smp3v
+                     5635       5635            0            0    _sup2v
+                      720        720            0            0    _tgmb
+                       18         18            0            0    _xnori2v
+                      570        570            0            0    _xori2v
+                        1          1            0            0    _xr2v
+                        1          1            0            0    _xra2v
+                  -------    -------    ---------    ---------
+   Total Inst:      67419      67419            0            0
+
+
+o Statistics:
+
+   22 isolated layout nets were found.
+   22 isolated source nets were found.
+
+   149 source nets were deep shorted to 6.
+
+   76 layout instances were filtered and their pins removed from adjoining nets.
+
+   6425 layout mos transistors were reduced to 2767.  34 connecting nets were deleted.
+     3599 mos transistors were deleted by parallel reduction.
+     59 mos transistors and 34 connecting nets were deleted by split-gate reduction.
+   5616 source mos transistors were reduced to 2549.  34 connecting nets were deleted.
+     3008 mos transistors were deleted by parallel reduction.
+     59 mos transistors and 34 connecting nets were deleted by split-gate reduction.
+
+   119 source nets had all their pins removed and were deleted.
+
+   21 nets were matched arbitrarily.
+
+
+o Isolated Layout Nets:
+
+      (Layout nets which are not connected to any instances or ports).
+
+   PADDR[18] PADDR[20] PADDR[22] PADDR[24] PADDR[26] PADDR[28] PADDR[30] PADDR[0] PADDR[12]
+   PADDR[14] PADDR[16] PADDR[1] PADDR[31] PADDR[29] PADDR[27] PADDR[25] PADDR[23] PADDR[21]
+   PADDR[19] PADDR[17] PADDR[15] PADDR[13]
+
+
+o Isolated Source Nets:
+
+      (Source nets which are not connected to any instances or ports).
+
+   PADDR[0] PADDR[1] PADDR[12] PADDR[13] PADDR[14] PADDR[15] PADDR[16] PADDR[17] PADDR[18]
+   PADDR[19] PADDR[20] PADDR[21] PADDR[22] PADDR[23] PADDR[24] PADDR[25] PADDR[26] PADDR[27]
+   PADDR[28] PADDR[29] PADDR[30] PADDR[31]
+
+
+o Initial Correspondence Points:
+
+   Nets:         VDD VSS PRDATA[3] PRDATA[23] PRDATA[13] PRDATA[2] PRDATA[27] PWDATA[11]
+                 PRDATA[11] PWDATA[8] DMA_ADDR[31] DMA_ADDR[29] DMA_ADDR[27] DMA_ADDR[25]
+                 DMA_ADDR[23] DMA_ADDR[21] DMA_ADDR[19] DMA_ADDR[17] DMA_ADDR[15] DMA_ADDR[13]
+                 DMA_ADDR[11] DMA_ADDR[9] DMA_ADDR[7] DMA_ADDR[5] DMA_ADDR[3] DMA_ADDR[1]
+                 DMA_WDATA[31] DMA_WDATA[29] DMA_WDATA[27] DMA_WDATA[25] DMA_WDATA[23]
+                 DMA_WDATA[21] DMA_WDATA[19] DMA_WDATA[17] DMA_WDATA[15] DMA_WDATA[13]
+                 DMA_WDATA[11] DMA_WDATA[9] DMA_WDATA[7] DMA_WDATA[5] DMA_WDATA[3] DMA_WDATA[1]
+                 DMA_RDATA[31] DMA_RDATA[29] DMA_RDATA[27] DMA_RDATA[25] DMA_RDATA[23]
+                 DMA_RDATA[21] DMA_RDATA[19] DMA_RDATA[17] DMA_RDATA[15] DMA_RDATA[13]
+                 DMA_RDATA[11] DMA_RDATA[9] DMA_RDATA[7] DMA_RDATA[5] DMA_RDATA[3] DMA_RDATA[1]
+                 DMA_WSTRB[3] DMA_WSTRB[1] DMA_VALID DMA_READY DMA_WSTRB[0] DMA_WSTRB[2]
+                 DMA_RDATA[0] DMA_RDATA[2] DMA_RDATA[4] DMA_RDATA[6] DMA_RDATA[8] DMA_RDATA[10]
+                 DMA_RDATA[12] DMA_RDATA[14] DMA_RDATA[16] DMA_RDATA[18] DMA_RDATA[20]
+                 DMA_RDATA[22] DMA_RDATA[24] DMA_RDATA[26] DMA_RDATA[28] DMA_RDATA[30]
+                 DMA_WDATA[0] DMA_WDATA[2] DMA_WDATA[4] DMA_WDATA[6] DMA_WDATA[8] DMA_WDATA[10]
+                 DMA_WDATA[12] DMA_WDATA[14] DMA_WDATA[16] DMA_WDATA[18] DMA_WDATA[20]
+                 DMA_WDATA[22] DMA_WDATA[24] DMA_WDATA[26] DMA_WDATA[28] DMA_WDATA[30]
+                 DMA_ADDR[0] DMA_ADDR[2] DMA_ADDR[4] DMA_ADDR[6] DMA_ADDR[8] DMA_ADDR[10]
+                 DMA_ADDR[12] DMA_ADDR[14] DMA_ADDR[16] DMA_ADDR[18] DMA_ADDR[20] DMA_ADDR[22]
+                 DMA_ADDR[24] DMA_ADDR[26] DMA_ADDR[28] DMA_ADDR[30] PADDR[9] PADDR[11] PADDR[5]
+                 PWDATA[13] PADDR[3] PRDATA[4] PRDATA[26] PRDATA[20] PRDATA[9] PRDATA[22]
+                 PRDATA[5] PRDATA[0] PRDATA[7] PRDATA[25] PRDATA[15] PRDATA[19] PRDATA[21]
+                 PRDATA[17] PRDATA[29] PRDATA[31] PWDATA[20] PWDATA[18] PADDR[7] CLK PWDATA[17]
+                 PWDATA[15] PWDATA[19] PWDATA[21] PWDATA[23] PWDATA[25] PWDATA[27] PWDATA[29]
+                 PWDATA[31] PRDATA[24] PRDATA[28] PRDATA[30] PENABLE PWRITE PWDATA[1] PWDATA[3]
+                 PWDATA[5] PWDATA[7] PWDATA[9] PRDATA[1] PREADY PRDATA[6] PRDATA[8] PRDATA[10]
+                 PRDATA[12] PRDATA[14] PRDATA[16] PRDATA[18] PWDATA[6] PWDATA[4] PWDATA[2]
+                 PWDATA[0] PSEL PWDATA[22] PWDATA[16] PWDATA[14] PWDATA[12] PWDATA[10] PADDR[10]
+                 PADDR[8] PADDR[6] PADDR[4] PADDR[2] PWDATA[30] PWDATA[28] PWDATA[26] PWDATA[24]
+                 RST_N
+
+
+o Ambiguity Resolution Points:
+
+      (Each one of the following objects belongs to a group of indistinguishable objects.
+       The listed objects were matched arbitrarily by the Ambiguity Resolution feature of LVS.
+       Arbitrary matching may be prevented by assigning names to these objects or to adjacent nets).
+
+       Layout                                                    Source
+       ------                                                    ------
+
+                                     Nets
+                                     ----
+
+       PADDR[13]                                                 PADDR[31]
+       PADDR[15]                                                 PADDR[30]
+       PADDR[17]                                                 PADDR[29]
+       PADDR[19]                                                 PADDR[28]
+       PADDR[21]                                                 PADDR[27]
+       PADDR[23]                                                 PADDR[26]
+       PADDR[25]                                                 PADDR[25]
+       PADDR[27]                                                 PADDR[24]
+       PADDR[29]                                                 PADDR[23]
+       PADDR[31]                                                 PADDR[22]
+       PADDR[1]                                                  PADDR[21]
+       PADDR[16]                                                 PADDR[20]
+       PADDR[14]                                                 PADDR[19]
+       PADDR[12]                                                 PADDR[18]
+       PADDR[0]                                                  PADDR[17]
+       PADDR[30]                                                 PADDR[16]
+       PADDR[28]                                                 PADDR[15]
+       PADDR[26]                                                 PADDR[14]
+       PADDR[24]                                                 PADDR[13]
+       PADDR[22]                                                 PADDR[12]
+       PADDR[20]                                                 PADDR[1]
+
+
+
+**************************************************************************************************************
+                                         SUMMARY
+**************************************************************************************************************
+
+Total CPU Time:      1 sec
+Total Elapsed Time:  1 sec

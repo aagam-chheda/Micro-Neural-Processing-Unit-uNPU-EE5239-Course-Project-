@@ -1,0 +1,72 @@
+****************************************
+Report : clock
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 23:43:30 2026
+****************************************
+
+Attributes:
+    p - Propagated clock
+    G - Generated  clock
+    I - Inactive   clock
+
+Clock             Period          Waveform            Attrs     Sources
+-----------------------------------------------------------------------
+clk                20.00          {0 10}              p         {clk}
+
+****************************************
+Report : clock_skew
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 23:43:30 2026
+****************************************
+
+              Min Rise  Min Fall  Max Rise  Max Fall     Hold          Setup        Related
+Object          Delay     Delay     Delay     Delay   Uncertainty   Uncertainty      Clock
+-----------------------------------------------------------------------------------------------
+clk                 -         -         -         -      0.50          1.50           -- 
+
+              Min Rise  Min Fall  Max Rise  Max Fall
+Object          Transition   Transition   Transition   Transition
+--------------------------------------------------------------------------------
+clk              0.60      0.60      0.60      0.60
+
+****************************************
+Report : clock timing
+	-type latency
+	-launch
+	-nworst 1
+	-setup
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 23:43:30 2026
+****************************************
+
+  Clock: clk
+
+                                                   --- Latency ---
+  Clock Pin                            Trans   Source  Network Total
+----------------------------------------------------------------------------
+  u_grid/g_row_1__g_col_1__pe/psum_out_reg_10_/CP
+                                       0.17    0.00    0.56    0.56    rp-+
+----------------------------------------------------------------------------
+
+****************************************
+Report : clock timing
+	-type skew
+	-nworst 1
+	-setup
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Tue Nov 10 23:43:30 2026
+****************************************
+
+  Clock: clk
+
+  Clock Pin                                    Latency  CRP    Skew
+----------------------------------------------------------------------------
+  u_deskew/col1_q2_reg_12_/CP                  0.54                    rp-+
+  u_seq/c_dst_reg_1__1__12_/CP                 0.24    -0.00   0.30    rp-+
+----------------------------------------------------------------------------
+
+0

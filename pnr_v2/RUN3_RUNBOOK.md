@@ -238,7 +238,7 @@ icc2_shell -f ../pnr_v2/pv.tcl < /dev/null |& tee pv_console.log
 
 ## 11. Final sign-off views and Calibre `final4`
 
-- **Commit:** 779283a (PrimeTime scripts unchanged since 6970448). **Env:** none for SI OFF; `UNPU_PT_SI=1` for SI ON; `UNPU_PT_SDC=legacy` for the legacy view.
+- **Commit:** 779283a for the ICC2 side; the PrimeTime scripts in force were `pt_common.tcl` and the probes from 65ff234 (2026-11-11 00:24: `pt_common.tcl` changed there, after the annotation-parser fix 6970448 of 23:52) and `pt_setup_ss.tcl` / `pt_hold_ff.tcl` from ec39550 (inferred from commit times; `Final/14_signoff_primetime/README.md` lists the as-run commit per file). **Env:** none for SI OFF; `UNPU_PT_SI=1` for SI ON; `UNPU_PT_SDC=legacy` for the legacy view.
 ```
 mkdir -p $RUN_DIR/pnr_icc2/pt
 cd $RUN_DIR/pnr_icc2/pt

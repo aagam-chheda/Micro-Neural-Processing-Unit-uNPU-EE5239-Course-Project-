@@ -1,0 +1,73 @@
+[icc2-lic Tue Nov 10 20:21:23 2026] Command 'update_timing' requires licenses
+[icc2-lic Tue Nov 10 20:21:23 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:21:23 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 20:21:23 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:21:23 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:21:23 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:21:23 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 20:21:23 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:21:23 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 20:21:23 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:21:23 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:21:23 2026] Check-out of alternate set of keys directly with queueing was successful
+Information: Starting 'update_timing' (FLW-8000)
+Information: Time: 2026-11-10 20:21:23 / Session: 0.01 hr / Command: 0.00 hr / Memory: 867 MB (FLW-8100)
+Information: The net parasitics of block unpu_top are cleared. (TIM-123)
+Information: Corner corner_ff: no PVT mismatches. (PVT-032)
+Information: Corner corner_ss: no PVT mismatches. (PVT-032)
+Information: The stitching and editing of coupling caps is turned ON for design 'unpu_top.dlib:unpu_top_pv_route.design'. (TIM-125)
+Information: Design unpu_top_pv_route has 16563 nets, 0 global routed, 16561 detail routed. (NEX-024)
+Information: The RC mode used is DR for design 'unpu_top'. (NEX-022)
+---extraction options---
+Corner: corner_ss
+ late_cap_scale                : 1
+ late_res_scale                : 1
+ late_ccap_scale               : 1
+ early_cap_scale               : 1
+ early_res_scale               : 1
+ early_ccap_scale              : 1
+Corner: corner_ff
+ late_cap_scale                : 1
+ late_res_scale                : 1
+ late_ccap_scale               : 1
+ early_cap_scale               : 1
+ early_res_scale               : 1
+ early_ccap_scale              : 1
+Global options:
+ late_ccap_threshold       : 0.003 pF
+ late_ccap_ratio           : 0.03
+ reference_direction       : use_from_tluplus
+ real_metalfill_extraction : none
+ virtual_shield_extraction : true
+---app options---
+ host.max_cores                   : 1
+ extract.connect_open           : true
+ extract.enable_coupling_cap    : true
+Extracting design: unpu_top_pv_route 
+Information: coupling capacitance is created explicitly. (NEX-029)
+Information: 16561 nets are successfully extracted. (NEX-028)
+Warning: Advanced receiver model has not been enabled for detailed routed design. (TIM-204)
+Information: Update timing completed net estimation for all the timing graph nets (TIM-111)
+Information: Net estimation statistics: timing graph nets = 16561, routed nets = 16561, across physical hierarchy nets = 0, parasitics cached nets = 16561, delay annotated nets = 0, parasitics annotated nets = 0, multi-voltage nets = 0. (TIM-112)
+Information: Freeing timing information from routing. (ZRT-574)
+************************************************************
+Timer Settings:
+Delay Calculation Style:                   auto
+Signal Integrity Analysis:                 enabled
+Timing Window Analysis:                    enabled
+Advanced Waveform Propagation:             disabled
+Variation Type:                            fixed_derate
+Clock Reconvergence Pessimism Removal:     disabled
+Advanced Receiver Model:                   disabled
+ML Acceleration:                           off
+************************************************************
+Information: Ending 'update_timing' (FLW-8001)
+Information: Time: 2026-11-10 20:21:34 / Session: 0.01 hr / Command: 0.00 hr / Memory: 867 MB (FLW-8100)
+1

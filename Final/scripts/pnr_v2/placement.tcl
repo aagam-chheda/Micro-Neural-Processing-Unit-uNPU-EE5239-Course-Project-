@@ -1,0 +1,77 @@
+# ==============================================================================
+# Script: placement.tcl
+# Path  : <RUN_DIR>/pnr_v2/placement.tcl   ;# 063 E1: new path
+# Stage : Standard Cell Placement, HFNS & Timing Optimization
+# Tool  : Synopsys ICC2 (U-2022.12-SP3)
+# ==============================================================================
+
+set DESIGN_NAME "unpu_top"   ;# 063 E2: design name
+set UNPU_ERR ""   ;# 082: the run root is derived from where this script lives (pnr_v2/run_root.tcl), never typed: one clone = one run
+if {[info script] eq "" || [catch {source [file join [file dirname [file normalize [info script]]] run_root.tcl]} UNPU_ERR]} { error "ERROR 082: cannot load run_root.tcl from the folder of this script ('[info script]'): [expr {$UNPU_ERR ne {} ? $UNPU_ERR : {the script was pasted into the shell: use source <file> or -f <file>}}]" }
+set RUN_ROOT [unpu_run_init [info script]]   ;# 082: prints ">>> RUN ROOT: <path>" and a WARNING if the current directory is in another clone
+source [file join [file dirname [file normalize [info script]]] clock_latency.tcl]   ;# 088: the shared proc that removes the tool-made set_clock_latency (clock_latency.tcl) and checks it
+set PNR_DIR     "${RUN_ROOT}/pnr_icc2"   ;# 063 E3b: ICC2 work directory
+set BLOCKS_DIR  "${PNR_DIR}/blocks"
+set LOG_DIR     "${PNR_DIR}/logs"
+
+file mkdir $LOG_DIR
+
+redirect -tee -file ${LOG_DIR}/4_placement.log {
+    puts ">>> RUN ROOT: $RUN_ROOT"   ;# 082: the log shows which clone wrote it
+
+    set open_blk [get_blocks -quiet *]
+    if {[sizeof_collection $open_blk] > 0} {
+        close_blocks -force $open_blk
+    }
+
+    open_block ${BLOCKS_DIR}/${DESIGN_NAME}.dlib:${DESIGN_NAME}_powerplan
+    link_block
+    unpu_remove_clock_latency placement-input   ;# 089: the tool-made set_clock_latency exists from the power plan on (origin check, run 2); every optimisation of this step sees PrimeTime's I/O convention without it
+
+    suppress_message {DCHK-027 DCHK-010 ATTR-12}
+
+    # 1. Pre-Placement Checks
+    check_design -checks pre_placement_stage
+    check_pg_connectivity
+
+    # 2. Restrict Routing Layers for RC Estimation (M1 to TOP_M)
+    set_ignored_layers \
+        -min_routing_layer M1 \
+        -max_routing_layer TOP_M
+
+    # 3. Placement Application Options
+    set_app_options -name place_opt.flow.do_path_opt -value true
+    set_app_options -name place_opt.flow.clock_aware_placement -value true
+    set_app_options -name place_opt.flow.trial_clock_tree -value true
+    set_app_options -name place_opt.initial_drc.global_route_based -value true
+    set_app_options -name place_opt.place.congestion_effort -value high
+    set_app_options -name place.coarse.continue_on_missing_scandef -value true
+
+    # 4. Execute Placement and Optimization
+    place_opt
+    set pl_n [unpu_remove_clock_latency placement-final]   ;# 089: place_opt (trial clock tree, clock-aware placement) may re-create the tool's estimate: removed again before the checks and the save
+    unpu_clock_latency_note placement-final place_opt $pl_n
+
+    # Ensure strict cell legality on standard cell rows
+    legalize_placement
+
+    # 5. Connect PG Nets to Newly Added Buffers
+    connect_pg_net -automatic
+    connect_pg_net -net VDD [get_pins -hierarchical -quiet */VDD]
+    connect_pg_net -net VSS [get_pins -hierarchical -quiet */VSS]
+
+    # 6. Post-Placement Verification & QoR Reporting
+    check_legality
+    check_pg_drc
+    check_pg_connectivity
+    report_placement
+    report_congestion
+    report_utilization
+    report_qor
+    report_global_timing
+
+    save_block -as ${DESIGN_NAME}_placement
+    save_lib
+    puts ">>> STAGE 4 COMPLETE: ${DESIGN_NAME}_placement saved. Log: ${LOG_DIR}/4_placement.log"
+
+}

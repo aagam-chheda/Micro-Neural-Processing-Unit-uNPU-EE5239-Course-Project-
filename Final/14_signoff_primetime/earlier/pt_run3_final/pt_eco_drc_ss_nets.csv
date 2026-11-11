@@ -1,0 +1,10 @@
+net;kind;driver_pins;driver_refs;fanout_load_pins;n_entries;worst_actual_ns;worst_slack_ns;entries
+dma_wdata[25];port;u_dma/U157/Z;an02d4;1;1;3.05;-0.05;dma_wdata[25]
+dma_wdata[27];port;u_dma/U220/Z;an02d4;1;1;3.04;-0.04;dma_wdata[27]
+dma_wdata[29];port;u_dma/U198/Z;an02d4;1;1;3.03;-0.03;dma_wdata[29]
+u_actbuf/HFSNET_29;pin;u_actbuf/HFSBUF_21543_531/Z;buffd1;37;38;3.03;-0.03;u_actbuf/U419/A2,u_actbuf/U431/A2,u_actbuf/U414/A2,u_actbuf/U463/A2,u_actbuf/U453/A2,u_actbuf/U462/A2,u_actbuf/U451/A2,u_actbuf/U456/A2,u_actbuf/U424/A2,u_actbuf/U461/A2,u_actbuf/U468/A2,u_actbuf/U458/A2,u_actbuf/U429/A2,u_actbuf/U464/A2,u_actbuf/U426/A2,u_actbuf/U457/A2,u_actbuf/U452/A2,u_actbuf/U430/A2,u_actbuf/U425/A2,u_actbuf/U427/A2,u_actbuf/U459/A2,u_actbuf/U428/A2,u_actbuf/U460/A2,u_actbuf/U418/A2,u_actbuf/U417/A2,u_actbuf/U413/A2,u_actbuf/U455/A2,u_actbuf/U481/A2,u_actbuf/U416/A2,u_actbuf/U420/A2,u_actbuf/U421/A2,u_actbuf/U423/A2,u_actbuf/U422/A2,u_actbuf/U454/A2,u_actbuf/U412/A2,u_actbuf/U415/A2,u_actbuf/U394/A2,u_actbuf/HFSBUF_21543_531/Z
+dma_wdata[21];port;u_dma/U99/Z;an02d4;1;1;3.02;-0.02;dma_wdata[21]
+u_seq/HFSNET_137;pin;u_seq/HFSBUF_1163_489/Z;buffd1;40;41;3.01;-0.01;u_seq/U370/A2,u_seq/U370/B2,u_seq/U367/A2,u_seq/U367/B2,u_seq/U375/B2,u_seq/U375/A2,u_seq/U377/A2,u_seq/U377/B2,u_seq/U368/A2,u_seq/U368/B2,u_seq/U396/S,u_seq/U369/A2,u_seq/U369/B2,u_seq/U380/B2,u_seq/U380/A2,u_seq/U378/A2,u_seq/U378/B2,u_seq/U97/S,u_seq/U281/B2,u_seq/U281/A2,u_seq/U386/B2,u_seq/U386/A2,u_seq/U371/A2,u_seq/U371/B2,u_seq/U389/B2,u_seq/U389/A2,u_seq/U390/B2,u_seq/U390/A2,u_seq/U388/A2,u_seq/U388/B2,u_seq/U372/B2,u_seq/U372/A2,u_seq/U373/B2,u_seq/U373/A2,u_seq/U379/B2,u_seq/U374/A2,u_seq/U374/B2,u_seq/U379/A2,u_seq/U381/A2,u_seq/U381/B2,u_seq/HFSBUF_1163_489/Z
+dma_wdata[31];port;u_dma/U101/Z;an02d4;1;1;3.01;-0.01;dma_wdata[31]
+dma_wdata[7];port;u_dma/U150/Z;an02d4;1;1;3.00;0.00;dma_wdata[7]
+dma_wdata[11];port;u_dma/U210/Z;an02d4;1;1;3.00;0.00;dma_wdata[11]

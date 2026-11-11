@@ -1,0 +1,3245 @@
+[icc2-lic Tue Nov 10 20:33:40 2026] Command 'report_timing' requires licenses
+[icc2-lic Tue Nov 10 20:33:40 2026] Attempting to check-out alternate set of keys directly with queueing
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:33:40 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending check-out request for 'ICCompilerII-8' (1) with wait option
+[icc2-lic Tue Nov 10 20:33:40 2026] Check-out request for 'ICCompilerII-8' with wait option succeeded
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending checkout check request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:33:40 2026] Checkout check request for 'ICCompilerII-8' returned 0 
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending count request for 'ICCompilerII-8' 
+[icc2-lic Tue Nov 10 20:33:40 2026] Count request for 'ICCompilerII-8' returned 1 
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:33:40 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending check-out request for 'ICCompilerII-NX' (1) with wait option
+[icc2-lic Tue Nov 10 20:33:40 2026] Check-out request for 'ICCompilerII-NX' with wait option succeeded
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending checkout check request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:33:40 2026] Checkout check request for 'ICCompilerII-NX' returned 0 
+[icc2-lic Tue Nov 10 20:33:40 2026] Sending count request for 'ICCompilerII-NX' 
+[icc2-lic Tue Nov 10 20:33:40 2026] Count request for 'ICCompilerII-NX' returned 1 
+[icc2-lic Tue Nov 10 20:33:40 2026] Check-out of alternate set of keys directly with queueing was successful
+****************************************
+Report : timing
+        -path_type full_clock_expanded
+        -delay_type max
+        -max_paths 50
+        -report_by design
+Design : unpu_top
+Version: U-2022.12-SP3
+Date   : Tue Nov 10 20:33:40 2026
+****************************************
+Information: Timer using 'SI, Timing Window Analysis'. (TIM-050)
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[20] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U31/ZN (inv0d1)                            0.24      9.89 f
+  u_csr/U385/ZN (oai222d1)                         0.35     10.23 r
+  ctmTdsLR_1_2999/Z (bufbd4)                       1.23     11.46 r
+  prdata[20] (out)                                 0.02     11.48 r
+  data arrival time                                         11.48
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.48
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.02
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[17] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U72/ZN (oai222d1)                          0.60     10.38 r
+  ctmTdsLR_1_2970/Z (bufbda)                       1.01     11.39 r
+  prdata[17] (out)                                 0.07     11.46 r
+  data arrival time                                         11.46
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.46
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.04
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[22] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U31/ZN (inv0d1)                            0.24      9.89 f
+  u_csr/U383/ZN (oai222d1)                         0.34     10.23 r
+  ctmTdsLR_1_2980/Z (bufbd4)                       1.20     11.43 r
+  prdata[22] (out)                                 0.02     11.45 r
+  data arrival time                                         11.45
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.45
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.05
+
+
+
+  Startpoint: paddr[10] (input port clocked by clk)
+  Endpoint: prdata[24] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.07
+  input external delay                             7.00      8.07 r
+  paddr[10] (in)                                   1.07      8.07 r
+  u_apb/U4/Z (buffd3)                              0.39      8.46 r
+  u_csr/U66/ZN (nr04d1)                            0.15      8.61 f
+  u_csr/U117/ZN (nd02d1)                           0.35      8.97 r
+  u_csr/U15/ZN (inv0d1)                            0.17      9.14 f
+  u_csr/U13/Z (an02d2)                             0.41      9.55 f
+  u_csr/U31/ZN (inv0d1)                            0.44      9.99 r
+  u_csr/U381/ZN (oai222d1)                         0.28     10.27 f
+  ctmTdsLR_1_2981/Z (buffd4)                       1.14     11.41 f
+  prdata[24] (out)                                 0.04     11.45 f
+  data arrival time                                         11.45
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.45
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.05
+
+
+
+  Startpoint: paddr[10] (input port clocked by clk)
+  Endpoint: prdata[26] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.07
+  input external delay                             7.00      8.07 r
+  paddr[10] (in)                                   1.07      8.07 r
+  u_apb/U4/Z (buffd3)                              0.39      8.46 r
+  u_csr/U66/ZN (nr04d1)                            0.15      8.61 f
+  u_csr/U117/ZN (nd02d1)                           0.35      8.97 r
+  u_csr/U15/ZN (inv0d1)                            0.17      9.14 f
+  u_csr/U13/Z (an02d2)                             0.41      9.55 f
+  u_csr/U31/ZN (inv0d1)                            0.44      9.99 r
+  u_csr/U379/ZN (oai222d1)                         0.27     10.26 f
+  ctmTdsLR_1_2983/Z (buffd4)                       1.14     11.40 f
+  prdata[26] (out)                                 0.04     11.44 f
+  data arrival time                                         11.44
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.44
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.06
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[10] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U400/ZN (oai222d1)                         0.47     10.26 r
+  ctmTdsLR_1_2979/Z (buffd4)                       1.15     11.41 r
+  prdata[10] (out)                                 0.02     11.43 r
+  data arrival time                                         11.43
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.43
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.07
+
+
+
+  Startpoint: u_seq/mode_lat_reg (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_0__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.20      0.51 r
+  u_seq/ZCTSBUF_75677_2546/Z (buffd3)              0.32      0.84 r
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+  u_seq/mode_lat_reg/Q (dfcrq2)                    1.40      2.23 r
+  u_grid/HFSINV_53187_553/ZN (inv0d2)              0.74      2.97 f
+  u_grid/HFSBUF_31605_552/Z (bufbd3)               0.60      3.57 f
+  u_grid/HFSBUF_23937_551/Z (buffd3)               0.68      4.25 f
+  u_grid/HFSBUF_15918_550/Z (buffd1)               0.75      5.00 f
+  u_grid/g_row_2__g_col_0__pe/U18/Z (aor22d1)      0.50      5.50 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1/Z (an02d1)
+                                                   0.26      5.76 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_1/CO (ad01d0)
+                                                   0.44      6.20 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_2/CO (ad01d4)
+                                                   0.47      6.67 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_3/CO (ad01d1)
+                                                   0.41      7.09 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_4/CO (ad01d0)
+                                                   0.45      7.53 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_5/CO (ad01d1)
+                                                   0.43      7.96 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_6/CO (ad01d1)
+                                                   0.41      8.37 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_7/CO (ad01d1)
+                                                   0.40      8.76 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_8/CO (ad01d1)
+                                                   0.40      9.16 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.43      9.59 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_10/CO (ad01d1)
+                                                   0.41     10.00 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_11/CO (ad01d1)
+                                                   0.41     10.41 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.44     10.85 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     11.29 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_14/CO (ad01d1)
+                                                   0.42     11.71 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.45     12.16 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_16/CO (ad01d1)
+                                                   0.43     12.59 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.43     13.03 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_18/CO (ad01d1)
+                                                   0.41     13.44 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_19/CO (ad01d1)
+                                                   0.40     13.84 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.43     14.27 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.45     14.72 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.48     15.20 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.46     15.66 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     16.10 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.44     16.54 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.44     16.98 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.48     17.46 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.46     17.91 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     18.35 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.45     18.80 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_31/S (ad01d0)
+                                                   0.44     19.24 f
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00     19.24 f
+  data arrival time                                         19.24
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.38     20.93 r
+  ZCTSBUF_25794_2515/Z (buffda)                    0.31     21.24 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.00     21.24 r
+
+  clock uncertainty                               -1.50     19.74
+  library setup time                              -0.43     19.31
+  data required time                                        19.31
+  ------------------------------------------------------------------------
+  data required time                                        19.31
+  data arrival time                                        -19.24
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.07
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_1__pe/act_out_reg_5_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_2__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36      0.92 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.32      1.24 r
+  u_grid/g_row_2__g_col_1__pe/act_out_reg_5_/CP (decrq1)
+                                                   0.01      1.25 r
+
+  u_grid/g_row_2__g_col_1__pe/act_out_reg_5_/CP (decrq1)
+                                                   0.00      1.25 r
+  u_grid/g_row_2__g_col_1__pe/act_out_reg_5_/Q (decrq1)
+                                                   0.83      2.08 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U152/ZN (inv0d0)
+                                                   1.09      3.17 r
+  u_grid/g_row_2__g_col_2__pe/mult_28/U162/ZN (nr02d0)
+                                                   0.49      3.66 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U50/CO (ad01d0)
+                                                   0.71      4.38 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U44/S (ad01d0)
+                                                   0.79      5.16 r
+  u_grid/g_row_2__g_col_2__pe/mult_28/U43/S (ad01d0)
+                                                   0.60      5.77 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U10/CO (ad01d0)
+                                                   0.61      6.38 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U9/CO (ad01d0)
+                                                   0.45      6.83 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U8/CO (ad01d1)
+                                                   0.42      7.25 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U7/CO (ad01d0)
+                                                   0.46      7.71 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U6/CO (ad01d0)
+                                                   0.45      8.17 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U5/CO (ad01d0)
+                                                   0.44      8.61 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U4/S (ad01d0)
+                                                   0.55      9.16 f
+  u_grid/g_row_2__g_col_2__pe/U15/Z (aor22d1)      0.35      9.51 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_12/CO (ad01d1)
+                                                   0.55     10.06 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.46     10.52 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     10.96 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.44     11.41 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.44     11.84 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.44     12.28 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     12.72 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.44     13.16 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.44     13.60 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.04 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.46     14.50 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     14.95 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     15.39 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.44     15.83 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.46     16.29 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     16.74 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.45     17.19 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     17.63 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     18.07 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_31/S (ad01d0)
+                                                   0.47     18.54 f
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00     18.55 f
+  data arrival time                                         18.55
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27     20.32 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.19     20.51 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.05     20.56 r
+
+  clock uncertainty                               -1.50     19.06
+  library setup time                              -0.44     18.62
+  data required time                                        18.62
+  ------------------------------------------------------------------------
+  data required time                                        18.62
+  data arrival time                                        -18.55
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.08
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[7] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U363/ZN (oai222d1)                         0.40     10.20 r
+  ctmTdsLR_1_2978/Z (buffd4)                       1.16     11.36 r
+  prdata[7] (out)                                  0.06     11.42 r
+  data arrival time                                         11.42
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.42
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.08
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[6] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U76/ZN (oai222d4)                          0.52     10.32 r
+  ctmTdsLR_1_2966/Z (bufbd4)                       1.08     11.40 r
+  prdata[6] (out)                                  0.01     11.41 r
+  data arrival time                                         11.41
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.41
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[4] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.58
+  input external delay                             7.00      7.58 f
+  paddr[3] (in)                                    0.58      7.58 f
+  u_apb/U29/Z (buffd1)                             0.56      8.14 f
+  u_csr/U209/ZN (nr03d0)                           0.93      9.08 r
+  u_csr/U16/ZN (nd02d2)                            0.30      9.38 f
+  u_csr/U26/Z (bufbd1)                             0.27      9.65 f
+  u_csr/ctmTdsLR_2_2894/Z (aoim22d1)               0.26      9.92 f
+  u_csr/ctmTdsLR_1_2893/ZN (oai21d4)               1.45     11.36 r
+  prdata[4] (out)                                  0.05     11.41 r
+  data arrival time                                         11.41
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.41
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[3] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      0.58
+  input external delay                             7.00      7.58 f
+  paddr[3] (in)                                    0.58      7.58 f
+  u_apb/U29/Z (buffd1)                             0.56      8.14 f
+  u_csr/U209/ZN (nr03d0)                           0.93      9.08 r
+  u_csr/U16/ZN (nd02d2)                            0.30      9.38 f
+  u_csr/U26/Z (bufbd1)                             0.27      9.65 f
+  u_csr/ctmTdsLR_2_2896/Z (aoim22d1)               0.26      9.91 f
+  u_csr/ctmTdsLR_1_2895/ZN (oai21d4)               1.45     11.36 r
+  prdata[3] (out)                                  0.04     11.41 r
+  data arrival time                                         11.41
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.41
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.09
+
+
+
+  Startpoint: paddr[10] (input port clocked by clk)
+  Endpoint: prdata[31] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.07
+  input external delay                             7.00      8.07 r
+  paddr[10] (in)                                   1.07      8.07 r
+  u_apb/U4/Z (buffd3)                              0.39      8.46 r
+  u_csr/U66/ZN (nr04d1)                            0.15      8.61 f
+  u_csr/U117/ZN (nd02d1)                           0.35      8.97 r
+  u_csr/U15/ZN (inv0d1)                            0.17      9.14 f
+  u_csr/U13/Z (an02d2)                             0.41      9.55 f
+  u_csr/U30/ZN (inv0d2)                            0.24      9.79 r
+  u_csr/U370/ZN (oai222d2)                         0.46     10.25 f
+  U20/Z (buffd4)                                   1.10     11.35 f
+  prdata[31] (out)                                 0.05     11.40 f
+  data arrival time                                         11.40
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.40
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: u_skew/row3_q3_reg_7_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_0__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_108022_2574/ZN (invbdk)                  0.20      0.51 r
+  u_skew/row3_q3_reg_7_/CP (dfcrq2)                0.03      0.54 r
+
+  u_skew/row3_q3_reg_7_/CP (dfcrq2)                0.00      0.54 r
+  u_skew/row3_q3_reg_7_/Q (dfcrq2)                 0.58      1.12 f
+  u_skew/copt_h_inst_3088/Z (dl02d1)               1.54      2.67 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U153/ZN (inv0d0)
+                                                   1.16      3.83 r
+  u_grid/g_row_3__g_col_0__pe/mult_28/U164/ZN (nr02d0)
+                                                   0.43      4.26 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U41/S (ad01d0)
+                                                   0.65      4.92 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U38/S (ad01d0)
+                                                   0.80      5.72 r
+  u_grid/g_row_3__g_col_0__pe/mult_28/U37/S (ad01d0)
+                                                   0.63      6.34 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U9/CO (ad01d0)
+                                                   0.62      6.96 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U8/CO (ad01d0)
+                                                   0.49      7.45 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U7/CO (ad01d0)
+                                                   0.48      7.93 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U6/CO (ad01d0)
+                                                   0.48      8.41 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U5/CO (ad01d0)
+                                                   0.45      8.86 f
+  u_grid/g_row_3__g_col_0__pe/mult_28/U4/S (ad01d0)
+                                                   0.49      9.35 f
+  u_grid/g_row_3__g_col_0__pe/U15/Z (aor22d1)      0.36      9.71 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.58     10.28 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     10.72 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     11.17 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.49     11.66 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.48     12.14 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.46     12.59 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.45     13.04 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.46     13.51 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.46     13.96 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.45     14.41 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.47     14.87 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     15.32 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.46     15.78 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.45     16.23 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_26/CO (ad01d1)
+                                                   0.41     16.64 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     17.10 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.47     17.57 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.45     18.02 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     18.47 f
+  u_grid/g_row_3__g_col_0__pe/add_42/U1_31/S (ad01d0)
+                                                   0.46     18.92 f
+  u_grid/g_row_3__g_col_0__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00     18.93 f
+  data arrival time                                         18.93
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.38     20.93 r
+  u_grid/g_row_3__g_col_0__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.02     20.94 r
+
+  clock uncertainty                               -1.50     19.44
+  library setup time                              -0.42     19.02
+  data required time                                        19.02
+  ------------------------------------------------------------------------
+  data required time                                        19.02
+  data arrival time                                        -18.93
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.10
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[5] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U365/ZN (oai222d1)                         0.40     10.19 r
+  ctmTdsLR_1_2977/Z (buffd4)                       1.12     11.32 r
+  prdata[5] (out)                                  0.08     11.39 r
+  data arrival time                                         11.39
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.39
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.11
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[30] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U69/ZN (oai222d1)                          0.33     10.12 r
+  ctmTdsLR_1_2976/Z (bufbd4)                       1.23     11.35 r
+  prdata[30] (out)                                 0.03     11.38 r
+  data arrival time                                         11.38
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.38
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.12
+
+
+
+  Startpoint: u_seq/mode_lat_reg (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_1__g_col_0__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.20      0.51 r
+  u_seq/ZCTSBUF_75677_2546/Z (buffd3)              0.32      0.84 r
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+  u_seq/mode_lat_reg/Q (dfcrq2)                    1.40      2.23 r
+  u_grid/HFSINV_53187_553/ZN (inv0d2)              0.74      2.97 f
+  u_grid/HFSBUF_31605_552/Z (bufbd3)               0.60      3.57 f
+  u_grid/HFSBUF_23937_551/Z (buffd3)               0.68      4.25 f
+  u_grid/HFSBUF_15918_550/Z (buffd1)               0.75      5.00 f
+  u_grid/g_row_1__g_col_0__pe/U18/Z (aor22d1)      0.44      5.44 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1/Z (an02d1)
+                                                   0.23      5.67 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_1/CO (ad01d0)
+                                                   0.42      6.09 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_2/CO (ad01d1)
+                                                   0.43      6.51 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_3/CO (ad01d1)
+                                                   0.41      6.92 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_4/CO (ad01d1)
+                                                   0.41      7.33 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_5/CO (ad01d1)
+                                                   0.41      7.74 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_6/CO (ad01d1)
+                                                   0.41      8.15 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_7/CO (ad01d1)
+                                                   0.40      8.55 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_8/CO (ad01d1)
+                                                   0.41      8.96 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_9/CO (ad01d1)
+                                                   0.40      9.36 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_10/CO (ad01d1)
+                                                   0.41      9.77 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.44     10.21 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.44     10.65 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.43     11.08 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_14/CO (ad01d1)
+                                                   0.41     11.49 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_15/CO (ad01d1)
+                                                   0.40     11.89 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.43     12.32 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_17/CO (ad01d1)
+                                                   0.41     12.73 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_18/CO (ad01d1)
+                                                   0.40     13.14 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.43     13.57 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.44     14.01 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_21/CO (ad01d1)
+                                                   0.41     14.42 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.43     14.85 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.44     15.29 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     15.73 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.45     16.18 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.45     16.63 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.44     17.07 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.44     17.51 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.45     17.97 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.45     18.42 f
+  u_grid/g_row_1__g_col_0__pe/add_42/U1_31/S (ad01d0)
+                                                   0.46     18.88 f
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00     18.88 f
+  data arrival time                                         18.88
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_14245_2509/Z (bufbdf)                    0.39     20.94 r
+  u_grid/g_row_1__g_col_0__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.01     20.95 r
+
+  clock uncertainty                               -1.50     19.45
+  library setup time                              -0.44     19.02
+  data required time                                        19.02
+  ------------------------------------------------------------------------
+  data required time                                        19.02
+  data arrival time                                        -18.88
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.14
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[0] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U404/ZN (aoi22d1)                          0.12      9.77 f
+  u_csr/U401/ZN (oai211d4)                         1.51     11.28 r
+  prdata[0] (out)                                  0.06     11.34 r
+  data arrival time                                         11.34
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.34
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.16
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[14] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U396/ZN (oai222d1)                         0.42     10.21 r
+  U51/Z (buffd4)                                   1.11     11.32 r
+  prdata[14] (out)                                 0.02     11.34 r
+  data arrival time                                         11.34
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.34
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.16
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[13] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U9/ZN (oai222d1)                           0.48     10.27 r
+  ctmTdsLR_1_2968/Z (buffd7)                       1.01     11.27 r
+  prdata[13] (out)                                 0.06     11.33 r
+  data arrival time                                         11.33
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.33
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.17
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[28] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U80/ZN (oai222d1)                          0.36     10.16 r
+  ctmTdsLR_1_2975/Z (buffd4)                       1.14     11.30 r
+  prdata[28] (out)                                 0.02     11.33 r
+  data arrival time                                         11.33
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.33
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.17
+
+
+
+  Startpoint: u_dma/cur_j_reg_1_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: dma_addr[29] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **reg2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_119797_2562/ZN (invbd7)                  0.24      0.55 r
+  ZCTSBUF_113226_2556/Z (buffda)                   0.32      0.88 r
+  u_dma/cur_j_reg_1_/CP (dfcrq2)                   0.00      0.88 r
+
+  u_dma/cur_j_reg_1_/CP (dfcrq2)                   0.00      0.88 r
+  u_dma/cur_j_reg_1_/Q (dfcrq2)                    0.68      1.56 f
+  u_dma/copt_h_inst_5538/Z (dl01d2)                0.66      2.21 f
+  u_dma/add_0_root_add_0_root_add_212_2/U170/Z (or02d0)
+                                                   0.36      2.57 f
+  u_dma/add_0_root_add_0_root_add_212_2/U155/ZN (aoi21d1)
+                                                   0.45      3.02 r
+  u_dma/add_0_root_add_0_root_add_212_2/U153/ZN (oai21d1)
+                                                   0.16      3.17 f
+  u_dma/add_0_root_add_0_root_add_212_2/gre_a_INV_185_inst_5818/ZN (inv0d1)
+                                                   0.19      3.36 r
+  u_dma/add_0_root_add_0_root_add_212_2/U113/ZN (aoim31d1)
+                                                   0.40      3.76 r
+  u_dma/add_0_root_add_0_root_add_212_2/ctmTdsLR_2_1256/ZN (nr02d1)
+                                                   0.11      3.87 f
+  u_dma/add_0_root_add_0_root_add_212_2/ctmTdsLR_3_1257/ZN (aoim211d1)
+                                                   0.28      4.15 f
+  u_dma/add_0_root_add_0_root_add_212_2/U126/CO (ah01d1)
+                                                   0.32      4.46 f
+  u_dma/add_0_root_add_0_root_add_212_2/U127/CO (ah01d1)
+                                                   0.32      4.78 f
+  u_dma/add_0_root_add_0_root_add_212_2/U128/CO (ah01d1)
+                                                   0.36      5.14 f
+  u_dma/add_0_root_add_0_root_add_212_2/U129/CO (ah01d1)
+                                                   0.33      5.46 f
+  u_dma/add_0_root_add_0_root_add_212_2/U130/CO (ah01d1)
+                                                   0.32      5.78 f
+  u_dma/add_0_root_add_0_root_add_212_2/U131/CO (ah01d1)
+                                                   0.33      6.11 f
+  u_dma/add_0_root_add_0_root_add_212_2/U132/CO (ah01d1)
+                                                   0.32      6.43 f
+  u_dma/add_0_root_add_0_root_add_212_2/U133/CO (ah01d1)
+                                                   0.31      6.74 f
+  u_dma/add_0_root_add_0_root_add_212_2/U134/CO (ah01d1)
+                                                   0.31      7.05 f
+  u_dma/add_0_root_add_0_root_add_212_2/U135/CO (ah01d1)
+                                                   0.31      7.36 f
+  u_dma/add_0_root_add_0_root_add_212_2/U136/S (ah01d1)
+                                                   0.46      7.83 r
+  u_dma/U212/Z (mx02d1)                            0.94      8.76 r
+  u_dma/U211/Z (bufbd4)                            1.54     10.30 r
+  dma_addr[29] (out)                               0.03     10.33 r
+  data arrival time                                         10.33
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -8.00     10.50
+  data required time                                        10.50
+  ------------------------------------------------------------------------
+  data required time                                        10.50
+  data arrival time                                        -10.33
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.17
+
+
+
+  Startpoint: u_grid/g_row_1__g_col_1__pe/act_out_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_1__g_col_2__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36      0.92 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.32      1.24 r
+  u_grid/g_row_1__g_col_1__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.02      1.26 r
+
+  u_grid/g_row_1__g_col_1__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.00      1.26 r
+  u_grid/g_row_1__g_col_1__pe/act_out_reg_4_/Q (decrq1)
+                                                   0.81      2.07 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U140/ZN (inv0d0)
+                                                   0.99      3.05 r
+  u_grid/g_row_1__g_col_2__pe/mult_28/U161/ZN (nr02d0)
+                                                   0.41      3.46 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U53/S (ad01d0)
+                                                   0.82      4.28 r
+  u_grid/g_row_1__g_col_2__pe/mult_28/U52/S (ad01d0)
+                                                   0.60      4.88 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U12/CO (ad01d0)
+                                                   0.60      5.48 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U11/CO (ad01d0)
+                                                   0.45      5.93 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U10/CO (ad01d0)
+                                                   0.46      6.39 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U9/CO (ad01d0)
+                                                   0.48      6.87 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U8/S (ad01d0)
+                                                   0.58      7.45 f
+  u_grid/g_row_1__g_col_2__pe/U3/Z (aor22d1)       0.37      7.82 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_8/CO (ad01d0)
+                                                   0.59      8.41 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.44      8.86 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.46      9.32 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.45      9.78 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.44     10.22 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     10.66 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     11.10 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.51     11.61 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.47     12.08 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.45     12.52 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.43     12.95 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.46     13.41 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.45     13.86 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.31 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.44     14.74 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.47     15.22 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.49     15.71 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.46     16.17 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.45     16.63 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     17.07 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.46     17.53 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     17.97 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.43     18.40 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_31/S (ad01d0)
+                                                   0.46     18.85 f
+  u_grid/g_row_1__g_col_2__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00     18.86 f
+  data arrival time                                         18.86
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_41569_2506/Z (bufbdf)                    0.39     20.94 r
+  u_grid/g_row_1__g_col_2__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.03     20.97 r
+
+  clock uncertainty                               -1.50     19.47
+  library setup time                              -0.43     19.03
+  data required time                                        19.03
+  ------------------------------------------------------------------------
+  data required time                                        19.03
+  data arrival time                                        -18.86
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.18
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_2__pe/act_out_reg_2_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_3__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_57952_2521/Z (bufbda)                    0.35      0.90 r
+  u_grid/g_row_2__g_col_2__pe/act_out_reg_2_/CP (decrq1)
+                                                   0.01      0.91 r
+
+  u_grid/g_row_2__g_col_2__pe/act_out_reg_2_/CP (decrq1)
+                                                   0.00      0.91 r
+  u_grid/g_row_2__g_col_2__pe/act_out_reg_2_/Q (decrq1)
+                                                   0.77      1.68 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U142/ZN (inv0d0)
+                                                   1.11      2.79 r
+  u_grid/g_row_2__g_col_3__pe/mult_28/U175/ZN (nr02d0)
+                                                   0.41      3.20 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U53/S (ad01d0)
+                                                   0.82      4.02 r
+  u_grid/g_row_2__g_col_3__pe/mult_28/U52/S (ad01d0)
+                                                   0.59      4.61 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U12/CO (ad01d1)
+                                                   0.58      5.19 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U11/CO (ad01d0)
+                                                   0.44      5.62 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U10/CO (ad01d0)
+                                                   0.47      6.09 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U9/CO (ad01d0)
+                                                   0.45      6.55 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U8/CO (ad01d0)
+                                                   0.45      7.00 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U7/CO (ad01d0)
+                                                   0.46      7.46 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U6/CO (ad01d0)
+                                                   0.47      7.93 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U5/CO (ad01d0)
+                                                   0.46      8.38 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U4/CO (ad01d0)
+                                                   0.48      8.86 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U3/CO (ad01d0)
+                                                   0.46      9.32 f
+  u_grid/g_row_2__g_col_3__pe/mult_28/U2/S (ad01d0)
+                                                   0.46      9.78 f
+  u_grid/g_row_2__g_col_3__pe/U13/Z (aor22d1)      0.33     10.11 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.57     10.68 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.47     11.15 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.44     11.59 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.44     12.03 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.47     12.50 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.51     13.01 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.47     13.47 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.48     13.95 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.45     14.40 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     14.85 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     15.28 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.43     15.72 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.44     16.16 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.44     16.59 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.44     17.03 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.43     17.46 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     17.90 f
+  u_grid/g_row_2__g_col_3__pe/add_42/U1_31/S (ad01d0)
+                                                   0.65     18.55 r
+  u_grid/g_row_2__g_col_3__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.01     18.56 r
+  data arrival time                                         18.56
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27     20.32 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.19     20.51 r
+  u_grid/g_row_2__g_col_3__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.05     20.56 r
+
+  clock uncertainty                               -1.50     19.06
+  library setup time                              -0.32     18.74
+  data required time                                        18.74
+  ------------------------------------------------------------------------
+  data required time                                        18.74
+  data arrival time                                        -18.56
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.18
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[25] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U31/ZN (inv0d1)                            0.24      9.89 f
+  u_csr/U78/ZN (oai222d2)                          0.53     10.42 r
+  ctmTdsLR_1_2973/Z (buffd7)                       0.83     11.24 r
+  prdata[25] (out)                                 0.07     11.31 r
+  data arrival time                                         11.31
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.31
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.19
+
+
+
+  Startpoint: u_seq/mode_lat_reg (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_1__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.20      0.51 r
+  u_seq/ZCTSBUF_75677_2546/Z (buffd3)              0.32      0.84 r
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+  u_seq/mode_lat_reg/Q (dfcrq2)                    1.09      1.92 f
+  u_grid/HFSINV_53187_553/ZN (inv0d2)              0.98      2.90 r
+  u_grid/HFSBUF_31605_552/Z (bufbd3)               0.69      3.59 r
+  u_grid/HFSINV_6966_548/ZN (inv0d1)               0.81      4.40 f
+  u_grid/g_row_2__g_col_1__pe/U18/Z (aor22d1)      0.49      4.90 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1/Z (an02d0)
+                                                   0.25      5.14 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_1/CO (ad01d0)
+                                                   0.44      5.58 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_2/CO (ad01d0)
+                                                   0.45      6.03 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_3/CO (ad01d0)
+                                                   0.44      6.47 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_4/CO (ad01d0)
+                                                   0.44      6.91 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_5/CO (ad01d0)
+                                                   0.45      7.36 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_6/CO (ad01d0)
+                                                   0.44      7.80 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_7/CO (ad01d0)
+                                                   0.43      8.23 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_8/CO (ad01d0)
+                                                   0.43      8.66 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.44      9.11 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.44      9.54 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.46     10.00 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.46     10.46 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.46     10.92 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     11.37 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.47     11.84 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.44     12.29 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.44     12.73 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.45     13.18 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.44     13.62 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.44     14.06 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.50 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.45     14.95 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.46     15.40 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.45     15.85 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.47     16.32 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.45     16.77 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     17.22 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.46     17.68 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.45     18.13 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     18.57 f
+  u_grid/g_row_2__g_col_1__pe/add_42/U1_31/S (ad01d1)
+                                                   0.50     19.07 f
+  u_grid/g_row_2__g_col_1__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00     19.07 f
+  data arrival time                                         19.07
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36     20.92 r
+  ZCTSBUF_47812_2501/Z (buffda)                    0.29     21.21 r
+  u_grid/g_row_2__g_col_1__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.00     21.21 r
+
+  clock uncertainty                               -1.50     19.71
+  library setup time                              -0.45     19.27
+  data required time                                        19.27
+  ------------------------------------------------------------------------
+  data required time                                        19.27
+  data arrival time                                        -19.07
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.19
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[11] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U70/ZN (oai222d1)                          0.36     10.15 r
+  ctmTdsLR_1_2964/Z (buffd4)                       1.12     11.27 r
+  prdata[11] (out)                                 0.04     11.31 r
+  data arrival time                                         11.31
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.31
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.19
+
+
+
+  Startpoint: u_seq/mode_lat_reg (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_1__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.20      0.51 r
+  u_seq/ZCTSBUF_75677_2546/Z (buffd3)              0.32      0.84 r
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+  u_seq/mode_lat_reg/Q (dfcrq2)                    1.40      2.23 r
+  u_grid/HFSINV_53187_553/ZN (inv0d2)              0.74      2.97 f
+  u_grid/HFSBUF_31605_552/Z (bufbd3)               0.60      3.57 f
+  u_grid/HFSBUF_23937_551/Z (buffd3)               0.68      4.25 f
+  u_grid/g_row_3__g_col_1__pe/HFSBUF_8986_549/Z (buffd1)
+                                                   0.57      4.82 f
+  u_grid/g_row_3__g_col_1__pe/U18/Z (aor22d1)      0.38      5.20 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1/Z (an02d1)
+                                                   0.23      5.43 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_1/CO (ad01d4)
+                                                   0.42      5.85 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_2/CO (ad01d1)
+                                                   0.41      6.26 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_3/CO (ad01d1)
+                                                   0.41      6.66 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_4/CO (ad01d1)
+                                                   0.40      7.07 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_5/CO (ad01d1)
+                                                   0.41      7.47 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_6/CO (ad01d1)
+                                                   0.41      7.89 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_7/CO (ad01d1)
+                                                   0.40      8.29 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_8/CO (ad01d1)
+                                                   0.40      8.69 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_9/CO (ad01d1)
+                                                   0.41      9.10 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_10/CO (ad01d1)
+                                                   0.41      9.51 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_11/CO (ad01d1)
+                                                   0.41      9.91 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_12/CO (ad01d1)
+                                                   0.41     10.32 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_13/CO (ad01d1)
+                                                   0.40     10.72 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_14/CO (ad01d1)
+                                                   0.41     11.13 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_15/CO (ad01d1)
+                                                   0.41     11.53 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_16/CO (ad01d1)
+                                                   0.42     11.95 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_17/CO (ad01d1)
+                                                   0.41     12.35 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     12.79 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.44     13.23 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.41     13.64 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_21/CO (ad01d4)
+                                                   0.45     14.09 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.42     14.51 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.44     14.94 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.45     15.39 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.45     15.84 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_26/CO (ad01d1)
+                                                   0.41     16.26 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.43     16.69 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.44     17.12 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     17.56 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     18.00 f
+  u_grid/g_row_3__g_col_1__pe/add_42/U1_31/S (ad01d0)
+                                                   0.80     18.81 r
+  u_grid/g_row_3__g_col_1__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.02     18.82 r
+  data arrival time                                         18.82
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_14842_2507/Z (buffd3)                    0.32     20.88 r
+  u_grid/g_row_3__g_col_1__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.00     20.88 r
+
+  clock uncertainty                               -1.50     19.38
+  library setup time                              -0.35     19.02
+  data required time                                        19.02
+  ------------------------------------------------------------------------
+  data required time                                        19.02
+  data arrival time                                        -18.82
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.20
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[27] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U31/ZN (inv0d1)                            0.24      9.89 f
+  u_csr/U79/ZN (oai222d1)                          0.40     10.29 r
+  ctmTdsLR_1_2974/Z (buffd7)                       0.96     11.25 r
+  prdata[27] (out)                                 0.04     11.29 r
+  data arrival time                                         11.29
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.29
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.21
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[15] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U71/ZN (oai222d1)                          0.34     10.13 r
+  ctmTdsLR_1_2969/Z (buffd4)                       1.08     11.21 r
+  prdata[15] (out)                                 0.08     11.29 r
+  data arrival time                                         11.29
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.29
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.21
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[19] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U31/ZN (inv0d1)                            0.24      9.89 f
+  u_csr/U73/ZN (oai222d1)                          0.46     10.34 r
+  ctmTdsLR_1_2971/Z (bufbd7)                       0.88     11.22 r
+  prdata[19] (out)                                 0.07     11.29 r
+  data arrival time                                         11.29
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.29
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.21
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[29] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U376/ZN (oai222d1)                         0.62     10.41 r
+  ctmTdsLR_1_2984/Z (bufbdf)                       0.80     11.21 r
+  prdata[29] (out)                                 0.08     11.29 r
+  data arrival time                                         11.29
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.29
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.21
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[2] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U4/ZN (aoi22d1)                            0.12      9.77 f
+  u_csr/U206/ZN (oai211d4)                         1.48     11.25 r
+  prdata[2] (out)                                  0.03     11.28 r
+  data arrival time                                         11.28
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.28
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.22
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[9] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U361/ZN (oai222d1)                         0.42     10.22 r
+  ctmTdsLR_1_2982/Z (buffd7)                       0.99     11.21 r
+  prdata[9] (out)                                  0.07     11.28 r
+  data arrival time                                         11.28
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.28
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.22
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[18] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U392/ZN (oai222d1)                         0.35     10.14 r
+  U58/Z (buffd4)                                   1.12     11.26 r
+  prdata[18] (out)                                 0.02     11.28 r
+  data arrival time                                         11.28
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.28
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.22
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[8] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U30/ZN (inv0d2)                            0.15      9.80 f
+  u_csr/U68/ZN (oai222d1)                          0.47     10.26 r
+  ctmTdsLR_1_2967/Z (buffd7)                       1.00     11.26 r
+  prdata[8] (out)                                  0.01     11.27 r
+  data arrival time                                         11.27
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.27
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.23
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[21] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U31/ZN (inv0d1)                            0.24      9.89 f
+  u_csr/U74/ZN (oai222d1)                          0.42     10.31 r
+  u_apb/ctmTdsLR_1_2963/Z (buffd7)                 0.88     11.19 r
+  prdata[21] (out)                                 0.08     11.27 r
+  data arrival time                                         11.27
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.27
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.23
+
+
+
+  Startpoint: u_grid/g_row_3__g_col_1__pe/act_out_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_2__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_43580_2504/Z (buffd7)                    0.32      0.88 r
+  u_grid/g_row_3__g_col_1__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.01      0.88 r
+
+  u_grid/g_row_3__g_col_1__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.00      0.88 r
+  u_grid/g_row_3__g_col_1__pe/act_out_reg_4_/Q (decrq1)
+                                                   0.84      1.73 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U140/ZN (inv0d0)
+                                                   1.17      2.90 r
+  u_grid/g_row_3__g_col_2__pe/mult_28/U161/ZN (nr02d0)
+                                                   0.48      3.38 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U53/S (ad01d0)
+                                                   0.83      4.22 r
+  u_grid/g_row_3__g_col_2__pe/mult_28/U52/S (ad01d0)
+                                                   0.59      4.80 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U12/CO (ad01d0)
+                                                   0.61      5.42 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U11/CO (ad01d0)
+                                                   0.44      5.86 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U10/CO (ad01d0)
+                                                   0.45      6.31 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U9/CO (ad01d0)
+                                                   0.46      6.77 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U8/CO (ad01d0)
+                                                   0.46      7.23 f
+  u_grid/g_row_3__g_col_2__pe/mult_28/U7/S (ad01d0)
+                                                   0.52      7.75 f
+  u_grid/g_row_3__g_col_2__pe/U2/Z (aor22d1)       0.39      8.14 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.60      8.74 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.45      9.19 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.45      9.64 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.45     10.09 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.45     10.54 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     10.99 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.44     11.43 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.44     11.87 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.43     12.30 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     12.74 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.44     13.18 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.44     13.62 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.06 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.44     14.50 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.44     14.93 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.43     15.37 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.43     15.80 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.47     16.27 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.46     16.73 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.45     17.18 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.45     17.63 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.47     18.10 f
+  u_grid/g_row_3__g_col_2__pe/add_42/U1_31/S (ad01d0)
+                                                   0.71     18.81 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.01     18.82 r
+  data arrival time                                         18.82
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_54466_2497/Z (buffda)                    0.32     20.87 r
+  u_grid/g_row_3__g_col_2__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.01     20.89 r
+
+  clock uncertainty                               -1.50     19.39
+  library setup time                              -0.32     19.06
+  data required time                                        19.06
+  ------------------------------------------------------------------------
+  data required time                                        19.06
+  data arrival time                                        -18.82
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.24
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[1] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U208/ZN (nr02d1)                           0.27      9.00 r
+  u_csr/U106/Z (an02d0)                            0.31      9.30 r
+  u_csr/U387/ZN (aoi322d1)                         0.15      9.46 f
+  u_csr/U205/ZN (aoi21d4)                          0.67     10.12 r
+  ropt_h_inst_5867/Z (bufbd4)                      1.09     11.22 r
+  prdata[1] (out)                                  0.02     11.24 r
+  data arrival time                                         11.24
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.24
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.26
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[23] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U31/ZN (inv0d1)                            0.24      9.89 f
+  u_csr/U77/ZN (oai222d1)                          0.38     10.27 r
+  ctmTdsLR_1_2972/Z (buffd7)                       0.89     11.16 r
+  prdata[23] (out)                                 0.06     11.22 r
+  data arrival time                                         11.22
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.22
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.28
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[16] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U394/ZN (oai222d1)                         0.41     10.20 r
+  ctmTdsLR_1_2998/Z (buffd7)                       0.99     11.19 r
+  prdata[16] (out)                                 0.01     11.20 r
+  data arrival time                                         11.20
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.20
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.30
+
+
+
+  Startpoint: u_grid/g_row_1__g_col_2__pe/act_out_reg_0_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_1__g_col_3__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_41569_2506/Z (bufbdf)                    0.39      0.94 r
+  u_grid/g_row_1__g_col_2__pe/act_out_reg_0_/CP (decrq1)
+                                                   0.03      0.97 r
+
+  u_grid/g_row_1__g_col_2__pe/act_out_reg_0_/CP (decrq1)
+                                                   0.00      0.97 r
+  u_grid/g_row_1__g_col_2__pe/act_out_reg_0_/Q (decrq1)
+                                                   0.86      1.82 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U148/ZN (inv0d0)
+                                                   1.08      2.91 r
+  u_grid/g_row_1__g_col_3__pe/mult_28/U165/ZN (nr02d0)
+                                                   0.31      3.22 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U15/CO (ah01d1)
+                                                   0.49      3.70 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U14/CO (ad01d0)
+                                                   0.62      4.32 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U13/CO (ad01d0)
+                                                   0.59      4.91 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U12/CO (ad01d0)
+                                                   0.45      5.36 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U11/CO (ad01d0)
+                                                   0.46      5.82 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U10/CO (ad01d0)
+                                                   0.44      6.26 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U9/CO (ad01d0)
+                                                   0.43      6.69 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U8/CO (ad01d0)
+                                                   0.48      7.17 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U7/CO (ad01d0)
+                                                   0.46      7.63 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U6/CO (ad01d0)
+                                                   0.48      8.11 f
+  u_grid/g_row_1__g_col_3__pe/mult_28/U5/S (ad01d0)
+                                                   0.47      8.58 f
+  u_grid/g_row_1__g_col_3__pe/U16/Z (aor22d1)      0.39      8.97 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.60      9.57 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.44     10.01 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.43     10.44 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.48     10.93 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.49     11.42 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.50     11.91 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.47     12.39 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     12.82 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.47     13.29 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.46     13.76 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.19 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.44     14.63 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     15.07 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     15.52 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.44     15.96 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.46     16.42 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.47     16.89 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.45     17.34 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     17.79 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     18.22 f
+  u_grid/g_row_1__g_col_3__pe/add_42/U1_31/S (ad01d0)
+                                                   0.46     18.68 f
+  u_grid/g_row_1__g_col_3__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.00     18.68 f
+  data arrival time                                         18.68
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_57952_2521/Z (bufbda)                    0.35     20.90 r
+  u_grid/g_row_1__g_col_3__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.02     20.92 r
+
+  clock uncertainty                               -1.50     19.42
+  library setup time                              -0.44     18.98
+  data required time                                        18.98
+  ------------------------------------------------------------------------
+  data required time                                        18.98
+  data arrival time                                        -18.68
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.30
+
+
+
+  Startpoint: u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_1__g_col_1__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36      0.92 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.32      1.24 r
+  u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_/CP (decrq1)
+                                                   0.01      1.25 r
+
+  u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_/CP (decrq1)
+                                                   0.00      1.25 r
+  u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_/Q (decrq1)
+                                                   0.69      1.94 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U144/ZN (inv0d0)
+                                                   1.23      3.17 r
+  u_grid/g_row_1__g_col_1__pe/mult_28/U175/ZN (nr02d0)
+                                                   0.45      3.62 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U53/S (ad01d0)
+                                                   0.84      4.45 r
+  u_grid/g_row_1__g_col_1__pe/mult_28/U52/S (ad01d0)
+                                                   0.60      5.05 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U12/CO (ad01d0)
+                                                   0.60      5.66 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U11/CO (ad01d0)
+                                                   0.47      6.12 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U10/CO (ad01d0)
+                                                   0.46      6.58 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U9/CO (ad01d0)
+                                                   0.46      7.05 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U8/CO (ad01d0)
+                                                   0.48      7.53 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U7/S (ad01d0)
+                                                   0.60      8.12 f
+  u_grid/g_row_1__g_col_1__pe/U2/Z (aor22d1)       0.38      8.50 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.58      9.08 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.44      9.52 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.46      9.97 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.45     10.42 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     10.87 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.44     11.30 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.46     11.77 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.46     12.23 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.44     12.67 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     13.11 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.46     13.57 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.45     14.01 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.45 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.45     14.90 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     15.35 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.45     15.80 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.46     16.26 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.46     16.72 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     17.17 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.44     17.61 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     18.05 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     18.48 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_31/S (ad01d0)
+                                                   0.64     19.12 r
+  u_grid/g_row_1__g_col_1__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.02     19.14 r
+  data arrival time                                         19.14
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36     20.92 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.32     21.24 r
+  u_grid/g_row_1__g_col_1__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.02     21.26 r
+
+  clock uncertainty                               -1.50     19.76
+  library setup time                              -0.31     19.44
+  data required time                                        19.44
+  ------------------------------------------------------------------------
+  data required time                                        19.44
+  data arrival time                                        -19.14
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.30
+
+
+
+  Startpoint: u_grid/g_row_3__g_col_2__pe/act_out_reg_2_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_3__g_col_3__pe/psum_out_reg_31_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_23079_2511/Z (bufbda)                    0.35      0.90 r
+  u_grid/g_row_3__g_col_2__pe/act_out_reg_2_/CP (decrq1)
+                                                   0.02      0.92 r
+
+  u_grid/g_row_3__g_col_2__pe/act_out_reg_2_/CP (decrq1)
+                                                   0.00      0.92 r
+  u_grid/g_row_3__g_col_2__pe/act_out_reg_2_/Q (decrq1)
+                                                   0.76      1.68 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U142/ZN (inv0d0)
+                                                   1.08      2.75 r
+  u_grid/g_row_3__g_col_3__pe/mult_28/U175/ZN (nr02d0)
+                                                   0.43      3.18 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U53/S (ad01d0)
+                                                   0.82      4.01 r
+  u_grid/g_row_3__g_col_3__pe/mult_28/U52/S (ad01d0)
+                                                   0.59      4.60 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U12/CO (ad01d0)
+                                                   0.60      5.20 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U11/CO (ad01d0)
+                                                   0.45      5.64 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U10/CO (ad01d0)
+                                                   0.44      6.09 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U9/CO (ad01d0)
+                                                   0.46      6.55 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U8/CO (ad01d0)
+                                                   0.47      7.02 f
+  u_grid/g_row_3__g_col_3__pe/mult_28/U7/S (ad01d0)
+                                                   0.53      7.55 f
+  u_grid/g_row_3__g_col_3__pe/U2/Z (aor22d1)       0.37      7.93 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.59      8.51 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.45      8.96 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.44      9.40 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.45      9.86 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     10.30 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     10.74 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.46     11.21 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.47     11.68 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.44     12.12 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     12.56 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.44     13.00 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.44     13.44 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.45     13.89 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.44     14.33 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     14.78 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_24/CO (ad01d1)
+                                                   0.41     15.19 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.43     15.62 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.45     16.07 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.44     16.51 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.44     16.95 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.45     17.39 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_30/CO (ad01d0)
+                                                   0.44     17.83 f
+  u_grid/g_row_3__g_col_3__pe/add_42/U1_31/S (ad01d0)
+                                                   0.73     18.57 r
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_31_/D (decrq1)
+                                                   0.04     18.61 r
+  data arrival time                                         18.61
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27     20.32 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.19     20.51 r
+  ZCTSBUF_84540_2535/Z (bufbd3)                    0.31     20.82 r
+  u_grid/g_row_3__g_col_3__pe/psum_out_reg_31_/CP (decrq1)
+                                                   0.00     20.82 r
+
+  clock uncertainty                               -1.50     19.32
+  library setup time                              -0.36     18.96
+  data required time                                        18.96
+  ------------------------------------------------------------------------
+  data required time                                        18.96
+  data arrival time                                        -18.61
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.35
+
+
+
+  Startpoint: u_seq/mode_lat_reg (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_0__pe/psum_out_reg_29_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.20      0.51 r
+  u_seq/ZCTSBUF_75677_2546/Z (buffd3)              0.32      0.84 r
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+  u_seq/mode_lat_reg/Q (dfcrq2)                    1.40      2.23 r
+  u_grid/HFSINV_53187_553/ZN (inv0d2)              0.74      2.97 f
+  u_grid/HFSBUF_31605_552/Z (bufbd3)               0.60      3.57 f
+  u_grid/HFSBUF_23937_551/Z (buffd3)               0.68      4.25 f
+  u_grid/HFSBUF_15918_550/Z (buffd1)               0.75      5.00 f
+  u_grid/g_row_2__g_col_0__pe/U18/Z (aor22d1)      0.50      5.50 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1/Z (an02d1)
+                                                   0.26      5.76 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_1/CO (ad01d0)
+                                                   0.44      6.20 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_2/CO (ad01d4)
+                                                   0.47      6.67 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_3/CO (ad01d1)
+                                                   0.41      7.09 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_4/CO (ad01d0)
+                                                   0.45      7.53 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_5/CO (ad01d1)
+                                                   0.43      7.96 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_6/CO (ad01d1)
+                                                   0.41      8.37 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_7/CO (ad01d1)
+                                                   0.40      8.76 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_8/CO (ad01d1)
+                                                   0.40      9.16 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.43      9.59 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_10/CO (ad01d1)
+                                                   0.41     10.00 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_11/CO (ad01d1)
+                                                   0.41     10.41 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.44     10.85 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     11.29 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_14/CO (ad01d1)
+                                                   0.42     11.71 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.45     12.16 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_16/CO (ad01d1)
+                                                   0.43     12.59 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.43     13.03 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_18/CO (ad01d1)
+                                                   0.41     13.44 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_19/CO (ad01d1)
+                                                   0.40     13.84 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.43     14.27 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.45     14.72 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.48     15.20 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.46     15.66 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     16.10 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.44     16.54 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.44     16.98 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.48     17.46 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.46     17.91 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_29/S (ad01d0)
+                                                   0.57     18.48 r
+  u_grid/g_row_2__g_col_0__pe/copt_h_inst_5440/Z (dl01d1)
+                                                   0.60     19.08 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_29_/D (decrq1)
+                                                   0.00     19.08 r
+  data arrival time                                         19.08
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.38     20.93 r
+  ZCTSBUF_25794_2515/Z (buffda)                    0.31     21.24 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_29_/CP (decrq1)
+                                                   0.00     21.24 r
+
+  clock uncertainty                               -1.50     19.74
+  library setup time                              -0.28     19.47
+  data required time                                        19.47
+  ------------------------------------------------------------------------
+  data required time                                        19.47
+  data arrival time                                        -19.08
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.38
+
+
+
+  Startpoint: paddr[3] (input port clocked by clk)
+  Endpoint: prdata[12] (output port clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: **in2out_default**
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  clock network delay (propagated)                 0.00      1.22
+  input external delay                             7.00      8.22 r
+  paddr[3] (in)                                    1.22      8.22 r
+  u_apb/U29/Z (buffd1)                             0.39      8.61 r
+  u_csr/U20/ZN (inv0d2)                            0.12      8.73 f
+  u_csr/U21/ZN (nr03d1)                            0.44      9.17 r
+  u_csr/U13/Z (an02d2)                             0.47      9.65 r
+  u_csr/U29/ZN (inv0d2)                            0.14      9.79 f
+  u_csr/U398/ZN (oai222d2)                         0.50     10.29 r
+  ctmTdsLR_1_2965/Z (bufbd7)                       0.75     11.05 r
+  prdata[12] (out)                                 0.02     11.06 r
+  data arrival time                                         11.06
+
+  clock clk (rise edge)                           20.00     20.00
+  clock network delay (propagated)                 0.00     20.00
+  clock uncertainty                               -1.50     18.50
+  output external delay                           -7.00     11.50
+  data required time                                        11.50
+  ------------------------------------------------------------------------
+  data required time                                        11.50
+  data arrival time                                        -11.06
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.44
+
+
+
+  Startpoint: u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_1__g_col_1__pe/psum_out_reg_30_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36      0.92 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.32      1.24 r
+  u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_/CP (decrq1)
+                                                   0.01      1.25 r
+
+  u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_/CP (decrq1)
+                                                   0.00      1.25 r
+  u_grid/g_row_1__g_col_1__pe/weight_reg_reg_2_/Q (decrq1)
+                                                   0.69      1.94 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U144/ZN (inv0d0)
+                                                   1.23      3.17 r
+  u_grid/g_row_1__g_col_1__pe/mult_28/U175/ZN (nr02d0)
+                                                   0.45      3.62 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U53/S (ad01d0)
+                                                   0.84      4.45 r
+  u_grid/g_row_1__g_col_1__pe/mult_28/U52/S (ad01d0)
+                                                   0.60      5.05 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U12/CO (ad01d0)
+                                                   0.60      5.66 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U11/CO (ad01d0)
+                                                   0.47      6.12 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U10/CO (ad01d0)
+                                                   0.46      6.58 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U9/CO (ad01d0)
+                                                   0.46      7.05 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U8/CO (ad01d0)
+                                                   0.48      7.53 f
+  u_grid/g_row_1__g_col_1__pe/mult_28/U7/S (ad01d0)
+                                                   0.60      8.12 f
+  u_grid/g_row_1__g_col_1__pe/U2/Z (aor22d1)       0.38      8.50 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.58      9.08 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.44      9.52 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.46      9.97 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.45     10.42 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     10.87 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.44     11.30 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.46     11.77 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.46     12.23 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.44     12.67 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     13.11 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.46     13.57 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.45     14.01 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.45 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.45     14.90 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     15.35 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.45     15.80 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.46     16.26 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.46     16.72 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     17.17 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.44     17.61 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     18.05 f
+  u_grid/g_row_1__g_col_1__pe/add_42/U1_30/S (ad01d0)
+                                                   0.46     18.51 f
+  u_grid/g_row_1__g_col_1__pe/psum_out_reg_30_/D (decrq1)
+                                                   0.00     18.51 f
+  data arrival time                                         18.51
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  u_grid/ZCTSBUF_60383_2520/Z (buffda)             0.31     20.86 r
+  u_grid/g_row_1__g_col_1__pe/psum_out_reg_30_/CP (decrq1)
+                                                   0.02     20.88 r
+
+  clock uncertainty                               -1.50     19.38
+  library setup time                              -0.43     18.96
+  data required time                                        18.96
+  ------------------------------------------------------------------------
+  data required time                                        18.96
+  data arrival time                                        -18.51
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.45
+
+
+
+  Startpoint: u_grid/g_row_2__g_col_1__pe/act_out_reg_5_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_2__pe/psum_out_reg_30_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36      0.92 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.32      1.24 r
+  u_grid/g_row_2__g_col_1__pe/act_out_reg_5_/CP (decrq1)
+                                                   0.01      1.25 r
+
+  u_grid/g_row_2__g_col_1__pe/act_out_reg_5_/CP (decrq1)
+                                                   0.00      1.25 r
+  u_grid/g_row_2__g_col_1__pe/act_out_reg_5_/Q (decrq1)
+                                                   0.83      2.08 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U152/ZN (inv0d0)
+                                                   1.09      3.17 r
+  u_grid/g_row_2__g_col_2__pe/mult_28/U162/ZN (nr02d0)
+                                                   0.49      3.66 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U50/CO (ad01d0)
+                                                   0.71      4.38 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U44/S (ad01d0)
+                                                   0.79      5.16 r
+  u_grid/g_row_2__g_col_2__pe/mult_28/U43/S (ad01d0)
+                                                   0.60      5.77 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U10/CO (ad01d0)
+                                                   0.61      6.38 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U9/CO (ad01d0)
+                                                   0.45      6.83 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U8/CO (ad01d1)
+                                                   0.42      7.25 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U7/CO (ad01d0)
+                                                   0.46      7.71 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U6/CO (ad01d0)
+                                                   0.45      8.17 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U5/CO (ad01d0)
+                                                   0.44      8.61 f
+  u_grid/g_row_2__g_col_2__pe/mult_28/U4/S (ad01d0)
+                                                   0.55      9.16 f
+  u_grid/g_row_2__g_col_2__pe/U15/Z (aor22d1)      0.35      9.51 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_12/CO (ad01d1)
+                                                   0.55     10.06 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.46     10.52 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     10.96 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.44     11.41 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.44     11.84 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.44     12.28 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.44     12.72 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.44     13.16 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.44     13.60 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.04 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.46     14.50 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.45     14.95 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     15.39 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.44     15.83 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.46     16.29 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     16.74 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.45     17.19 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     17.63 f
+  u_grid/g_row_2__g_col_2__pe/add_42/U1_30/S (ad01d0)
+                                                   0.48     18.12 f
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_30_/D (decrq1)
+                                                   0.00     18.12 f
+  data arrival time                                         18.12
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27     20.32 f
+  ZCTSINV_92165_2538/ZN (invbdk)                   0.19     20.51 r
+  u_grid/g_row_2__g_col_2__pe/psum_out_reg_30_/CP (decrq1)
+                                                   0.05     20.56 r
+
+  clock uncertainty                               -1.50     19.06
+  library setup time                              -0.44     18.62
+  data required time                                        18.62
+  ------------------------------------------------------------------------
+  data required time                                        18.62
+  data arrival time                                        -18.12
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.51
+
+
+
+  Startpoint: u_seq/mode_lat_reg (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_2__g_col_0__pe/psum_out_reg_30_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  ZCTSBUF_121299_2575/Z (buffda)                   0.27      0.32 f
+  ZCTSINV_78667_2553/ZN (invbdf)                   0.20      0.51 r
+  u_seq/ZCTSBUF_75677_2546/Z (buffd3)              0.32      0.84 r
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+
+  u_seq/mode_lat_reg/CP (dfcrq2)                   0.00      0.84 r
+  u_seq/mode_lat_reg/Q (dfcrq2)                    1.40      2.23 r
+  u_grid/HFSINV_53187_553/ZN (inv0d2)              0.74      2.97 f
+  u_grid/HFSBUF_31605_552/Z (bufbd3)               0.60      3.57 f
+  u_grid/HFSBUF_23937_551/Z (buffd3)               0.68      4.25 f
+  u_grid/HFSBUF_15918_550/Z (buffd1)               0.75      5.00 f
+  u_grid/g_row_2__g_col_0__pe/U18/Z (aor22d1)      0.50      5.50 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1/Z (an02d1)
+                                                   0.26      5.76 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_1/CO (ad01d0)
+                                                   0.44      6.20 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_2/CO (ad01d4)
+                                                   0.47      6.67 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_3/CO (ad01d1)
+                                                   0.41      7.09 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_4/CO (ad01d0)
+                                                   0.45      7.53 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_5/CO (ad01d1)
+                                                   0.43      7.96 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_6/CO (ad01d1)
+                                                   0.41      8.37 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_7/CO (ad01d1)
+                                                   0.40      8.76 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_8/CO (ad01d1)
+                                                   0.40      9.16 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.43      9.59 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_10/CO (ad01d1)
+                                                   0.41     10.00 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_11/CO (ad01d1)
+                                                   0.41     10.41 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.44     10.85 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     11.29 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_14/CO (ad01d1)
+                                                   0.42     11.71 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.45     12.16 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_16/CO (ad01d1)
+                                                   0.43     12.59 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.43     13.03 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_18/CO (ad01d1)
+                                                   0.41     13.44 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_19/CO (ad01d1)
+                                                   0.40     13.84 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.43     14.27 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.45     14.72 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.48     15.20 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.46     15.66 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.44     16.10 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.44     16.54 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.44     16.98 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.48     17.46 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.46     17.91 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     18.35 f
+  u_grid/g_row_2__g_col_0__pe/add_42/U1_30/S (ad01d0)
+                                                   0.45     18.80 f
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_30_/D (decrq1)
+                                                   0.00     18.80 f
+  data arrival time                                         18.80
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_33359_2519/Z (bufbda)                    0.38     20.93 r
+  ZCTSBUF_25794_2515/Z (buffda)                    0.31     21.24 r
+  u_grid/g_row_2__g_col_0__pe/psum_out_reg_30_/CP (decrq1)
+                                                   0.01     21.24 r
+
+  clock uncertainty                               -1.50     19.74
+  library setup time                              -0.43     19.31
+  data required time                                        19.31
+  ------------------------------------------------------------------------
+  data required time                                        19.31
+  data arrival time                                        -18.80
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.51
+
+
+
+  Startpoint: u_grid/g_row_1__g_col_1__pe/act_out_reg_4_ (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_grid/g_row_1__g_col_2__pe/psum_out_reg_30_ (rising edge-triggered flip-flop clocked by clk)
+  Mode: mode_func
+  Corner: corner_ss
+  Scenario: func_ss
+  Path Group: clk
+  Path Type: max
+
+  Point                                            Incr      Path  
+  ------------------------------------------------------------------------
+  clock clk (rise edge)                            0.00      0.00
+  source latency                                   0.00      0.00
+  clk (in)                                         0.00      0.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04      0.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34      0.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17      0.55 r
+  ZCTSBUF_53572_2503/Z (bufbda)                    0.36      0.92 r
+  ZCTSBUF_46304_2500/Z (buffda)                    0.32      1.24 r
+  u_grid/g_row_1__g_col_1__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.02      1.26 r
+
+  u_grid/g_row_1__g_col_1__pe/act_out_reg_4_/CP (decrq1)
+                                                   0.00      1.26 r
+  u_grid/g_row_1__g_col_1__pe/act_out_reg_4_/Q (decrq1)
+                                                   0.81      2.07 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U140/ZN (inv0d0)
+                                                   0.99      3.05 r
+  u_grid/g_row_1__g_col_2__pe/mult_28/U161/ZN (nr02d0)
+                                                   0.41      3.46 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U53/S (ad01d0)
+                                                   0.82      4.28 r
+  u_grid/g_row_1__g_col_2__pe/mult_28/U52/S (ad01d0)
+                                                   0.60      4.88 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U12/CO (ad01d0)
+                                                   0.60      5.48 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U11/CO (ad01d0)
+                                                   0.45      5.93 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U10/CO (ad01d0)
+                                                   0.46      6.39 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U9/CO (ad01d0)
+                                                   0.48      6.87 f
+  u_grid/g_row_1__g_col_2__pe/mult_28/U8/S (ad01d0)
+                                                   0.58      7.45 f
+  u_grid/g_row_1__g_col_2__pe/U3/Z (aor22d1)       0.37      7.82 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_8/CO (ad01d0)
+                                                   0.59      8.41 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_9/CO (ad01d0)
+                                                   0.44      8.86 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_10/CO (ad01d0)
+                                                   0.46      9.32 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_11/CO (ad01d0)
+                                                   0.45      9.78 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_12/CO (ad01d0)
+                                                   0.44     10.22 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_13/CO (ad01d0)
+                                                   0.44     10.66 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_14/CO (ad01d0)
+                                                   0.45     11.10 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_15/CO (ad01d0)
+                                                   0.51     11.61 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_16/CO (ad01d0)
+                                                   0.47     12.08 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_17/CO (ad01d0)
+                                                   0.45     12.52 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_18/CO (ad01d0)
+                                                   0.43     12.95 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_19/CO (ad01d0)
+                                                   0.46     13.41 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_20/CO (ad01d0)
+                                                   0.45     13.86 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_21/CO (ad01d0)
+                                                   0.44     14.31 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_22/CO (ad01d0)
+                                                   0.44     14.74 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_23/CO (ad01d0)
+                                                   0.47     15.22 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_24/CO (ad01d0)
+                                                   0.49     15.71 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_25/CO (ad01d0)
+                                                   0.46     16.17 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_26/CO (ad01d0)
+                                                   0.45     16.63 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_27/CO (ad01d0)
+                                                   0.45     17.07 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_28/CO (ad01d0)
+                                                   0.46     17.53 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_29/CO (ad01d0)
+                                                   0.44     17.97 f
+  u_grid/g_row_1__g_col_2__pe/add_42/U1_30/S (ad01d0)
+                                                   0.63     18.59 r
+  u_grid/g_row_1__g_col_2__pe/psum_out_reg_30_/D (decrq1)
+                                                   0.04     18.64 r
+  data arrival time                                         18.64
+
+  clock clk (rise edge)                           20.00     20.00
+  source latency                                   0.00     20.00
+  clk (in)                                         0.00     20.00 r
+  ZCTSINV_121579_2576/ZN (inv0da)                  0.04     20.04 f
+  sbcto_ht1_inst_2806/Z (buffd3)                   0.34     20.38 f
+  ZCTSINV_60805_2522/ZN (invbdf)                   0.17     20.55 r
+  ZCTSBUF_41569_2506/Z (bufbdf)                    0.39     20.94 r
+  u_grid/g_row_1__g_col_2__pe/psum_out_reg_30_/CP (decrq1)
+                                                   0.03     20.97 r
+
+  clock uncertainty                               -1.50     19.47
+  library setup time                              -0.31     19.16
+  data required time                                        19.16
+  ------------------------------------------------------------------------
+  data required time                                        19.16
+  data arrival time                                        -18.64
+  ------------------------------------------------------------------------
+  slack (MET)                                                0.52
+
+
+1

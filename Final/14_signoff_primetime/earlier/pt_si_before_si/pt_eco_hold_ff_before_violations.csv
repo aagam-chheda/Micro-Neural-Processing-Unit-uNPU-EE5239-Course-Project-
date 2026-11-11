@@ -1,0 +1,2 @@
+endpoint;startpoint;startpoint_kind;endpoint_kind;slack_ns;path_group;n_cells;cells;incr_ns
+prdata[9];u_csr/src_a_reg_reg_9_/CP;pin;port;-0.0114;clk;3;u_csr/src_a_reg_reg_9_/QN(dfcrn2),u_csr/U361/ZN(oai222d1),ctmTdsLR_1_2982/Z(buffd7);0.2013,0.1010,0.2399

@@ -1,0 +1,1 @@
+# written by pt_eco_drc_probe.tcl (task 095): one line per insertion of the max-transition change file: <idx> <pin> <ref> <class> net=<net> drivers=<driver pins>; pt_eco_apply.tcl (UNPU_ECO_KIND drc) prints these lines and refuses a violation class

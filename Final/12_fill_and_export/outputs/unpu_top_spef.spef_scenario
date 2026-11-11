@@ -1,0 +1,6 @@
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_125.spef for scenarios: 
+	 scenario: func_ss, corner type: late/early
+
+/storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/outputs/unpu_top_spef.TYPICAL_RC_-40.spef for scenarios: 
+	 scenario: func_ff, corner type: late/early
+

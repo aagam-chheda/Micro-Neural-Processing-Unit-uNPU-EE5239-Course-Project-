@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<!--
+  uNPU architecture snapshot — Planning session, checked in for the record
+  alongside docs/session-handoff.md §12 and docs/planning/plan.md.
+
+  Static copy of the artifact drawn during PM Q&A round 2 (native interface,
+  8-register CSR, no scan chain, negotiable port list, A[MxK]xB[KxN]=C[MxN]
+  int8-in/int32-out). Two things in it are explicitly flagged as unconfirmed
+  assumptions, not PM fact — see the figcaption under §1 and the proposed-flag
+  banner under §3. Treat this as a snapshot, not a living document: it will
+  drift as soon as the plan changes again. Source of truth is
+  docs/session-handoff.md and docs/planning/plan.md.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>uNPU Architecture</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#EEF1F5; --surface:#FFFFFF; --surface-2:#F7F9FB;
+    --ink:#16202C; --ink-dim:#55677A;
+    --rule:#C7D0DA; --rule-strong:#9FAEBD;
+    --accent:#B85C2E; --accent-soft:#F1DFD2;
+    --good:#1F6E52; --good-soft:#DCEFE6;
+    --warn:#8A5E08; --warn-soft:#F5E7C6;
+    --bad:#A3382F; --bad-soft:#F6DEDA;
+    --grey:#5C6B7A; --grey-soft:#E7EAEE;
+    --pill-good:#1F6E52; --pill-warn:#8A5E08; --pill-accent:#A6521F; --pill-grey:#5C6B7A;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0B1420; --surface:#101D2C; --surface-2:#0E1A28;
+      --ink:#E3EBF3; --ink-dim:#93A6B8;
+      --rule:#24384C; --rule-strong:#34506A;
+      --accent:#E28B52; --accent-soft:#3A2A1E;
+      --good:#52C594; --good-soft:#113328;
+      --warn:#E3BE5C; --warn-soft:#3A2E10;
+      --bad:#E4776C; --bad-soft:#3A1815;
+      --grey:#8CA0B3; --grey-soft:#17232F;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B1420; --surface:#101D2C; --surface-2:#0E1A28;
+    --ink:#E3EBF3; --ink-dim:#93A6B8;
+    --rule:#24384C; --rule-strong:#34506A;
+    --accent:#E28B52; --accent-soft:#3A2A1E;
+    --good:#52C594; --good-soft:#113328;
+    --warn:#E3BE5C; --warn-soft:#3A2E10;
+    --bad:#E4776C; --bad-soft:#3A1815;
+    --grey:#8CA0B3; --grey-soft:#17232F;
+  }
+
+  * { box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans","Segoe UI",Arial,sans-serif;
+    font-size:15px; line-height:1.55;
+  }
+  .sheet{ max-width:1180px; margin:0 auto; padding:28px 20px 64px; }
+
+  h1,h2,h3{ font-family:"Archivo Narrow","Oswald","Arial Narrow",sans-serif; font-weight:800; text-wrap:balance; margin:0; }
+  code, .mono{ font-family:"IBM Plex Mono","SFMono-Regular",Consolas,monospace; }
+  code{ background:var(--surface-2); border:1px solid var(--rule); border-radius:4px; padding:0.05em 0.4em; font-size:0.88em; }
+
+  .titleblock{
+    display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:18px;
+    padding-bottom:20px; border-bottom:3px solid var(--ink);
+  }
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--ink-dim); margin:0 0 8px;
+  }
+  h1{ font-size:clamp(28px,5vw,42px); letter-spacing:0.01em; }
+  .dek{ color:var(--ink-dim); max-width:62ch; margin-top:8px; font-size:15px; }
+  .legend-row{ display:flex; flex-wrap:wrap; gap:10px; }
+  .chip{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 10px 5px 8px; border-radius:100px;
+    font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:0.02em; white-space:nowrap;
+    border:1px solid var(--rule-strong);
+  }
+  .chip .dot{ width:8px; height:8px; border-radius:50%; flex:none; }
+  .chip.done{ background:var(--good-soft); color:var(--good); border-color:transparent; }
+  .chip.done .dot{ background:var(--good); }
+  .chip.next{ background:var(--accent-soft); color:var(--accent); border-color:transparent; }
+  .chip.next .dot{ background:var(--accent); }
+  .chip.todo{ background:var(--grey-soft); color:var(--grey); border-color:transparent; }
+  .chip.todo .dot{ background:var(--grey); }
+  .chip.changed{ background:var(--warn-soft); color:var(--warn); border-color:transparent; }
+  .chip.changed .dot{ background:var(--warn); }
+
+  section{ margin-top:44px; }
+  .section-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; }
+  .section-num{ font-family:"IBM Plex Mono",monospace; color:var(--ink-dim); font-size:13px; }
+  h2{ font-size:22px; }
+  .section-sub{ color:var(--ink-dim); font-size:13.5px; margin:-8px 0 16px; max-width:70ch; }
+
+  figure{ margin:0; }
+  .diagram-scroll{ overflow-x:auto; border:1px solid var(--rule); border-radius:8px; background:var(--surface); padding:8px; }
+  figcaption{ color:var(--ink-dim); font-size:13px; margin-top:10px; max-width:80ch; }
+  svg text{ fill:var(--ink); }
+  svg .dim{ fill:var(--ink-dim); }
+  svg .box{ fill:var(--surface); stroke:var(--rule-strong); stroke-width:1.5; }
+  svg .box-ext{ fill:var(--surface-2); stroke:var(--rule); stroke-width:1.5; stroke-dasharray:4 3; }
+  svg .edge{ fill:none; stroke:var(--ink-dim); stroke-width:1.6; }
+  svg .edge-accent{ fill:none; stroke:var(--accent); stroke-width:2; }
+  svg .edge-dash{ fill:none; stroke:var(--ink-dim); stroke-width:1.3; stroke-dasharray:5 4; }
+  svg .lbl-bg{ fill:var(--surface); opacity:0.92; }
+  svg .t{ font-family:"Archivo Narrow",sans-serif; font-weight:700; font-size:14px; }
+  svg .s{ font-family:"IBM Plex Mono",monospace; font-size:10px; fill:var(--ink-dim); }
+  svg .e{ font-family:"IBM Plex Mono",monospace; font-size:10.5px; fill:var(--ink-dim); }
+  svg .pill-txt{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:9px; fill:#fff; letter-spacing:0.03em; }
+  svg .pe{ fill:var(--rule-strong); }
+
+  .legend-strip{ display:flex; flex-wrap:wrap; gap:16px 22px; margin-top:14px; font-size:12.5px; color:var(--ink-dim); }
+  .legend-strip .item{ display:flex; align-items:center; gap:6px; }
+  .legend-strip .sw{ width:11px; height:11px; border-radius:3px; flex:none; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  .table-scroll{ overflow-x:auto; border:1px solid var(--rule); border-radius:8px; }
+  th,td{ text-align:left; padding:10px 14px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  thead th{ background:var(--surface-2); font-family:"IBM Plex Mono",monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-dim); font-weight:600; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.off, td.name{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  td.name{ color:var(--ink); font-weight:600; }
+  .access{ display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:10.5px; padding:1px 7px; border-radius:4px; }
+  .access.rw{ background:var(--good-soft); color:var(--good); }
+  .access.ro{ background:var(--warn-soft); color:var(--warn); }
+  .proposed-flag{ display:inline-flex; align-items:center; gap:6px; font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--warn); background:var(--warn-soft); padding:5px 10px; border-radius:6px; margin-bottom:12px; }
+
+  .contract{ background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:18px 20px; overflow-x:auto; }
+  .contract pre{ margin:0; font-family:"IBM Plex Mono",monospace; font-size:13px; line-height:1.9; white-space:pre; }
+  .contract .k{ color:var(--accent); }
+
+  .status-list{ display:flex; flex-direction:column; border:1px solid var(--rule); border-radius:8px; overflow:hidden; background:var(--surface); }
+  .status-row{ display:grid; grid-template-columns:34px 46px 1fr auto; gap:14px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--rule); }
+  .status-row:last-child{ border-bottom:none; }
+  .status-row.removed{ opacity:0.55; }
+  .status-row.removed .step-name{ text-decoration:line-through; }
+  .step-n{ font-family:"IBM Plex Mono",monospace; color:var(--ink-dim); font-size:12px; }
+  .step-name{ font-size:13.5px; }
+  .step-note{ color:var(--ink-dim); font-size:12px; }
+  .dot-ind{ width:10px; height:10px; border-radius:50%; }
+  .dot-ind.done{ background:var(--good); }
+  .dot-ind.next{ background:var(--accent); }
+  .dot-ind.todo{ background:var(--grey); }
+  .dot-ind.blocked{ background:var(--bad); }
+  .dot-ind.removed{ background:transparent; border:1.5px dashed var(--rule-strong); }
+
+  .callout-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  .callout{ border:1px solid var(--rule); border-radius:8px; padding:16px 18px; background:var(--surface); }
+  .callout h3{ font-size:13px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+  .callout.resolved{ border-top:3px solid var(--good); }
+  .callout.effect{ border-top:3px solid var(--accent); }
+  .callout.open{ border-top:3px solid var(--grey); }
+  .callout.docs{ border-top:3px solid var(--warn); }
+  .callout ul{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:8px; font-size:13px; color:var(--ink); }
+  .callout li::marker{ color:var(--ink-dim); }
+
+  footer{ margin-top:52px; padding-top:16px; border-top:1px solid var(--rule); color:var(--ink-dim); font-size:12px; }
+
+  @media (max-width:640px){
+    .status-row{ grid-template-columns:24px 40px 1fr; }
+    .status-row .step-note{ grid-column:2 / -1; }
+  }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+</head>
+<body>
+<div class="sheet">
+
+  <div class="titleblock">
+    <div>
+      <p class="eyebrow">EE5239 · Frankenstein 180nm SoC · Planning session snapshot</p>
+      <h1>uNPU Architecture</h1>
+      <p class="dek">Full block diagram, register map, and open items as understood after today's PM answers (Q7, Q2, Q3, Q4) and the A×B=C dimension spec. For review — flag anything wrong or missing.</p>
+    </div>
+    <div class="legend-row">
+      <span class="chip done"><span class="dot"></span>verified in sim</span>
+      <span class="chip next"><span class="dot"></span>next task</span>
+      <span class="chip todo"><span class="dot"></span>not started</span>
+      <span class="chip changed"><span class="dot"></span>changed today</span>
+    </div>
+  </div>
+
+  <!-- ================= SECTION 1: SoC CONTEXT ================= -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">§1</span>
+      <h2>SoC context</h2>
+    </div>
+    <p class="section-sub">Where uNPU sits relative to the PicoRV32 CPU, the shared SRAM, and the SPI debug backdoor. Project 1's territory, redrawn here only for orientation.</p>
+
+    <figure>
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 900 300" width="900" height="300" role="img" aria-label="SoC context: PicoRV32 CPU reaches SRAM through an arbiter shared with the uNPU DMA master and the SPI debug backdoor, and reaches uNPU's own registers through a separate address-decoded native path.">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-dim)"/>
+            </marker>
+          </defs>
+
+          <rect class="box" x="40" y="40" width="180" height="60" rx="6"/>
+          <text class="t" x="130" y="66" text-anchor="middle">PicoRV32 CPU</text>
+          <text class="s" x="130" y="84" text-anchor="middle">no cache · fetches ~every cycle</text>
+
+          <rect class="box" x="300" y="55" width="140" height="40" rx="6"/>
+          <text class="t" x="370" y="80" text-anchor="middle" font-size="12.5">addr decode</text>
+
+          <rect class="box" x="520" y="110" width="190" height="60" rx="6"/>
+          <text class="t" x="615" y="136" text-anchor="middle">SRAM Arbiter</text>
+          <text class="s" x="615" y="154" text-anchor="middle">NPU DMA &gt; CPU priority</text>
+
+          <rect class="box" x="760" y="110" width="120" height="60" rx="6"/>
+          <text class="t" x="820" y="136" text-anchor="middle">SRAM</text>
+          <text class="s" x="820" y="154" text-anchor="middle">32KB · 4 banks</text>
+
+          <rect class="box" x="300" y="190" width="180" height="60" rx="6" style="stroke:var(--accent); stroke-width:2"/>
+          <text class="t" x="390" y="216" text-anchor="middle">uNPU</text>
+          <text class="s" x="390" y="234" text-anchor="middle">0x4000_0000 window</text>
+
+          <rect class="box box-ext" x="520" y="190" width="190" height="60" rx="6"/>
+          <text class="t" x="615" y="216" text-anchor="middle">SPI Ctrl</text>
+          <text class="s" x="615" y="234" text-anchor="middle">debug backdoor · may run slow</text>
+
+          <path class="edge" d="M220,70 L300,70" marker-end="url(#a1)"/>
+
+          <path class="edge" d="M440,72 L480,72 L480,140 L520,140" marker-end="url(#a1)"/>
+          <rect class="lbl-bg" x="450" y="98" width="88" height="15" rx="3"/>
+          <text class="e" x="454" y="109">0x0000_xxxx</text>
+
+          <path class="edge-dash" d="M355,95 L355,190" marker-end="url(#a1)"/>
+          <rect class="lbl-bg" x="360" y="130" width="128" height="15" rx="3"/>
+          <text class="e" x="364" y="141">0x4000_xxxx (assumed)</text>
+
+          <path class="edge" d="M710,140 L760,140" marker-end="url(#a1)"/>
+          <rect class="lbl-bg" x="716" y="122" width="44" height="14" rx="3"/>
+          <text class="e" x="719" y="132" font-size="9.5">native</text>
+
+          <path class="edge-accent" d="M480,205 L530,205 L530,170" marker-end="url(#a1)"/>
+          <rect class="lbl-bg" x="386" y="176" width="150" height="15" rx="3"/>
+          <text class="e" x="390" y="187" fill="var(--accent)">DMA master · priority</text>
+
+          <path class="edge-dash" d="M615,190 L615,170" marker-end="url(#a1)"/>
+        </svg>
+      </div>
+      <figcaption>PicoRV32 has one native memory port shared by fetch and load/store; an address decode splits <code>0x0000_xxxx</code> to the shared SRAM arbiter from <code>0x4000_xxxx</code> to uNPU's own registers. The dashed CPU→uNPU path is my assumption from the address ranges, not something the PM confirmed directly — worth an explicit check.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ================= SECTION 2: uNPU BLOCK DIAGRAM ================= -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">§2</span>
+      <h2>uNPU block diagram</h2>
+    </div>
+    <p class="section-sub">Everything inside the macro, current understanding. Build order runs bottom row outward: PE → grid → skew/de-skew → sequencer → DMA → CSR/native slave.</p>
+
+    <figure>
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 1240 600" width="1240" height="600" role="img" aria-label="uNPU internal block diagram: CPU-side native slave port feeds the CSR block and sequencer; the sequencer commands the DMA master, which fetches A and B from SRAM into the activation and weight buffers; those feed the skew bank, the 4x4 PE grid, and the de-skew bank in series, whose result returns to the DMA master for writeback; a global array_en line fans out to the skew, grid, and de-skew stages.">
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-dim)"/>
+            </marker>
+            <marker id="a2acc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+
+          <rect class="box box-ext" x="30" y="30" width="250" height="50" rx="6"/>
+          <text class="t" x="155" y="52" text-anchor="middle" font-size="13">CPU-side native slave port</text>
+          <text class="s" x="155" y="68" text-anchor="middle">was: APB · now negotiable</text>
+          <rect x="222" y="36" width="58" height="18" rx="9" fill="var(--pill-warn)"/>
+          <text class="pill-txt" x="251" y="48" text-anchor="middle">CHANGED</text>
+
+          <rect class="box box-ext" x="960" y="30" width="250" height="50" rx="6"/>
+          <text class="t" x="1085" y="52" text-anchor="middle" font-size="13">DMA-side native master port</text>
+          <text class="s" x="1085" y="68" text-anchor="middle">→ SRAM arbiter</text>
+
+          <rect class="box" x="30" y="130" width="250" height="70" rx="6"/>
+          <text class="t" x="155" y="158" text-anchor="middle">unpu_csr</text>
+          <text class="s" x="155" y="176" text-anchor="middle">8 registers · §3</text>
+          <rect x="222" y="136" width="58" height="18" rx="9" fill="var(--pill-grey)"/>
+          <text class="pill-txt" x="251" y="148" text-anchor="middle">TODO</text>
+
+          <rect class="box" x="960" y="130" width="250" height="70" rx="6"/>
+          <text class="t" x="1085" y="158" text-anchor="middle">unpu_dma</text>
+          <text class="s" x="1085" y="176" text-anchor="middle">4-state FSM · native master</text>
+          <rect x="1152" y="136" width="58" height="18" rx="9" fill="var(--pill-grey)"/>
+          <text class="pill-txt" x="1181" y="148" text-anchor="middle">TODO</text>
+
+          <rect class="box" x="30" y="250" width="250" height="64" rx="6"/>
+          <text class="t" x="155" y="277" text-anchor="middle">unpu_seq</text>
+          <text class="s" x="155" y="294" text-anchor="middle">sequencer · now M/N/K-aware</text>
+          <rect x="222" y="256" width="58" height="18" rx="9" fill="var(--pill-accent)"/>
+          <text class="pill-txt" x="251" y="268" text-anchor="middle">NEXT</text>
+
+          <rect class="box" x="340" y="250" width="220" height="64" rx="6"/>
+          <text class="t" x="450" y="277" text-anchor="middle">unpu_actbuf</text>
+          <text class="s" x="450" y="294" text-anchor="middle">activation staging</text>
+          <rect x="502" y="256" width="58" height="18" rx="9" fill="var(--pill-grey)"/>
+          <text class="pill-txt" x="531" y="268" text-anchor="middle">TODO</text>
+
+          <rect class="box" x="610" y="250" width="220" height="64" rx="6"/>
+          <text class="t" x="720" y="277" text-anchor="middle">unpu_wbuf</text>
+          <text class="s" x="720" y="294" text-anchor="middle">double-buffered, shift-down</text>
+          <rect x="772" y="256" width="58" height="18" rx="9" fill="var(--pill-grey)"/>
+          <text class="pill-txt" x="801" y="268" text-anchor="middle">TODO</text>
+
+          <rect class="box" x="340" y="400" width="220" height="90" rx="6" style="stroke:var(--good); stroke-width:2"/>
+          <text class="t" x="450" y="426" text-anchor="middle">unpu_skew</text>
+          <text class="s" x="450" y="443" text-anchor="middle">depths 0/1/2/3</text>
+          <rect x="502" y="406" width="58" height="18" rx="9" fill="var(--pill-good)"/>
+          <text class="pill-txt" x="531" y="418" text-anchor="middle">DONE</text>
+
+          <rect class="box" x="610" y="400" width="320" height="90" rx="6" style="stroke:var(--good); stroke-width:2"/>
+          <text class="t" x="686" y="426">unpu_grid</text>
+          <text class="s" x="686" y="443">4×4 PEs · weight-stationary</text>
+          <rect x="872" y="406" width="58" height="18" rx="9" fill="var(--pill-good)"/>
+          <text class="pill-txt" x="901" y="418" text-anchor="middle">DONE</text>
+          <g>
+            <rect class="pe" x="755" y="453" width="6" height="6"/><rect class="pe" x="763" y="453" width="6" height="6"/><rect class="pe" x="771" y="453" width="6" height="6"/><rect class="pe" x="779" y="453" width="6" height="6"/>
+            <rect class="pe" x="755" y="461" width="6" height="6"/><rect class="pe" x="763" y="461" width="6" height="6"/><rect class="pe" x="771" y="461" width="6" height="6"/><rect class="pe" x="779" y="461" width="6" height="6"/>
+            <rect class="pe" x="755" y="469" width="6" height="6"/><rect class="pe" x="763" y="469" width="6" height="6"/><rect class="pe" x="771" y="469" width="6" height="6"/><rect class="pe" x="779" y="469" width="6" height="6"/>
+            <rect class="pe" x="755" y="477" width="6" height="6"/><rect class="pe" x="763" y="477" width="6" height="6"/><rect class="pe" x="771" y="477" width="6" height="6"/><rect class="pe" x="779" y="477" width="6" height="6"/>
+          </g>
+
+          <rect class="box" x="970" y="400" width="220" height="90" rx="6" style="stroke:var(--good); stroke-width:2"/>
+          <text class="t" x="1080" y="426" text-anchor="middle">unpu_deskew</text>
+          <text class="s" x="1080" y="443" text-anchor="middle">depths 3/2/1/0</text>
+          <rect x="1132" y="406" width="58" height="18" rx="9" fill="var(--pill-good)"/>
+          <text class="pill-txt" x="1161" y="418" text-anchor="middle">DONE</text>
+
+          <path class="edge" d="M155,80 L155,130" marker-end="url(#a2)" marker-start="url(#a2)"/>
+          <rect class="lbl-bg" x="163" y="97" width="52" height="14" rx="3"/><text class="e" x="167" y="107" font-size="9.5">reg r/w</text>
+
+          <path class="edge" d="M1085,80 L1085,130" marker-end="url(#a2)" marker-start="url(#a2)"/>
+          <rect class="lbl-bg" x="960" y="97" width="112" height="14" rx="3"/><text class="e" x="964" y="107" font-size="9.5">wstrb==0 → read</text>
+
+          <path class="edge" d="M120,200 L120,250" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="4" y="216" width="112" height="14" rx="3"/><text class="e" x="8" y="226" font-size="9.5">dims + ptrs + START</text>
+          <path class="edge" d="M195,250 L195,200" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="198" y="216" width="52" height="14" rx="3"/><text class="e" x="202" y="226" font-size="9.5">DONE</text>
+
+          <path class="edge" d="M280,282 L310,282 L310,165 L960,165" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="600" y="151" width="112" height="14" rx="3"/><text class="e" x="604" y="161" font-size="9.5">fetch/writeback cmd</text>
+
+          <path class="edge" d="M1000,200 L1000,225 L450,225 L450,250" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="640" y="211" width="96" height="14" rx="3"/><text class="e" x="644" y="221" font-size="9.5">A[M×K], int8</text>
+
+          <path class="edge" d="M1120,200 L1120,238 L720,238 L720,250" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="850" y="224" width="102" height="14" rx="3"/><text class="e" x="854" y="234" font-size="9.5">B[K×N], int8</text>
+
+          <path class="edge" d="M450,314 L450,400" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="456" y="350" width="88" height="14" rx="3"/><text class="e" x="460" y="360" font-size="9.5">a_raw, int8</text>
+
+          <path class="edge" d="M720,314 L720,400" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="726" y="350" width="112" height="14" rx="3"/><text class="e" x="730" y="360" font-size="9.5">weight_load, shift-down</text>
+
+          <path class="edge" d="M560,445 L610,445" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="560" y="424" width="98" height="14" rx="3"/><text class="e" x="564" y="434" font-size="9.5">act_in[k], m+k</text>
+
+          <path class="edge" d="M930,445 L970,445" marker-end="url(#a2)"/>
+          <rect class="lbl-bg" x="912" y="424" width="118" height="14" rx="3"/><text class="e" x="916" y="434" font-size="9.5">psum_out[j], m+j+4</text>
+
+          <path class="edge-accent" d="M1080,400 L1080,340 L1150,340 L1150,200" marker-end="url(#a2acc)"/>
+          <rect class="lbl-bg" x="1000" y="322" width="150" height="14" rx="3"/><text class="e" x="1004" y="332" fill="var(--accent)" font-size="9.5">c_out, int32, m+7 → write</text>
+
+          <path class="edge-dash" d="M155,314 L155,505 L1080,505" />
+          <path class="edge-dash" d="M450,505 L450,490"/>
+          <path class="edge-dash" d="M770,505 L770,490"/>
+          <path class="edge-dash" d="M1080,505 L1080,490"/>
+          <circle cx="450" cy="505" r="2.5" fill="var(--ink-dim)"/>
+          <circle cx="770" cy="505" r="2.5" fill="var(--ink-dim)"/>
+          <circle cx="1080" cy="505" r="2.5" fill="var(--ink-dim)"/>
+          <text class="e" x="155" y="535" font-size="11">array_en — one global enable/freeze, fans out identically, no flow control inside the array</text>
+        </svg>
+      </div>
+      <figcaption>Solid arrows are dataflow (labeled with signal shape and the timing-contract cycle it lands on where relevant); the highlighted path is the result returning for writeback. Dashed lines are the <code>array_en</code> control net and the unconfirmed CPU→CSR routing. Green outline = verified in simulation; grey = not started; copper = next task; amber pill = design changed by today's answers.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ================= SECTION 3: CSR ================= -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">§3</span>
+      <h2>Register map (CSR)</h2>
+    </div>
+    <p class="section-sub">8 registers, PM-approved. Offsets below are a sequential 4-byte layout I'm proposing, not yet confirmed — flag if you meant a different order or packing.</p>
+
+    <div class="proposed-flag">⚠ proposed layout — offsets not yet confirmed with PM</div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Offset</th><th>Name</th><th>Access</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="off">0x00</td><td class="name">src_A</td><td><span class="access rw">R/W</span></td><td>Pointer to A [M×K], signed int8, in SRAM</td></tr>
+          <tr><td class="off">0x04</td><td class="name">src_B</td><td><span class="access rw">R/W</span></td><td>Pointer to B [K×N], signed int8, in SRAM</td></tr>
+          <tr><td class="off">0x08</td><td class="name">dest_C</td><td><span class="access rw">R/W</span></td><td>Pointer to C [M×N], int32, in SRAM — no requantization</td></tr>
+          <tr><td class="off">0x0C</td><td class="name">dim_M</td><td><span class="access rw">R/W</span></td><td>Rows of A / C. 1–4, never &gt;4</td></tr>
+          <tr><td class="off">0x10</td><td class="name">dim_N</td><td><span class="access rw">R/W</span></td><td>Columns of B / C. 1–4, never &gt;4</td></tr>
+          <tr><td class="off">0x14</td><td class="name">dim_K</td><td><span class="access rw">R/W</span></td><td>Inner dimension. 1–4, never &gt;4</td></tr>
+          <tr><td class="off">0x18</td><td class="name">npu_ctrl</td><td><span class="access rw">R/W</span></td><td>bit0 START (write-1-to-pulse, reads back 0) · bit1 SIGNED mode</td></tr>
+          <tr><td class="off">0x1C</td><td class="name">npu_status</td><td><span class="access ro">RO</span></td><td>bit0 DONE</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= SECTION 4: TIMING CONTRACT ================= -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">§4</span>
+      <h2>Timing contract</h2>
+    </div>
+    <p class="section-sub">Unchanged by any of today's answers — still governs everything downstream of the skew bank.</p>
+    <div class="contract">
+      <pre><span class="k">A[m][k]</span> enters west edge of row k     at cycle  m + k
+<span class="k">A[m][k]</span> arrives at PE(k,j)            at cycle  m + k + j
+<span class="k">C[m][j]</span> leaves south edge of column j at cycle  m + j + 4
+whole row <span class="k">C[m][*]</span> valid after de-skew at cycle  m + 7</pre>
+    </div>
+  </section>
+
+  <!-- ================= SECTION 5: BUILD STATUS ================= -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">§5</span>
+      <h2>Build status</h2>
+    </div>
+    <p class="section-sub">Against <code>docs/planning/plan.md</code>'s 16 steps. Struck-through = removed from scope today.</p>
+
+    <div class="status-list">
+      <div class="status-row"><span class="step-n">01</span><span class="dot-ind done"></span><span class="step-name">PE module + unit test</span><span class="step-note">done — 20/20 vectors</span></div>
+      <div class="status-row"><span class="step-n">02</span><span class="dot-ind done"></span><span class="step-name">C golden model</span><span class="step-note">done — extended w/ cross_terms</span></div>
+      <div class="status-row"><span class="step-n">03</span><span class="dot-ind blocked"></span><span class="step-name">Genus bring-up (trial)</span><span class="step-note">blocked — PDK access, off critical path</span></div>
+      <div class="status-row"><span class="step-n">04</span><span class="dot-ind done"></span><span class="step-name">Grid + identity test (W2 gate)</span><span class="step-note">done — 64/64 checks</span></div>
+      <div class="status-row"><span class="step-n">05</span><span class="dot-ind blocked"></span><span class="step-name">Trial hardening pass</span><span class="step-note">blocked — PDK+ICC, off critical path</span></div>
+      <div class="status-row"><span class="step-n">06</span><span class="dot-ind done"></span><span class="step-name">Skew / de-skew banks</span><span class="step-note">done — commit b141d41</span></div>
+      <div class="status-row"><span class="step-n">07</span><span class="dot-ind done"></span><span class="step-name">Stall rule — array_en freeze</span><span class="step-note">done — commit aec4a09</span></div>
+      <div class="status-row"><span class="step-n">08</span><span class="dot-ind next"></span><span class="step-name">Sequencer FSM</span><span class="step-note">next — now needs M/N/K, not just M</span></div>
+      <div class="status-row"><span class="step-n">09</span><span class="dot-ind todo"></span><span class="step-name">Activation / weight buffers</span><span class="step-note">not started</span></div>
+      <div class="status-row"><span class="step-n">10</span><span class="dot-ind todo"></span><span class="step-name">DMA master</span><span class="step-note">unblocked today — was Q7</span></div>
+      <div class="status-row"><span class="step-n">11</span><span class="dot-ind todo"></span><span class="step-name">Randomised back-pressure test</span><span class="step-note">unblocked today — was Q7</span></div>
+      <div class="status-row"><span class="step-n">12</span><span class="dot-ind todo"></span><span class="step-name">CSR / register map</span><span class="step-note">unblocked today — 5→8 regs</span></div>
+      <div class="status-row"><span class="step-n">13</span><span class="dot-ind todo"></span><span class="step-name">Native slave FSM (was: APB slave)</span><span class="step-note">superseded — redesign, not rename</span></div>
+      <div class="status-row"><span class="step-n">14</span><span class="dot-ind blocked"></span><span class="step-name">Top-level integration</span><span class="step-note">blocked transitively</span></div>
+      <div class="status-row removed"><span class="step-n">15</span><span class="dot-ind removed"></span><span class="step-name">Scan chain insertion</span><span class="step-note">removed — no scan pins (Q3)</span></div>
+      <div class="status-row"><span class="step-n">16</span><span class="dot-ind blocked"></span><span class="step-name">RTL freeze regression</span><span class="step-note">blocked transitively</span></div>
+    </div>
+  </section>
+
+  <!-- ================= SECTION 6: CHANGED / OPEN ================= -->
+  <section>
+    <div class="section-head">
+      <span class="section-num">§6</span>
+      <h2>Changed today &amp; open items</h2>
+    </div>
+
+    <div class="callout-grid">
+      <div class="callout resolved">
+        <h3>Resolved today</h3>
+        <ul>
+          <li>Q7 — CPU↔NPU interface is <strong>native</strong>, not APB.</li>
+          <li>Q2 — 8 CSRs approved; window extends past 0x18.</li>
+          <li>Q3 — no scan chain, no scan pins.</li>
+          <li>Q4 — <code>unpu_top</code> port list is negotiable.</li>
+          <li>A is M×K, B is K×N, C is M×N, all signed int8 in / int32 out, no requant.</li>
+          <li>M, N, K each ≤ 4 at runtime — no tiling required.</li>
+        </ul>
+      </div>
+      <div class="callout effect">
+        <h3>Practical effect on the plan</h3>
+        <ul>
+          <li>Steps 10, 11 unblocked (were Q7).</li>
+          <li>Step 12 unblocked, but grows 5→8 registers.</li>
+          <li>Step 13 superseded — native slave FSM, not APB.</li>
+          <li>Step 15 removed entirely.</li>
+          <li>Steps 8, 9 not blocked, but need K/N-aware bounds: zero-load unused weight rows/cols, write back only real N columns.</li>
+        </ul>
+      </div>
+      <div class="callout open">
+        <h3>Still fully open</h3>
+        <ul>
+          <li>Arbiter RTL ownership — us or SoC team.</li>
+          <li>DRC / LVS / formal / IR-drop tooling.</li>
+          <li>MNIST network shape / SRAM layout.</li>
+          <li>CNN vs MLP for the signoff test.</li>
+        </ul>
+      </div>
+      <div class="callout docs">
+        <h3>Docs pending an update</h3>
+        <ul>
+          <li><code>CLAUDE.md</code>: frozen port list, 5-register map, APB framing — all stale.</li>
+          <li><code>docs/roles/execution.md</code>: "port list is frozen" — stale.</li>
+          <li><code>docs/unpu-notebook.html</code>: not yet reconciled.</li>
+          <li>Outside Planning's write scope — flagging, not touching.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Planning-session synthesis for review, not the authoritative source — cross-check against <code>docs/session-handoff.md</code> and <code>docs/planning/plan.md</code> before treating anything here as decided.
+  </footer>
+
+</div>
+</body>
+</html>

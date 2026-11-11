@@ -1,0 +1,20 @@
+
+
+       #############################################################
+       ##                                                         ##
+       ##               C A L I B R E    S Y S T E M              ##
+       ##                                                         ##
+       ##    C I R C U I T   E X T R A C T I O N   R E P O R T    ##
+       ##                                                         ##
+       #############################################################
+
+
+REPORT FILE NAME:         unpu_top.lvs.rpt.ext
+LAYOUT NAME:              ../../../outputs/unpu_top_routed.gds ('unpu_top')
+CREATION TIME:            Wed Nov 11 03:51:54 2026
+CURRENT DIRECTORY:        /storage/EE5239G1/aagams_workspace2/unpu_run3/pnr_icc2/calibre/final4/lvs
+USER NAME:                EE5239G1
+CALIBRE VERSION:          v2022.4_37.20    Fri Dec 2 17:43:09 PST 2022
+
+
+

@@ -1,0 +1,80 @@
+Information: Using 1 threads for LVS
+[Check Short] Stage 1	Elapsed =    0:00:00, CPU =    0:00:00
+[Check Short] Stage 1-2	Elapsed =    0:00:00, CPU =    0:00:00
+[Check Short] Stage 2	Elapsed =    0:00:00, CPU =    0:00:00
+[Check Short] Stage 2-2	Elapsed =    0:00:02, CPU =    0:00:02
+[Check Short] Stage 3	Elapsed =    0:00:02, CPU =    0:00:02
+[Check Short] End	Elapsed =    0:00:02, CPU =    0:00:02
+[Check Net] Init	Elapsed =    0:00:02, CPU =    0:00:02
+[Check Net] 10% 	Elapsed =    0:00:03, CPU =    0:00:03
+[Check Net] 20% 	Elapsed =    0:00:03, CPU =    0:00:03
+[Check Net] 30% 	Elapsed =    0:00:03, CPU =    0:00:03
+[Check Net] 40% 	Elapsed =    0:00:04, CPU =    0:00:04
+[Check Net] 50% 	Elapsed =    0:00:04, CPU =    0:00:04
+[Check Net] 60% 	Elapsed =    0:00:04, CPU =    0:00:04
+[Check Net] 70% 	Elapsed =    0:00:04, CPU =    0:00:04
+[Check Net] 80% 	Elapsed =    0:00:04, CPU =    0:00:04
+[Check Net] 90% 	Elapsed =    0:00:04, CPU =    0:00:04
+Warning: Net paddr[31] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[30] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[29] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[28] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[27] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[26] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[25] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[24] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[23] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[22] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[21] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[20] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[19] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[18] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[17] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[16] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[15] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[14] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[13] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[12] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[1] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net paddr[0] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb57_act_out[7] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb59_act_out[6] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb61_act_out[5] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb63_act_out[4] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb65_act_out[3] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb67_act_out[2] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb69_act_out[1] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_0__g_col_3__pe/_gOb71_act_out[0] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb41_act_out[7] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb43_act_out[6] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb45_act_out[5] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb47_act_out[4] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb49_act_out[3] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb51_act_out[2] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb53_act_out[1] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_1__g_col_3__pe/_gOb55_act_out[0] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb25_act_out[7] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb27_act_out[6] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb29_act_out[5] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb31_act_out[4] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb33_act_out[3] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb35_act_out[2] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb37_act_out[1] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_2__g_col_3__pe/_gOb39_act_out[0] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb9_act_out[7] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb11_act_out[6] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb13_act_out[5] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb15_act_out[4] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb17_act_out[3] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb19_act_out[2] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb21_act_out[1] has less than 2 valid port. Skip open checking for this net. (RT-204)
+Warning: Net u_grid/g_row_3__g_col_3__pe/_gOb23_act_out[0] has less than 2 valid port. Skip open checking for this net. (RT-204)
+[Check Net] All nets are submitted.
+[Check Net] 100%	Elapsed =    0:00:04, CPU =    0:00:04
+Total number of input nets is 16647.
+Total number of short violations is 0.
+Total number of open nets is 0.
+Total number of floating route violations is 0.
+
+Elapsed =    0:00:04, CPU =    0:00:04
+1

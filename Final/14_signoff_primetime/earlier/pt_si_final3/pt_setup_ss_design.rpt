@@ -1,0 +1,56 @@
+****************************************
+Report : design
+Design : unpu_top
+Version: T-2022.03-SP2
+Date   : Wed Nov 11 03:38:44 2026
+****************************************
+
+Design Attribute                         Value
+---------------------------------------------------------------------------
+Operating Conditions:
+  analysis_type                          on_chip_variation
+  operating_condition_min_name           tsl18fs120_scl_ss
+  process_min                            1
+  temperature_min                        125
+  voltage_min                            1.62
+  tree_type_min                          balanced_case
+
+  operating_condition_max_name           tsl18fs120_scl_ss
+  process_max                            1
+  temperature_max                        125
+  voltage_max                            1.62
+  tree_type_max                          balanced_case
+
+Wire Load:                               (use report_wire_load for more information)
+  wire_load_mode                         top
+  wire_load_model_max                    540000
+  wire_load_model_library_max            tsl18fs120_scl_ss
+  wire_load_selection_type_max           automatic-by-area
+  wire_load_model_min                    540000
+  wire_load_model_library_min            tsl18fs120_scl_ss
+  wire_load_selection_type_min           automatic-by-area
+  wire_load_selection_group_max          predcaps
+  wire_load_selection_group_min          predcaps
+  wire_load_min_block_size               0
+
+Design Rules:
+  max_capacitance                        2
+  min_capacitance                        --
+  max_fanout                             --
+  max_transition                         3
+  static_integrity                       --
+  dynamic_integrity                      --
+  max_area                               --
+
+Timing Ranges:
+  early_factor                           --
+  late_factor                            --
+
+Pin Input Delays:
+None specified.
+
+Pin Output Delays:
+None specified.
+Fast Analysis:                           disabled
+
+1

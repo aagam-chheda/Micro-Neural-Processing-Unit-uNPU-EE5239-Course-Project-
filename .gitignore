@@ -31,3 +31,26 @@ alib-*/
 
 # ICC2 outputs of the pnr_v2 flow (written next to the clone on the server)
 pnr_icc2/
+
+# ---- Final/ (task 099) ------------------------------------------------------------------------------------------------
+# Final/ is the project record and IS in git (the repository is PUBLIC). Databases, NDM libraries, kit files, rule decks, checkpoint
+# exports and the raw server copy are NOT inside Final/ (listed with name, size, sha256 in Final/INDEX.md, section "Not in Final").
+# The rules above ignore *.log and other tool leftovers everywhere; inside Final/ the logs and reports are the point.
+!Final/**/*.log
+!Final/**/xrun.log
+!Final/**/xrun.history
+!Final/**/pnr_icc2/
+!Final/**/syn/out/
+# Nothing confidential may enter the tree even by accident: database and library formats are ignored under Final/ wherever they are.
+Final/**/*.dlib
+Final/**/*.ndm
+Final/**/*.db
+Final/**/*.lib
+# GDS files contain the foundry standard-cell and I/O library polygons (pv.tcl: write_gds -merge_files): never in the PUBLIC repository.
+Final/**/*.gds
+Final/**/*.gds.gz
+Deliverables/**/*.gds
+Deliverables/**/*.gds.gz
+# The DEF is written with -include_tech_via_definitions (technology data in its VIAS section): not in the public repository.
+Final/**/*.def
+Final/**/*.def.gz
